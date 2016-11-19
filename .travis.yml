@@ -1,5 +1,1 @@
-language: objective-c  #1
-osx_image: xcode8 #2
-xcode_project: SwiftSoup.xcodeproj #3
-xcode_scheme: SwiftSoup #4
-xcode_sdk: iphonesimulator10.1 #5
+language: objective-c
