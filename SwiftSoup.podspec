@@ -9,7 +9,7 @@
 Pod::Spec.new do |s|
   s.name             = 'SwiftSoup'
   s.version          = '0.1.0'
-  s.summary          = 'A short description of SwiftSoup.'
+  s.summary          = 'Swift HTML Parser.'
 
 # This description is used to generate tags and improve search results.
 #   * Think: What does it do? Why did you write it? What is the focus?
@@ -18,15 +18,16 @@ Pod::Spec.new do |s|
 #   * Finally, don't worry about the indent, CocoaPods strips it!
 
   s.description      = <<-DESC
-TODO: Add long description of the pod here.
+SwiftSoup is a Swift library for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jquery-like methods,
+and is a porting of JAVA jsoup library.
                        DESC
 
-  s.homepage         = 'https://github.com/<GITHUB_USERNAME>/SwiftSoup'
+  s.homepage         = 'https://github.com/scinfu/SwiftSoup'
   # s.screenshots     = 'www.example.com/screenshots_1', 'www.example.com/screenshots_2'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.author           = { 'Nabil Chatbi' => 'scinfu@gmail.com' }
-  s.source           = { :git => 'https://github.com/<GITHUB_USERNAME>/SwiftSoup.git', :tag => s.version.to_s }
-  # s.social_media_url = 'https://twitter.com/<TWITTER_USERNAME>'
+  s.source           = { :git => 'https://github.com/scinfu/SwiftSoup.git', :tag => s.version.to_s }
+  s.social_media_url = 'https://twitter.com/scinfu'
 
   s.ios.deployment_target = '8.0'
 
