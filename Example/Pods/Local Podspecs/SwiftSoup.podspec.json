@@ -1,0 +1,22 @@
+{
+  "name": "SwiftSoup",
+  "version": "0.1.0",
+  "summary": "A short description of SwiftSoup.",
+  "description": "TODO: Add long description of the pod here.",
+  "homepage": "https://github.com/<GITHUB_USERNAME>/SwiftSoup",
+  "license": {
+    "type": "MIT",
+    "file": "LICENSE"
+  },
+  "authors": {
+    "Nabil Chatbi": "scinfu@gmail.com"
+  },
+  "source": {
+    "git": "https://github.com/<GITHUB_USERNAME>/SwiftSoup.git",
+    "tag": "0.1.0"
+  },
+  "platforms": {
+    "ios": "8.0"
+  },
+  "source_files": "Sources/**/*"
+}

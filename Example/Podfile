@@ -1,0 +1,9 @@
+use_frameworks!
+
+target 'SwiftSoup_Example' do
+  pod 'SwiftSoup', :path => '../'
+
+  target 'SwiftSoup_Tests' do
+    inherit! :search_paths
+  end
+end

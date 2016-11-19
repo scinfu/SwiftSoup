@@ -1,0 +1,16 @@
+PODS:
+  - SwiftSoup (0.1.0)
+
+DEPENDENCIES:
+  - SwiftSoup (from `../`)
+
+EXTERNAL SOURCES:
+  SwiftSoup:
+    :path: ../
+
+SPEC CHECKSUMS:
+  SwiftSoup: 65270e935086a16d49c0d44e3d8225b1974c1e56
+
+PODFILE CHECKSUM: 1a9fe573c1621ea34a0bf6b2ac20737e78fb44f5
+
+COCOAPODS: 1.1.1
