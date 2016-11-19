@@ -300,7 +300,7 @@ public class Entities {
         }
     }
     
-    static func unescape(_ string: String)throws-> String {
+    public static func unescape(_ string: String)throws-> String {
         return try unescape(string: string, strict: false);
     }
     

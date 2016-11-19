@@ -8,7 +8,7 @@
 
 import Foundation
 import XCTest
-@testable import SwiftSoup
+import SwiftSoup
 
 class EntitiesTest: XCTestCase {
 	
@@ -22,7 +22,7 @@ class EntitiesTest: XCTestCase {
 		super.tearDown()
 	}
 	
-	func testEscape() {
+	func testEscape()throws {
 		let text = "Hello &<> Å å π 新 there ¾ © »";
 		
 		let escapedAscii = Entities.escape(text,OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base));

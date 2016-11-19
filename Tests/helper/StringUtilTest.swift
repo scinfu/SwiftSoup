@@ -7,7 +7,7 @@
 //
 
 import XCTest
-@testable import SwiftSoup
+import SwiftSoup
 
 class SwifSoupTests: XCTestCase {
     

@@ -1,1 +1,4 @@
 language: objective-c
+script:
+- xcodebuild -project SwiftSoup.xcodeproj -target SwiftSoup -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO
+- pod lib lint
