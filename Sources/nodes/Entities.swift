@@ -57,10 +57,15 @@ public class Entities {
             
             
             let frameworkBundle = Bundle(for: Entities.self)
-            guard let path = frameworkBundle.path(forResource:file, ofType: "")  else {
-                return
-            }
-            if let aStreamReader = StreamReader(path:path) {
+			var path = frameworkBundle.path(forResource:"SwiftSoup.bundle/"+file, ofType: "")
+			if(path == nil){
+				path = frameworkBundle.path(forResource:file, ofType: "")
+			}
+			if(path == nil){
+				return
+			}
+			
+            if let aStreamReader = StreamReader(path:path!) {
                 defer
                 {
                     aStreamReader.close()

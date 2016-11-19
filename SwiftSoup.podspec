@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'SwiftSoup'
-  s.version          = '0.1.0'
+  s.version          = '0.2.0'
   s.summary          = 'Swift HTML Parser.'
 
 # This description is used to generate tags and improve search results.
@@ -33,9 +33,9 @@ and is a porting of JAVA jsoup library.
 
   s.source_files = 'Sources/**/*'
   
-  # s.resource_bundles = {
-  #   'SwiftSoup' => ['SwiftSoup/Assets/*.png']
-  # }
+  s.resource_bundles = {
+    'SwiftSoup' => ['Assets/*.properties']
+  }
 
   # s.public_header_files = 'Pod/Classes/**/*.h'
   # s.frameworks = 'UIKit', 'MapKit'
