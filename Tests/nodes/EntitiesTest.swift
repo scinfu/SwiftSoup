@@ -23,7 +23,7 @@ class EntitiesTest: XCTestCase {
 	}
 	
 	func testEscape()throws {
-		let text = "Hello &<> Å å π 新 there ¾ © » error";
+		let text = "Hello &<> Å å π 新 there ¾ © »";
 		
 		let escapedAscii = Entities.escape(text,OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base));
 		let escapedAsciiFull = Entities.escape(text, OutputSettings().charset(String.Encoding.ascii).escapeMode(Entities.EscapeMode.extended));
