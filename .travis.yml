@@ -1,6 +1,10 @@
 language: objective-c
 osx_image: xcode8.1
+xcode_project: SwiftSoup.xcodeproj # path to your xcodeproj folder
+xcode_scheme: SwiftSoupTests
+before_install:
+  - brew update
+  - brew outdated xctool || brew upgrade xctool
 script:
 - xcodebuild -project SwiftSoup.xcodeproj -target SwiftSoup -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO
-- xctool run-tests -project SwiftSoup.xcodeproj -scheme SwiftSoup -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO
 - pod lib lint
