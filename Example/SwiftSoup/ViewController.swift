@@ -14,12 +14,6 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
-		do{
-			let txt = try getText()
-			print(txt);
-		}catch{
-			
-		}
     }
 
     override func didReceiveMemoryWarning() {
@@ -28,12 +22,14 @@ class ViewController: UIViewController {
     }
 	
 	
-	func getText()throws->String {
+	func parseDocument()throws->Document {
 		let html = "<html><head><title>First parse</title></head>"
 			+ "<body><p>Parsed HTML into a doc.</p></body></html>"
 		let doc: Document = try SwiftSoup.parse(html)
-		return try doc.text()
+		return doc
 	}
+	
+	
 
 }
 
