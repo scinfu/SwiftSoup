@@ -40,7 +40,6 @@ To parse a HTML document:
 let html = "<html><head><title>First parse</title></head>"
 			+ "<body><p>Parsed HTML into a doc.</p></body></html>"
 		let doc: Document = try SwiftSoup.parse(html)
-		return try doc.text()
 ```
 [**See parsing a document from a string for more info**](#parse-document-from-string-palne)
 
@@ -65,7 +64,6 @@ Use the static `SwiftSoup.parse(_ html : String)` method, or `SwiftSoup.parse(_ 
 let html = "<html><head><title>First parse</title></head>"
 			+ "<body><p>Parsed HTML into a doc.</p></body></html>"
 		let doc: Document = try SwiftSoup.parse(html)
-		return try doc.text()
 ```
 
 ###Description
