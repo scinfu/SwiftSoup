@@ -5,12 +5,22 @@
 [![License](https://img.shields.io/cocoapods/l/SwiftSoup.svg?style=flat)](http://cocoapods.org/pods/SwiftSoup)
 [![Platform](https://img.shields.io/cocoapods/p/SwiftSoup.svg?style=flat)](http://cocoapods.org/pods/SwiftSoup)
 
+`SwiftSoup` is a Swift library for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jquery-like methods.
+`SwiftSoup` implements the WHATWG HTML5 specification, and parses HTML to the same DOM as modern browsers do.
+* scrape and parse HTML from a URL, file, or string
+* find and extract data, using DOM traversal or CSS selectors
+* manipulate the HTML elements, attributes, and text
+* clean user-submitted content against a safe white-list, to prevent XSS attacks
+* output tidy HTML
+`SwiftSoup` is designed to deal with all varieties of HTML found in the wild; from pristine and validating, to invalid tag-soup; `SwiftSoup` will create a sensible parse tree.
+
+
 ## Index
 [**Installation**](#installation-pane)
 
 [**Parsing and traversing a Document**](#parse-html-document-pane)
 
-
+[**Parse a document from a String**](#parse-document-from-string-palne)
 
 ## <a name="installation-pane"></a> Installation
 
@@ -72,7 +82,7 @@ Once you have a `Document`, you can get get at the data using the appropriate me
 Nabil Chatbi, scinfu@gmail.com
 
 ## Note
-SwiftSoup was ported to Swift from [Jsoup](https://jsoup.org/).
+SwiftSoup was ported to Swift from Java [Jsoup](https://jsoup.org/) library.
 
 ## License
 
