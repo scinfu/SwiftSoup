@@ -2,5 +2,5 @@ language: objective-c
 osx_image: xcode8.1
 script:
 - xcodebuild -project SwiftSoup.xcodeproj -target SwiftSoup -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO
-- xctool -project SwiftSoup.xcodeproj -scheme SwiftSoup -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO run-tests
+- xctool run-tests -project SwiftSoup.xcodeproj -scheme SwiftSoup -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO
 - pod lib lint
