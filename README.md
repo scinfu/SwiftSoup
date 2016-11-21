@@ -1,6 +1,6 @@
 # SwiftSoup
 
-[![CI Status](http://img.shields.io/travis/Nabil Chatbi/SwiftSoup.svg?style=flat)](https://travis-ci.org/Nabil Chatbi/SwiftSoup)
+[![CI Status](http://img.shields.io/travis/Nabil Chatbi/SwiftSoup.svg?style=flat)](https://travis-ci.org/scinfu/SwiftSoup)
 [![Version](https://img.shields.io/cocoapods/v/SwiftSoup.svg?style=flat)](http://cocoapods.org/pods/SwiftSoup)
 [![License](https://img.shields.io/cocoapods/l/SwiftSoup.svg?style=flat)](http://cocoapods.org/pods/SwiftSoup)
 [![Platform](https://img.shields.io/cocoapods/p/SwiftSoup.svg?style=flat)](http://cocoapods.org/pods/SwiftSoup)
