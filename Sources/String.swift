@@ -171,6 +171,10 @@ extension String {
 		if(s == nil){return false}
         return self == s!
     }
+	
+	static func unicodescalars ( _ scalars: [UnicodeScalar]) -> String {
+		return String(scalars.flatMap { Character($0) })
+	}
     
 }
 

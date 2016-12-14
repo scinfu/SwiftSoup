@@ -15,7 +15,7 @@ public final class CharacterReader
 {
     public static let EOF : UnicodeScalar = "\u{FFFF}"//65535
     private static let maxCacheLen : Int = 12
-    private let input : String
+    private let input : [UnicodeScalar]
     private let length : Int
     private var pos : Int = 0
     private var mark : Int = 0
@@ -23,8 +23,8 @@ public final class CharacterReader
     
     public init(_ input: String)
     {
-        self.input = input
-        self.length = self.input.unicodeScalars.count
+        self.input = Array(input.unicodeScalars)
+        self.length = self.input.count
         stringCache = Array(repeating:nil, count:512)
     }
     
@@ -37,12 +37,12 @@ public final class CharacterReader
     }
     
     public func current() -> UnicodeScalar {
-        return (pos >= length) ? CharacterReader.EOF : input.unicodeScalar(pos)
+        return (pos >= length) ? CharacterReader.EOF : input[pos]
     }
     
     @discardableResult
     public func consume() -> UnicodeScalar {
-        let val = (pos >= length) ? CharacterReader.EOF : input.unicodeScalar(pos)
+        let val = (pos >= length) ? CharacterReader.EOF : input[pos]
         pos += 1;
         return val;
     }
@@ -78,7 +78,7 @@ public final class CharacterReader
     public func nextIndexOf(_ c : UnicodeScalar) -> Int {
         // doesn't handle scanning for surrogates
         for i in pos..<length {
-            if (c == input.unicodeScalar(i)){
+            if (c == input[i]){
                 return i - pos;
             }
         }
@@ -97,16 +97,16 @@ public final class CharacterReader
         let startChar : UnicodeScalar = seq.unicodeScalar(0)
         for var offset in pos..<length {
             // scan to first instance of startchar:
-            if (startChar != input.unicodeScalar(offset)){
+            if (startChar != input[offset]){
                 offset+=1
-                while(offset < length && startChar != input.unicodeScalar(offset)) { offset+=1 }
+                while(offset < length && startChar != input[offset]) { offset+=1 }
             }
             var i = offset + 1;
             let last = i + seq.unicodeScalars.count-1;
             if (offset < length && last <= length)
             {
                 var j = 1;
-                while i < last && seq.unicodeScalar(j) == input.unicodeScalar(i) {
+                while i < last && seq.unicodeScalar(j) == input[i] {
                     j+=1
                     i+=1;
                 }
@@ -148,13 +148,24 @@ public final class CharacterReader
         let start : Int = pos;
         let remaining : Int = length;
         let val = input;
-        
-        OUTER: while (pos < remaining) {
-            for c in chars {
-                if (val.unicodeScalar(pos) == c){
-                    break OUTER;
-                }
-            }
+		if(start == 2528){
+			let d = 1
+			print(d)
+		}
+        OUTER: while (pos < remaining)
+		{
+			if(pos == 41708){
+				let d = 1
+				print(d)
+			}
+			if chars.contains(val[pos]){
+				break OUTER;
+			}
+//            for c in chars {
+//                if (val[pos] == c){
+//                    break OUTER;
+//                }
+//            }
             pos += 1;
         }
         
@@ -171,7 +182,7 @@ public final class CharacterReader
         let val = input;
         
         while (pos < remaining) {
-            if (chars.binarySearch(chars, val.unicodeScalar(pos)) >= 0){
+            if (chars.binarySearch(chars, val[pos]) >= 0){
                 break;
             }
             pos += 1;
@@ -189,7 +200,7 @@ public final class CharacterReader
         let val = input;
         
         while (pos < remaining) {
-            let c : UnicodeScalar = val.unicodeScalar(pos);
+            let c : UnicodeScalar = val[pos];
             if (c == "&" || c ==  "<" || c ==  TokeniserStateVars.nullScalr){
                 break;
             }
@@ -206,7 +217,7 @@ public final class CharacterReader
         let val = input;
         
         while (pos < remaining) {
-            let c : UnicodeScalar = val.unicodeScalar(pos)
+            let c : UnicodeScalar = val[pos]
             if (c == "\t" || c ==  "\n" || c ==  "\r" || c ==  UnicodeScalar.BackslashF || c ==  " " || c ==  "/" || c ==  ">" || c ==  TokeniserStateVars.nullScalr){
                 break;
             }
@@ -225,7 +236,7 @@ public final class CharacterReader
     public func consumeLetterSequence()-> String {
         let start = pos;
         while (pos < length) {
-            let c : UnicodeScalar = input.unicodeScalar(pos)
+            let c : UnicodeScalar = input[pos]
             if ((c >= "A" && c <= "Z") || (c >= "a" && c <= "z") || c.isMemberOfCharacterSet(CharacterSet.letters)){
                 pos += 1;
             }else{
@@ -238,7 +249,7 @@ public final class CharacterReader
     public func consumeLetterThenDigitSequence()-> String {
         let start = pos;
         while (pos < length) {
-            let c = input.unicodeScalar(pos)
+            let c = input[pos]
             if ((c >= "A" && c <= "Z") || (c >= "a" && c <= "z") || c.isMemberOfCharacterSet(CharacterSet.letters)){
                 pos += 1;
             }else{
@@ -246,7 +257,7 @@ public final class CharacterReader
             }
         }
         while (!isEmpty()) {
-            let c = input.unicodeScalar(pos)
+            let c = input[pos]
             if (c >= "0" && c <= "9"){
                 pos += 1;
             }else{
@@ -260,7 +271,7 @@ public final class CharacterReader
     public func consumeHexSequence()-> String {
         let start = pos;
         while (pos < length) {
-            let c = input.unicodeScalar(pos)
+            let c = input[pos]
             if ((c >= "0" && c <= "9") || (c >= "A" && c <= "F") || (c >= "a" && c <= "f")){
                 pos+=1;
             }else{
@@ -273,7 +284,7 @@ public final class CharacterReader
     public func consumeDigitSequence() -> String {
         let start = pos;
         while (pos < length) {
-            let c = input.unicodeScalar(pos)
+            let c = input[pos]
             if (c >= "0" && c <= "9"){
                 pos+=1;
             }else{
@@ -284,7 +295,7 @@ public final class CharacterReader
     }
     
     public func matches(_ c: UnicodeScalar) -> Bool {
-        return !isEmpty() && input.unicodeScalar(pos) == c;
+        return !isEmpty() && input[pos] == c;
         
     }
     
@@ -295,7 +306,7 @@ public final class CharacterReader
         }
         
         for offset in 0..<scanLength{
-            if (seq.unicodeScalar(offset) != input.unicodeScalar(pos+offset)){
+            if (seq.unicodeScalar(offset) != input[pos+offset]){
                 return false;
             }
         }
@@ -314,7 +325,7 @@ public final class CharacterReader
         
         for offset in 0..<scanLength{
             let upScan : UnicodeScalar = seq.unicodeScalar(offset).uppercase
-            let upTarget : UnicodeScalar = input.unicodeScalar(pos+offset).uppercase;
+            let upTarget : UnicodeScalar = input[pos+offset].uppercase;
             if (upScan != upTarget){
                 return false;
             }
@@ -327,7 +338,7 @@ public final class CharacterReader
             return false;
         }
         
-        let c : UnicodeScalar = input.unicodeScalar(pos);
+        let c : UnicodeScalar = input[pos];
         for seek in seq {
             if (seek == c){
                 return true;
@@ -337,14 +348,14 @@ public final class CharacterReader
     }
     
     public func matchesAnySorted(_ seq : [UnicodeScalar]) -> Bool {
-        return !isEmpty() && seq.binarySearch(seq, input.unicodeScalar(pos)) >= 0;
+        return !isEmpty() && seq.binarySearch(seq, input[pos]) >= 0;
     }
     
     public func matchesLetter()-> Bool {
         if (isEmpty()){
             return false;
         }
-        let c  = input.unicodeScalar(pos);
+        let c  = input[pos];
         return (c >= "A" && c <= "Z") || (c >= "a" && c <= "z") || c.isMemberOfCharacterSet(CharacterSet.letters);
     }
     
@@ -352,7 +363,7 @@ public final class CharacterReader
         if (isEmpty()){
             return false;
         }
-        let c  = input.unicodeScalar(pos)
+        let c  = input[pos]
         return (c >= "0" && c <= "9");
     }
     
@@ -385,7 +396,8 @@ public final class CharacterReader
     
     
     public func toString()->String {
-        return  input.string(pos, length - pos);
+		return String.unicodescalars(Array(input[pos..<length]))
+        //return  input.string(pos, length - pos);
     }
     
     
@@ -402,14 +414,14 @@ public final class CharacterReader
         
         // limit (no cache):
         if (count > CharacterReader.maxCacheLen){
-            return val.string(start, count);
+            return String.unicodescalars(Array(val[start..<start+count]))
         }
         
         // calculate hash:
         var hash : Int = 0;
         var offset = start;
         for _ in 0..<count{
-            let ch = val.unicodeScalar(pos).value;
+            let ch = val[offset].value;
             hash = Int.addWithOverflow(Int.multiplyWithOverflow(31, hash).0, Int(ch)).0;
             offset+=1
         }
@@ -422,13 +434,15 @@ public final class CharacterReader
         
         if (cached == nil)
         { // miss, add
-            cached = val.string(start, count);
+			cached = String.unicodescalars(Array(val[start..<start+count]))
+            //cached = val.string(start, count);
             cache[Int(index)] = cached;
         } else { // hashcode hit, check equality
             if (rangeEquals(start, count, cached!)) { // hit
                 return cached!;
             } else { // hashcode conflict
-                cached = val.string(start, count);
+				cached = String.unicodescalars(Array(val[start..<start+count]))
+                //cached = val.string(start, count);
                 cache[index] = cached; // update the cache, as recently used strings are more likely to show up again
             }
         }
@@ -447,7 +461,7 @@ public final class CharacterReader
             var j = 0;
             while (count != 0) {
                 count -= 1
-                if (one.unicodeScalar(i) != cached.unicodeScalar(j) )
+                if (one[i] != cached.unicodeScalar(j) )
                 {
                     return false;
                 }
