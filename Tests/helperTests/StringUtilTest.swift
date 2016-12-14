@@ -9,7 +9,7 @@
 import XCTest
 import SwiftSoup
 
-class SwifSoupTests: XCTestCase {
+class StringUtilTest: XCTestCase {
     
     override func setUp() {
         super.setUp()
@@ -21,7 +21,26 @@ class SwifSoupTests: XCTestCase {
         super.tearDown()
     }
     
-    
+//	func testSite()
+//	{
+//		let myURLString = "http://comcast.net"
+//		guard let myURL = URL(string: myURLString) else {
+//			print("Error: \(myURLString) doesn't seem to be a valid URL")
+//			return
+//		}
+//		
+//		
+//		do {
+//			let html = try String(contentsOf: myURL, encoding: .utf8)
+//			print("HTML : \(html)")
+//			let doc: Document = try SwiftSoup.parse(html)
+//			print(try doc.text())
+//		}
+//		catch {
+//			print("Error")
+//		}
+//	}
+	
     func testJoin() {
         XCTAssertEqual("",StringUtil.join([""], sep: " "));
         XCTAssertEqual("one",StringUtil.join(["one"], sep: " "));
