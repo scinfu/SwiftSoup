@@ -22,11 +22,11 @@ it, simply add the following line to your Podfile:
 ```ruby
 pod "SwiftSoup"
 ```
-## [Read Wiki for more exemples](https://github.com/scinfu/SwiftSoup/wiki)
+## [Read Wiki for more examples](https://github.com/scinfu/SwiftSoup/wiki)
 
 
 
-## Exemple
+## Example
 
 To parse a HTML document:
 
