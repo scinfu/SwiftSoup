@@ -102,54 +102,5 @@ class SwiftSoupTests: XCTestCase {
 //		}
 //	}
 	//passed (390.343 seconds).
-	func testPerformanceDiv() {
-		let h: String = "<!doctype html>\n" +
-			"<html>\n" +
-			" <head></head>\n" +
-			" <body>\n" +
-			"  <img async checked src=\"&amp;<>&quot;\">&lt;&gt;&amp;\"\n" +
-			"  <img async checked src=\"&amp;<>&quot;\">&lt;&gt;&amp;\"\n" +
-			"  <img async checked src=\"&amp;<>&quot;\">&lt;&gt;&amp;\"\n" +
-			"  <img async checked src=\"&amp;<>&quot;\">&lt;&gt;&amp;\"\n" +
-			"  <img async checked src=\"&amp;<>&quot;\">&lt;&gt;&amp;\"\n" +
-			"  <img async checked src=\"&amp;<>&quot;\">&lt;&gt;&amp;\"\n" +
-			"  <img async checked src=\"&amp;<>&quot;\">&lt;&gt;&amp;\"\n" +
-			"  <img async checked src=\"&amp;<>&quot;\">&lt;&gt;&amp;\"\n" +
-			"  <img async checked src=\"&amp;<>&quot;\">&lt;&gt;&amp;\"\n" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>" +
-			"  <foo />bar\n" +
-			" </body>\n" +
-		"</html>"
-		let doc: Document = try! SwiftSoup.parse(h);
-		self.measure {
-			do {
-				for _ in 0...100000{
-					_ = try doc.select("div");
-				}
-			}
-			catch {
-			}
-		}
-	}
-	
+
 }
