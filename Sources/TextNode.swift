@@ -146,7 +146,7 @@ open class TextNode : Node {
     }
     
     static open func lastCharIsWhitespace(_ sb: StringBuilder)->Bool {
-        return sb.length != 0 && sb.toString().charAt(sb.length - 1) == " ";
+        return sb.toString().characters.last == " ";
     }
     
     // attribute fiddling. create on first access.
