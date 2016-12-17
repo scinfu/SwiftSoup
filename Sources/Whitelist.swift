@@ -85,17 +85,100 @@ public class Whitelist {
         return try Whitelist().addTags("b", "em", "i", "strong", "u")
     }
     
-    
-    
-    
-    
-    
-    
-    
-    
+	/**
+	<p>
+	This whitelist allows a fuller range of text nodes: <code>a, b, blockquote, br, cite, code, dd, dl, dt, em, i, li,
+	ol, p, pre, q, small, span, strike, strong, sub, sup, u, ul</code>, and appropriate attributes.
+	</p>
+	<p>
+	Links (<code>a</code> elements) can point to <code>http, https, ftp, mailto</code>, and have an enforced
+	<code>rel=nofollow</code> attribute.
+	</p>
+	<p>
+	Does not allow images.
+	</p>
+	
+	@return whitelist
+	*/
+	public static func basic()throws->Whitelist {
+		return try Whitelist()
+			.addTags(
+				"a", "b", "blockquote", "br", "cite", "code", "dd", "dl", "dt", "em",
+				"i", "li", "ol", "p", "pre", "q", "small", "span", "strike", "strong", "sub",
+				"sup", "u", "ul")
+			
+			.addAttributes("a", "href")
+			.addAttributes("blockquote", "cite")
+			.addAttributes("q", "cite")
+			
+			.addProtocols("a", "href", "ftp", "http", "https", "mailto")
+			.addProtocols("blockquote", "cite", "http", "https")
+			.addProtocols("cite", "cite", "http", "https")
+			
+			.addEnforcedAttribute("a", "rel", "nofollow")
+	}
+	
+	/**
+	This whitelist allows the same text tags as {@link #basic}, and also allows <code>img</code> tags, with appropriate
+	attributes, with <code>src</code> pointing to <code>http</code> or <code>https</code>.
+	
+	@return whitelist
+	*/
+	public static func basicWithImages()throws->Whitelist {
+		return try basic()
+			.addTags("img")
+			.addAttributes("img", "align", "alt", "height", "src", "title", "width")
+			.addProtocols("img", "src", "http", "https")
+		
+	}
+	
+	/**
+	This whitelist allows a full range of text and structural body HTML: <code>a, b, blockquote, br, caption, cite,
+	code, col, colgroup, dd, div, dl, dt, em, h1, h2, h3, h4, h5, h6, i, img, li, ol, p, pre, q, small, span, strike, strong, sub,
+	sup, table, tbody, td, tfoot, th, thead, tr, u, ul</code>
+	<p>
+	Links do not have an enforced <code>rel=nofollow</code> attribute, but you can add that if desired.
+	</p>
+	
+	@return whitelist
+	*/
+	public static func relaxed()throws->Whitelist {
+		return try Whitelist()
+			.addTags(
+				"a", "b", "blockquote", "br", "caption", "cite", "code", "col",
+				"colgroup", "dd", "div", "dl", "dt", "em", "h1", "h2", "h3", "h4", "h5", "h6",
+				"i", "img", "li", "ol", "p", "pre", "q", "small", "span", "strike", "strong",
+				"sub", "sup", "table", "tbody", "td", "tfoot", "th", "thead", "tr", "u",
+				"ul")
+			
+			.addAttributes("a", "href", "title")
+			.addAttributes("blockquote", "cite")
+			.addAttributes("col", "span", "width")
+			.addAttributes("colgroup", "span", "width")
+			.addAttributes("img", "align", "alt", "height", "src", "title", "width")
+			.addAttributes("ol", "start", "type")
+			.addAttributes("q", "cite")
+			.addAttributes("table", "summary", "width")
+			.addAttributes("td", "abbr", "axis", "colspan", "rowspan", "width")
+			.addAttributes(
+				"th", "abbr", "axis", "colspan", "rowspan", "scope",
+				"width")
+			.addAttributes("ul", "type")
+			
+			.addProtocols("a", "href", "ftp", "http", "https", "mailto")
+			.addProtocols("blockquote", "cite", "http", "https")
+			.addProtocols("cite", "cite", "http", "https")
+			.addProtocols("img", "src", "http", "https")
+			.addProtocols("q", "cite", "http", "https")
+	}
+	
+	
+	
+	
+	
     /**
      Create a new, empty whitelist. Generally it will be better to start with a default prepared whitelist instead.
-     
+	
      @see #basic()
      @see #basicWithImages()
      @see #simpleText()

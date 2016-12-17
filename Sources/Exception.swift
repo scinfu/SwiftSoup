@@ -8,7 +8,7 @@
 
 import Foundation
 
-enum ExceptionType {
+public enum ExceptionType {
     case IllegalArgumentException
     case IOException
     case XmlDeclaration
@@ -17,7 +17,7 @@ enum ExceptionType {
     case SelectorParseException
 }
 
-enum Exception : Error {
+public enum Exception : Error {
     case Error(type:ExceptionType ,Message: String)
 }
 
