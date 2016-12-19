@@ -32,9 +32,9 @@ SwiftSoup is a Swift library for working with real-world HTML. It provides a ver
 
   s.source_files = 'Sources/**/*'
   
-  s.resource_bundles = {
-    'SwiftSoup' => ['Assets/*.properties']
-  }
+  #s.resource_bundles = {
+  #  'SwiftSoup' => ['Assets/*.properties']
+  #}
 
   # s.public_header_files = 'Pod/Classes/**/*.h'
   # s.frameworks = 'UIKit', 'MapKit'
