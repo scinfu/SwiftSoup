@@ -8,8 +8,8 @@
 
 Pod::Spec.new do |s|
   s.name             = 'SwiftSoup'
-  s.version          = '1.1.0'
-  s.summary          = 'Swift HTML Parser, with best of DOM, CSS, and jquery'
+  s.version          = '1.1.1'
+  s.summary          = 'Swift HTML/XML Parser, with best of DOM, CSS, and jquery'
 
 # This description is used to generate tags and improve search results.
 #   * Think: What does it do? Why did you write it? What is the focus?
@@ -18,8 +18,7 @@ Pod::Spec.new do |s|
 #   * Finally, don't worry about the indent, CocoaPods strips it!
 
   s.description      = <<-DESC
-SwiftSoup is a Swift library for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jquery-like methods,
-and is a porting of JAVA jsoup library.
+SwiftSoup is a Swift library for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jquery-like methods.
                        DESC
 
   s.homepage         = 'https://github.com/scinfu/SwiftSoup'
