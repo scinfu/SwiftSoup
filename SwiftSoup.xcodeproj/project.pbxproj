@@ -308,6 +308,7 @@
 		8CC141E61E092D92002F536D /* helper */ = {
 			isa = PBXGroup;
 			children = (
+				8CC142281E092E89002F536D /* StringUtilTest.swift */,
 			);
 			name = helper;
 			sourceTree = "<group>";
@@ -352,34 +353,57 @@
 		8CE418231DAA54A900240B42 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
-				8CC142171E092E89002F536D /* AttributeParseTest.swift */,
-				8CC142181E092E89002F536D /* AttributesTest.swift */,
-				8CC142191E092E89002F536D /* AttributeTest.swift */,
-				8CC1421A1E092E89002F536D /* BuildEntities.swift */,
-				8CC1421B1E092E89002F536D /* CharacterReaderTest.swift */,
-				8CC1421C1E092E89002F536D /* CssTest.swift */,
-				8CC1421D1E092E89002F536D /* DocumentTest.swift */,
-				8CC1421E1E092E89002F536D /* DocumentTypeTest.swift */,
-				8CC1421F1E092E89002F536D /* ElementsTest.swift */,
-				8CC142201E092E89002F536D /* ElementTest.swift */,
-				8CC142211E092E89002F536D /* EntitiesTest.swift */,
-				8CC142221E092E89002F536D /* FormElementTest.swift */,
-				8CC142231E092E89002F536D /* HtmlParserTest.swift */,
-				8CC142241E092E89002F536D /* NodeTest.swift */,
-				8CC142251E092E89002F536D /* ParseSettingsTest.swift */,
-				8CC142261E092E89002F536D /* QueryParserTest.swift */,
-				8CC142271E092E89002F536D /* SelectorTest.swift */,
-				8CC142281E092E89002F536D /* StringUtilTest.swift */,
+				8CF3E73A1E09BEBE00F505D2 /* select */,
+				8CF3E7391E09BE8500F505D2 /* parser */,
+				8CF3E7381E09BD7100F505D2 /* nodes */,
 				8CC142291E092E89002F536D /* SwiftSoupTests.swift */,
-				8CC1422A1E092E89002F536D /* TagTest.swift */,
-				8CC1422B1E092E89002F536D /* TextNodeTest.swift */,
 				8CC1422C1E092E89002F536D /* TextUtil.swift */,
-				8CC1422D1E092E89002F536D /* TokenQueueTest.swift */,
-				8CC1422E1E092E89002F536D /* XmlTreeBuilderTest.swift */,
 				8CC141E61E092D92002F536D /* helper */,
 				8CE418261DAA54A900240B42 /* Info.plist */,
 			);
 			path = Tests;
+			sourceTree = "<group>";
+		};
+		8CF3E7381E09BD7100F505D2 /* nodes */ = {
+			isa = PBXGroup;
+			children = (
+				8CC142221E092E89002F536D /* FormElementTest.swift */,
+				8CC142201E092E89002F536D /* ElementTest.swift */,
+				8CC142211E092E89002F536D /* EntitiesTest.swift */,
+				8CC1421E1E092E89002F536D /* DocumentTypeTest.swift */,
+				8CC1422B1E092E89002F536D /* TextNodeTest.swift */,
+				8CC1421D1E092E89002F536D /* DocumentTest.swift */,
+				8CC1421A1E092E89002F536D /* BuildEntities.swift */,
+				8CC142181E092E89002F536D /* AttributesTest.swift */,
+				8CC142241E092E89002F536D /* NodeTest.swift */,
+				8CC142191E092E89002F536D /* AttributeTest.swift */,
+			);
+			name = nodes;
+			sourceTree = "<group>";
+		};
+		8CF3E7391E09BE8500F505D2 /* parser */ = {
+			isa = PBXGroup;
+			children = (
+				8CC142171E092E89002F536D /* AttributeParseTest.swift */,
+				8CC1421B1E092E89002F536D /* CharacterReaderTest.swift */,
+				8CC142231E092E89002F536D /* HtmlParserTest.swift */,
+				8CC142251E092E89002F536D /* ParseSettingsTest.swift */,
+				8CC1422A1E092E89002F536D /* TagTest.swift */,
+				8CC1422D1E092E89002F536D /* TokenQueueTest.swift */,
+				8CC1422E1E092E89002F536D /* XmlTreeBuilderTest.swift */,
+			);
+			name = parser;
+			sourceTree = "<group>";
+		};
+		8CF3E73A1E09BEBE00F505D2 /* select */ = {
+			isa = PBXGroup;
+			children = (
+				8CC1421C1E092E89002F536D /* CssTest.swift */,
+				8CC1421F1E092E89002F536D /* ElementsTest.swift */,
+				8CC142261E092E89002F536D /* QueryParserTest.swift */,
+				8CC142271E092E89002F536D /* SelectorTest.swift */,
+			);
+			name = select;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
