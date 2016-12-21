@@ -15,7 +15,7 @@ import Foundation
 */
 public class Parser
 {
-	private static let DEFAULT_MAX_ERRORS: Int = 0; // by default, error tracking is disabled.
+	private static let DEFAULT_MAX_ERRORS: Int = 0 // by default, error tracking is disabled.
 	
 	private var _treeBuilder: TreeBuilder
 	private var _maxErrors: Int = DEFAULT_MAX_ERRORS
@@ -27,13 +27,13 @@ public class Parser
 	* @param treeBuilder TreeBuilder to use to parse input into Documents.
 	*/
 	init(_ treeBuilder: TreeBuilder) {
-		self._treeBuilder = treeBuilder;
-		_settings = treeBuilder.defaultSettings();
+		self._treeBuilder = treeBuilder
+		_settings = treeBuilder.defaultSettings()
 	}
 	
 	public func parseInput(_ html: String, _ baseUri: String)throws->Document {
-		_errors = isTrackErrors() ? ParseErrorList.tracking(_maxErrors) : ParseErrorList.noTracking();
-		return try _treeBuilder.parse(html, baseUri, _errors, _settings);
+		_errors = isTrackErrors() ? ParseErrorList.tracking(_maxErrors) : ParseErrorList.noTracking()
+		return try _treeBuilder.parse(html, baseUri, _errors, _settings)
 	}
 	
 	// gets & sets
@@ -42,7 +42,7 @@ public class Parser
 	* @return current TreeBuilder.
 	*/
 	public func getTreeBuilder()->TreeBuilder {
-		return _treeBuilder;
+		return _treeBuilder
 	}
 	
 	/**
@@ -52,8 +52,8 @@ public class Parser
 	*/
     @discardableResult
 	public func setTreeBuilder(_ treeBuilder: TreeBuilder)->Parser {
-		self._treeBuilder = treeBuilder;
-		return self;
+		self._treeBuilder = treeBuilder
+		return self
 	}
 	
 	/**
@@ -61,7 +61,7 @@ public class Parser
 	* @return current track error state.
 	*/
 	public func isTrackErrors()->Bool {
-		return _maxErrors > 0;
+		return _maxErrors > 0
 	}
 	
 	/**
@@ -71,8 +71,8 @@ public class Parser
 	*/
     @discardableResult
 	public func setTrackErrors(_ maxErrors: Int)->Parser {
-		self._maxErrors = maxErrors;
-		return self;
+		self._maxErrors = maxErrors
+		return self
 	}
 	
 	/**
@@ -80,17 +80,17 @@ public class Parser
 	* @return list of parse errors, up to the size of the maximum errors tracked.
 	*/
 	public func getErrors()->ParseErrorList {
-		return _errors;
+		return _errors
 	}
 	
     @discardableResult
 	public func settings(_ settings: ParseSettings)->Parser {
-		self._settings = settings;
-		return self;
+		self._settings = settings
+		return self
 	}
 	
 	public func settings()->ParseSettings {
-		return _settings;
+		return _settings
 	}
 	
 	// static parse functions below
@@ -103,8 +103,8 @@ public class Parser
 	* @return parsed Document
 	*/
 	public static func parse(_ html: String, _ baseUri: String)throws->Document {
-		let treeBuilder: TreeBuilder = HtmlTreeBuilder();
-		return try treeBuilder.parse(html, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings());
+		let treeBuilder: TreeBuilder = HtmlTreeBuilder()
+		return try treeBuilder.parse(html, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
 	}
 	
 	/**
@@ -118,8 +118,8 @@ public class Parser
 	* @return list of nodes parsed from the input HTML. Note that the context element, if supplied, is not modified.
 	*/
 	public static func parseFragment(_ fragmentHtml: String, _ context: Element?, _ baseUri: String)throws->Array<Node> {
-		let treeBuilder = HtmlTreeBuilder();
-		return try treeBuilder.parseFragment(fragmentHtml, context, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings());
+		let treeBuilder = HtmlTreeBuilder()
+		return try treeBuilder.parseFragment(fragmentHtml, context, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
 	}
 	
 	/**
@@ -130,8 +130,8 @@ public class Parser
 	* @return list of nodes parsed from the input XML.
 	*/
 	public static func parseXmlFragment(_ fragmentXml: String, _ baseUri: String)throws->Array<Node> {
-		let treeBuilder: XmlTreeBuilder = XmlTreeBuilder();
-		return try treeBuilder.parseFragment(fragmentXml, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings());
+		let treeBuilder: XmlTreeBuilder = XmlTreeBuilder()
+		return try treeBuilder.parseFragment(fragmentXml, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
 	}
 	
 	/**
@@ -143,20 +143,20 @@ public class Parser
 	* @return Document, with empty head, and HTML parsed into body
 	*/
 	public static func parseBodyFragment(_ bodyHtml: String, _ baseUri: String)throws->Document {
-		let doc: Document = Document.createShell(baseUri);
+		let doc: Document = Document.createShell(baseUri)
 		if let body: Element = doc.body()
 		{
-			let nodeList: Array<Node> = try parseFragment(bodyHtml, body, baseUri);
-			//var nodes: [Node] = nodeList.toArray(Node[nodeList.size()]); // the node list gets modified when re-parented
+			let nodeList: Array<Node> = try parseFragment(bodyHtml, body, baseUri)
+			//var nodes: [Node] = nodeList.toArray(Node[nodeList.size()]) // the node list gets modified when re-parented
 			for i in (nodeList.count - 1)...1
 			{
-				try nodeList[i].remove();
+				try nodeList[i].remove()
 			}
 			for node:Node in nodeList {
-				try body.appendChild(node);
+				try body.appendChild(node)
 			}
 		}
-		return doc;
+		return doc
 	}
 	
 	/**
@@ -166,8 +166,8 @@ public class Parser
 	* @return an unescaped string
 	*/
 	public static func unescapeEntities(_ string: String, _ inAttribute: Bool)throws->String {
-		let tokeniser: Tokeniser = Tokeniser(CharacterReader(string), ParseErrorList.noTracking());
-		return try tokeniser.unescapeEntities(inAttribute);
+		let tokeniser: Tokeniser = Tokeniser(CharacterReader(string), ParseErrorList.noTracking())
+		return try tokeniser.unescapeEntities(inAttribute)
 	}
 	
 	/**
@@ -178,7 +178,7 @@ public class Parser
 	* @deprecated Use {@link #parseBodyFragment} or {@link #parseFragment} instead.
 	*/
 	public static func parseBodyFragmentRelaxed(_ bodyHtml: String, _ baseUri: String)throws->Document {
-		return try parse(bodyHtml, baseUri);
+		return try parse(bodyHtml, baseUri)
 	}
 	
 	// builders
@@ -189,7 +189,7 @@ public class Parser
 	* @return a new HTML parser.
 	*/
 	public static func htmlParser()->Parser {
-		return Parser(HtmlTreeBuilder());
+		return Parser(HtmlTreeBuilder())
 	}
 	
 	/**
@@ -198,6 +198,6 @@ public class Parser
 	* @return a new simple XML parser.
 	*/
 	public static func xmlParser()->Parser {
-		return Parser(XmlTreeBuilder());
+		return Parser(XmlTreeBuilder())
 	}
 }

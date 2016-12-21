@@ -22,7 +22,7 @@ class DocumentTypeTest: XCTestCase {
     }
 	
 	func testConstructorValidationOkWithBlankName() {
-		let fail: DocumentType? = DocumentType("","", "", "");
+		let fail: DocumentType? = DocumentType("","", "", "")
 		XCTAssertTrue(fail != nil)
 	}
 	
@@ -38,17 +38,17 @@ class DocumentTypeTest: XCTestCase {
 	}
 	
 	func testOuterHtmlGeneration() {
-		let html5 = DocumentType("html", "", "", "");
-		XCTAssertEqual("<!doctype html>", try! html5.outerHtml());
+		let html5 = DocumentType("html", "", "", "")
+		XCTAssertEqual("<!doctype html>", try! html5.outerHtml())
 		
-		let publicDocType = DocumentType("html", "-//IETF//DTD HTML//", "", "");
-		XCTAssertEqual("<!DOCTYPE html PUBLIC \"-//IETF//DTD HTML//\">", try! publicDocType.outerHtml());
+		let publicDocType = DocumentType("html", "-//IETF//DTD HTML//", "", "")
+		XCTAssertEqual("<!DOCTYPE html PUBLIC \"-//IETF//DTD HTML//\">", try! publicDocType.outerHtml())
 		
-		let systemDocType = DocumentType("html", "", "http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd", "");
-		XCTAssertEqual("<!DOCTYPE html \"http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd\">", try! systemDocType.outerHtml());
+		let systemDocType = DocumentType("html", "", "http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd", "")
+		XCTAssertEqual("<!DOCTYPE html \"http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd\">", try! systemDocType.outerHtml())
 		
-		let combo = DocumentType("notHtml", "--public", "--system", "");
-		XCTAssertEqual("<!DOCTYPE notHtml PUBLIC \"--public\" \"--system\">", try! combo.outerHtml());
+		let combo = DocumentType("notHtml", "--public", "--system", "")
+		XCTAssertEqual("<!DOCTYPE notHtml PUBLIC \"--public\" \"--system\">", try! combo.outerHtml())
 	}
 	
     func testPerformanceExample() {

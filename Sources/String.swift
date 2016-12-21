@@ -50,7 +50,7 @@ extension String {
     
     public func startsWith(_ string:String) -> Bool
     {
-        return self.hasPrefix(string);
+        return self.hasPrefix(string)
     }
     
     public func indexOf(_ substring: String, _ offset: Int ) -> Int {
@@ -113,7 +113,7 @@ extension String {
         if ((otherOffset < 0) || (selfOffset < 0)
             || (selfOffset > self.characters.count - length)
             || (otherOffset > other.characters.count - length)) {
-            return false;
+            return false
         }
         
         for i in 0..<length
@@ -130,13 +130,13 @@ extension String {
                 }
             }
         }
-        return true;
+        return true
     }
     
     func startsWith(_ input: String , _ offset: Int)->Bool
     {
         if ((offset < 0) || (offset > characters.count - input.characters.count)) {
-            return false;
+            return false
         }
         for i in 0..<input.characters.count
         {
@@ -144,7 +144,7 @@ extension String {
             let charOther : Character = input[i]
             if(charSelf != charOther){return false}
         }
-        return true;
+        return true
     }
     
     func replaceFirst(of pattern:String,with replacement:String) -> String {

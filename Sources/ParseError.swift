@@ -12,17 +12,17 @@ import Foundation
  * A Parse Error records an error in the input HTML that occurs in either the tokenisation or the tree building phase.
  */
 open class ParseError {
-    private let pos : Int;
-    private let errorMsg : String;
+    private let pos : Int
+    private let errorMsg : String
     
     init(_ pos: Int, _ errorMsg: String) {
-        self.pos = pos;
-        self.errorMsg = errorMsg;
+        self.pos = pos
+        self.errorMsg = errorMsg
     }
     
     init(_ pos: Int, _ errorFormat: String, _ args_ : String...) {
         self.errorMsg = String(format:errorFormat,args_)
-        self.pos = pos;
+        self.pos = pos
     }
     
     /**
@@ -30,7 +30,7 @@ open class ParseError {
      * @return the error message.
      */
     open func getErrorMessage()->String {
-        return errorMsg;
+        return errorMsg
     }
     
     /**
@@ -38,11 +38,11 @@ open class ParseError {
      * @return error offset within input
      */
     open func getPosition()->Int {
-    return pos;
+    return pos
     }
     
     
     open func toString()->String {
-        return "\(pos): " + errorMsg;
+        return "\(pos): " + errorMsg
     }
 }

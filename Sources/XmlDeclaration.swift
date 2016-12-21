@@ -23,13 +23,13 @@ public class XmlDeclaration : Node {
      @param isProcessingInstruction is processing instruction
      */
     public init(_ name: String, _ baseUri: String, _ isProcessingInstruction: Bool) {
-        self._name = name;
-        self.isProcessingInstruction = isProcessingInstruction;
-        super.init(baseUri);
+        self._name = name
+        self.isProcessingInstruction = isProcessingInstruction
+        super.init(baseUri)
     }
     
     public override func nodeName()->String {
-        return "#declaration";
+        return "#declaration"
     }
     
     
@@ -38,7 +38,7 @@ public class XmlDeclaration : Node {
      * @return name of this declaration.
      */
     public func name()->String {
-        return _name;
+        return _name
     }
     
     /**
@@ -46,20 +46,20 @@ public class XmlDeclaration : Node {
      @return XML declaration
      */
     public func getWholeDeclaration()throws->String {
-        return try attributes!.html().trim(); // attr html starts with a " "
+        return try attributes!.html().trim() // attr html starts with a " "
     }
     
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         accum
             .append("<")
             .append(isProcessingInstruction ? "!" : "?")
-            .append(_name);
+            .append(_name)
         do{
-            try attributes?.html(accum: accum, out: out);
+            try attributes?.html(accum: accum, out: out)
         }catch{}
         accum
             .append(isProcessingInstruction ? "!" : "?")
-            .append(">");
+            .append(">")
     }
     
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {}

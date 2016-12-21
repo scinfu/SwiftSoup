@@ -31,7 +31,7 @@ open class StringBuilder {
         Return the current length of the String object
     */
     open var length: Int {
-        return self.stringValue.characters.count;
+        return self.stringValue.characters.count
         //return countElements(stringValue)
     }
     

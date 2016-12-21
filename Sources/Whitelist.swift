@@ -59,11 +59,11 @@ import Foundation
 
 
 public class Whitelist {
-    private var tagNames : Set<TagName>; // tags allowed, lower case. e.g. [p, br, span]
-    private var attributes : Dictionary<TagName, Set<AttributeKey>>; // tag -> attribute[]. allowed attributes [href] for a tag.
-    private var enforcedAttributes : Dictionary<TagName, Dictionary<AttributeKey, AttributeValue>>; // always set these attribute values
-    private var protocols : Dictionary<TagName, Dictionary<AttributeKey, Set<Protocol>>>; // allowed URL protocols for attributes
-    private var preserveRelativeLinks : Bool ; // option to preserve relative links
+    private var tagNames : Set<TagName> // tags allowed, lower case. e.g. [p, br, span]
+    private var attributes : Dictionary<TagName, Set<AttributeKey>> // tag -> attribute[]. allowed attributes [href] for a tag.
+    private var enforcedAttributes : Dictionary<TagName, Dictionary<AttributeKey, AttributeValue>> // always set these attribute values
+    private var protocols : Dictionary<TagName, Dictionary<AttributeKey, Set<Protocol>>> // allowed URL protocols for attributes
+    private var preserveRelativeLinks : Bool  // option to preserve relative links
     
     
     /**
@@ -72,7 +72,7 @@ public class Whitelist {
      @return whitelist
      */
     public static func none()->Whitelist {
-        return Whitelist();
+        return Whitelist()
     }
     
     /**
@@ -185,11 +185,11 @@ public class Whitelist {
      @see #relaxed()
      */
     init() {
-        tagNames = Set<TagName>();
-        attributes = Dictionary<TagName, Set<AttributeKey>>();
-        enforcedAttributes = Dictionary<TagName, Dictionary<AttributeKey, AttributeValue>>();
-        protocols = Dictionary<TagName, Dictionary<AttributeKey, Set<Protocol>>>();
-        preserveRelativeLinks = false;
+        tagNames = Set<TagName>()
+        attributes = Dictionary<TagName, Set<AttributeKey>>()
+        enforcedAttributes = Dictionary<TagName, Dictionary<AttributeKey, AttributeValue>>()
+        protocols = Dictionary<TagName, Dictionary<AttributeKey, Set<Protocol>>>()
+        preserveRelativeLinks = false
     }
     
     /**
@@ -202,10 +202,10 @@ public class Whitelist {
     open func addTags(_ tags: String...)throws ->Whitelist {
         for tagName in tags
         {
-            try Validate.notEmpty(string: tagName);
+            try Validate.notEmpty(string: tagName)
             tagNames.insert(TagName.valueOf(tagName))
         }
-        return self;
+        return self
     }
     
     /**
@@ -216,11 +216,11 @@ public class Whitelist {
      */
     @discardableResult
     open func removeTags(_ tags: String...)throws ->Whitelist {
-        try Validate.notNull(obj: tags as AnyObject?);
+        try Validate.notNull(obj: tags as AnyObject?)
         
         for tag in tags {
-            try Validate.notEmpty(string: tag);
-            let tagName : TagName = TagName.valueOf(tag);
+            try Validate.notEmpty(string: tag)
+            let tagName : TagName = TagName.valueOf(tag)
             
             if(tagNames.contains(tagName)) { // Only look in sub-maps if tag was allowed
                 tagNames.remove(tagName)
@@ -229,7 +229,7 @@ public class Whitelist {
                 protocols.removeValue(forKey: tagName)
             }
         }
-        return self;
+        return self
     }
     
     /**
@@ -249,18 +249,18 @@ public class Whitelist {
      */
     @discardableResult
     open func addAttributes(_ tag: String, _ keys: String...)throws->Whitelist {
-        try Validate.notEmpty(string: tag);
-        try Validate.isTrue(val: keys.count > 0, msg: "No attributes supplied.");
+        try Validate.notEmpty(string: tag)
+        try Validate.isTrue(val: keys.count > 0, msg: "No attributes supplied.")
         
-        let tagName = TagName.valueOf(tag);
+        let tagName = TagName.valueOf(tag)
         if (!tagNames.contains(tagName)){
-            tagNames.insert(tagName);
+            tagNames.insert(tagName)
         }
-        var attributeSet = Set<AttributeKey>();
+        var attributeSet = Set<AttributeKey>()
         for key in keys
         {
-            try Validate.notEmpty(string: key);
-            attributeSet.insert(AttributeKey.valueOf(key));
+            try Validate.notEmpty(string: key)
+            attributeSet.insert(AttributeKey.valueOf(key))
         }
         
         if var currentSet = attributes[tagName]
@@ -273,7 +273,7 @@ public class Whitelist {
             attributes[tagName] = attributeSet
         }
         
-        return self;
+        return self
     }
     
     /**
@@ -293,14 +293,14 @@ public class Whitelist {
      */
     @discardableResult
     open func removeAttributes(_ tag: String, _ keys: String...)throws->Whitelist {
-        try Validate.notEmpty(string: tag);
-        try Validate.isTrue(val: keys.count > 0, msg: "No attributes supplied.");
+        try Validate.notEmpty(string: tag)
+        try Validate.isTrue(val: keys.count > 0, msg: "No attributes supplied.")
         
-        let tagName : TagName = TagName.valueOf(tag);
-        var attributeSet = Set<AttributeKey>();
+        let tagName : TagName = TagName.valueOf(tag)
+        var attributeSet = Set<AttributeKey>()
         for key in keys {
-            try Validate.notEmpty(string: key);
-            attributeSet.insert(AttributeKey.valueOf(key));
+            try Validate.notEmpty(string: key)
+            attributeSet.insert(AttributeKey.valueOf(key))
         }
         
         
@@ -323,7 +323,7 @@ public class Whitelist {
         if(tag == ":all"){ // Attribute needs to be removed from all individually set tags
             for name in attributes.keys
             {
-                var currentSet : Set<AttributeKey> = attributes[name]!;
+                var currentSet : Set<AttributeKey> = attributes[name]!
                 for l in attributeSet{
                     currentSet.remove(l)
                 }
@@ -333,7 +333,7 @@ public class Whitelist {
                 }
             }
         }
-        return self;
+        return self
     }
     
     /**
@@ -351,25 +351,25 @@ public class Whitelist {
      */
     @discardableResult
     open func addEnforcedAttribute(_ tag: String, _ key: String, _ value: String)throws->Whitelist {
-        try Validate.notEmpty(string: tag);
-        try Validate.notEmpty(string: key);
-        try Validate.notEmpty(string: value);
+        try Validate.notEmpty(string: tag)
+        try Validate.notEmpty(string: key)
+        try Validate.notEmpty(string: value)
         
-        let tagName : TagName = TagName.valueOf(tag);
+        let tagName : TagName = TagName.valueOf(tag)
         if (!tagNames.contains(tagName)){
-            tagNames.insert(tagName);
+            tagNames.insert(tagName)
         }
-        let attrKey : AttributeKey = AttributeKey.valueOf(key);
-        let attrVal : AttributeValue = AttributeValue.valueOf(value);
+        let attrKey : AttributeKey = AttributeKey.valueOf(key)
+        let attrVal : AttributeValue = AttributeValue.valueOf(value)
         
         if (enforcedAttributes[tagName] != nil) {
             enforcedAttributes[tagName]?[attrKey] = attrVal
         } else {
-            var attrMap : Dictionary<AttributeKey, AttributeValue> = Dictionary<AttributeKey, AttributeValue>();
+            var attrMap : Dictionary<AttributeKey, AttributeValue> = Dictionary<AttributeKey, AttributeValue>()
             attrMap[attrKey] = attrVal
             enforcedAttributes[tagName] = attrMap
         }
-        return self;
+        return self
     }
     
     /**
@@ -381,21 +381,21 @@ public class Whitelist {
      */
     @discardableResult
     open func removeEnforcedAttribute(_ tag: String, _ key: String)throws->Whitelist {
-        try Validate.notEmpty(string: tag);
-        try Validate.notEmpty(string: key);
+        try Validate.notEmpty(string: tag)
+        try Validate.notEmpty(string: key)
         
-        let tagName : TagName = TagName.valueOf(tag);
+        let tagName : TagName = TagName.valueOf(tag)
         if(tagNames.contains(tagName) && (enforcedAttributes[tagName] != nil)) {
-            let attrKey : AttributeKey = AttributeKey.valueOf(key);
-            var attrMap : Dictionary<AttributeKey, AttributeValue> = enforcedAttributes[tagName]!;
+            let attrKey : AttributeKey = AttributeKey.valueOf(key)
+            var attrMap : Dictionary<AttributeKey, AttributeValue> = enforcedAttributes[tagName]!
             attrMap.removeValue(forKey: attrKey)
             enforcedAttributes[tagName] = attrMap
             
             if(attrMap.isEmpty){ // Remove tag from enforced attribute map if no enforced attributes are present
-                enforcedAttributes.removeValue(forKey: tagName);
+                enforcedAttributes.removeValue(forKey: tagName)
             }
         }
-        return self;
+        return self
     }
     
     /**
@@ -415,8 +415,8 @@ public class Whitelist {
      */
     @discardableResult
     open func preserveRelativeLinks(_ preserve: Bool)->Whitelist {
-        preserveRelativeLinks = preserve;
-        return self;
+        preserveRelativeLinks = preserve
+        return self
     }
     
     /**
@@ -437,38 +437,38 @@ public class Whitelist {
      */
     @discardableResult
     open func addProtocols(_ tag: String, _ key: String, _ protocols: String...)throws->Whitelist {
-        try Validate.notEmpty(string: tag);
-        try Validate.notEmpty(string: key);
-        try Validate.notNull(obj: protocols as AnyObject?);
+        try Validate.notEmpty(string: tag)
+        try Validate.notEmpty(string: key)
+        try Validate.notNull(obj: protocols as AnyObject?)
         
-        let tagName : TagName = TagName.valueOf(tag);
-        let attrKey : AttributeKey = AttributeKey.valueOf(key);
-        var attrMap : Dictionary<AttributeKey, Set<Protocol>>;
-        var protSet : Set<Protocol>;
+        let tagName : TagName = TagName.valueOf(tag)
+        let attrKey : AttributeKey = AttributeKey.valueOf(key)
+        var attrMap : Dictionary<AttributeKey, Set<Protocol>>
+        var protSet : Set<Protocol>
         
         if (self.protocols[tagName] != nil) {
-            attrMap = self.protocols[tagName]!;
+            attrMap = self.protocols[tagName]!
         } else {
-            attrMap =  Dictionary<AttributeKey, Set<Protocol>>();
-            self.protocols[tagName] = attrMap;
+            attrMap =  Dictionary<AttributeKey, Set<Protocol>>()
+            self.protocols[tagName] = attrMap
         }
         
         if (attrMap[attrKey] != nil) {
-            protSet = attrMap[attrKey]!;
+            protSet = attrMap[attrKey]!
         } else {
-            protSet = Set<Protocol>();
+            protSet = Set<Protocol>()
             attrMap[attrKey] = protSet
-            self.protocols[tagName] = attrMap;
+            self.protocols[tagName] = attrMap
         }
         for ptl in protocols
         {
-            try Validate.notEmpty(string: ptl);
-            let prot : Protocol = Protocol.valueOf(ptl);
-            protSet.insert(prot);
+            try Validate.notEmpty(string: ptl)
+            let prot : Protocol = Protocol.valueOf(ptl)
+            protSet.insert(prot)
         }
         attrMap[attrKey] = protSet
         
-        return self;
+        return self
     }
     
     /**
@@ -484,21 +484,21 @@ public class Whitelist {
      */
     @discardableResult
     open func removeProtocols(_ tag: String, _ key: String, _ protocols: String...)throws->Whitelist {
-        try Validate.notEmpty(string: tag);
-        try Validate.notEmpty(string: key);
+        try Validate.notEmpty(string: tag)
+        try Validate.notEmpty(string: key)
         
-        let tagName : TagName = TagName.valueOf(tag);
-        let attrKey : AttributeKey = AttributeKey.valueOf(key);
+        let tagName : TagName = TagName.valueOf(tag)
+        let attrKey : AttributeKey = AttributeKey.valueOf(key)
         
         if(self.protocols[tagName] != nil) {
-            var attrMap : Dictionary<AttributeKey, Set<Protocol>>= self.protocols[tagName]!;
+            var attrMap : Dictionary<AttributeKey, Set<Protocol>>= self.protocols[tagName]!
             if(attrMap[attrKey] != nil) {
-                var protSet : Set<Protocol> = attrMap[attrKey]!;
+                var protSet : Set<Protocol> = attrMap[attrKey]!
                 for ptl in protocols
                 {
-                    try Validate.notEmpty(string: ptl);
-                    let prot : Protocol = Protocol.valueOf(ptl);
-                    protSet.remove(prot);
+                    try Validate.notEmpty(string: ptl)
+                    let prot : Protocol = Protocol.valueOf(ptl)
+                    protSet.remove(prot)
                 }
                 attrMap[attrKey] = protSet
                 
@@ -512,7 +512,7 @@ public class Whitelist {
             }
             self.protocols[tagName] = attrMap
         }
-        return self;
+        return self
     }
     
     /**
@@ -521,7 +521,7 @@ public class Whitelist {
      * @return true if allowed
      */
     public func isSafeTag(_ tag: String)->Bool {
-        return tagNames.contains(TagName.valueOf(tag));
+        return tagNames.contains(TagName.valueOf(tag))
     }
     
     /**
@@ -532,74 +532,74 @@ public class Whitelist {
      * @return true if allowed
      */
     public func isSafeAttribute(_ tagName: String, _ el: Element, _ attr: Attribute)->Bool {
-        let tag : TagName = TagName.valueOf(tagName);
-        let key : AttributeKey = AttributeKey.valueOf(attr.getKey());
+        let tag : TagName = TagName.valueOf(tagName)
+        let key : AttributeKey = AttributeKey.valueOf(attr.getKey())
         
         if (attributes[tag] != nil) {
             if (attributes[tag]?.contains(key))! {
                 if (protocols[tag] != nil) {
                     //var attrProts : Dictionary<AttributeKey, Set<Protocol>>
-                        _ = protocols[tag]!;
+                        _ = protocols[tag]!
                     // ok if not defined protocol; otherwise test
                    // return !(attrProts[key] != nil) || testValidProtocol(el, attr, attrProts[key]);
                 } else { // attribute found, no protocols defined, so OK
-                    return true;
+                    return true
                 }
             }
         }
         // no attributes defined for tag, try :all tag
-        return !(tagName == ":all") && isSafeAttribute(":all", el, attr);
+        return !(tagName == ":all") && isSafeAttribute(":all", el, attr)
     }
 
     private func testValidProtocol(_ el: Element, _ attr: Attribute, _ protocols: Set<Protocol>)throws->Bool {
         // try to resolve relative urls to abs, and optionally update the attribute so output html has abs.
         // rels without a baseuri get removed
-        var value : String = try el.absUrl(attr.getKey());
+        var value : String = try el.absUrl(attr.getKey())
         if (value.characters.count == 0){
-            value = attr.getValue(); // if it could not be made abs, run as-is to allow custom unknown protocols
+            value = attr.getValue() // if it could not be made abs, run as-is to allow custom unknown protocols
             if (!preserveRelativeLinks){
-                attr.setValue(value: value);
+                attr.setValue(value: value)
             }
             
             for  ptl in protocols
             {
-                var prot : String = ptl.toString();
+                var prot : String = ptl.toString()
                 
                 if (prot=="#") { // allows anchor links
                     if (isValidAnchor(value)) {
-                        return true;
+                        return true
                     } else {
-                        continue;
+                        continue
                     }
                 }
                 
-                prot += ":";
+                prot += ":"
                 
                 if (value.lowercased().hasPrefix(prot)) {
-                    return true;
+                    return true
                 }
             }
         }
         
-        return false;
+        return false
     }
     
     private func isValidAnchor(_ value: String)->Bool
     {
-        return value.startsWith("#") && !(Pattern(".*\\s.*").matcher(in: value).count > 0);
+        return value.startsWith("#") && !(Pattern(".*\\s.*").matcher(in: value).count > 0)
     }
 	
 	public func getEnforcedAttributes(_ tagName: String)throws->Attributes {
-		let attrs: Attributes = Attributes();
-		let tag: TagName = TagName.valueOf(tagName);
+		let attrs: Attributes = Attributes()
+		let tag: TagName = TagName.valueOf(tagName)
 		if let keyVals: Dictionary<AttributeKey, AttributeValue> = enforcedAttributes[tag]
 		{
 			for entry in keyVals
 			{
-				try attrs.put(entry.key.toString(), entry.value.toString());
+				try attrs.put(entry.key.toString(), entry.value.toString())
 			}
 		}
-		return attrs;
+		return attrs
 	}
 	
 }
@@ -614,37 +614,37 @@ open class TagName : TypedValue {
     }
     
     static func valueOf(_ value: String)->TagName{
-        return TagName(value);
+        return TagName(value)
     }
 }
 
 open class  AttributeKey : TypedValue {
     override init(_ value: String) {
-        super.init(value);
+        super.init(value)
     }
     
     static func valueOf(_ value: String)->AttributeKey {
-        return AttributeKey(value);
+        return AttributeKey(value)
     }
 }
 
 open class AttributeValue : TypedValue {
     override init(_ value: String) {
-        super.init(value);
+        super.init(value)
     }
     
     static func valueOf(_ value: String)->AttributeValue {
-        return AttributeValue(value);
+        return AttributeValue(value)
     }
 }
 
 open class Protocol : TypedValue {
     override init(_ value: String) {
-        super.init(value);
+        super.init(value)
     }
     
     static func valueOf(_ value: String)->Protocol {
-        return Protocol(value);
+        return Protocol(value)
     }
 }
 
@@ -652,23 +652,23 @@ open class Protocol : TypedValue {
 
 open class TypedValue
 {
-    fileprivate let value : String;
+    fileprivate let value : String
     
     init(_ value: String) {
-        self.value = value;
+        self.value = value
     }
     
     public func toString()->String {
-        return value;
+        return value
     }
 }
 
 extension TypedValue: Hashable {
     public var hashValue: Int {
-        let prime = 31;
-        var result = 1;
+        let prime = 31
+        var result = 1
         result = Int.addWithOverflow(Int.multiplyWithOverflow(prime,result).0, value.hash).0
-        return result;
+        return result
     }
 }
 

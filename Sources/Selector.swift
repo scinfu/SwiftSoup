@@ -73,21 +73,21 @@ import Foundation
  * @see Element#select(String)
  */
 open class Selector {
-    private let evaluator : Evaluator ;
-    private let root : Element ;
+    private let evaluator : Evaluator 
+    private let root : Element 
     
     private init(_ query: String, _ root: Element)throws {
-        let query = query.trim();
-        try Validate.notEmpty(string: query);
+        let query = query.trim()
+        try Validate.notEmpty(string: query)
         
-        self.evaluator = try QueryParser.parse(query);
+        self.evaluator = try QueryParser.parse(query)
         
-        self.root = root;
+        self.root = root
     }
     
     private init(_ evaluator: Evaluator, _ root: Element) {
-        self.evaluator = evaluator;
-        self.root = root;
+        self.evaluator = evaluator
+        self.root = root
     }
     
     /**
@@ -99,7 +99,7 @@ open class Selector {
      * @throws Selector.SelectorParseException (unchecked) on an invalid CSS query.
      */
     public static func select(_ query: String, _ root: Element)throws->Elements {
-        return try Selector(query, root).select();
+        return try Selector(query, root).select()
     }
     
     /**
@@ -110,7 +110,7 @@ open class Selector {
      * @return matching elements, empty if none
      */
     public static func select(_ evaluator: Evaluator, _ root: Element)throws->Elements {
-        return try Selector(evaluator, root).select();
+        return try Selector(evaluator, root).select()
     }
     
     /**
@@ -121,28 +121,28 @@ open class Selector {
      * @return matching elements, empty if none
      */
     public static func select(_ query: String, _ roots: Array<Element>)throws->Elements {
-        try Validate.notEmpty(string: query);
-        let evaluator: Evaluator = try QueryParser.parse(query);
-        var elements: Array<Element> = Array<Element>();
-        var seenElements: Array<Element> = Array<Element>();
+        try Validate.notEmpty(string: query)
+        let evaluator: Evaluator = try QueryParser.parse(query)
+        var elements: Array<Element> = Array<Element>()
+        var seenElements: Array<Element> = Array<Element>()
         // dedupe elements by identity, not equality
         
         for root: Element in roots
         {
-            let found: Elements = try select(evaluator, root);
+            let found: Elements = try select(evaluator, root)
             for  el: Element in found.array()
             {
                 if (!seenElements.contains(el)) {
-                    elements.append(el);
+                    elements.append(el)
                     seenElements.append(el)
                 }
             }
         }
-        return Elements(elements);
+        return Elements(elements)
     }
     
     private func select()throws->Elements {
-        return try Collector.collect(evaluator, root);
+        return try Collector.collect(evaluator, root)
     }
     
     // exclude set. package open so that Elements can implement .not() selector.
@@ -152,14 +152,14 @@ open class Selector {
             var found: Bool = false
             for out: Element in outs {
                 if (el.equals(out)) {
-                    found = true;
-                    break;
+                    found = true
+                    break
                 }
             }
             if (!found){
                 output.add(el)
             }
         }
-        return output;
+        return output
     }
 }

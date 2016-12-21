@@ -10,14 +10,14 @@ import Foundation
 
 open class Cleaner
 {
-    fileprivate let whitelist : Whitelist;
+    fileprivate let whitelist : Whitelist
     
     /**
      Create a new cleaner, that sanitizes documents using the supplied whitelist.
      @param whitelist white-list to clean with
      */
     public init(_ whitelist: Whitelist) {
-        self.whitelist = whitelist;
+        self.whitelist = whitelist
     }
 	
 	/**
@@ -27,13 +27,13 @@ open class Cleaner
 	@return cleaned document.
 	*/
 	public func clean(_ dirtyDocument: Document)throws->Document {
-		//Validate.notNull(dirtyDocument);
-		let clean: Document = Document.createShell(dirtyDocument.getBaseUri());
+		//Validate.notNull(dirtyDocument)
+		let clean: Document = Document.createShell(dirtyDocument.getBaseUri())
 		if (dirtyDocument.body() != nil && clean.body() != nil) // frameset documents won't have a body. the clean doc will have empty body.
 		{
-			try copySafeNodes(dirtyDocument.body()!, clean.body()!);
+			try copySafeNodes(dirtyDocument.body()!, clean.body()!)
 		}
-		return clean;
+		return clean
 	}
 	
 	/**
@@ -48,41 +48,41 @@ open class Cleaner
 	@return true if no tags or attributes need to be removed; false if they do
 	*/
 	public func isValid(_ dirtyDocument: Document)throws->Bool {
-	//Validate.notNull(dirtyDocument);
-		let clean: Document = Document.createShell(dirtyDocument.getBaseUri());
-		let numDiscarded: Int = try copySafeNodes(dirtyDocument.body()!, clean.body()!);
-		return numDiscarded == 0;
+	//Validate.notNull(dirtyDocument)
+		let clean: Document = Document.createShell(dirtyDocument.getBaseUri())
+		let numDiscarded: Int = try copySafeNodes(dirtyDocument.body()!, clean.body()!)
+		return numDiscarded == 0
 	}
 	
     @discardableResult
 	fileprivate func copySafeNodes(_ source: Element, _ dest: Element)throws->Int {
-		let cleaningVisitor: Cleaner.CleaningVisitor = Cleaner.CleaningVisitor(source, dest,self);
-		let traversor: NodeTraversor = NodeTraversor(cleaningVisitor);
-		try traversor.traverse(source);
-		return cleaningVisitor.numDiscarded;
+		let cleaningVisitor: Cleaner.CleaningVisitor = Cleaner.CleaningVisitor(source, dest,self)
+		let traversor: NodeTraversor = NodeTraversor(cleaningVisitor)
+		try traversor.traverse(source)
+		return cleaningVisitor.numDiscarded
 	}
 	
 	fileprivate func createSafeElement(_ sourceEl: Element)throws->ElementMeta {
-		let sourceTag: String = sourceEl.tagName();
-		let destAttrs: Attributes = Attributes();
-		let dest: Element = try Element(Tag.valueOf(sourceTag), sourceEl.getBaseUri(), destAttrs);
-		var numDiscarded: Int = 0;
+		let sourceTag: String = sourceEl.tagName()
+		let destAttrs: Attributes = Attributes()
+		let dest: Element = try Element(Tag.valueOf(sourceTag), sourceEl.getBaseUri(), destAttrs)
+		var numDiscarded: Int = 0
 		
 		if let sourceAttrs = sourceEl.getAttributes()
 		{
 			for sourceAttr: Attribute in sourceAttrs
 			{
 				if (whitelist.isSafeAttribute(sourceTag, sourceEl, sourceAttr)){
-					destAttrs.put(attribute: sourceAttr);
+					destAttrs.put(attribute: sourceAttr)
 				}else{
-					numDiscarded+=1;
+					numDiscarded+=1
 				}
 			}
 		}
 		let enforcedAttrs: Attributes = try whitelist.getEnforcedAttributes(sourceTag)
-		destAttrs.addAll(incoming: enforcedAttrs);
+		destAttrs.addAll(incoming: enforcedAttrs)
 		
-		return ElementMeta(dest, numDiscarded);
+		return ElementMeta(dest, numDiscarded)
 	}
 	
 }
@@ -92,43 +92,43 @@ extension Cleaner
 {
 	fileprivate final class CleaningVisitor : NodeVisitor
 	{
-		var numDiscarded: Int = 0;
-		let root: Element;
-		var destination: Element? ; // current element to append nodes to
+		var numDiscarded: Int = 0
+		let root: Element
+		var destination: Element?  // current element to append nodes to
 		
-		private weak var cleaner : Cleaner?;
+		private weak var cleaner : Cleaner?
 		
 		public init(_ root: Element, _ destination: Element, _ cleaner : Cleaner) {
-			self.root = root;
-			self.destination = destination;
+			self.root = root
+			self.destination = destination
 		}
 		
 		public func head(_ source: Node, _ depth: Int)throws {
 			if let sourceEl = (source as? Element) {
 				if (cleaner!.whitelist.isSafeTag(sourceEl.tagName())) { // safe, clone and copy safe attrs
-					let meta: Cleaner.ElementMeta = try cleaner!.createSafeElement(sourceEl);
-					let destChild: Element = meta.el;
-					try destination?.appendChild(destChild);
+					let meta: Cleaner.ElementMeta = try cleaner!.createSafeElement(sourceEl)
+					let destChild: Element = meta.el
+					try destination?.appendChild(destChild)
 					
-					numDiscarded += meta.numAttribsDiscarded;
-					destination = destChild;
+					numDiscarded += meta.numAttribsDiscarded
+					destination = destChild
 				} else if (source != root) { // not a safe tag, so don't add. don't count root against discarded.
-					numDiscarded+=1;
+					numDiscarded+=1
 				}
 			} else if let sourceText = (source as? TextNode) {
-				let destText: TextNode = TextNode(sourceText.getWholeText(), source.getBaseUri());
-				try destination?.appendChild(destText);
+				let destText: TextNode = TextNode(sourceText.getWholeText(), source.getBaseUri())
+				try destination?.appendChild(destText)
 			}
 			else if let sourceData = (source as? DataNode)
 			{
 				if  sourceData.parent() != nil && cleaner!.whitelist.isSafeTag(sourceData.parent()!.nodeName())
 				{
-					//let sourceData: DataNode = (DataNode) source;
-					let destData: DataNode =  DataNode(sourceData.getWholeData(), source.getBaseUri());
-					try destination?.appendChild(destData);
+					//let sourceData: DataNode = (DataNode) source
+					let destData: DataNode =  DataNode(sourceData.getWholeData(), source.getBaseUri())
+					try destination?.appendChild(destData)
 				}
 			} else { // else, we don't care about comments, xml proc instructions, etc
-				numDiscarded+=1;
+				numDiscarded+=1
 			}
 		}
 		
@@ -149,12 +149,12 @@ extension Cleaner
 extension Cleaner
 {
 	fileprivate struct ElementMeta {
-		let el: Element ;
-		let numAttribsDiscarded: Int;
+		let el: Element 
+		let numAttribsDiscarded: Int
 		
 		init(_ el: Element, _ numAttribsDiscarded: Int) {
-			self.el = el;
-			self.numAttribsDiscarded = numAttribsDiscarded;
+			self.el = el
+			self.numAttribsDiscarded = numAttribsDiscarded
 		}
 	}
 }

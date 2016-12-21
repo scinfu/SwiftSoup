@@ -20,7 +20,7 @@ open class StringUtil
     }
     
     // memoised padding up to 10
-    fileprivate static var padding : [String] = ["", " ", "  ", "   ", "    ", "     ", "      ", "       ", "        ", "         ", "          "];
+    fileprivate static var padding : [String] = ["", " ", "  ", "   ", "    ", "     ", "      ", "       ", "        ", "         ", "          "]
     
     /**
      * Join a collection of strings by a seperator
@@ -29,14 +29,14 @@ open class StringUtil
      * @return joined string
      */
     open static func join(_ strings:[String], sep:String) -> String {
-        return strings.joined(separator: sep);
+        return strings.joined(separator: sep)
     }
     open static func join(_ strings:Set<String>, sep:String) -> String {
-        return strings.joined(separator: sep);
+        return strings.joined(separator: sep)
     }
 	
 	open static func join(_ strings:OrderedSet<String>, sep:String) -> String {
-		return strings.joined(separator: sep);
+		return strings.joined(separator: sep)
 	}
 	
     
@@ -48,18 +48,18 @@ open class StringUtil
 //     */
 //    public static String join(Iterator strings, String sep) {
 //    if (!strings.hasNext())
-//    return "";
+//    return ""
 //    
-//    String start = strings.next().toString();
+//    String start = strings.next().toString()
 //    if (!strings.hasNext()) // only one, avoid builder
-//    return start;
+//    return start
 //    
-//    StringBuilder sb = new StringBuilder(64).append(start);
+//    StringBuilder sb = new StringBuilder(64).append(start)
 //    while (strings.hasNext()) {
-//    sb.append(sep);
-//    sb.append(strings.next());
+//    sb.append(sep)
+//    sb.append(strings.next())
 //    }
-//    return sb.toString();
+//    return sb.toString()
 //    }
     /**
      * Returns space padding
@@ -69,11 +69,11 @@ open class StringUtil
     open static func padding(_ width:Int) ->  String{
         
         if(width <= 0){
-            return "";
+            return ""
         }
         
         if (width < padding.count){
-            return padding[width];
+            return padding[width]
         }
         
         var out: [Character] = [Character]()
@@ -82,7 +82,7 @@ open class StringUtil
         {
             out.append(" ")
         }
-        return String(out);
+        return String(out)
     }
     
     /**
@@ -92,16 +92,16 @@ open class StringUtil
      */
     open static func isBlank(_ string:String) -> Bool {
         if (string.characters.count == 0){
-            return true;
+            return true
         }
         
         for chr in string.characters
         {
             if (!StringUtil.isWhitespace(chr)){
-                return false;
+                return false
             }
         }
-        return true;
+        return true
     }
     
     /**
@@ -111,17 +111,17 @@ open class StringUtil
      */
     open static func isNumeric(_ string:String) -> Bool {
         if (string.characters.count == 0){
-            return false;
+            return false
         }
         
         for chr in string.characters
         {
             if !("0"..."9" ~= chr)
             {
-                return false;
+                return false
             }
         }
-        return true;
+        return true
     }
     
     /**
@@ -132,7 +132,7 @@ open class StringUtil
     open static func isWhitespace(_ c:Character) -> Bool
     {
         //(c == " " || c == "\t" || c == "\n" || (c == "\f" ) || c == "\r")
-        return c.isWhitespace;
+        return c.isWhitespace
     }
     
     /**
@@ -142,9 +142,9 @@ open class StringUtil
      * @return normalised string
      */
     open static func normaliseWhitespace(_ string:String) -> String {
-        let sb : StringBuilder  = StringBuilder.init();
-        appendNormalisedWhitespace(sb, string: string, stripLeading: false);
-        return sb.toString();
+        let sb : StringBuilder  = StringBuilder.init()
+        appendNormalisedWhitespace(sb, string: string, stripLeading: false)
+        return sb.toString()
     }
     
     /**
@@ -154,24 +154,24 @@ open class StringUtil
      * @param stripLeading set to true if you wish to remove any leading whitespace
      */
     open static func appendNormalisedWhitespace(_ accum:StringBuilder, string: String , stripLeading:Bool ) {
-        var lastWasWhite : Bool = false;
-        var reachedNonWhite: Bool  = false;
+        var lastWasWhite : Bool = false
+        var reachedNonWhite: Bool  = false
     
         for c in string.characters
         {
             if (isWhitespace(c))
             {
                 if ((stripLeading && !reachedNonWhite) || lastWasWhite){
-                    continue;
+                    continue
                 }
-                accum.append(" ");
-                lastWasWhite = true;
+                accum.append(" ")
+                lastWasWhite = true
             }
             else
             {
-                accum.appendCodePoint(c);
-                lastWasWhite = false;
-                reachedNonWhite = true;
+                accum.appendCodePoint(c)
+                lastWasWhite = false
+                reachedNonWhite = true
             }
         }
     }
@@ -184,18 +184,18 @@ open class StringUtil
         for hay in haystack
         {
             if(hay != nil  && hay!.compare(needle!) == ComparisonResult.orderedSame){
-                return true;
+                return true
             }
         }
-        return false;
+        return false
     }
 
     open static func inSorted(_ needle:String, haystack:[String]) -> Bool {
-        return binarySearch(haystack, searchItem: needle) >= 0;
+        return binarySearch(haystack, searchItem: needle) >= 0
     }
     
     open static func binarySearch<T:Comparable>(_ inputArr:Array<T>, searchItem: T)->Int{
-        var lowerIndex = 0;
+        var lowerIndex = 0
         var upperIndex = inputArr.count - 1
         
         while (true) {
@@ -228,8 +228,8 @@ open class StringUtil
         {
             base = base.appendingPathComponent("/", isDirectory: false)
         }
-        let u =  URL(string: relUrl, relativeTo : base);
-        return u;
+        let u =  URL(string: relUrl, relativeTo : base)
+        return u
     }
     
     /**
@@ -240,38 +240,38 @@ open class StringUtil
      */
     open static func resolve(_ baseUrl : String , relUrl : String ) -> String {
         
-        let base = URL(string: baseUrl);
+        let base = URL(string: baseUrl)
         
         if(base == nil || base?.scheme == nil)
         {
-            let abs = URL(string: relUrl);
+            let abs = URL(string: relUrl)
 			return abs != nil && abs?.scheme != nil ? abs!.absoluteURL.absoluteString : ""
         }else{
-            let url = resolve(base!, relUrl: relUrl);
+            let url = resolve(base!, relUrl: relUrl)
             if(url != nil){
-                let ext = url!.absoluteURL.absoluteString;
-                return ext;
+                let ext = url!.absoluteURL.absoluteString
+                return ext
             }
             
             if(base != nil && base?.scheme != nil){
-                let ext = base!.absoluteString;
-                return ext;
+                let ext = base!.absoluteString
+                return ext
             }
             
-            return "";
+            return ""
         }
         
 //        try {
 //            try {
-//                    base = new URL(baseUrl);
+//                    base = new URL(baseUrl)
 //                } catch (MalformedURLException e) {
 //                        // the base is unsuitable, but the attribute/rel may be abs on its own, so try that
-//                        URL abs = new URL(relUrl);
-//                        return abs.toExternalForm();
+//                        URL abs = new URL(relUrl)
+//                        return abs.toExternalForm()
 //                }
-//            return resolve(base, relUrl).toExternalForm();
+//            return resolve(base, relUrl).toExternalForm()
 //        } catch (MalformedURLException e) {
-//            return "";
+//            return ""
 //        }
     
     }

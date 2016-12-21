@@ -14,10 +14,10 @@ open class Document : Element
         case noQuirks, quirks, limitedQuirks
     }
     
-    private var _outputSettings: OutputSettings  = OutputSettings();
-    private var _quirksMode: Document.QuirksMode = QuirksMode.noQuirks;
-    private let _location: String;
-    private var updateMetaCharset: Bool = false;
+    private var _outputSettings: OutputSettings  = OutputSettings()
+    private var _quirksMode: Document.QuirksMode = QuirksMode.noQuirks
+    private let _location: String
+    private var updateMetaCharset: Bool = false
     
     /**
      Create a new, empty Document.
@@ -26,8 +26,8 @@ open class Document : Element
      @see #createShell
      */
     public init(_ baseUri: String){
-        self._location = baseUri;
-        super.init(try! Tag.valueOf("#root", ParseSettings.htmlDefault), baseUri);
+        self._location = baseUri
+        super.init(try! Tag.valueOf("#root", ParseSettings.htmlDefault), baseUri)
     }
     
     /**
@@ -36,12 +36,12 @@ open class Document : Element
      @return document with html, head, and body elements.
      */
     static open func createShell(_ baseUri: String)->Document {
-        let doc: Document = Document(baseUri);
-        let html: Element = try! doc.appendElement("html");
-        try! html.appendElement("head");
-        try! html.appendElement("body");
+        let doc: Document = Document(baseUri)
+        let html: Element = try! doc.appendElement("html")
+        try! html.appendElement("head")
+        try! html.appendElement("body")
         
-        return doc;
+        return doc
     }
     
     /**
@@ -50,7 +50,7 @@ open class Document : Element
      * @return location
      */
     public func location()->String {
-    return _location;
+    return _location
     }
     
     /**
@@ -58,7 +58,7 @@ open class Document : Element
      @return {@code head}
      */
     public func head()->Element? {
-        return findFirstElementByTagName("head", self);
+        return findFirstElementByTagName("head", self)
     }
     
     /**
@@ -66,7 +66,7 @@ open class Document : Element
      @return {@code body}
      */
     public func body()->Element? {
-        return findFirstElementByTagName("body", self);
+        return findFirstElementByTagName("body", self)
     }
     
     /**
@@ -75,8 +75,8 @@ open class Document : Element
      */
     public func title()throws->String {
         // title is a preserve whitespace tag (for document output), but normalised here
-        let titleEl: Element? = try getElementsByTag("title").first();
-        return titleEl != nil ? try StringUtil.normaliseWhitespace(titleEl!.text()).trim() : "";
+        let titleEl: Element? = try getElementsByTag("title").first()
+        return titleEl != nil ? try StringUtil.normaliseWhitespace(titleEl!.text()).trim() : ""
     }
     
     /**
@@ -85,11 +85,11 @@ open class Document : Element
      @param title string to set as title
      */
     public func title(_ title: String)throws {
-        let titleEl: Element? = try getElementsByTag("title").first();
+        let titleEl: Element? = try getElementsByTag("title").first()
         if (titleEl == nil) { // add to head
-            try head()?.appendElement("title").text(title);
+            try head()?.appendElement("title").text(title)
         } else {
-            try titleEl?.text(title);
+            try titleEl?.text(title)
         }
     }
     
@@ -99,7 +99,7 @@ open class Document : Element
      @return new element
      */
     public func createElement(_ tagName: String)throws->Element {
-        return try Element(Tag.valueOf(tagName, ParseSettings.preserveCase), self.getBaseUri());
+        return try Element(Tag.valueOf(tagName, ParseSettings.preserveCase), self.getBaseUri())
     }
     
     /**
@@ -109,7 +109,7 @@ open class Document : Element
      */
     @discardableResult
     public func normalise()throws->Document {
-        var htmlE: Element? = findFirstElementByTagName("html", self);
+        var htmlE: Element? = findFirstElementByTagName("html", self)
         if (htmlE == nil){
             htmlE = try appendElement("html")
         }
@@ -124,26 +124,26 @@ open class Document : Element
         
         // pull text nodes out of root, html, and head els, and push into body. non-text nodes are already taken care
         // of. do in inverse order to maintain text order.
-        try normaliseTextNodes(head()!);
-        try normaliseTextNodes(htmlEl);
-        try normaliseTextNodes(self);
+        try normaliseTextNodes(head()!)
+        try normaliseTextNodes(htmlEl)
+        try normaliseTextNodes(self)
         
-        try normaliseStructure("head", htmlEl);
-        try normaliseStructure("body", htmlEl);
+        try normaliseStructure("head", htmlEl)
+        try normaliseStructure("body", htmlEl)
         
-        try ensureMetaCharsetElement();
+        try ensureMetaCharsetElement()
         
-        return self;
+        return self
     }
     
     // does not recurse.
     private func normaliseTextNodes(_ element: Element)throws {
-        var toMove: Array<Node> =  Array<Node>();
+        var toMove: Array<Node> =  Array<Node>()
         for node:Node in element.childNodes
         {
             if let tn = (node as? TextNode) {
                 if (!tn.isBlank()){
-                toMove.append(tn);
+                toMove.append(tn)
                 }
             }
         }
@@ -151,35 +151,35 @@ open class Document : Element
         for i in toMove.count-1...0
         {
             let node: Node = toMove[i]
-            try element.removeChild(node);
-            try body()?.prependChild(TextNode(" ", ""));
-            try body()?.prependChild(node);
+            try element.removeChild(node)
+            try body()?.prependChild(TextNode(" ", ""))
+            try body()?.prependChild(node)
         }
     }
     
     // merge multiple <head> or <body> contents into one, delete the remainder, and ensure they are owned by <html>
     private func normaliseStructure(_ tag: String, _ htmlEl: Element)throws {
-        let elements: Elements = try self.getElementsByTag(tag);
-        let master: Element? = elements.first(); // will always be available as created above if not existent
+        let elements: Elements = try self.getElementsByTag(tag)
+        let master: Element? = elements.first() // will always be available as created above if not existent
         if (elements.size() > 1) { // dupes, move contents to master
-            var toMove:Array<Node> = Array<Node>();
+            var toMove:Array<Node> = Array<Node>()
             for i in 1..<elements.size()
             {
-                let dupe: Node = elements.get(i);
+                let dupe: Node = elements.get(i)
                 for node:Node in dupe.childNodes
                 {
-                    toMove.append(node);
+                    toMove.append(node)
                 }
-                try dupe.remove();
+                try dupe.remove()
             }
             
             for dupe:Node in toMove{
-                try master?.appendChild(dupe);
+                try master?.appendChild(dupe)
             }
         }
         // ensure parented by <html>
         if (!(master != nil && master!.parent() != nil && master!.parent()!.equals(htmlEl))) {
-            try htmlEl.appendChild(master!); // includes remove()
+            try htmlEl.appendChild(master!) // includes remove()
         }
     }
     
@@ -187,20 +187,20 @@ open class Document : Element
     // fast method to get first by tag name, used for html, head, body finders
     private func findFirstElementByTagName(_ tag: String, _ node: Node)->Element? {
         if (node.nodeName()==tag){
-            return node as? Element;
+            return node as? Element
         }else {
             for child:Node in node.childNodes {
-                let found: Element? = findFirstElementByTagName(tag, child);
+                let found: Element? = findFirstElementByTagName(tag, child)
                 if (found != nil){
-                    return found;
+                    return found
                 }
             }
         }
-        return nil;
+        return nil
     }
     
     open override func outerHtml()throws->String {
-        return try super.html(); // no outer wrapper tag
+        return try super.html() // no outer wrapper tag
     }
     
     /**
@@ -210,12 +210,12 @@ open class Document : Element
      */
     @discardableResult
     public override func text(_ text: String)throws->Element {
-        try body()?.text(text); // overridden to not nuke doc structure
-        return self;
+        try body()?.text(text) // overridden to not nuke doc structure
+        return self
     }
     
     open override func nodeName()->String {
-    return "#document";
+    return "#document"
     }
     
     /**
@@ -243,9 +243,9 @@ open class Document : Element
      * @see OutputSettings#charset(java.nio.charset.Charset)
      */
     public func charset(_ charset: String.Encoding)throws {
-        updateMetaCharsetElement(true);
-        _outputSettings.charset(charset);
-        try ensureMetaCharsetElement();
+        updateMetaCharsetElement(true)
+        _outputSettings.charset(charset)
+        try ensureMetaCharsetElement()
     }
     
     /**
@@ -257,7 +257,7 @@ open class Document : Element
      * @see OutputSettings#charset()
      */
     public func charset()->String.Encoding {
-        return _outputSettings.charset();
+        return _outputSettings.charset()
     }
     
     /**
@@ -274,7 +274,7 @@ open class Document : Element
      * @see #charset(java.nio.charset.Charset)
      */
     public func updateMetaCharsetElement(_ update: Bool) {
-        self.updateMetaCharset = update;
+        self.updateMetaCharset = update
     }
     
     /**
@@ -286,7 +286,7 @@ open class Document : Element
      * changes, <tt>false</tt> if not
      */
     public func updateMetaCharsetElement()->Bool {
-        return updateMetaCharset;
+        return updateMetaCharset
     }
 	
     /**
@@ -310,18 +310,18 @@ open class Document : Element
      */
     private func ensureMetaCharsetElement()throws {
         if (updateMetaCharset) {
-            let syntax: OutputSettings.Syntax = outputSettings().syntax();
+            let syntax: OutputSettings.Syntax = outputSettings().syntax()
             
             if (syntax == OutputSettings.Syntax.html) {
-                let metaCharset: Element? = try select("meta[charset]").first();
+                let metaCharset: Element? = try select("meta[charset]").first()
                 
                 if (metaCharset != nil) {
-                    try metaCharset?.attr("charset", charset().displayName());
+                    try metaCharset?.attr("charset", charset().displayName())
                 } else {
-                    let head: Element? = self.head();
+                    let head: Element? = self.head()
                     
                     if (head != nil) {
-                        try head?.appendElement("meta").attr("charset", charset().displayName());
+                        try head?.appendElement("meta").attr("charset", charset().displayName())
                     }
                 }
                 
@@ -335,25 +335,25 @@ open class Document : Element
                 if let decl = (node as? XmlDeclaration) {
                     
                     if (decl.name()=="xml") {
-                        try decl.attr("encoding", charset().displayName());
+                        try decl.attr("encoding", charset().displayName())
                         
-                        _ = try  decl.attr("version");
-                        try decl.attr("version", "1.0");
+                        _ = try  decl.attr("version")
+                        try decl.attr("version", "1.0")
                     } else {
                         try Validate.notNull(obj: baseUri)
-                        let decl = XmlDeclaration("xml", baseUri!, false);
-                        try decl.attr("version", "1.0");
-                        try decl.attr("encoding", charset().displayName());
+                        let decl = XmlDeclaration("xml", baseUri!, false)
+                        try decl.attr("version", "1.0")
+                        try decl.attr("encoding", charset().displayName())
                         
-                        try prependChild(decl);
+                        try prependChild(decl)
                     }
                 } else {
                     try Validate.notNull(obj: baseUri)
-                    let decl = XmlDeclaration("xml", baseUri!, false);
-                    try decl.attr("version", "1.0");
-                    try decl.attr("encoding", charset().displayName());
+                    let decl = XmlDeclaration("xml", baseUri!, false)
+                    try decl.attr("version", "1.0")
+                    try decl.attr("encoding", charset().displayName())
                     
-                    try prependChild(decl);
+                    try prependChild(decl)
                 }
             }
         }
@@ -374,8 +374,8 @@ open class Document : Element
      */
     @discardableResult
     public func outputSettings(_ outputSettings: OutputSettings)->Document {
-        self._outputSettings = outputSettings;
-        return self;
+        self._outputSettings = outputSettings
+        return self
     }
     
     public func quirksMode()->Document.QuirksMode {
@@ -384,8 +384,8 @@ open class Document : Element
     
     @discardableResult
     public func quirksMode(_ quirksMode: Document.QuirksMode)->Document {
-        self._quirksMode = quirksMode;
-        return self;
+        self._quirksMode = quirksMode
+        return self
     }
 	
 	public override func copy(with zone: NSZone? = nil) -> Any
@@ -403,7 +403,7 @@ open class Document : Element
 	public override func copy(clone: Node, parent: Node?)->Node
 	{
 		let clone = clone as! Document
-		clone._outputSettings = _outputSettings.copy() as! OutputSettings;
+		clone._outputSettings = _outputSettings.copy() as! OutputSettings
 		clone._quirksMode = _quirksMode
 		clone.updateMetaCharset = updateMetaCharset
 		return super.copy(clone: clone,parent: parent)
@@ -418,12 +418,12 @@ public class OutputSettings: NSCopying {
      */
     public enum Syntax {case html, xml}
     
-    private var _escapeMode : Entities.EscapeMode  = Entities.EscapeMode.base;
-    private var _encoder : String.Encoding = String.Encoding.utf8 // Charset.forName("UTF-8");
-    private var _prettyPrint : Bool = true;
-    private var _outline : Bool = false;
-    private var _indentAmount : UInt  = 1;
-    private var _syntax = Syntax.html;
+    private var _escapeMode : Entities.EscapeMode  = Entities.EscapeMode.base
+    private var _encoder : String.Encoding = String.Encoding.utf8 // Charset.forName("UTF-8")
+    private var _prettyPrint : Bool = true
+    private var _outline : Bool = false
+    private var _indentAmount : UInt  = 1
+    private var _syntax = Syntax.html
     
     public init() {}
     
@@ -436,7 +436,7 @@ public class OutputSettings: NSCopying {
      * @return the document's current escape mode
      */
     public func escapeMode() -> Entities.EscapeMode {
-        return _escapeMode;
+        return _escapeMode
     }
     
     /**
@@ -447,8 +447,8 @@ public class OutputSettings: NSCopying {
      */
     @discardableResult
     public func escapeMode(_ escapeMode: Entities.EscapeMode) -> OutputSettings {
-        self._escapeMode = escapeMode;
-        return self;
+        self._escapeMode = escapeMode
+        return self
     }
     
     /**
@@ -473,13 +473,13 @@ public class OutputSettings: NSCopying {
      */
     @discardableResult
     public func encoder(_ encoder: String.Encoding) -> OutputSettings {
-        self._encoder = encoder;
-        return self;
+        self._encoder = encoder
+        return self
     }
     
     @discardableResult
     public func charset(_ e: String.Encoding) -> OutputSettings {
-        return encoder(e);
+        return encoder(e)
     }
     
     
@@ -489,7 +489,7 @@ public class OutputSettings: NSCopying {
      * @return current syntax
      */
     public func syntax()-> Syntax {
-        return _syntax;
+        return _syntax
     }
     
     /**
@@ -500,8 +500,8 @@ public class OutputSettings: NSCopying {
      */
     @discardableResult
     public func syntax(syntax: Syntax)->OutputSettings {
-        _syntax = syntax;
-        return self;
+        _syntax = syntax
+        return self
     }
     
     /**
@@ -510,7 +510,7 @@ public class OutputSettings: NSCopying {
      * @return if pretty printing is enabled.
      */
     public func prettyPrint()->Bool {
-        return _prettyPrint;
+        return _prettyPrint
     }
     
     /**
@@ -520,8 +520,8 @@ public class OutputSettings: NSCopying {
      */
     @discardableResult
     public func prettyPrint(pretty: Bool)->OutputSettings {
-        _prettyPrint = pretty;
-        return self;
+        _prettyPrint = pretty
+        return self
     }
     
     /**
@@ -530,7 +530,7 @@ public class OutputSettings: NSCopying {
      * @return if outline mode is enabled.
      */
     public func outline()->Bool {
-        return _outline;
+        return _outline
     }
     
     /**
@@ -540,8 +540,8 @@ public class OutputSettings: NSCopying {
      */
     @discardableResult
     public func outline(outlineMode: Bool)->OutputSettings {
-        _outline = outlineMode;
-        return self;
+        _outline = outlineMode
+        return self
     }
     
     /**
@@ -549,7 +549,7 @@ public class OutputSettings: NSCopying {
      * @return the current indent amount
      */
     public func indentAmount()-> UInt {
-        return _indentAmount;
+        return _indentAmount
     }
     
     /**
@@ -559,17 +559,17 @@ public class OutputSettings: NSCopying {
      */
     @discardableResult
     public func indentAmount(indentAmount: UInt)-> OutputSettings {
-        _indentAmount = indentAmount;
-        return self;
+        _indentAmount = indentAmount
+        return self
     }
     
     
     public func copy(with zone: NSZone? = nil) -> Any{
         let clone: OutputSettings = OutputSettings()
-        clone.charset(_encoder); // new charset and charset encoder
-        clone._escapeMode = _escapeMode//Entities.EscapeMode.valueOf(escapeMode.name());
+        clone.charset(_encoder) // new charset and charset encoder
+        clone._escapeMode = _escapeMode//Entities.EscapeMode.valueOf(escapeMode.name())
         // indentAmount, prettyPrint are primitives so object.clone() will handle
-        return clone;
+        return clone
     }
 
 	

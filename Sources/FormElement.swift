@@ -13,7 +13,7 @@ import Foundation
  * form to easily be submitted.
  */
 public class FormElement : Element {
-    private let _elements: Elements = Elements();
+    private let _elements: Elements = Elements()
     
     /**
      * Create a new, standalone form element.
@@ -23,7 +23,7 @@ public class FormElement : Element {
      * @param attributes initial attributes
      */
     public override init(_ tag: Tag, _ baseUri: String, _ attributes: Attributes) {
-        super.init(tag, baseUri, attributes);
+        super.init(tag, baseUri, attributes)
     }
     
     /**
@@ -31,7 +31,7 @@ public class FormElement : Element {
      * @return form controls associated with this element.
      */
     public func elements()->Elements {
-        return _elements;
+        return _elements
     }
     
     /**
@@ -41,8 +41,8 @@ public class FormElement : Element {
      */
     @discardableResult
     public func addElement(_ element: Element)->FormElement {
-        _elements.add(element);
-        return self;
+        _elements.add(element)
+        return self
     }
 	
 	//todo:
@@ -54,14 +54,14 @@ public class FormElement : Element {
      * document's base URI when parsing.
      */
 //    public func submit()throws->Connection {
-//        let action: String = hasAttr("action") ? try absUrl("action") : try baseUri();
-//        Validate.notEmpty(action, "Could not determine a form action URL for submit. Ensure you set a base URI when parsing.");
+//        let action: String = hasAttr("action") ? try absUrl("action") : try baseUri()
+//        Validate.notEmpty(action, "Could not determine a form action URL for submit. Ensure you set a base URI when parsing.")
 //        Connection.Method method = attr("method").toUpperCase().equals("POST") ?
-//            Connection.Method.POST : Connection.Method.GET;
+//            Connection.Method.POST : Connection.Method.GET
 //        
 //        return Jsoup.connect(action)
 //            .data(formData())
-//            .method(method);
+//            .method(method)
 //    }
 	
     //todo:

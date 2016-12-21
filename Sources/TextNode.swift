@@ -30,7 +30,7 @@ open class TextNode : Node {
     public init(_ text: String, _ baseUri: String?) {
         self._text = text
         super.init()
-        self.baseUri = baseUri;
+        self.baseUri = baseUri
         
     }
     
@@ -54,7 +54,7 @@ open class TextNode : Node {
      */
     @discardableResult
     public func text(_ text: String)->TextNode {
-        self._text = text;
+        self._text = text
         guard let attributes = attributes else {
             return self
         }
@@ -71,7 +71,7 @@ open class TextNode : Node {
      @return text
      */
     open func getWholeText()->String {
-		return attributes == nil ? _text : attributes!.get(key: TextNode.TEXT_KEY);
+		return attributes == nil ? _text : attributes!.get(key: TextNode.TEXT_KEY)
     }
     
     /**
@@ -79,7 +79,7 @@ open class TextNode : Node {
      @return true if this document is empty or only whitespace, false if it contains any text content.
      */
     open func isBlank()->Bool {
-        return StringUtil.isBlank(getWholeText());
+        return StringUtil.isBlank(getWholeText())
     }
     
     /**
@@ -89,17 +89,17 @@ open class TextNode : Node {
      * @return the newly created text node containing the text after the offset.
      */
     open func splitText(_ offset: Int)throws->TextNode {
-        try Validate.isTrue(val: offset >= 0, msg: "Split offset must be not be negative");
-        try Validate.isTrue(val: offset < _text.characters.count, msg: "Split offset must not be greater than current text length");
+        try Validate.isTrue(val: offset >= 0, msg: "Split offset must be not be negative")
+        try Validate.isTrue(val: offset < _text.characters.count, msg: "Split offset must not be greater than current text length")
         
-        let head : String = getWholeText().substring(0, offset);
-        let tail : String = getWholeText().substring(offset);
-        text(head);
+        let head : String = getWholeText().substring(0, offset)
+        let tail : String = getWholeText().substring(offset)
+        text(head)
         let tailNode : TextNode = TextNode(tail, self.getBaseUri())
         if (parent() != nil){
             try parent()?.addChildren(siblingIndex+1, tailNode)
         }
-        return tailNode;
+        return tailNode
     }
     
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings)throws
@@ -107,13 +107,13 @@ open class TextNode : Node {
 		if (out.prettyPrint() &&
 			((siblingIndex == 0 && (parentNode as? Element) != nil &&  (parentNode as! Element).tag().formatAsBlock() && !isBlank()) ||
 				(out.outline() && siblingNodes().count > 0 && !isBlank()) )){
-            indent(accum, depth, out);
+            indent(accum, depth, out)
 		}
 		
         let par : Element? = parent() as? Element
-        let normaliseWhite = out.prettyPrint() && par != nil && !Element.preserveWhitespace(par!);
+        let normaliseWhite = out.prettyPrint() && par != nil && !Element.preserveWhitespace(par!)
         
-        Entities.escape(accum, getWholeText(), out, false, normaliseWhite, false);
+        Entities.escape(accum, getWholeText(), out, false, normaliseWhite, false)
     }
     
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
@@ -121,7 +121,7 @@ open class TextNode : Node {
     
     
     open override func toString()throws->String {
-        return try outerHtml();
+        return try outerHtml()
     }
     
     /**
@@ -131,66 +131,66 @@ open class TextNode : Node {
      * @return TextNode containing unencoded data (e.g. &lt;)
      */
     open static func createFromEncoded(_ encodedText: String, _ baseUri: String)throws->TextNode {
-        let text : String = try Entities.unescape(encodedText);
-        return TextNode(text, baseUri);
+        let text : String = try Entities.unescape(encodedText)
+        return TextNode(text, baseUri)
     }
     
     static open func normaliseWhitespace(_ text: String)->String {
-        let _text = StringUtil.normaliseWhitespace(text);
-        return _text;
+        let _text = StringUtil.normaliseWhitespace(text)
+        return _text
     }
     
     static open func stripLeadingWhitespace(_ text: String)->String {
         return text.replaceFirst(of: "^\\s+", with: "")
-        //return text.replaceFirst("^\\s+", "");
+        //return text.replaceFirst("^\\s+", "")
     }
     
     static open func lastCharIsWhitespace(_ sb: StringBuilder)->Bool {
-        return sb.toString().characters.last == " ";
+        return sb.toString().characters.last == " "
     }
     
     // attribute fiddling. create on first access.
     private func ensureAttributes() {
         if (attributes == nil) {
-            attributes = Attributes();
+            attributes = Attributes()
             do{
-                try attributes?.put(TextNode.TEXT_KEY, _text);
+                try attributes?.put(TextNode.TEXT_KEY, _text)
             }catch{}
         }
     }
     
     
     open override func attr(_ attributeKey: String)throws->String {
-        ensureAttributes();
-        return try super.attr(attributeKey);
+        ensureAttributes()
+        return try super.attr(attributeKey)
     }
     
     open override func getAttributes()->Attributes {
-        ensureAttributes();
-        return super.getAttributes()!;
+        ensureAttributes()
+        return super.getAttributes()!
     }
     
     open override func attr(_ attributeKey: String, _ attributeValue: String)throws->Node {
-        ensureAttributes();
-        return try super.attr(attributeKey, attributeValue);
+        ensureAttributes()
+        return try super.attr(attributeKey, attributeValue)
     }
     
     
     open override func hasAttr(_ attributeKey: String)->Bool {
-        ensureAttributes();
-        return super.hasAttr(attributeKey);
+        ensureAttributes()
+        return super.hasAttr(attributeKey)
     }
     
     
     open override func removeAttr(_ attributeKey: String)throws->Node {
-        ensureAttributes();
-        return try super.removeAttr(attributeKey);
+        ensureAttributes()
+        return try super.removeAttr(attributeKey)
     }
     
     
     open override func absUrl(_ attributeKey: String)throws->String {
-        ensureAttributes();
-        return try super.absUrl(attributeKey);
+        ensureAttributes()
+        return try super.absUrl(attributeKey)
     }
 	
 	public override func copy(with zone: NSZone? = nil) -> Any

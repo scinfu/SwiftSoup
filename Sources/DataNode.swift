@@ -12,7 +12,7 @@ import Foundation
  A data node, for contents of style, script tags etc, where contents should not show in text().
  */
 open class DataNode : Node{
-    private static let DATA_KEY : String  = "data";
+    private static let DATA_KEY : String  = "data"
     
     /**
      Create a new DataNode.
@@ -20,15 +20,15 @@ open class DataNode : Node{
      @param baseUri base URI
      */
     public init(_ data: String, _ baseUri: String) {
-        super.init(baseUri);
+        super.init(baseUri)
         do{
-            try attributes?.put(DataNode.DATA_KEY, data);
+            try attributes?.put(DataNode.DATA_KEY, data)
         }catch{}
         
     }
     
     open override func nodeName()->String {
-        return "#data";
+        return "#data"
     }
     
     /**
@@ -47,20 +47,20 @@ open class DataNode : Node{
     @discardableResult
     open func setWholeData(_ data: String)->DataNode {
         do{
-            try attributes?.put(DataNode.DATA_KEY, data);
+            try attributes?.put(DataNode.DATA_KEY, data)
         }catch{}
-        return self;
+        return self
     }
     
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings)throws {
-        accum.append(getWholeData()); // data is not escaped in return from data nodes, so " in script, style is plain
+        accum.append(getWholeData()) // data is not escaped in return from data nodes, so " in script, style is plain
     }
     
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {}
     
     
     open override func toString()throws->String {
-        return try outerHtml();
+        return try outerHtml()
     }
     
     /**
@@ -70,8 +70,8 @@ open class DataNode : Node{
      @return new DataNode
      */
     open static func createFromEncoded(_ encodedData: String, _ baseUri: String)throws->DataNode {
-        let data = try Entities.unescape(encodedData);
-        return DataNode(data, baseUri);
+        let data = try Entities.unescape(encodedData)
+        return DataNode(data, baseUri)
     }
 	
 	public override func copy(with zone: NSZone? = nil) -> Any

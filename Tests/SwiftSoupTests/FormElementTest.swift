@@ -25,11 +25,11 @@ class FormElementTest: XCTestCase {
 	func testHasAssociatedControls()throws {
 		//"button", "fieldset", "input", "keygen", "object", "output", "select", "textarea"
 		let html = "<form id=1><button id=1><fieldset id=2 /><input id=3><keygen id=4><object id=5><output id=6>" +
-		"<select id=7><option></select><textarea id=8><p id=9>";
-		let doc: Document = try SwiftSoup.parse(html);
+		"<select id=7><option></select><textarea id=8><p id=9>"
+		let doc: Document = try SwiftSoup.parse(html)
 		
 		let form: FormElement = try doc.select("form").first()! as! FormElement
-		XCTAssertEqual(8, form.elements().size());
+		XCTAssertEqual(8, form.elements().size())
 	}
 
 	//todo:
@@ -104,25 +104,25 @@ class FormElementTest: XCTestCase {
 //	}
 	
 	func testFormsAddedAfterParseAreFormElements()throws {
-		let doc: Document = try SwiftSoup.parse("<body />");
-		try doc.body()?.html("<form action='http://example.com/search'><input name='q' value='search'>");
+		let doc: Document = try SwiftSoup.parse("<body />")
+		try doc.body()?.html("<form action='http://example.com/search'><input name='q' value='search'>")
 		let formEl: Element = try doc.select("form").first()!
-		XCTAssertNotNil(formEl as? FormElement);
+		XCTAssertNotNil(formEl as? FormElement)
 		
 		let form: FormElement =  formEl as! FormElement
-		XCTAssertEqual(1, form.elements().size());
+		XCTAssertEqual(1, form.elements().size())
 	}
 	
 	func testControlsAddedAfterParseAreLinkedWithForms()throws {
-		let doc: Document = try SwiftSoup.parse("<body />");
-		try doc.body()?.html("<form />");
+		let doc: Document = try SwiftSoup.parse("<body />")
+		try doc.body()?.html("<form />")
 		
-		let formEl: Element = try doc.select("form").first()!;
-		try formEl.append("<input name=foo value=bar>");
+		let formEl: Element = try doc.select("form").first()!
+		try formEl.append("<input name=foo value=bar>")
 		
-		XCTAssertNotNil(formEl as? FormElement);
+		XCTAssertNotNil(formEl as? FormElement)
 		let form: FormElement = formEl as! FormElement
-		XCTAssertEqual(1, form.elements().size());
+		XCTAssertEqual(1, form.elements().size())
 		
 		//todo:
 		///List<Connection.KeyVal> data = form.formData();

@@ -24,7 +24,7 @@ open class SwiftSoup {
 	@return sane HTML
 	*/
 	public static func parse(_ html: String, _ baseUri: String)throws->Document {
-		return try Parser.parse(html, baseUri);
+		return try Parser.parse(html, baseUri)
 	}
 	
 	/**
@@ -38,7 +38,7 @@ open class SwiftSoup {
 	@return sane HTML
 	*/
 	public static func parse(_ html: String, _ baseUri: String, _ parser: Parser)throws->Document {
-		return try parser.parseInput(html, baseUri);
+		return try parser.parseInput(html, baseUri)
 	}
 	
 	/**
@@ -51,7 +51,7 @@ open class SwiftSoup {
 	@see #parse(String, String)
 	*/
 	public static func parse(_ html: String)throws->Document {
-		return try Parser.parse(html, "");
+		return try Parser.parse(html, "")
 	}
 
 	//todo:
@@ -144,7 +144,7 @@ open class SwiftSoup {
 	@see Document#body()
 	*/
 	public static func parseBodyFragment(_ bodyHtml: String, _ baseUri: String)throws->Document {
-		return try Parser.parseBodyFragment(bodyHtml, baseUri);
+		return try Parser.parseBodyFragment(bodyHtml, baseUri)
 	}
 	
 	/**
@@ -156,7 +156,7 @@ open class SwiftSoup {
 	@see Document#body()
 	*/
 	public static func parseBodyFragment(_ bodyHtml: String)throws->Document {
-		return try Parser.parseBodyFragment(bodyHtml, "");
+		return try Parser.parseBodyFragment(bodyHtml, "")
 	}
 	
 //	/**
@@ -194,10 +194,10 @@ open class SwiftSoup {
 	@see Cleaner#clean(Document)
 	*/
 	public static func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist)throws->String? {
-		let dirty: Document = try parseBodyFragment(bodyHtml, baseUri);
-		let cleaner: Cleaner = Cleaner(whitelist);
-		let clean: Document = try cleaner.clean(dirty);
-		return try clean.body()?.html();
+		let dirty: Document = try parseBodyFragment(bodyHtml, baseUri)
+		let cleaner: Cleaner = Cleaner(whitelist)
+		let clean: Document = try cleaner.clean(dirty)
+		return try clean.body()?.html()
 	}
 	
 	/**
@@ -211,7 +211,7 @@ open class SwiftSoup {
 	@see Cleaner#clean(Document)
 	*/
 	public static func clean(_ bodyHtml: String, _ whitelist: Whitelist)throws->String? {
-		return try SwiftSoup.clean(bodyHtml, "", whitelist);
+		return try SwiftSoup.clean(bodyHtml, "", whitelist)
 	}
 	
 	/**
@@ -227,11 +227,11 @@ open class SwiftSoup {
 	* @see Cleaner#clean(Document)
 	*/
 	public static func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist, _ outputSettings: OutputSettings)throws->String? {
-		let dirty: Document = try SwiftSoup.parseBodyFragment(bodyHtml, baseUri);
-		let cleaner: Cleaner = Cleaner(whitelist);
-		let clean: Document = try cleaner.clean(dirty);
-		clean.outputSettings(outputSettings);
-		return try clean.body()?.html();
+		let dirty: Document = try SwiftSoup.parseBodyFragment(bodyHtml, baseUri)
+		let cleaner: Cleaner = Cleaner(whitelist)
+		let clean: Document = try cleaner.clean(dirty)
+		clean.outputSettings(outputSettings)
+		return try clean.body()?.html()
 	}
 	
 	

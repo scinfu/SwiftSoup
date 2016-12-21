@@ -20,19 +20,19 @@ open class Tag : Hashable
         return Dictionary<String, Tag>()
     }()
     
-    fileprivate var _tagName : String;
-    fileprivate var _isBlock : Bool = true; // block or inline
-    fileprivate var _formatAsBlock : Bool = true; // should be formatted as a block
-    fileprivate var _canContainBlock : Bool = true; // Can this tag hold block level tags?
-    fileprivate var _canContainInline : Bool = true; // only pcdata if not
-    fileprivate var _empty : Bool = false; // can hold nothing; e.g. img
-    fileprivate var _selfClosing : Bool = false; // can self close (<foo />). used for unknown tags that self close, without forcing them as empty.
-    fileprivate var _preserveWhitespace : Bool = false; // for pre, textarea, script etc
-    fileprivate var _formList : Bool = false; // a control that appears in forms: input, textarea, output etc
-    fileprivate var _formSubmit : Bool = false; // a control that can be submitted in a form: input etc
+    fileprivate var _tagName : String
+    fileprivate var _isBlock : Bool = true // block or inline
+    fileprivate var _formatAsBlock : Bool = true // should be formatted as a block
+    fileprivate var _canContainBlock : Bool = true // Can this tag hold block level tags?
+    fileprivate var _canContainInline : Bool = true // only pcdata if not
+    fileprivate var _empty : Bool = false // can hold nothing e.g. img
+    fileprivate var _selfClosing : Bool = false // can self close (<foo />). used for unknown tags that self close, without forcing them as empty.
+    fileprivate var _preserveWhitespace : Bool = false // for pre, textarea, script etc
+    fileprivate var _formList : Bool = false // a control that appears in forms: input, textarea, output etc
+    fileprivate var _formSubmit : Bool = false // a control that can be submitted in a form: input etc
     
     public init(_ tagName: String) {
-        self._tagName = tagName;
+        self._tagName = tagName
     }
     
     /**
@@ -41,7 +41,7 @@ open class Tag : Hashable
      * @return the tag's name
      */
     open func getName()->String {
-        return self._tagName;
+        return self._tagName
     }
     
     /**
@@ -59,18 +59,18 @@ open class Tag : Hashable
         var tag : Tag? = Tag.tags[tagName]
         
         if (tag == nil) {
-            tagName = settings.normalizeTag(tagName);
-            try Validate.notEmpty(string: tagName);
+            tagName = settings.normalizeTag(tagName)
+            try Validate.notEmpty(string: tagName)
             tag = Tag.tags[tagName]
             
             if (tag == nil) {
                 // not defined: create default; go anywhere, do anything! (incl be inside a <p>)
-                tag = Tag(tagName);
-                tag!._isBlock = false;
-                tag!._canContainBlock = true;
+                tag = Tag(tagName)
+                tag!._isBlock = false
+                tag!._canContainBlock = true
             }
         }
-        return tag!;
+        return tag!
     }
     
     /**
@@ -83,7 +83,7 @@ open class Tag : Hashable
      * @return The tag, either defined or new generic.
      */
     open static func valueOf(_ tagName: String)throws->Tag {
-        return try valueOf(tagName, ParseSettings.preserveCase);
+        return try valueOf(tagName, ParseSettings.preserveCase)
     }
     
     /**
@@ -92,7 +92,7 @@ open class Tag : Hashable
      * @return if block tag
      */
     open func isBlock()->Bool {
-        return _isBlock;
+        return _isBlock
     }
     
     /**
@@ -101,7 +101,7 @@ open class Tag : Hashable
      * @return if should be formatted as block or inline
      */
     open func formatAsBlock()->Bool {
-        return _formatAsBlock;
+        return _formatAsBlock
     }
     
     /**
@@ -110,7 +110,7 @@ open class Tag : Hashable
      * @return if tag can contain block tags
      */
     open func canContainBlock()->Bool {
-        return _canContainBlock;
+        return _canContainBlock
     }
     
     /**
@@ -119,7 +119,7 @@ open class Tag : Hashable
      * @return if this tag is an inline tag.
      */
     open func isInline()->Bool {
-        return !_isBlock;
+        return !_isBlock
     }
     
     /**
@@ -128,7 +128,7 @@ open class Tag : Hashable
      * @return if this tag is a data only tag
      */
     open func isData()->Bool {
-        return !_canContainInline && !isEmpty();
+        return !_canContainInline && !isEmpty()
     }
     
     /**
@@ -137,7 +137,7 @@ open class Tag : Hashable
      * @return if this is an empty tag
      */
     open func isEmpty()->Bool {
-        return _empty;
+        return _empty
     }
     
     /**
@@ -146,7 +146,7 @@ open class Tag : Hashable
      * @return if this tag should be output as self closing.
      */
     open func isSelfClosing()->Bool {
-        return _empty || _selfClosing;
+        return _empty || _selfClosing
     }
     
     /**
@@ -174,7 +174,7 @@ open class Tag : Hashable
      * @return if preserve whitepace
      */
     public func preserveWhitespace()->Bool {
-        return _preserveWhitespace;
+        return _preserveWhitespace
     }
     
     /**
@@ -182,7 +182,7 @@ open class Tag : Hashable
      * @return if associated with a form
      */
     public func isFormListed()->Bool {
-        return _formList;
+        return _formList
     }
     
     /**
@@ -190,13 +190,13 @@ open class Tag : Hashable
      * @return if submittable with a form
      */
     public func isFormSubmittable()->Bool {
-        return _formSubmit;
+        return _formSubmit
     }
     
     @discardableResult
     func setSelfClosing() ->Tag{
-        _selfClosing = true;
-        return self;
+        _selfClosing = true
+        return self
     }
     
     /// Returns a Boolean value indicating whether two values are equal.
@@ -211,21 +211,21 @@ open class Tag : Hashable
     {
         let this = lhs
         let o = rhs
-        if (this === o) {return true;}
-        if (type(of:this) != type(of:o)) {return false;}
+        if (this === o) {return true}
+        if (type(of:this) != type(of:o)) {return false}
         
-        let tag : Tag = o ;
+        let tag : Tag = o 
         
-        if (lhs._tagName != tag._tagName) {return false;}
-        if (lhs._canContainBlock != tag._canContainBlock) {return false;}
-        if (lhs._canContainInline != tag._canContainInline) {return false;}
-        if (lhs._empty != tag._empty) {return false;}
-        if (lhs._formatAsBlock != tag._formatAsBlock) {return false;}
-        if (lhs._isBlock != tag._isBlock) {return false;}
-        if (lhs._preserveWhitespace != tag._preserveWhitespace) {return false;}
-        if (lhs._selfClosing != tag._selfClosing) {return false;}
-        if (lhs._formList != tag._formList) {return false;}
-        return lhs._formSubmit == tag._formSubmit;
+        if (lhs._tagName != tag._tagName) {return false}
+        if (lhs._canContainBlock != tag._canContainBlock) {return false}
+        if (lhs._canContainInline != tag._canContainInline) {return false}
+        if (lhs._empty != tag._empty) {return false}
+        if (lhs._formatAsBlock != tag._formatAsBlock) {return false}
+        if (lhs._isBlock != tag._isBlock) {return false}
+        if (lhs._preserveWhitespace != tag._preserveWhitespace) {return false}
+        if (lhs._selfClosing != tag._selfClosing) {return false}
+        if (lhs._formList != tag._formList) {return false}
+        return lhs._formSubmit == tag._formSubmit
     }
     
     public func equals(_ tag : Tag)->Bool
@@ -254,7 +254,7 @@ open class Tag : Hashable
     
     
     open func toString()->String {
-        return _tagName;
+        return _tagName
     }
     
     // internal static initialisers:
@@ -302,48 +302,48 @@ open class Tag : Hashable
         
         // creates
         for tagName in blockTags {
-            let tag = Tag(tagName);
-            dict[tag._tagName] = tag;
+            let tag = Tag(tagName)
+            dict[tag._tagName] = tag
         }
         for tagName in inlineTags {
-            let tag = Tag(tagName);
-            tag._isBlock = false;
-            tag._canContainBlock = false;
-            tag._formatAsBlock = false;
-            dict[tag._tagName] = tag;
+            let tag = Tag(tagName)
+            tag._isBlock = false
+            tag._canContainBlock = false
+            tag._formatAsBlock = false
+            dict[tag._tagName] = tag
         }
         
         // mods:
         for tagName in emptyTags {
             let tag = dict[tagName]
-            try Validate.notNull(obj: tag);
-            tag?._canContainBlock = false;
-            tag?._canContainInline = false;
-            tag?._empty = true;
+            try Validate.notNull(obj: tag)
+            tag?._canContainBlock = false
+            tag?._canContainInline = false
+            tag?._empty = true
         }
         
         for tagName in formatAsInlineTags {
             let tag = dict[tagName]
-            try Validate.notNull(obj: tag);
-            tag?._formatAsBlock = false;
+            try Validate.notNull(obj: tag)
+            tag?._formatAsBlock = false
         }
         
         for tagName in preserveWhitespaceTags {
             let tag = dict[tagName]
-            try Validate.notNull(obj: tag);
-            tag?._preserveWhitespace = true;
+            try Validate.notNull(obj: tag)
+            tag?._preserveWhitespace = true
         }
         
         for tagName in formListedTags {
             let tag = dict[tagName]
-            try Validate.notNull(obj: tag);
-            tag?._formList = true;
+            try Validate.notNull(obj: tag)
+            tag?._formList = true
         }
         
         for tagName in formSubmitTags {
             let tag = dict[tagName]
-            try Validate.notNull(obj: tag);
-            tag?._formSubmit = true;
+            try Validate.notNull(obj: tag)
+            tag?._formSubmit = true
         }
         return dict
     }

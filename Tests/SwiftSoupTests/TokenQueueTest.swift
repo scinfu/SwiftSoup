@@ -34,55 +34,55 @@ class TokenQueueTest: XCTestCase {
     }
     
     func testChompBalanced() {
-        let tq = TokenQueue(":contains(one (two) three) four");
-        let pre = tq.consumeTo("(");
-        let guts = tq.chompBalanced("(", ")");
-        let remainder = tq.remainder();
+        let tq = TokenQueue(":contains(one (two) three) four")
+        let pre = tq.consumeTo("(")
+        let guts = tq.chompBalanced("(", ")")
+        let remainder = tq.remainder()
         
-        XCTAssertEqual(":contains", pre);
-        XCTAssertEqual("one (two) three", guts);
-        XCTAssertEqual(" four", remainder);
+        XCTAssertEqual(":contains", pre)
+        XCTAssertEqual("one (two) three", guts)
+        XCTAssertEqual(" four", remainder)
     }
     
     func testChompEscapedBalanced() {
-        let tq = TokenQueue(":contains(one (two) \\( \\) \\) three) four");
-        let pre = tq.consumeTo("(");
-        let guts = tq.chompBalanced("(", ")");
-        let remainder = tq.remainder();
+        let tq = TokenQueue(":contains(one (two) \\( \\) \\) three) four")
+        let pre = tq.consumeTo("(")
+        let guts = tq.chompBalanced("(", ")")
+        let remainder = tq.remainder()
         
-        XCTAssertEqual(":contains", pre);
-        XCTAssertEqual("one (two) \\( \\) \\) three", guts);
-        XCTAssertEqual("one (two) ( ) ) three", TokenQueue.unescape(guts));
-        XCTAssertEqual(" four", remainder);
+        XCTAssertEqual(":contains", pre)
+        XCTAssertEqual("one (two) \\( \\) \\) three", guts)
+        XCTAssertEqual("one (two) ( ) ) three", TokenQueue.unescape(guts))
+        XCTAssertEqual(" four", remainder)
     }
     
     func testChompBalancedMatchesAsMuchAsPossible() {
-        let tq = TokenQueue("unbalanced(something(or another");
-        tq.consumeTo("(");
-        let match = tq.chompBalanced("(", ")");
-        XCTAssertEqual("something(or another", match);
+        let tq = TokenQueue("unbalanced(something(or another")
+        tq.consumeTo("(")
+        let match = tq.chompBalanced("(", ")")
+        XCTAssertEqual("something(or another", match)
     }
     
     func testUnescape() {
-        XCTAssertEqual("one ( ) \\", TokenQueue.unescape("one \\( \\) \\\\"));
+        XCTAssertEqual("one ( ) \\", TokenQueue.unescape("one \\( \\) \\\\"))
     }
     
     func testChompToIgnoreCase() {
-        let t = "<textarea>one < two </TEXTarea>";
-        var tq = TokenQueue(t);
-        var data = tq.chompToIgnoreCase("</textarea");
-        XCTAssertEqual("<textarea>one < two ", data);
+        let t = "<textarea>one < two </TEXTarea>"
+        var tq = TokenQueue(t)
+        var data = tq.chompToIgnoreCase("</textarea")
+        XCTAssertEqual("<textarea>one < two ", data)
         
-        tq = TokenQueue("<textarea> one two < three </oops>");
-        data = tq.chompToIgnoreCase("</textarea");
-        XCTAssertEqual("<textarea> one two < three </oops>", data);
+        tq = TokenQueue("<textarea> one two < three </oops>")
+        data = tq.chompToIgnoreCase("</textarea")
+        XCTAssertEqual("<textarea> one two < three </oops>", data)
     }
     
     func testAddFirst() {
-        let tq = TokenQueue("One Two");
-        tq.consumeWord();
-        tq.addFirst("Three");
-        XCTAssertEqual("Three Two", tq.remainder());
+        let tq = TokenQueue("One Two")
+        tq.consumeWord()
+        tq.addFirst("Three")
+        XCTAssertEqual("Three Two", tq.remainder())
     }
     
 }

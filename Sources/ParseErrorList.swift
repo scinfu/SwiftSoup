@@ -16,25 +16,25 @@ public class ParseErrorList
     private var array : Array<ParseError?> = Array<ParseError>()
     
     init(_ initialCapacity: Int, _ maxSize: Int) {
-        self.maxSize = maxSize;
+        self.maxSize = maxSize
         self.initialCapacity = initialCapacity
         array = Array(repeating: nil, count: maxSize)
     }
     
     func canAddError()->Bool {
-        return array.count < maxSize;
+        return array.count < maxSize
     }
     
     func getMaxSize()->Int {
-        return maxSize;
+        return maxSize
     }
     
     static func noTracking()->ParseErrorList {
-        return ParseErrorList(0, 0);
+        return ParseErrorList(0, 0)
     }
     
     static func tracking(_ maxSize: Int)->ParseErrorList {
-        return ParseErrorList(INITIAL_CAPACITY, maxSize);
+        return ParseErrorList(INITIAL_CAPACITY, maxSize)
     }
     
     //    // you need to provide the Equatable functionality

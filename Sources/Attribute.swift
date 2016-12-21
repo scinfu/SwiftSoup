@@ -17,15 +17,15 @@ open class Attribute  {
         "formnovalidate", "hidden", "inert", "ismap", "itemscope", "multiple", "muted", "nohref", "noresize",
         "noshade", "novalidate", "nowrap", "open", "readonly", "required", "reversed", "seamless", "selected",
         "sortable", "truespeed", "typemustmatch"
-    ];
+    ]
     
-    var key: String;
-    var value: String;
+    var key: String
+    var value: String
     
     public init(key: String,value :String) throws {
-        try Validate.notEmpty(string: key);
-        self.key = key.trim();
-        self.value = value;
+        try Validate.notEmpty(string: key)
+        self.key = key.trim()
+        self.value = value
     }
     
     /**
@@ -33,7 +33,7 @@ open class Attribute  {
      @return the attribute key
      */
     open func getKey() -> String{
-        return key;
+        return key
     }
     
     /**
@@ -41,8 +41,8 @@ open class Attribute  {
      @param key the new key; must not be null
      */
     open func setKey(key: String) throws {
-        try Validate.notEmpty(string: key);
-        self.key = key.trim();
+        try Validate.notEmpty(string: key)
+        self.key = key.trim()
     }
     
     /**
@@ -50,7 +50,7 @@ open class Attribute  {
      @return the attribute value
      */
     open func getValue() -> String {
-        return value;
+        return value
     }
     
     /**
@@ -59,9 +59,9 @@ open class Attribute  {
      */
     @discardableResult
     open func setValue(value: String)  -> String {
-        let old = self.value;
-        self.value = value;
-        return old;
+        let old = self.value
+        self.value = value
+        return old
     }
     
     /**
@@ -69,17 +69,17 @@ open class Attribute  {
      @return HTML
      */
     public func html()-> String {
-        let accum =  StringBuilder();
-		html(accum: accum, out: (Document("")).outputSettings());
-        return accum.toString();
+        let accum =  StringBuilder()
+		html(accum: accum, out: (Document("")).outputSettings())
+        return accum.toString()
     }
     
     public func html(accum: StringBuilder, out: OutputSettings ) {
-        accum.append(key);
+        accum.append(key)
         if (!shouldCollapseAttribute(out: out)) {
-            accum.append("=\"");
-            Entities.escape(accum, value, out, true, false, false);
-            accum.append("\"");
+            accum.append("=\"")
+            Entities.escape(accum, value, out, true, false, false)
+            accum.append("\"")
         }
     }
     
@@ -88,7 +88,7 @@ open class Attribute  {
      @return string
      */
     open func toString()-> String {
-        return html();
+        return html()
     }
     
     /**
@@ -98,12 +98,12 @@ open class Attribute  {
      * @return attribute
      */
     open static func createFromEncoded(unencodedKey: String, encodedValue: String) throws ->Attribute {
-        let value = try Entities.unescape(string: encodedValue, strict: true);
-        return try Attribute(key: unencodedKey, value: value);
+        let value = try Entities.unescape(string: encodedValue, strict: true)
+        return try Attribute(key: unencodedKey, value: value)
     }
     
     public func isDataAttribute() -> Bool {
-        return key.startsWith(Attributes.dataPrefix) && key.characters.count > Attributes.dataPrefix.characters.count;
+        return key.startsWith(Attributes.dataPrefix) && key.characters.count > Attributes.dataPrefix.characters.count
     }
     
     /**
@@ -115,7 +115,7 @@ open class Attribute  {
     public final func shouldCollapseAttribute(out: OutputSettings) -> Bool {
         return ("" == value  || value.equalsIgnoreCase(string: key))
             && out.syntax() == OutputSettings.Syntax.html
-            && isBooleanAttribute();
+            && isBooleanAttribute()
     }
     
     public func isBooleanAttribute() -> Bool
@@ -125,18 +125,18 @@ open class Attribute  {
     
 
     public func hashCode() -> Int {
-        var result = key.hashValue;
-        result = 31 * result + value.hashValue;
-        return result;
+        var result = key.hashValue
+        result = 31 * result + value.hashValue
+        return result
     }
     
     
     public func clone() -> Attribute
     {
         do {
-            return try Attribute(key: key,value: value);
+            return try Attribute(key: key,value: value)
         } catch Exception.Error( _ , let  msg){
-            print(msg);
+            print(msg)
         }catch{
             
         }

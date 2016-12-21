@@ -22,6 +22,6 @@ open class BooleanAttribute : Attribute {
     
     
     override public func isBooleanAttribute() -> Bool {
-        return true;
+        return true
     }
 }

@@ -72,7 +72,7 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
     }
     
     public func keySet() -> [Key] {
-        return _orderedKeys;
+        return _orderedKeys
     }
     
     public var orderedValues: [Value] {
@@ -110,12 +110,12 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
     
     // required var for the Hashable protocol
     public var hashValue: Int {
-        return 0 ;
+        return 0 
     }
     
 	
     public func hashCode() -> Int {
-        return hashValue;
+        return hashValue
     }
 	
     @discardableResult

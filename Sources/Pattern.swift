@@ -9,7 +9,7 @@
 import Foundation
 
 public struct Pattern {
-    public static let CASE_INSENSITIVE: Int = 0x02;
+    public static let CASE_INSENSITIVE: Int = 0x02
     let pattern: String
     
     init(_ pattern: String) {
@@ -49,7 +49,7 @@ public struct Pattern {
     
     public func split(_ input: String)->Array<String>
     {
-        let m = matcher(in: input);
+        let m = matcher(in: input)
         var a = Array<String>()
 //        for i in 0..<m.matches.count{
 //            a.append(m.group(i)!)
@@ -65,7 +65,7 @@ public class  Matcher
 {
     let matches :[NSTextCheckingResult]
     let string : String
-    var index : Int = -1;
+    var index : Int = -1
     
     public var count : Int { return matches.count}
     
@@ -78,19 +78,19 @@ public class  Matcher
     @discardableResult
     public func find() -> Bool
     {
-        index += 1;
+        index += 1
         if(index < matches.count)
         {
-            return true;
+            return true
         }
-        return false;
+        return false
     }
     
     public func group(_ i: Int) -> String?
     {
         let b = matches[index]
         let c = b.rangeAt(i)
-        if(c.location == NSNotFound) {return nil;}
+        if(c.location == NSNotFound) {return nil}
 		let result = (string as NSString).substring(with:c)
         return result
     }

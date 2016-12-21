@@ -27,20 +27,20 @@ open class Collector {
     open static func collect (_ eval: Evaluator, _ root: Element)throws->Elements {
         let elements : Elements = Elements()
         try NodeTraversor(Accumulator(root, elements, eval)).traverse(root)
-        return elements;
+        return elements
     }
     
 }
 
 private final class Accumulator : NodeVisitor {
-    private let root: Element;
-    private let elements: Elements;
-    private let eval: Evaluator;
+    private let root: Element
+    private let elements: Elements
+    private let eval: Evaluator
     
     init(_ root: Element, _ elements: Elements, _ eval: Evaluator) {
-        self.root = root;
-        self.elements = elements;
-        self.eval = eval;
+        self.root = root
+        self.elements = elements
+        self.eval = eval
     }
     
     open func head(_ node: Node, _ depth: Int) {
@@ -48,7 +48,7 @@ private final class Accumulator : NodeVisitor {
         {
             do{
                 if (try eval.matches(root, el)){
-                    elements.add(el);
+                    elements.add(el)
                 }
             }catch{}
             

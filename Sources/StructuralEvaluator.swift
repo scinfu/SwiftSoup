@@ -15,12 +15,12 @@ public class StructuralEvaluator : Evaluator {
     let evaluator: Evaluator
     
     public init(_ evaluator: Evaluator) {
-        self.evaluator = evaluator;
+        self.evaluator = evaluator
     }
     
     public class Root : Evaluator {
         public override func matches(_ root: Element, _ element: Element)->Bool {
-            return root === element;
+            return root === element
         }
     }
     
@@ -41,7 +41,7 @@ public class StructuralEvaluator : Evaluator {
                 }catch{}
             }
             
-            return false;
+            return false
         }
         
         
@@ -57,7 +57,7 @@ public class StructuralEvaluator : Evaluator {
         
         public override func matches(_ root: Element, _ node: Element)->Bool {
             do{
-                return try !evaluator.matches(root, node);
+                return try !evaluator.matches(root, node)
             }catch{}
             return false
         }
@@ -74,25 +74,25 @@ public class StructuralEvaluator : Evaluator {
         
         public override func matches(_ root: Element, _ element: Element)->Bool {
             if (root == element){
-                return false;
+                return false
             }
             
-            var parent = element.parent();
+            var parent = element.parent()
             while (true) {
                 do{
                     if parent != nil{
                         if (try evaluator.matches(root, parent!)){
-                            return true;
+                            return true
                         }
                     }
                 }catch{}
                 
                 if (parent == root){
-                    break;
+                    break
                 }
-                parent = parent?.parent();
+                parent = parent?.parent()
             }
-            return false;
+            return false
         }
         
         public override func toString()->String {
@@ -107,12 +107,12 @@ public class StructuralEvaluator : Evaluator {
         
         public override func matches(_ root: Element, _ element: Element)->Bool {
             if (root == element){
-                return false;
+                return false
             }
             
             if let parent = element.parent(){
                 do{
-                    return try evaluator.matches(root, parent);
+                    return try evaluator.matches(root, parent)
                 }catch{}
             }
             
@@ -131,21 +131,21 @@ public class StructuralEvaluator : Evaluator {
         
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             if (root == element){
-            return false;
+            return false
             }
             
-            var prev = try element.previousElementSibling();
+            var prev = try element.previousElementSibling()
             
             while (prev != nil) {
                 do{
                 if (try evaluator.matches(root, prev!)){
-                    return true;
+                    return true
                 }
                 }catch{}
                 
-                prev = try prev!.previousElementSibling();
+                prev = try prev!.previousElementSibling()
             }
-            return false;
+            return false
         }
         
         public override func toString()->String {
@@ -160,7 +160,7 @@ public class StructuralEvaluator : Evaluator {
         
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             if (root == element){
-                return false;
+                return false
             }
             
             if let prev = try element.previousElementSibling(){

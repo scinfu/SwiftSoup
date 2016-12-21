@@ -20,7 +20,7 @@ extension Character {
     public static let BackslashF : Character = Character(UnicodeScalar(12))
 	
     //http://www.unicode.org/glossary/#supplementary_code_point
-    public static let MIN_SUPPLEMENTARY_CODE_POINT : UInt32 = 0x010000;
+    public static let MIN_SUPPLEMENTARY_CODE_POINT : UInt32 = 0x010000
     
     /// The first `UnicodeScalar` of `self`.
     var unicodeScalar: UnicodeScalar {
@@ -176,7 +176,7 @@ extension Character {
     }
     
     static func charCount(codePoint: UInt32) -> Int {
-        return codePoint >= MIN_SUPPLEMENTARY_CODE_POINT ? 2 : 1;
+        return codePoint >= MIN_SUPPLEMENTARY_CODE_POINT ? 2 : 1
     }
     
     static func isLetter(_ char: Character)->Bool{
@@ -193,7 +193,7 @@ extension Character {
     func isLetterOrDigit()->Bool
     {
         if(self.isLetter()) {return true}
-        return self.isDigit;
+        return self.isDigit
     }
 }
 
