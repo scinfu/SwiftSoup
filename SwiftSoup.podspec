@@ -9,7 +9,7 @@
 Pod::Spec.new do |s|
   s.name             = 'SwiftSoup'
   s.version          = '1.1.1'
-  s.summary          = 'Swift HTML/XML Parser, with best of DOM, CSS, and jquery'
+  s.summary          = 'Swift HTML Parser and XML, with best of DOM, CSS, and jquery'
 
 # This description is used to generate tags and improve search results.
 #   * Think: What does it do? Why did you write it? What is the focus?
@@ -28,7 +28,10 @@ SwiftSoup is a Swift library for working with real-world HTML. It provides a ver
   s.source           = { :git => 'https://github.com/scinfu/SwiftSoup.git', :tag => s.version.to_s }
   s.social_media_url = 'https://twitter.com/scinfu'
 
-  s.ios.deployment_target = '8.0'
+  s.ios.deployment_target = "8.0"
+  s.osx.deployment_target = "10.10"
+  s.watchos.deployment_target = "2.0"
+  s.tvos.deployment_target = "9.0"
 
   s.source_files = 'Sources/**/*'
   
