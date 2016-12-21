@@ -33,7 +33,7 @@ SwiftSoup is a Swift library for working with real-world HTML. It provides a ver
   s.watchos.deployment_target = "2.0"
   s.tvos.deployment_target = "9.0"
 
-  s.source_files = 'Sources/**/*'
+  s.source_files = 'Sources/**/*.swift'
   
   #s.resource_bundles = {
   #  'SwiftSoup' => ['Assets/*.properties']
