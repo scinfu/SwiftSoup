@@ -1,5 +1,5 @@
 PODS:
-  - SwiftSoup (1.1.1)
+  - SwiftSoup (1.1.2)
 
 DEPENDENCIES:
   - SwiftSoup (from `../`)
@@ -9,7 +9,7 @@ EXTERNAL SOURCES:
     :path: ../
 
 SPEC CHECKSUMS:
-  SwiftSoup: 2813b3e21eded1d50ad045e294664cc0fd8d07a6
+  SwiftSoup: cd1cad044a5188580c56aa7860657d998d9d83aa
 
 PODFILE CHECKSUM: 1a9fe573c1621ea34a0bf6b2ac20737e78fb44f5
 
