@@ -9,17 +9,17 @@
 import Foundation
 
 extension String {
-    
-    public subscript (i: Int) -> Character {
+	
+	subscript (i: Int) -> Character {
         return self[self.characters.index(self.startIndex, offsetBy: i)]
     }
-    
-    public subscript (i: Int) -> String {
+	
+	subscript (i: Int) -> String {
         return String(self[i] as Character)
     }
 	
 	
-	public func unicodeScalar(_ i: Int)->UnicodeScalar{
+	func unicodeScalar(_ i: Int)->UnicodeScalar{
 		return self.unicodeScalars.prefix(i+1).last!
 	}
 	
@@ -38,22 +38,20 @@ extension String {
         return value.substring(with: range)
     }
 	
-
-	
-    public func isEmptyOrWhitespace() -> Bool {
+	func isEmptyOrWhitespace() -> Bool {
 		
         if(self.isEmpty) {
             return true
         }
         return (self.trimmingCharacters(in: CharacterSet.whitespaces) == "")
     }
-    
-    public func startsWith(_ string:String) -> Bool
+	
+	func startsWith(_ string:String) -> Bool
     {
         return self.hasPrefix(string)
     }
-    
-    public func indexOf(_ substring: String, _ offset: Int ) -> Int {
+	
+	func indexOf(_ substring: String, _ offset: Int ) -> Int {
         if(offset > characters.count){return -1}
         
         let maxIndex = self.characters.count - substring.characters.count
@@ -68,8 +66,8 @@ extension String {
         }
         return -1
     }
-    
-    public func indexOf(_ substring: String) -> Int {
+	
+	func indexOf(_ substring: String) -> Int {
         return self.indexOf(substring, 0)
     }
     
@@ -101,11 +99,11 @@ extension String {
         return self[i] as Character
     }
 	
-    public func substring(_ beginIndex: Int) -> String {
+	func substring(_ beginIndex: Int) -> String {
         return String.split(self, beginIndex, self.characters.count-beginIndex)
     }
-    
-    public func substring(_ beginIndex: Int, _ count: Int) -> String {
+	
+	func substring(_ beginIndex: Int, _ count: Int) -> String {
         return String.split(self, beginIndex, count)
     }
     

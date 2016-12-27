@@ -136,7 +136,7 @@ extension Character {
         
     }
 	
-	public func isChar(inSet set: CharacterSet) -> Bool {
+	func isChar(inSet set: CharacterSet) -> Bool {
 		var found = true
 		for ch in String(self).utf16 {
 			if !set.contains(UnicodeScalar(ch)!) { found = false }
@@ -165,8 +165,8 @@ extension Character {
         return set.contains(UnicodeScalar(unicodes.first!.value)!)
         
     }
-    
-    public static func convertFromIntegerLiteral(value: IntegerLiteralType) -> Character {
+	
+	static func convertFromIntegerLiteral(value: IntegerLiteralType) -> Character {
         return Character(UnicodeScalar(value)!)
     }
     
