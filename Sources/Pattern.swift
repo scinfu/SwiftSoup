@@ -47,7 +47,7 @@ public struct Pattern {
     public func toString()->String{
         return pattern
     }
-    
+	
     public func split(_ input: String)->Array<String>
     {
         let m = matcher(in: input)

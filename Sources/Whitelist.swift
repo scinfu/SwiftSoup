@@ -216,7 +216,7 @@ public class Whitelist {
      */
     @discardableResult
     open func removeTags(_ tags: String...)throws ->Whitelist {
-        try Validate.notNull(obj: tags as AnyObject?)
+        try Validate.notNull(obj:tags)
         
         for tag in tags {
             try Validate.notEmpty(string: tag)
@@ -439,7 +439,7 @@ public class Whitelist {
     open func addProtocols(_ tag: String, _ key: String, _ protocols: String...)throws->Whitelist {
         try Validate.notEmpty(string: tag)
         try Validate.notEmpty(string: key)
-        try Validate.notNull(obj: protocols as AnyObject?)
+        try Validate.notNull(obj: protocols)
         
         let tagName : TagName = TagName.valueOf(tag)
         let attrKey : AttributeKey = AttributeKey.valueOf(key)
