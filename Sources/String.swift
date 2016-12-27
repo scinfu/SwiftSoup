@@ -156,11 +156,11 @@ extension String {
     func replaceAll(of pattern:String,with replacement:String,options: NSRegularExpression.Options = []) -> String{
         do{
 			#if os(Linux)
-				typealias RegularExpression = RegularExpression
+				typealias RegEx = RegularExpression
 			#else
-				typealias RegularExpression = NSRegularExpression
+				typealias RegEx = NSRegularExpression
 			#endif
-            let regex = try RegularExpression(pattern: pattern, options: [])
+            let regex = try RegEx(pattern: pattern, options: [])
             let range = NSRange(0..<self.utf16.count)
             return regex.stringByReplacingMatches(in: self, options: [],
                                                   range: range, withTemplate: replacement)
