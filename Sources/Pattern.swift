@@ -8,8 +8,15 @@
 
 import Foundation
 
+#if !os(Linux)
+	extension NSTextCheckingResult {
+		func range(at idx: Int) -> NSRange {
+			return rangeAt(idx)
+		}
+	}
+#endif
 
-public struct Pattern {	
+public struct Pattern {
     public static let CASE_INSENSITIVE: Int = 0x02
     let pattern: String
 	
@@ -47,19 +54,6 @@ public struct Pattern {
     public func toString()->String{
         return pattern
     }
-	
-    public func split(_ input: String)->Array<String>
-    {
-        let m = matcher(in: input)
-        var a = Array<String>()
-//        for i in 0..<m.matches.count{
-//            a.append(m.group(i)!)
-//        }
-		while m.find() {
-			a.append(m.group(0)!)
-		}
-        return a
-    }
 }
 
 public class  Matcher
@@ -90,7 +84,7 @@ public class  Matcher
     public func group(_ i: Int) -> String?
     {
         let b = matches[index]
-        let c = b.rangeAt(i)
+		let c = b.range(at:i)
         if(c.location == NSNotFound) {return nil}
 		let result = (string as NSString).substring(with:c)
         return result
