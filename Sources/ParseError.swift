@@ -19,12 +19,7 @@ open class ParseError {
         self.pos = pos
         self.errorMsg = errorMsg
     }
-    
-    init(_ pos: Int, _ errorFormat: String, _ args_ : String) {
-        self.errorMsg = String(format:errorFormat,args_)
-        self.pos = pos
-    }
-    
+	
     /**
      * Retrieve the error message.
      * @return the error message.
