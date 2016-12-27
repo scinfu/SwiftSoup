@@ -55,6 +55,8 @@
 		8CC2FD8D1DB12382002CB469 /* Whitelist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC2FD8C1DB12382002CB469 /* Whitelist.swift */; };
 		8CD48F1F1DBB6B5100D1D88F /* Collector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CD48F1E1DBB6B5100D1D88F /* Collector.swift */; };
 		8CD48F211DBB6D2F00D1D88F /* Evaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CD48F201DBB6D2F00D1D88F /* Evaluator.swift */; };
+		8CD4E8ED1E1293810039B951 /* Regex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CD4E8EC1E1293810039B951 /* Regex.swift */; };
+		8CD4E8F01E12B0FF0039B951 /* Pattern.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418541DAA568600240B42 /* Pattern.swift */; };
 		8CD500DE1DAEC9FF002270FC /* TokeniserState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CD500DD1DAEC9FF002270FC /* TokeniserState.swift */; };
 		8CE2D93F1DB2796C00C7BDE3 /* Cleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE2D93E1DB2796C00C7BDE3 /* Cleaner.swift */; };
 		8CE2D9411DB27CAD00C7BDE3 /* Tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE2D9401DB27CAD00C7BDE3 /* Tag.swift */; };
@@ -84,7 +86,6 @@
 		8CE418731DAA568700240B42 /* ArrayExt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418501DAA568600240B42 /* ArrayExt.swift */; };
 		8CE418741DAA568700240B42 /* CharacterExt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418511DAA568600240B42 /* CharacterExt.swift */; };
 		8CE418761DAA568700240B42 /* OrderedDictionary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418531DAA568600240B42 /* OrderedDictionary.swift */; };
-		8CE418771DAA568700240B42 /* Pattern.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418541DAA568600240B42 /* Pattern.swift */; };
 		8CE418781DAA568700240B42 /* StreamReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418551DAA568600240B42 /* StreamReader.swift */; };
 		8CE4187A1DAA568700240B42 /* SwiftSoup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418571DAA568600240B42 /* SwiftSoup.swift */; };
 		8CEA29591DAC112B0064A341 /* CharacterReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CEA29581DAC112B0064A341 /* CharacterReader.swift */; };
@@ -150,6 +151,7 @@
 		8CC2FD8C1DB12382002CB469 /* Whitelist.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Whitelist.swift; sourceTree = "<group>"; };
 		8CD48F1E1DBB6B5100D1D88F /* Collector.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Collector.swift; sourceTree = "<group>"; };
 		8CD48F201DBB6D2F00D1D88F /* Evaluator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Evaluator.swift; sourceTree = "<group>"; };
+		8CD4E8EC1E1293810039B951 /* Regex.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Regex.swift; sourceTree = "<group>"; };
 		8CD500DD1DAEC9FF002270FC /* TokeniserState.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TokeniserState.swift; sourceTree = "<group>"; };
 		8CE2D93E1DB2796C00C7BDE3 /* Cleaner.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Cleaner.swift; sourceTree = "<group>"; };
 		8CE2D9401DB27CAD00C7BDE3 /* Tag.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Tag.swift; sourceTree = "<group>"; };
@@ -214,6 +216,7 @@
 				8CE418501DAA568600240B42 /* ArrayExt.swift */,
 				8CE418511DAA568600240B42 /* CharacterExt.swift */,
 				8CE418531DAA568600240B42 /* OrderedDictionary.swift */,
+				8CD4E8EC1E1293810039B951 /* Regex.swift */,
 				8CE418541DAA568600240B42 /* Pattern.swift */,
 				8CE418551DAA568600240B42 /* StreamReader.swift */,
 				8CEA295A1DAC23820064A341 /* String.swift */,
@@ -519,6 +522,7 @@
 				8CE418761DAA568700240B42 /* OrderedDictionary.swift in Sources */,
 				8CC2FD8D1DB12382002CB469 /* Whitelist.swift in Sources */,
 				8C19C82F1DB7E5D200B8FC22 /* Tokeniser.swift in Sources */,
+				8CD4E8F01E12B0FF0039B951 /* Pattern.swift in Sources */,
 				8CEA295B1DAC23820064A341 /* String.swift in Sources */,
 				8C89785E1DBCDB0D00B1C024 /* CombiningEvaluator.swift in Sources */,
 				8CE418621DAA568600240B42 /* Attribute.swift in Sources */,
@@ -548,6 +552,7 @@
 				8CE4186D1DAA568700240B42 /* FormElement.swift in Sources */,
 				8C73DB4B1DDA605900233A68 /* UnicodeScalar.swift in Sources */,
 				8CE418601DAA568600240B42 /* Validate.swift in Sources */,
+				8CD4E8ED1E1293810039B951 /* Regex.swift in Sources */,
 				8C3617C11DBAC2AE00E00CFE /* Selector.swift in Sources */,
 				8CE418711DAA568700240B42 /* Parser.swift in Sources */,
 				8CE418701DAA568700240B42 /* XmlDeclaration.swift in Sources */,
@@ -568,7 +573,6 @@
 				8CE418721DAA568700240B42 /* SerializationException.swift in Sources */,
 				8C7D44D81DB018D500A815E0 /* TokenQueue.swift in Sources */,
 				8CE418661DAA568600240B42 /* Document.swift in Sources */,
-				8CE418771DAA568700240B42 /* Pattern.swift in Sources */,
 				8C6239C21DBE76D40024F42D /* TreeBuilder.swift in Sources */,
 				8CE4185A1DAA568600240B42 /* DataUtil.swift in Sources */,
 				8C19C8311DB7E8CD00B8FC22 /* ParseError.swift in Sources */,
