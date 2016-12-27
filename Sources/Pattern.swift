@@ -9,13 +9,7 @@
 import Foundation
 
 
-public struct Pattern {
-	#if os(Linux)
-	public typealias RegEx = RegularExpression
-	#else
-	public typealias RegEx = NSRegularExpression
-	#endif
-	
+public struct Pattern {	
     public static let CASE_INSENSITIVE: Int = 0x02
     let pattern: String
 	
@@ -34,12 +28,12 @@ public struct Pattern {
     
     func validate()throws
     {
-         _ = try RegEx(pattern: self.pattern)
+         _ = try NCRegularExpression(pattern: self.pattern)
     }
     
     func matcher(in text: String) -> Matcher {
         do {
-            let regex = try RegEx(pattern: self.pattern)
+            let regex = try NCRegularExpression(pattern: self.pattern)
             let nsString = text as NSString
             let results = regex.matches(in: text, range: NSRange(location: 0, length: nsString.length))
             
