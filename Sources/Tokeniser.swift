@@ -183,7 +183,7 @@ final class Tokeniser
             if (!found) {
                 reader.rewindToMark()
                 if (looksLegit){ // named with semicolon
-                    characterReferenceError(String(format:"invalid named referenece '%@'", nameRef))
+                    characterReferenceError("invalid named referenece '\(nameRef)'")
                 }
                 return nil
             }
@@ -256,19 +256,19 @@ final class Tokeniser
     
     func error(_ state: TokeniserState) {
         if (errors != nil && errors!.canAddError()){
-            errors?.add(ParseError(reader.getPos(), "Unexpected character '%@' in input state [%@]", String(reader.current()), state.description))
+            errors?.add(ParseError(reader.getPos(), "Unexpected character '\(String(reader.current()))' in input state [\(state.description)]"))
         }
     }
     
     func eofError(_ state: TokeniserState) {
         if (errors != nil && errors!.canAddError()){
-            errors?.add(ParseError(reader.getPos(), "Unexpectedly reached end of file (EOF) in input state [%@]", state.description))
+            errors?.add(ParseError(reader.getPos(), "Unexpectedly reached end of file (EOF) in input state [\(state.description)]"))
         }
     }
     
     private func characterReferenceError(_ message: String) {
         if (errors != nil && errors!.canAddError()){
-            errors?.add(ParseError(reader.getPos(), "Invalid character reference: %@", message))
+            errors?.add(ParseError(reader.getPos(), "Invalid character reference: \(message)"))
         }
     }
     
