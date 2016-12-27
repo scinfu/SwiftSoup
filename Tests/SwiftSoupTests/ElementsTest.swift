@@ -12,23 +12,6 @@ import XCTest
 import SwiftSoup
 class ElementsTest: XCTestCase {
 	
-	override func setUp() {
-		super.setUp()
-		// Put setup code here. This method is called before the invocation of each test method in the class.
-	}
-	
-	override func tearDown() {
-		// Put teardown code here. This method is called after the invocation of each test method in the class.
-		super.tearDown()
-	}
-	
-	func testPerformanceExample() {
-		// This is an example of a performance test case.
-		self.measure {
-			// Put the code you want to measure the time of here.
-		}
-	}
-	
 	func testFilter()throws {
 		let h: String = "<p>Excl</p><div class=headline><p>Hello</p><p>There</p></div><div class=headline><h1>Headline</h1></div>"
 		let doc: Document = try SwiftSoup.parse(h)
@@ -302,5 +285,38 @@ class ElementsTest: XCTestCase {
 	}
 	
 	
-	
+	static var allTests = {
+		return [
+			("testFilter" , testFilter),
+			("testAttributes" , testAttributes),
+			("testHasAttr" , testHasAttr),
+			("testHasAbsAttr" , testHasAbsAttr),
+			("testAttr" , testAttr),
+			("testAbsAttr" , testAbsAttr),
+			("testClasses" , testClasses),
+			("testText" , testText),
+			("testHasText" , testHasText),
+			("testHtml" , testHtml),
+			("testOuterHtml" , testOuterHtml),
+			("testSetHtml" , testSetHtml),
+			("testVal" , testVal),
+			("testBefore" , testBefore),
+			("testAfter" , testAfter),
+			("testWrap" , testWrap),
+			("testWrapDiv" , testWrapDiv),
+			("testUnwrap" , testUnwrap),
+			("testUnwrapP" , testUnwrapP),
+			("testUnwrapKeepsSpace" , testUnwrapKeepsSpace),
+			("testEmpty" , testEmpty),
+			("testRemove" , testRemove),
+			("testEq" , testEq),
+			("testIs" , testIs),
+			("testParents" , testParents),
+			("testNot" , testNot),
+			("testTagNameSet" , testTagNameSet),
+			("testTraverse" , testTraverse),
+			("testForms" , testForms),
+			("testClassWithHyphen" , testClassWithHyphen)
+		]
+	}()
 }
