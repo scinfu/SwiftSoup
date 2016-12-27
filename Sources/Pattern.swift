@@ -64,13 +64,13 @@ public struct Pattern {
 
 public class  Matcher
 {
-    let matches :[NSTextCheckingResult]
+    let matches :[NCTextCheckingResult]
     let string : String
     var index : Int = -1
     
     public var count : Int { return matches.count}
     
-    init(_ m:[NSTextCheckingResult],_ s: String)
+    init(_ m:[NCTextCheckingResult],_ s: String)
     {
         matches = m
         string = s
