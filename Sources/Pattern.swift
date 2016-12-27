@@ -35,7 +35,7 @@ public struct Pattern {
         do {
             let regex = try NCRegularExpression(pattern: self.pattern, options:[])
             let nsString = NSString(string: text)
-            let results = regex.matches(in: text, range: NSRange(location: 0, length: nsString.length))
+            let results = regex.matches(in: text,options:[], range: NSRange(location: 0, length: nsString.length))
             
             return Matcher(results,text)
         } catch let error {
