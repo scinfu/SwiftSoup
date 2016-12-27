@@ -152,6 +152,7 @@
 		8CD48F1E1DBB6B5100D1D88F /* Collector.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Collector.swift; sourceTree = "<group>"; };
 		8CD48F201DBB6D2F00D1D88F /* Evaluator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Evaluator.swift; sourceTree = "<group>"; };
 		8CD4E8F11E12E2670039B951 /* PlatformTypes.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PlatformTypes.swift; sourceTree = "<group>"; };
+		8CD4E8F31E13200C0039B951 /* LinuxMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinuxMain.swift; sourceTree = "<group>"; };
 		8CD500DD1DAEC9FF002270FC /* TokeniserState.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TokeniserState.swift; sourceTree = "<group>"; };
 		8CE2D93E1DB2796C00C7BDE3 /* Cleaner.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Cleaner.swift; sourceTree = "<group>"; };
 		8CE2D9401DB27CAD00C7BDE3 /* Tag.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Tag.swift; sourceTree = "<group>"; };
@@ -358,6 +359,7 @@
 				8CF3E7381E09BD7100F505D2 /* nodes */,
 				8CC142291E092E89002F536D /* SwiftSoupTests.swift */,
 				8CC1422C1E092E89002F536D /* TextUtil.swift */,
+				8CD4E8F31E13200C0039B951 /* LinuxMain.swift */,
 				8CC141E61E092D92002F536D /* helper */,
 				8CE418261DAA54A900240B42 /* Info.plist */,
 			);

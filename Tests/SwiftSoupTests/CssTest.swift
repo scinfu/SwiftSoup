@@ -45,17 +45,6 @@ class CssTest: XCTestCase {
 		html  = try! SwiftSoup.parse(htmlString)
 	}
 	
-	override func tearDown() {
-		// Put teardown code here. This method is called after the invocation of each test method in the class.
-		super.tearDown()
-	}
-	
-	func testPerformanceExample() {
-		// This is an example of a performance test case.
-		self.measure {
-			// Put the code you want to measure the time of here.
-		}
-	}
 	
 	func testFirstChild()throws {
 		try check(html.select("#pseudo :first-child"), "1")
@@ -216,4 +205,25 @@ class CssTest: XCTestCase {
 	
 	
 	
+	static var allTests = {
+		return [
+			("testFirstChild" , testFirstChild),
+			("testLastChild" , 	testLastChild),
+			("testNthChild_simple" , 	testNthChild_simple),
+			("testNthOfType_unknownTag" , 	testNthOfType_unknownTag),
+			("testNthLastChild_simple" , 	testNthLastChild_simple),
+			("testNthOfType_simple" , 	testNthOfType_simple),
+			("testNthLastOfType_simple" , 	testNthLastOfType_simple),
+			("testNthChild_advanced" , 	testNthChild_advanced),
+			("testNthOfType_advanced" , 	testNthOfType_advanced),
+			("testNthLastChild_advanced" , 	testNthLastChild_advanced),
+			("testNthLastOfType_advanced" , 	testNthLastOfType_advanced),
+			("testFirstOfType" , 	testFirstOfType),
+			("testLastOfType" , 	testLastOfType),
+			("testEmpty" , 	testEmpty),
+			("testOnlyChild" , 	testOnlyChild),
+			("testOnlyOfType" , 	testOnlyOfType),
+			("testRoot" , 	testRoot)
+		]
+	}()
 }
