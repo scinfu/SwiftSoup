@@ -7,7 +7,7 @@
 //
 
 import XCTest
-import SwiftSoup
+@testable import SwiftSoup
 
 class TextNodeTest: XCTestCase {
     
