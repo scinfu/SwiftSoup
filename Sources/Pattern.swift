@@ -28,12 +28,12 @@ public struct Pattern {
     
     func validate()throws
     {
-         _ = try NCRegularExpression(pattern: self.pattern)
+         _ = try NCRegularExpression(pattern: self.pattern, options:[])
     }
     
     func matcher(in text: String) -> Matcher {
         do {
-            let regex = try NCRegularExpression(pattern: self.pattern)
+            let regex = try NCRegularExpression(pattern: self.pattern, options:[])
             let nsString = text as NSString
             let results = regex.matches(in: text, range: NSRange(location: 0, length: nsString.length))
             
