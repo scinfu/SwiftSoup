@@ -11,5 +11,4 @@ import XCTest
 @testable import SwiftSoupTests
 
 XCTMain([
-	testCase(SwiftSoupTests.allTests),
 	testCase(CssTest.allTests)])
