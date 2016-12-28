@@ -11,23 +11,6 @@ import SwiftSoup
 
 class SelectorTest: XCTestCase {
 	
-	override func setUp() {
-		super.setUp()
-		// Put setup code here. This method is called before the invocation of each test method in the class.
-	}
-	
-	override func tearDown() {
-		// Put teardown code here. This method is called after the invocation of each test method in the class.
-		super.tearDown()
-	}
-	
-	func testPerformanceExample() {
-		// This is an example of a performance test case.
-		self.measure {
-			// Put the code you want to measure the time of here.
-		}
-	}
-	
 	func testByTag()throws {
 		// should be case insensitive
 		let els: Elements = try SwiftSoup.parse("<div id=1><div id=2><p>Hello</p></div></div><DIV id=3>").select("DIV")
@@ -708,5 +691,61 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("Two", try doc.select("div[data=\"[Another)]]\"").first()?.text())
 	}
 	
+	static var allTests = {
+		return [
+			("testByTag" , testByTag),
+			("testById" , testById),
+			("testByClass" , testByClass),
+			("testByAttribute" , testByAttribute),
+			("testNamespacedTag" , testNamespacedTag),
+			("testWildcardNamespacedTag" , testWildcardNamespacedTag),
+			("testByAttributeStarting" , testByAttributeStarting),
+			("testByAttributeRegex" , testByAttributeRegex),
+			("testByAttributeRegexCharacterClass" , testByAttributeRegexCharacterClass),
+			("testByAttributeRegexCombined" , testByAttributeRegexCombined),
+			("testCombinedWithContains" , testCombinedWithContains),
+			("testAllElements" , testAllElements),
+			("testAllWithClass" , testAllWithClass),
+			("testGroupOr" , testGroupOr),
+			("testGroupOrAttribute" , testGroupOrAttribute),
+			("testDescendant" , testDescendant),
+			("testAnd" , testAnd),
+			("testDeeperDescendant" , testDeeperDescendant),
+			("testParentChildElement" , testParentChildElement),
+			("testParentWithClassChild" , testParentWithClassChild),
+			("testParentChildStar" , testParentChildStar),
+			("testMultiChildDescent" , testMultiChildDescent),
+			("testCaseInsensitive" , testCaseInsensitive),
+			("testAdjacentSiblings" , testAdjacentSiblings),
+			("testAdjacentSiblingsWithId" , testAdjacentSiblingsWithId),
+			("testNotAdjacent" , testNotAdjacent),
+			("testMixCombinator" , testMixCombinator),
+			("testMixCombinatorGroup" , testMixCombinatorGroup),
+			("testGeneralSiblings" , testGeneralSiblings),
+			("testCharactersInIdAndClass" , testCharactersInIdAndClass),
+			("testSupportsLeadingCombinator" , testSupportsLeadingCombinator),
+			("testPseudoLessThan" , testPseudoLessThan),
+			("testPseudoGreaterThan" , testPseudoGreaterThan),
+			("testPseudoEquals" , testPseudoEquals),
+			("testPseudoBetween" , testPseudoBetween),
+			("testPseudoCombined" , testPseudoCombined),
+			("testPseudoHas" , testPseudoHas),
+			("testNestedHas" , testNestedHas),
+			("testPseudoContains" , testPseudoContains),
+			("testPsuedoContainsWithParentheses" , testPsuedoContainsWithParentheses),
+			("testContainsOwn" , testContainsOwn),
+			("testMatches" , testMatches),
+			("testMatchesOwn" , testMatchesOwn),
+			("testRelaxedTags" , testRelaxedTags),
+			("testNotParas" , testNotParas),
+			("testNotAll" , testNotAll),
+			("testNotClass" , testNotClass),
+			("testHandlesCommasInSelector" , testHandlesCommasInSelector),
+			("testSelectSupplementaryCharacter" , testSelectSupplementaryCharacter),
+			("testSelectClassWithSpace" , testSelectClassWithSpace),
+			("testSelectSameElements" , testSelectSameElements),
+			("testAttributeWithBrackets" , testAttributeWithBrackets)
+		]
+	}()
 	
 }

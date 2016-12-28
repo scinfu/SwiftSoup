@@ -11,23 +11,6 @@ import SwiftSoup
 
 class CharacterReaderTest: XCTestCase {
     
-    override func setUp() {
-        super.setUp()
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-    
-    override func tearDown() {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-        super.tearDown()
-    }
-    
-    func testPerformanceExample() {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
-    }
-    
     func testConsume() {
         let r = CharacterReader("one")
         XCTAssertEqual(0, r.getPos())
@@ -259,5 +242,29 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertTrue(r.rangeEquals(18, 5, "CHOKE"))
         XCTAssertFalse(r.rangeEquals(18, 5, "CHIKE"))
     }
-    
+	
+	static var allTests = {
+		return [
+			("testConsume" ,     testConsume),
+			("testUnconsume" ,     testUnconsume),
+			("testMark" ,     testMark),
+			("testConsumeToEnd" ,     testConsumeToEnd),
+			("testNextIndexOfChar" ,     testNextIndexOfChar),
+			("testNextIndexOfString" ,     testNextIndexOfString),
+			("testNextIndexOfUnmatched" ,     testNextIndexOfUnmatched),
+			("testConsumeToChar" ,     testConsumeToChar),
+			("testConsumeToString" ,     testConsumeToString),
+			("testAdvance" ,     testAdvance),
+			("testConsumeToAny" ,     testConsumeToAny),
+			("testConsumeLetterSequence" ,     testConsumeLetterSequence),
+			("testConsumeLetterThenDigitSequence" ,     testConsumeLetterThenDigitSequence),
+			("testMatches" ,     testMatches),
+			("testMatchesIgnoreCase" ,     testMatchesIgnoreCase),
+			("testContainsIgnoreCase" ,     testContainsIgnoreCase),
+			("testMatchesAny" ,     testMatchesAny),
+			("testCachesStrings" ,     testCachesStrings),
+			("testRangeEquals" ,     testRangeEquals)
+			]
+	}()
+	
 }

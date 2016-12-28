@@ -10,16 +10,6 @@ import XCTest
 @testable import SwiftSoup
 
 class TextNodeTest: XCTestCase {
-    
-    override func setUp() {
-        super.setUp()
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-    
-    override func tearDown() {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-        super.tearDown()
-    }
 	
 	func testBlank() {
 		let one = TextNode("", "")
@@ -83,12 +73,14 @@ class TextNodeTest: XCTestCase {
 		XCTAssertEqual(String(Character(UnicodeScalar(135361)!)), try t.outerHtml().trim())
 	}
 	
-    func testPerformanceExample() {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
-    }
-    
+	static var allTests = {
+		return [
+			("testBlank" , testBlank),
+			("testTextBean" , testTextBean),
+			("testSplitText" , testSplitText),
+			("testSplitAnEmbolden" , testSplitAnEmbolden),
+			("testWithSupplementaryCharacter" , testWithSupplementaryCharacter)
+			]
+	}()
 }
 

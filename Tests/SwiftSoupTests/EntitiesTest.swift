@@ -12,16 +12,6 @@ import SwiftSoup
 
 class EntitiesTest: XCTestCase {
 	
-	override func setUp() {
-		super.setUp()
-		// Put setup code here. This method is called before the invocation of each test method in the class.
-	}
-	
-	override func tearDown() {
-		// Put teardown code here. This method is called after the invocation of each test method in the class.
-		super.tearDown()
-	}
-	
 	func testEscape()throws {
 		let text = "Hello &<> Å å π 新 there ¾ © »"
 		
@@ -150,6 +140,22 @@ class EntitiesTest: XCTestCase {
 		XCTAssertEqual("<a title=\"&lt;p>One&lt;/p>\">One</a>",try  element.outerHtml())
 	}
 	
-	
+	static var allTests = {
+		return [
+			("testEscape" , testEscape),
+			("testXhtml" , testXhtml),
+			("testGetByName" , testGetByName),
+			("testEscapeSupplementaryCharacter" , testEscapeSupplementaryCharacter),
+			("testNotMissingMultis" , testNotMissingMultis),
+			("testnotMissingSupplementals" , testnotMissingSupplementals),
+			("testUnescape" , testUnescape),
+			("testStrictUnescape" , testStrictUnescape),
+			("testCaseSensitive" , testCaseSensitive),
+			("testQuoteReplacements" , testQuoteReplacements),
+			("testLetterDigitEntities" , testLetterDigitEntities),
+			("testNoSpuriousDecodes" , testNoSpuriousDecodes),
+			("testUscapesGtInXmlAttributesButNotInHtml" , testUscapesGtInXmlAttributesButNotInHtml)
+		]
+	}()
 }
 

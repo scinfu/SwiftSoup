@@ -13,24 +13,7 @@ class DocumentTest: XCTestCase {
 	
 	private static let charsetUtf8 = String.Encoding.utf8
 	private static let charsetIso8859 = String.Encoding.iso2022JP //"ISO-8859-1"
-	
-	override func setUp() {
-		super.setUp()
-		// Put setup code here. This method is called before the invocation of each test method in the class.
-	}
-	
-	override func tearDown() {
-		// Put teardown code here. This method is called after the invocation of each test method in the class.
-		super.tearDown()
-	}
-	
-	func testPerformanceExample() {
-		// This is an example of a performance test case.
-		self.measure {
-			// Put the code you want to measure the time of here.
-		}
-	}
-	
+		
 	func testSetTextPreservesDocumentStructure() {
 		do{
 			let doc: Document = try SwiftSoup.parse("<p>Hello</p>")
@@ -437,5 +420,36 @@ class DocumentTest: XCTestCase {
 //		assertTrue("Should have contained a '&#xa0;' or a '&nbsp;'.",
 //		output.contains("&#xa0;") || output.contains("&nbsp;"));
 //	}
+	
+	static var allTests = {
+		return [
+			("testSetTextPreservesDocumentStructure" , testSetTextPreservesDocumentStructure),
+			("testTitles" , testTitles),
+			("testOutputEncoding" , testOutputEncoding),
+			("testXhtmlReferences" , testXhtmlReferences),
+			("testNormalisesStructure" , testNormalisesStructure),
+			("testClone" , testClone),
+			("testClonesDeclarations" , testClonesDeclarations),
+			("testHtmlAndXmlSyntax" , testHtmlAndXmlSyntax),
+			("testHtmlParseDefaultsToHtmlOutputSyntax" , testHtmlParseDefaultsToHtmlOutputSyntax),
+			("testHtmlAppendable" , testHtmlAppendable),
+			("testDocumentsWithSameContentAreEqual" , testDocumentsWithSameContentAreEqual),
+			("testDocumentsWithSameContentAreVerifialbe" , testDocumentsWithSameContentAreVerifialbe),
+			("testMetaCharsetUpdateUtf8" , testMetaCharsetUpdateUtf8),
+			("testMetaCharsetUpdateIsoLatin2" , testMetaCharsetUpdateIsoLatin2),
+			("testMetaCharsetUpdateNoCharset" , testMetaCharsetUpdateNoCharset),
+			("testMetaCharsetUpdateDisabled" , testMetaCharsetUpdateDisabled),
+			("testMetaCharsetUpdateDisabledNoChanges" , testMetaCharsetUpdateDisabledNoChanges),
+			("testMetaCharsetUpdateEnabledAfterCharsetChange" , testMetaCharsetUpdateEnabledAfterCharsetChange),
+			("testMetaCharsetUpdateCleanup" , testMetaCharsetUpdateCleanup),
+			("testMetaCharsetUpdateXmlUtf8" , testMetaCharsetUpdateXmlUtf8),
+			("testMetaCharsetUpdateXmlIso2022JP" , testMetaCharsetUpdateXmlIso2022JP),
+			("testMetaCharsetUpdateXmlNoCharset" , testMetaCharsetUpdateXmlNoCharset),
+			("testMetaCharsetUpdateXmlDisabled" , testMetaCharsetUpdateXmlDisabled),
+			("testMetaCharsetUpdateXmlDisabledNoChanges" , testMetaCharsetUpdateXmlDisabledNoChanges),
+			("testMetaCharsetUpdatedDisabledPerDefault" , testMetaCharsetUpdatedDisabledPerDefault),
+			("createXmlDocument" , createXmlDocument)
+		]
+	}()
 	
 }

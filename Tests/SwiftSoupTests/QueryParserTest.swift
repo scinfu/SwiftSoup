@@ -10,23 +10,6 @@ import XCTest
 import SwiftSoup
 
 class QueryParserTest: XCTestCase {
-    
-    override func setUp() {
-        super.setUp()
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-    
-    override func tearDown() {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-        super.tearDown()
-    }
-	
-    func testPerformanceExample() {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
-    }
 	
 	func testOrGetsCorrectPrecedence()throws {
 		// tests that a selector "a b, c d, e f" evals to (a AND b) OR (c AND d) OR (e AND f)"
@@ -58,5 +41,12 @@ class QueryParserTest: XCTestCase {
 		XCTAssertEqual("li :prevli :ImmediateParentol", andRight.toString())
 		XCTAssertEqual(2, andRight.evaluators.count)
 	}
+	
+	static var allTests = {
+		return [
+			("testOrGetsCorrectPrecedence" , testOrGetsCorrectPrecedence),
+			("testParsesMultiCorrectly" , testParsesMultiCorrectly)
+		]
+	}()
 	
 }

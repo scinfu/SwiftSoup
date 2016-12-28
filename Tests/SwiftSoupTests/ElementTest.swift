@@ -12,21 +12,6 @@ class ElementTest: XCTestCase {
 	
 	private let reference = "<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>"
 	
-	override func setUp() {
-		super.setUp()
-		// Put setup code here. This method is called before the invocation of each test method in the class.
-	}
-	
-	override func tearDown() {
-		// Put teardown code here. This method is called after the invocation of each test method in the class.
-		super.tearDown()
-	}
-	
-	func testExample() {
-		// This is an example of a functional test case.
-		// Use XCTAssert and related functions to verify your tests produce the correct results.
-	}
-	
 	func testGetElementsByTagName() {
 		let doc: Document = try! SwiftSoup.parse(reference)
 		let divs = try! doc.getElementsByTag("div")
@@ -945,12 +930,77 @@ class ElementTest: XCTestCase {
 		XCTAssertEqual("html > body > fb|comments", try els.get(0).cssSelector())
 	}
 	
-	
-	func testPerformanceExample() {
-		// This is an example of a performance test case.
-		self.measure {
-			// Put the code you want to measure the time of here.
-		}
-	}
-	
+	static var allTests = {
+		return [
+			("testGetElementsByTagName" , testGetElementsByTagName),
+			("testGetNamespacedElementsByTag" , testGetNamespacedElementsByTag),
+			("testGetElementById" , testGetElementById),
+			("testGetText" , testGetText),
+			("testGetChildText" , testGetChildText),
+			("testNormalisesText" , testNormalisesText),
+			("testKeepsPreText" , testKeepsPreText),
+			("testKeepsPreTextInCode" , testKeepsPreTextInCode),
+			("testBrHasSpace" , testBrHasSpace),
+			("testGetSiblings" , testGetSiblings),
+			("testGetSiblingsWithDuplicateContent" , testGetSiblingsWithDuplicateContent),
+			("testGetParents" , testGetParents),
+			("testElementSiblingIndex" , testElementSiblingIndex),
+			("testElementSiblingIndexSameContent" , testElementSiblingIndexSameContent),
+			("testGetElementsWithClass" , testGetElementsWithClass),
+			("testGetElementsWithAttribute" , testGetElementsWithAttribute),
+			("testGetElementsWithAttributeDash" , testGetElementsWithAttributeDash),
+			("testGetElementsWithAttributeValue" , testGetElementsWithAttributeValue),
+			("testClassDomMethods" , testClassDomMethods),
+			("testHasClassDomMethods" , testHasClassDomMethods),
+			("testClassUpdates" , testClassUpdates),
+			("testOuterHtml" , testOuterHtml),
+			("testInnerHtml" , testInnerHtml),
+			("testFormatHtml" , testFormatHtml),
+			("testFormatOutline" , testFormatOutline),
+			("testSetIndent" , testSetIndent),
+			("testNotPretty" , testNotPretty),
+			("testEmptyElementFormatHtml" , testEmptyElementFormatHtml),
+			("testNoIndentOnScriptAndStyle" , testNoIndentOnScriptAndStyle),
+			("testContainerOutput" , testContainerOutput),
+			("testSetText" , testSetText),
+			("testAddNewElement" , testAddNewElement),
+			("testAddBooleanAttribute" , testAddBooleanAttribute),
+			("testAppendRowToTable" , testAppendRowToTable),
+			("testPrependRowToTable" , testPrependRowToTable),
+			("testPrependElement" , testPrependElement),
+			("testAddNewText" , testAddNewText),
+			("testPrependText" , testPrependText),
+			("testAddNewHtml" , testAddNewHtml),
+			("testPrependNewHtml" , testPrependNewHtml),
+			("testSetHtml" , testSetHtml),
+			("testSetHtmlTitle" , testSetHtmlTitle),
+			("testWrap" , testWrap),
+			("testBefore" , testBefore),
+			("testAfter" , testAfter),
+			("testWrapWithRemainder" , testWrapWithRemainder),
+			("testHasText" , testHasText),
+			("testDataset" , testDataset),
+			("testpParentlessToString" , testpParentlessToString),
+			("testClone" , testClone),
+			("testClonesClassnames" , testClonesClassnames),
+			("testTagNameSet" , testTagNameSet),
+			("testHtmlContainsOuter" , testHtmlContainsOuter),
+			("testGetTextNodes" , testGetTextNodes),
+			("testManipulateTextNodes" , testManipulateTextNodes),
+			("testGetDataNodes" , testGetDataNodes),
+			("testElementIsNotASiblingOfItself" , testElementIsNotASiblingOfItself),
+			("testChildThrowsIndexOutOfBoundsOnMissing" , testChildThrowsIndexOutOfBoundsOnMissing),
+			("testMoveByAppend" , testMoveByAppend),
+			("testInsertChildrenArgumentValidation" , testInsertChildrenArgumentValidation),
+			("testInsertChildrenAtPosition" , testInsertChildrenAtPosition),
+			("testInsertChildrenAsCopy" , testInsertChildrenAsCopy),
+			("testCssPath" , testCssPath),
+			("testClassNames" , testClassNames),
+			("testHashAndEqualsAndValue" , testHashAndEqualsAndValue),
+			("testRelativeUrls" , testRelativeUrls),
+			("testAppendMustCorrectlyMoveChildrenInsideOneParentElement" , testAppendMustCorrectlyMoveChildrenInsideOneParentElement),
+			("testHashcodeIsStableWithContentChanges" , testHashcodeIsStableWithContentChanges),
+			("testNamespacedElements" , testNamespacedElements)
+		]
+	}()
 }

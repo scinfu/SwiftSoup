@@ -11,16 +11,6 @@ import SwiftSoup
 
 class XmlTreeBuilderTest: XCTestCase {
 	
-	override func setUp() {
-		super.setUp()
-		// Put setup code here. This method is called before the invocation of each test method in the class.
-	}
-	
-	override func tearDown() {
-		// Put teardown code here. This method is called after the invocation of each test method in the class.
-		super.tearDown()
-	}
-	
 	func testSimpleXmlParse()throws {
 		let xml = "<doc id=2 href='/bar'>Foo <br /><link>One</link><link>Two</link></doc>"
 		let tb: XmlTreeBuilder = XmlTreeBuilder()
@@ -138,7 +128,7 @@ class XmlTreeBuilderTest: XCTestCase {
 		try XCTAssertEqual("<?xml version=\"1\" encoding=\"UTF-8\" something=\"else\"?>", decl.outerHtml())
 	}
 	
-	func caseSensitiveDeclaration()throws {
+	func testCaseSensitiveDeclaration()throws {
 		let xml = "<?XML version='1' encoding='UTF-8' something='else'?>"
 		let doc = try SwiftSoup.parse(xml, "", Parser.xmlParser())
 		try XCTAssertEqual("<?XML version=\"1\" encoding=\"UTF-8\" something=\"else\"?>", doc.outerHtml())
@@ -167,13 +157,24 @@ class XmlTreeBuilderTest: XCTestCase {
 		try XCTAssertEqual("<test id=\"1\">Check</test>", TextUtil.stripNewlines(doc.html()))
 	}
 	
-	
-	
-	func testPerformanceExample() {
-		// This is an example of a performance test case.
-		self.measure {
-			// Put the code you want to measure the time of here.
-		}
-	}
+	static var allTests = {
+		return [
+			("testSimpleXmlParse" , testSimpleXmlParse),
+			("testPopToClose" , testPopToClose),
+			("testCommentAndDocType" , testCommentAndDocType),
+			("testSupplyParserToJsoupClass" , testSupplyParserToJsoupClass),
+			("testDoesNotForceSelfClosingKnownTags" , testDoesNotForceSelfClosingKnownTags),
+			
+			("testHandlesXmlDeclarationAsDeclaration" , testHandlesXmlDeclarationAsDeclaration),
+			("testXmlFragment" , testXmlFragment),
+			("testXmlParseDefaultsToHtmlOutputSyntax" , testXmlParseDefaultsToHtmlOutputSyntax),
+			("testDoesHandleEOFInTag" , testDoesHandleEOFInTag),
+			("testParseDeclarationAttributes" , testParseDeclarationAttributes),
+			("testCaseSensitiveDeclaration" , testCaseSensitiveDeclaration),
+			("testCreatesValidProlog" , testCreatesValidProlog),
+			("preservesCaseByDefault" , preservesCaseByDefault),
+			("canNormalizeCase" , canNormalizeCase)
+		]
+	}()
 	
 }

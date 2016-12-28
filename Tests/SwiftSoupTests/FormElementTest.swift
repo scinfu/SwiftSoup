@@ -11,17 +11,6 @@ import SwiftSoup
 
 class FormElementTest: XCTestCase {
 	
-	override func setUp() {
-		super.setUp()
-		// Put setup code here. This method is called before the invocation of each test method in the class.
-	}
-	
-	override func tearDown() {
-		// Put teardown code here. This method is called after the invocation of each test method in the class.
-		super.tearDown()
-	}
-	
-	
 	func testHasAssociatedControls()throws {
 		//"button", "fieldset", "input", "keygen", "object", "output", "select", "textarea"
 		let html = "<form id=1><button id=1><fieldset id=2 /><input id=3><keygen id=4><object id=5><output id=6>" +
@@ -161,13 +150,11 @@ class FormElementTest: XCTestCase {
 //	assertEquals("login", data.get(2).key());
 //	}
 	
-	
-	
-	func testPerformanceExample() {
-		// This is an example of a performance test case.
-		self.measure {
-			// Put the code you want to measure the time of here.
-		}
-	}
-	
+	static var allTests = {
+		return [
+			("testHasAssociatedControls" , testHasAssociatedControls),
+			("testFormsAddedAfterParseAreFormElements" , testFormsAddedAfterParseAreFormElements),
+			("testControlsAddedAfterParseAreLinkedWithForms" , testControlsAddedAfterParseAreLinkedWithForms)
+		]
+	}()
 }

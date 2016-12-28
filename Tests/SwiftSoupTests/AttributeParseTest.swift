@@ -14,16 +14,6 @@ import SwiftSoup
 
 class AttributeParseTest: XCTestCase {
 	
-	override func setUp() {
-		super.setUp()
-		// Put setup code here. This method is called before the invocation of each test method in the class.
-	}
-	
-	override func tearDown() {
-		// Put teardown code here. This method is called after the invocation of each test method in the class.
-		super.tearDown()
-	}
-	
 	func testparsesRoughAttributeString()throws {
 		let html: String = "<a id=\"123\" class=\"baz = 'bar'\" style = 'border: 2px'qux zim foo = 12 mux=18 />"
 		// should be: <id=123>, <class=baz = 'bar'>, <qux=>, <zim=>, <foo=12>, <mux.=18>
@@ -106,11 +96,17 @@ class AttributeParseTest: XCTestCase {
 		XCTAssertEqual("<img onerror=\"doMyJob\" />", try doc.html())
 	}
 	
-	func testPerformanceExample() {
-		// This is an example of a performance test case.
-		self.measure {
-			// Put the code you want to measure the time of here.
-		}
-	}
+	static var allTests = {
+		return [
+			("testparsesRoughAttributeString" , testparsesRoughAttributeString),
+			("testhandlesNewLinesAndReturns" , testhandlesNewLinesAndReturns),
+			("testparsesEmptyString" , testparsesEmptyString),
+			("testcanStartWithEq" , testcanStartWithEq),
+			("teststrictAttributeUnescapes" , teststrictAttributeUnescapes),
+			("testmoreAttributeUnescapes" , testmoreAttributeUnescapes),
+			("testparsesBooleanAttributes" , testparsesBooleanAttributes),
+			("testdropsSlashFromAttributeName" , testdropsSlashFromAttributeName),
+		]
+	}()
 	
 }
