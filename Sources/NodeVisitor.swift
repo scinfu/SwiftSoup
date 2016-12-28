@@ -25,7 +25,7 @@ public protocol NodeVisitor {
      * of that will have depth 1.
      */
     func head(_ node: Node, _ depth: Int)throws
-    
+
     /**
      * Callback for when a node is last visited, after all of its descendants have been visited.
      *

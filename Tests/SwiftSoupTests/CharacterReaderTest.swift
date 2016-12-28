@@ -10,7 +10,7 @@ import XCTest
 import SwiftSoup
 
 class CharacterReaderTest: XCTestCase {
-    
+
     func testConsume() {
         let r = CharacterReader("one")
         XCTAssertEqual(0, r.getPos())
@@ -26,14 +26,14 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertTrue(r.isEmpty())
         XCTAssertEqual(CharacterReader.EOF, r.consume())
     }
-    
+
     func testUnconsume() {
         let r = CharacterReader("one")
         XCTAssertEqual("o", r.consume())
         XCTAssertEqual("n", r.current())
         r.unconsume()
         XCTAssertEqual("o", r.current())
-        
+
         XCTAssertEqual("o", r.consume())
         XCTAssertEqual("n", r.consume())
         XCTAssertEqual("e", r.consume())
@@ -43,13 +43,13 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("e", r.current())
         XCTAssertEqual("e", r.consume())
         XCTAssertTrue(r.isEmpty())
-        
+
         XCTAssertEqual(CharacterReader.EOF, r.consume())
         r.unconsume()
         XCTAssertTrue(r.isEmpty())
         XCTAssertEqual(CharacterReader.EOF, r.current())
     }
-    
+
     func testMark() {
         let r = CharacterReader("one")
         XCTAssertEqual("o", r.consume())
@@ -60,7 +60,7 @@ class CharacterReaderTest: XCTestCase {
         r.rewindToMark()
         XCTAssertEqual("n", r.consume())
     }
-    
+
     func testConsumeToEnd() {
         let input = "one two three"
         let r = CharacterReader(input)
@@ -68,11 +68,11 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual(input, toEnd)
         XCTAssertTrue(r.isEmpty())
     }
-    
+
     func testNextIndexOfChar() {
         let input = "blah blah"
         let r = CharacterReader(input)
-        
+
         XCTAssertEqual(-1, r.nextIndexOf("x"))
         XCTAssertEqual(3, r.nextIndexOf("h"))
         let pull = r.consumeTo("h")
@@ -82,11 +82,11 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual(" blah", r.consumeToEnd())
         XCTAssertEqual(-1, r.nextIndexOf("x"))
     }
-    
+
     func testNextIndexOfString() {
         let input = "One Two something Two Three Four"
         let r = CharacterReader(input)
-        
+
         XCTAssertEqual(-1, r.nextIndexOf("Foo"))
         XCTAssertEqual(4, r.nextIndexOf("Two"))
         XCTAssertEqual("One Two ", r.consumeTo("something"))
@@ -94,12 +94,12 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("something Two Three Four", r.consumeToEnd())
         XCTAssertEqual(-1, r.nextIndexOf("Two"))
     }
-    
+
     func testNextIndexOfUnmatched() {
         let r = CharacterReader("<[[one]]")
         XCTAssertEqual(-1, r.nextIndexOf("]]>"))
     }
-    
+
     func testConsumeToChar() {
         let r = CharacterReader("One Two Three")
         XCTAssertEqual("One ", r.consumeTo("T"))
@@ -109,7 +109,7 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("T", r.consume())
         XCTAssertEqual("hree", r.consumeTo("T")) // consume to end
     }
-    
+
     func testConsumeToString() {
         let r = CharacterReader("One Two Two Four")
         XCTAssertEqual("One ", r.consumeTo("Two"))
@@ -118,14 +118,14 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("T", r.consume())
         XCTAssertEqual("wo Four", r.consumeTo("Qux"))
     }
-    
+
     func testAdvance() {
         let r = CharacterReader("One Two Three")
         XCTAssertEqual("O", r.consume())
         r.advance()
         XCTAssertEqual("e", r.consume())
     }
-    
+
     func testConsumeToAny() {
         let r = CharacterReader("One &bar; qux")
         XCTAssertEqual("One ", r.consumeToAny("&", ";"))
@@ -136,7 +136,7 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual(";", r.consume())
         XCTAssertEqual(" qux", r.consumeToAny("&", ";"))
     }
-    
+
     func testConsumeLetterSequence() {
         let r = CharacterReader("One &bar; qux")
         XCTAssertEqual("One", r.consumeLetterSequence())
@@ -144,7 +144,7 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("bar", r.consumeLetterSequence())
         XCTAssertEqual("; qux", r.consumeToEnd())
     }
-    
+
     func testConsumeLetterThenDigitSequence() {
         let r = CharacterReader("One12 Two &bar; qux")
         XCTAssertEqual("One12", r.consumeLetterThenDigitSequence())
@@ -152,7 +152,7 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("Two", r.consumeLetterThenDigitSequence())
         XCTAssertEqual(" &bar; qux", r.consumeToEnd())
     }
-    
+
     func testMatches() {
         let r = CharacterReader("One Two Three")
         XCTAssertTrue(r.matches("O"))
@@ -166,8 +166,7 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("ne Two Three", r.consumeToEnd())
         XCTAssertFalse(r.matches("ne"))
     }
-    
-    
+
     func testMatchesIgnoreCase() {
         let r = CharacterReader("One Two Three")
         XCTAssertTrue(r.matchesIgnoreCase("O"))
@@ -185,7 +184,7 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("ne Two Three", r.consumeToEnd())
         XCTAssertFalse(r.matchesIgnoreCase("ne"))
     }
-    
+
     func testContainsIgnoreCase() {
         let r = CharacterReader("One TWO three")
         XCTAssertTrue(r.containsIgnoreCase("two"))
@@ -193,7 +192,7 @@ class CharacterReaderTest: XCTestCase {
         // weird one: does not find one, because it scans for consistent case only
         XCTAssertFalse(r.containsIgnoreCase("one"))
     }
-    
+
     func testMatchesAny() {
         //let scan = [" ", "\n", "\t"]
         let r = CharacterReader("One\nTwo\tThree")
@@ -203,7 +202,7 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("\n", r.consume())
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
     }
-    
+
     func testCachesStrings() {
         let r = CharacterReader("Check\tCheck\tCheck\tCHOKE\tA string that is longer than 16 chars")
         let one = r.consumeTo("\t")
@@ -215,7 +214,7 @@ class CharacterReaderTest: XCTestCase {
         let four = r.consumeTo("\t")
         XCTAssertEqual("\t", r.consume())
         let five = r.consumeTo("\t")
-        
+
         XCTAssertEqual("Check", one)
         XCTAssertEqual("Check", two)
         XCTAssertEqual("Check", three)
@@ -226,45 +225,45 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertTrue(four != five)
         XCTAssertEqual(five, "A string that is longer than 16 chars")
     }
-    
+
     func testRangeEquals() {
         let r = CharacterReader("Check\tCheck\tCheck\tCHOKE")
         XCTAssertTrue(r.rangeEquals(0, 5, "Check"))
         XCTAssertFalse(r.rangeEquals(0, 5, "CHOKE"))
         XCTAssertFalse(r.rangeEquals(0, 5, "Chec"))
-        
+
         XCTAssertTrue(r.rangeEquals(6, 5, "Check"))
         XCTAssertFalse(r.rangeEquals(6, 5, "Chuck"))
-        
+
         XCTAssertTrue(r.rangeEquals(12, 5, "Check"))
         XCTAssertFalse(r.rangeEquals(12, 5, "Cheeky"))
-        
+
         XCTAssertTrue(r.rangeEquals(18, 5, "CHOKE"))
         XCTAssertFalse(r.rangeEquals(18, 5, "CHIKE"))
     }
-	
+
 	static var allTests = {
 		return [
-			("testConsume" ,     testConsume),
-			("testUnconsume" ,     testUnconsume),
-			("testMark" ,     testMark),
-			("testConsumeToEnd" ,     testConsumeToEnd),
-			("testNextIndexOfChar" ,     testNextIndexOfChar),
-			("testNextIndexOfString" ,     testNextIndexOfString),
-			("testNextIndexOfUnmatched" ,     testNextIndexOfUnmatched),
-			("testConsumeToChar" ,     testConsumeToChar),
-			("testConsumeToString" ,     testConsumeToString),
-			("testAdvance" ,     testAdvance),
-			("testConsumeToAny" ,     testConsumeToAny),
-			("testConsumeLetterSequence" ,     testConsumeLetterSequence),
-			("testConsumeLetterThenDigitSequence" ,     testConsumeLetterThenDigitSequence),
-			("testMatches" ,     testMatches),
-			("testMatchesIgnoreCase" ,     testMatchesIgnoreCase),
-			("testContainsIgnoreCase" ,     testContainsIgnoreCase),
-			("testMatchesAny" ,     testMatchesAny),
-			("testCachesStrings" ,     testCachesStrings),
-			("testRangeEquals" ,     testRangeEquals)
+			("testConsume", testConsume),
+			("testUnconsume", testUnconsume),
+			("testMark", testMark),
+			("testConsumeToEnd", testConsumeToEnd),
+			("testNextIndexOfChar", testNextIndexOfChar),
+			("testNextIndexOfString", testNextIndexOfString),
+			("testNextIndexOfUnmatched", testNextIndexOfUnmatched),
+			("testConsumeToChar", testConsumeToChar),
+			("testConsumeToString", testConsumeToString),
+			("testAdvance", testAdvance),
+			("testConsumeToAny", testConsumeToAny),
+			("testConsumeLetterSequence", testConsumeLetterSequence),
+			("testConsumeLetterThenDigitSequence", testConsumeLetterThenDigitSequence),
+			("testMatches", testMatches),
+			("testMatchesIgnoreCase", testMatchesIgnoreCase),
+			("testContainsIgnoreCase", testContainsIgnoreCase),
+			("testMatchesAny", testMatchesAny),
+			("testCachesStrings", testCachesStrings),
+			("testRangeEquals", testRangeEquals)
 			]
 	}()
-	
+
 }

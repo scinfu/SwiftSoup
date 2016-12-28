@@ -17,8 +17,6 @@ public enum ExceptionType {
     case SelectorParseException
 }
 
-public enum Exception : Error {
-    case Error(type:ExceptionType ,Message: String)
+public enum Exception: Error {
+    case Error(type:ExceptionType, Message: String)
 }
-
-

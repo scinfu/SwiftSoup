@@ -12,9 +12,9 @@ import Foundation
  * A HTML Form Element provides ready access to the form fields/controls that are associated with it. It also allows a
  * form to easily be submitted.
  */
-public class FormElement : Element {
+public class FormElement: Element {
     private let _elements: Elements = Elements()
-    
+
     /**
      * Create a new, standalone form element.
      *
@@ -25,26 +25,26 @@ public class FormElement : Element {
     public override init(_ tag: Tag, _ baseUri: String, _ attributes: Attributes) {
         super.init(tag, baseUri, attributes)
     }
-    
+
     /**
      * Get the list of form control elements associated with this form.
      * @return form controls associated with this element.
      */
-    public func elements()->Elements {
+    public func elements() -> Elements {
         return _elements
     }
-    
+
     /**
      * Add a form control element to this form.
      * @param element form control to add
      * @return this form element, for chaining
      */
     @discardableResult
-    public func addElement(_ element: Element)->FormElement {
+    public func addElement(_ element: Element) -> FormElement {
         _elements.add(element)
         return self
     }
-	
+
 	//todo:
     /**
      * Prepare to submit this form. A Connection object is created with the request set up from the form values. You
@@ -63,7 +63,7 @@ public class FormElement : Element {
 //            .data(formData())
 //            .method(method)
 //    }
-	
+
     //todo:
     /**
      * Get the data that this form submits. The returned list is a copy of the data, and changes to the contents of the
@@ -105,24 +105,21 @@ public class FormElement : Element {
 //        }
 //        return data;
 //    }
-	
-	public override func copy(with zone: NSZone? = nil) -> Any
-	{
-		let clone = FormElement(_tag,baseUri!,attributes!)
+
+	public override func copy(with zone: NSZone? = nil) -> Any {
+		let clone = FormElement(_tag, baseUri!, attributes!)
 		return copy(clone: clone)
 	}
-	
-	public override func copy(parent: Node?)->Node
-	{
-		let clone = FormElement(_tag,baseUri!,attributes!)
-		return copy(clone: clone,parent: parent)
+
+	public override func copy(parent: Node?) -> Node {
+		let clone = FormElement(_tag, baseUri!, attributes!)
+		return copy(clone: clone, parent: parent)
 	}
-	public override func copy(clone: Node, parent: Node?)->Node
-	{
+	public override func copy(clone: Node, parent: Node?) -> Node {
 		let clone = clone as! FormElement
-		for att in _elements.array(){
+		for att in _elements.array() {
 			clone._elements.add(att)
 		}
-		return super.copy(clone: clone,parent: parent)
+		return super.copy(clone: clone, parent: parent)
 	}
 }

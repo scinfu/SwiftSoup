@@ -4,7 +4,7 @@
 */
 open class StringBuilder {
     fileprivate var stringValue: String
-    
+
     /**
         Construct with initial String contents
 
@@ -13,11 +13,11 @@ open class StringBuilder {
     public init(string: String = "") {
         self.stringValue = string
     }
-    
+
     public init(_ size: Int) {
         self.stringValue = ""
     }
-    
+
     /**
         Return the String object
         
@@ -26,7 +26,7 @@ open class StringBuilder {
     open func toString() -> String {
         return stringValue
     }
-    
+
     /**
         Return the current length of the String object
     */
@@ -34,7 +34,7 @@ open class StringBuilder {
         return self.stringValue.characters.count
         //return countElements(stringValue)
     }
-    
+
     /**
         Append a String to the object
 
@@ -45,33 +45,31 @@ open class StringBuilder {
     open func append(_ string: String) {
         stringValue += string
     }
-    
-    
+
     open func appendCodePoint(_ chr: Character) {
         stringValue = stringValue + String(chr)
     }
-    
+
     open func appendCodePoints(_ chr: [Character]) {
-        for c in chr{
+        for c in chr {
             stringValue = stringValue + String(c)
         }
     }
-    
+
     open func appendCodePoint(_ ch: Int) {
         stringValue = stringValue + String(Character(UnicodeScalar(ch)!))
     }
-	
+
 	open func appendCodePoint(_ ch: UnicodeScalar) {
 		stringValue = stringValue + String(ch)
 	}
-	
+
 	open func appendCodePoints(_ chr: [UnicodeScalar]) {
-		for c in chr{
+		for c in chr {
 			stringValue = stringValue + String(c)
 		}
 	}
-	
-	
+
     /**
         Append a Printable to the object
         
@@ -84,9 +82,9 @@ open class StringBuilder {
         stringValue += value.description
         return self
     }
-    
+
     @discardableResult
-    open func insert<T: CustomStringConvertible>(_ offset: Int ,_ value: T) -> StringBuilder {
+    open func insert<T: CustomStringConvertible>(_ offset: Int, _ value: T) -> StringBuilder {
         stringValue = stringValue.insert(string: value.description, ind: offset)
         return self
     }
@@ -116,7 +114,7 @@ open class StringBuilder {
         stringValue += value.description + "\n"
         return self
     }
-    
+
     /**
         Reset the object to an empty string
 
@@ -160,4 +158,3 @@ public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
 public func +(lhs: StringBuilder, rhs: StringBuilder) -> StringBuilder {
     return StringBuilder(string: lhs.toString() + rhs.toString())
 }
-

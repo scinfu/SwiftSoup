@@ -73,23 +73,23 @@ import Foundation
  * @see Element#select(String)
  */
 open class Selector {
-    private let evaluator : Evaluator 
-    private let root : Element 
-    
+    private let evaluator: Evaluator
+    private let root: Element
+
     private init(_ query: String, _ root: Element)throws {
         let query = query.trim()
         try Validate.notEmpty(string: query)
-        
+
         self.evaluator = try QueryParser.parse(query)
-        
+
         self.root = root
     }
-    
+
     private init(_ evaluator: Evaluator, _ root: Element) {
         self.evaluator = evaluator
         self.root = root
     }
-    
+
     /**
      * Find elements matching selector.
      *
@@ -101,7 +101,7 @@ open class Selector {
     public static func select(_ query: String, _ root: Element)throws->Elements {
         return try Selector(query, root).select()
     }
-    
+
     /**
      * Find elements matching selector.
      *
@@ -112,7 +112,7 @@ open class Selector {
     public static func select(_ evaluator: Evaluator, _ root: Element)throws->Elements {
         return try Selector(evaluator, root).select()
     }
-    
+
     /**
      * Find elements matching selector.
      *
@@ -126,12 +126,10 @@ open class Selector {
         var elements: Array<Element> = Array<Element>()
         var seenElements: Array<Element> = Array<Element>()
         // dedupe elements by identity, not equality
-        
-        for root: Element in roots
-        {
+
+        for root: Element in roots {
             let found: Elements = try select(evaluator, root)
-            for  el: Element in found.array()
-            {
+            for  el: Element in found.array() {
                 if (!seenElements.contains(el)) {
                     elements.append(el)
                     seenElements.append(el)
@@ -140,13 +138,13 @@ open class Selector {
         }
         return Elements(elements)
     }
-    
+
     private func select()throws->Elements {
         return try Collector.collect(evaluator, root)
     }
-    
+
     // exclude set. package open so that Elements can implement .not() selector.
-    static func filterOut(_ elements: Array<Element>, _ outs: Array<Element>)->Elements {
+    static func filterOut(_ elements: Array<Element>, _ outs: Array<Element>) -> Elements {
         let output: Elements = Elements()
         for el: Element in elements {
             var found: Bool = false
@@ -156,7 +154,7 @@ open class Selector {
                     break
                 }
             }
-            if (!found){
+            if (!found) {
                 output.add(el)
             }
         }

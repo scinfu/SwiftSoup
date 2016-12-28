@@ -11,12 +11,12 @@ import Foundation
 /**
  * A {@code <!DOCTYPE>} node.
  */
-public class DocumentType : Node {
-    private static let NAME: String = "name";
-    private static let PUBLIC_ID: String = "publicId";
-    private static let SYSTEM_ID: String = "systemId";
+public class DocumentType: Node {
+    private static let NAME: String = "name"
+    private static let PUBLIC_ID: String = "publicId"
+    private static let SYSTEM_ID: String = "systemId"
     // todo: quirk mode from publicId and systemId
-    
+
     /**
      * Create a new doctype element.
      * @param name the doctype's name
@@ -25,76 +25,73 @@ public class DocumentType : Node {
      * @param baseUri the doctype's base URI
      */
     public init(_ name: String, _ publicId: String, _ systemId: String, _ baseUri: String) {
-        super.init(baseUri);
-        do{
-            try attr(DocumentType.NAME, name);
-            try attr(DocumentType.PUBLIC_ID, publicId);
-            try attr(DocumentType.SYSTEM_ID, systemId);
-        }catch{}
+        super.init(baseUri)
+        do {
+            try attr(DocumentType.NAME, name)
+            try attr(DocumentType.PUBLIC_ID, publicId)
+            try attr(DocumentType.SYSTEM_ID, systemId)
+        } catch {}
     }
-    
-    public override func nodeName()->String {
-        return "#doctype";
+
+    public override func nodeName() -> String {
+        return "#doctype"
     }
-    
+
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         if (out.syntax() == OutputSettings.Syntax.html && !has(DocumentType.PUBLIC_ID) && !has(DocumentType.SYSTEM_ID)) {
             // looks like a html5 doctype, go lowercase for aesthetics
-            accum.append("<!doctype");
+            accum.append("<!doctype")
         } else {
-            accum.append("<!DOCTYPE");
+            accum.append("<!DOCTYPE")
         }
-        if (has(DocumentType.NAME)){
-            do{
-                accum.append(" ").append(try attr(DocumentType.NAME));
-            }catch{}
-            
+        if (has(DocumentType.NAME)) {
+            do {
+                accum.append(" ").append(try attr(DocumentType.NAME))
+            } catch {}
+
         }
-        if (has(DocumentType.PUBLIC_ID)){
-            do{
-                accum.append(" PUBLIC \"").append(try attr(DocumentType.PUBLIC_ID)).append("\"");
-            }catch{}
-            
+        if (has(DocumentType.PUBLIC_ID)) {
+            do {
+                accum.append(" PUBLIC \"").append(try attr(DocumentType.PUBLIC_ID)).append("\"")
+            } catch {}
+
         }
-        if (has(DocumentType.SYSTEM_ID)){
-            do{
-                accum.append(" \"").append(try attr(DocumentType.SYSTEM_ID)).append("\"");
-            }catch{}
-            
+        if (has(DocumentType.SYSTEM_ID)) {
+            do {
+                accum.append(" \"").append(try attr(DocumentType.SYSTEM_ID)).append("\"")
+            } catch {}
+
         }
-        accum.append(">");
+        accum.append(">")
     }
-    
+
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
     }
-    
-    private func has(_ attribute: String)->Bool {
-        do{
-            return !StringUtil.isBlank(try attr(attribute));
-        }catch{return false}
+
+    private func has(_ attribute: String) -> Bool {
+        do {
+            return !StringUtil.isBlank(try attr(attribute))
+        } catch {return false}
     }
-	
-	public override func copy(with zone: NSZone? = nil) -> Any
-	{
+
+	public override func copy(with zone: NSZone? = nil) -> Any {
 		let clone = DocumentType(attributes!.get(key: DocumentType.NAME),
 		                         attributes!.get(key: DocumentType.PUBLIC_ID),
 		                         attributes!.get(key: DocumentType.SYSTEM_ID),
 		                         baseUri!)
 		return copy(clone: clone)
 	}
-	
-	public override func copy(parent: Node?)->Node
-	{
+
+	public override func copy(parent: Node?) -> Node {
 		let clone = DocumentType(attributes!.get(key: DocumentType.NAME),
 		                         attributes!.get(key: DocumentType.PUBLIC_ID),
 		                         attributes!.get(key: DocumentType.SYSTEM_ID),
 		                         baseUri!)
-		return copy(clone: clone,parent: parent)
+		return copy(clone: clone, parent: parent)
 	}
-	
-	public override func copy(clone: Node, parent: Node?)->Node
-	{
-		return super.copy(clone: clone,parent: parent)
+
+	public override func copy(clone: Node, parent: Node?) -> Node {
+		return super.copy(clone: clone, parent: parent)
 	}
-	
+
 }

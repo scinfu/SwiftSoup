@@ -10,17 +10,17 @@ import XCTest
 import SwiftSoup
 
 class StringUtilTest: XCTestCase {
-    
+
     override func setUp() {
         super.setUp()
         // Put setup code here. This method is called before the invocation of each test method in the class.
     }
-    
+
     override func tearDown() {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
         super.tearDown()
     }
-    
+
 //	func testSite()
 //	{
 //		let myURLString = "http://comcast.net"
@@ -40,42 +40,41 @@ class StringUtilTest: XCTestCase {
 //			print("Error")
 //		}
 //	}
-	
+
     func testJoin() {
-        XCTAssertEqual("",StringUtil.join([""], sep: " "))
-        XCTAssertEqual("one",StringUtil.join(["one"], sep: " "))
-        XCTAssertEqual("one two three",StringUtil.join(["one", "two", "three"], sep: " "))
+        XCTAssertEqual("", StringUtil.join([""], sep: " "))
+        XCTAssertEqual("one", StringUtil.join(["one"], sep: " "))
+        XCTAssertEqual("one two three", StringUtil.join(["one", "two", "three"], sep: " "))
     }
-    
+
     func testPadding() {
         XCTAssertEqual("", StringUtil.padding(0))
         XCTAssertEqual(" ", StringUtil.padding(1))
         XCTAssertEqual("  ", StringUtil.padding(2))
         XCTAssertEqual("               ", StringUtil.padding(15))
     }
-    
+
     func testIsBlank() {
         //XCTAssertTrue(StringUtil.isBlank(nil))
         XCTAssertTrue(StringUtil.isBlank(""))
         XCTAssertTrue(StringUtil.isBlank("      "))
         XCTAssertTrue(StringUtil.isBlank("   \r\n  "))
-    
+
         XCTAssertFalse(StringUtil.isBlank("hello"))
         XCTAssertFalse(StringUtil.isBlank("   hello   "))
     }
-    
+
     func testIsNumeric() {
 //        XCTAssertFalse(StringUtil.isNumeric(nil))
         XCTAssertFalse(StringUtil.isNumeric(" "))
         XCTAssertFalse(StringUtil.isNumeric("123 546"))
         XCTAssertFalse(StringUtil.isNumeric("hello"))
         XCTAssertFalse(StringUtil.isNumeric("123.334"))
-        
+
         XCTAssertTrue(StringUtil.isNumeric("1"))
         XCTAssertTrue(StringUtil.isNumeric("1234"))
     }
-    
-    
+
     func testIsWhitespace() {
         XCTAssertTrue(StringUtil.isWhitespace("\t"))
         XCTAssertTrue(StringUtil.isWhitespace("\n"))
@@ -83,12 +82,12 @@ class StringUtilTest: XCTestCase {
         XCTAssertTrue(StringUtil.isWhitespace(Character.BackslashF))
         XCTAssertTrue(StringUtil.isWhitespace("\r\n"))
         XCTAssertTrue(StringUtil.isWhitespace(" "))
-    
+
         XCTAssertFalse(StringUtil.isWhitespace("\u{00a0}"))
         XCTAssertFalse(StringUtil.isWhitespace("\u{2000}"))
         XCTAssertFalse(StringUtil.isWhitespace("\u{3000}"))
     }
-    
+
     func testNormaliseWhiteSpace() {
         XCTAssertEqual(" ", StringUtil.normaliseWhitespace("    \r \n \r\n"))
         XCTAssertEqual(" hello there ", StringUtil.normaliseWhitespace("   hello   \r \n  there    \n"))
@@ -99,12 +98,12 @@ class StringUtilTest: XCTestCase {
     func testNormaliseWhiteSpaceHandlesHighSurrogates()throws {
         let test71540chars = "\\u{d869}\\u{deb2}\\u{304b}\\u{309a}  1"
         let test71540charsExpectedSingleWhitespace = "\\u{d869}\\u{deb2}\\u{304b}\\u{309a} 1"
-    
+
         XCTAssertEqual(test71540charsExpectedSingleWhitespace, StringUtil.normaliseWhitespace(test71540chars))
         let extractedText = try SwiftSoup.parse(test71540chars).text()
         XCTAssertEqual(test71540charsExpectedSingleWhitespace, extractedText)
     }
-	
+
     func testResolvesRelativeUrls() {
         XCTAssertEqual("http://example.com/one/two?three", StringUtil.resolve("http://example.com", relUrl: "./one/two?three"))
         XCTAssertEqual("http://example.com/one/two?three", StringUtil.resolve("http://example.com?one", relUrl: "./one/two?three"))
@@ -127,7 +126,7 @@ class StringUtilTest: XCTestCase {
         self.measure {
             // Put the code you want to measure the time of here.
         }
-        
+
     }
-    
+
 }

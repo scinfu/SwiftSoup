@@ -11,16 +11,15 @@ import Foundation
 /**
  * A boolean attribute that is written out without any value.
  */
-open class BooleanAttribute : Attribute {
+open class BooleanAttribute: Attribute {
     /**
      * Create a new boolean attribute from unencoded (raw) key.
      * @param key attribute key
      */
-    init(key : String) throws {
+    init(key: String) throws {
         try super.init(key: key, value: "")
     }
-    
-    
+
     override public func isBooleanAttribute() -> Bool {
         return true
     }

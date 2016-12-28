@@ -10,7 +10,7 @@ import Foundation
 @testable import SwiftSoup
 
 class TextUtil {
-	public static func stripNewlines(_ text: String)->String {
+	public static func stripNewlines(_ text: String) -> String {
 		let regex = try! NCRegularExpression(pattern: "\\n\\s*", options: .caseInsensitive)
 		var str = text
 		str = regex.stringByReplacingMatches(in: str, options: [], range: NSRange(0..<str.utf16.count), withTemplate: "")

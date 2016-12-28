@@ -14,29 +14,26 @@ import Foundation
  * <p>Usage example: {@code Document xmlDoc = Jsoup.parse(html, baseUrl, Parser.xmlParser())}</p>
  *
  */
-public class XmlTreeBuilder : TreeBuilder {
-    
-    public override init(){
+public class XmlTreeBuilder: TreeBuilder {
+
+    public override init() {
 		super.init()
 	}
-    
-    
-    public override func defaultSettings()->ParseSettings {
+
+    public override func defaultSettings() -> ParseSettings {
         return ParseSettings.preserveCase
     }
-    
 
     public func parse(_ input: String, _ baseUri: String)throws->Document {
         return try parse(input, baseUri, ParseErrorList.noTracking(), ParseSettings.preserveCase)
     }
-    
+
     override public func initialiseParse(_ input: String, _ baseUri: String, _ errors: ParseErrorList, _ settings: ParseSettings) {
 		super.initialiseParse(input, baseUri, errors, settings)
         stack.append(doc) // place the document onto the stack. differs from HtmlTreeBuilder (not on stack)
         doc.outputSettings().syntax(syntax: OutputSettings.Syntax.xml)
     }
-    
-    
+
     override public func process(_ token: Token)throws->Bool {
         // start tag, end tag, doctype, comment, character, eof
         switch (token.type) {
@@ -62,11 +59,11 @@ public class XmlTreeBuilder : TreeBuilder {
         }
         return true
     }
-    
+
     private func insertNode(_ node: Node)throws {
         try currentElement()?.appendChild(node)
     }
-    
+
     @discardableResult
     func insert(_ startTag: Token.StartTag)throws->Element {
         let tag: Tag = try Tag.valueOf(startTag.name(), settings)
@@ -84,7 +81,7 @@ public class XmlTreeBuilder : TreeBuilder {
         }
         return el
     }
-    
+
     func insert(_ commentToken: Token.Comment)throws {
         let comment: Comment = Comment(commentToken.getData(), baseUri)
         var insert: Node = comment
@@ -100,17 +97,17 @@ public class XmlTreeBuilder : TreeBuilder {
         }
         try insertNode(insert)
     }
-    
+
     func insert(_ characterToken: Token.Char)throws {
         let node: Node = TextNode(characterToken.getData()!, baseUri)
         try insertNode(node)
     }
-    
+
     func insert(_ d: Token.Doctype)throws {
         let doctypeNode: DocumentType = DocumentType(settings.normalizeTag(d.getName()), d.getPublicIdentifier(), d.getSystemIdentifier(), baseUri)
         try insertNode(doctypeNode)
     }
-    
+
     /**
      * If the stack contains an element with this tag's name, pop up the stack to remove the first occurrence. If not
      * found, skips.
@@ -120,30 +117,27 @@ public class XmlTreeBuilder : TreeBuilder {
     private func popStackToClose(_ endTag: Token.EndTag)throws {
         let elName: String = try endTag.name()
         var firstFound: Element? = nil
-        
-        for pos in (0..<stack.count).reversed()
-        {
+
+        for pos in (0..<stack.count).reversed() {
             let next: Element = stack[pos]
             if (next.nodeName().equals(elName)) {
                 firstFound = next
                 break
             }
         }
-        if (firstFound == nil){
+        if (firstFound == nil) {
         return // not found, skip
         }
-        
-        
-        for pos in (0..<stack.count).reversed()
-        {
+
+        for pos in (0..<stack.count).reversed() {
             let next: Element = stack[pos]
             stack.remove(at: pos)
-            if (next == firstFound!){
+            if (next == firstFound!) {
             break
             }
         }
     }
-    
+
     func parseFragment(_ inputFragment: String, _ baseUri: String, _ errors: ParseErrorList, _ settings: ParseSettings)throws->Array<Node> {
 		initialiseParse(inputFragment, baseUri, errors, settings)
         try runParser()

@@ -10,13 +10,13 @@ import XCTest
 import SwiftSoup
 
 class FormElementTest: XCTestCase {
-	
+
 	func testHasAssociatedControls()throws {
 		//"button", "fieldset", "input", "keygen", "object", "output", "select", "textarea"
 		let html = "<form id=1><button id=1><fieldset id=2 /><input id=3><keygen id=4><object id=5><output id=6>" +
 		"<select id=7><option></select><textarea id=8><p id=9>"
 		let doc: Document = try SwiftSoup.parse(html)
-		
+
 		let form: FormElement = try doc.select("form").first()! as! FormElement
 		XCTAssertEqual(8, form.elements().size())
 	}
@@ -72,8 +72,7 @@ class FormElementTest: XCTestCase {
 //	
 //	assertEquals("http://example.com/", con.request().url().toExternalForm());
 //	}
-	
-	
+
 //TODO:
 //	@Test public void actionWithNoBaseUri() {
 //	String html = "<form><input name='q'></form>";
@@ -91,28 +90,28 @@ class FormElementTest: XCTestCase {
 //	}
 //	assertTrue(threw);
 //	}
-	
+
 	func testFormsAddedAfterParseAreFormElements()throws {
 		let doc: Document = try SwiftSoup.parse("<body />")
 		try doc.body()?.html("<form action='http://example.com/search'><input name='q' value='search'>")
 		let formEl: Element = try doc.select("form").first()!
 		XCTAssertNotNil(formEl as? FormElement)
-		
+
 		let form: FormElement =  formEl as! FormElement
 		XCTAssertEqual(1, form.elements().size())
 	}
-	
+
 	func testControlsAddedAfterParseAreLinkedWithForms()throws {
 		let doc: Document = try SwiftSoup.parse("<body />")
 		try doc.body()?.html("<form />")
-		
+
 		let formEl: Element = try doc.select("form").first()!
 		try formEl.append("<input name=foo value=bar>")
-		
+
 		XCTAssertNotNil(formEl as? FormElement)
 		let form: FormElement = formEl as! FormElement
 		XCTAssertEqual(1, form.elements().size())
-		
+
 		//todo:
 		///List<Connection.KeyVal> data = form.formData();
 		//assertEquals("foo=bar", data.get(0).toString());
@@ -149,12 +148,12 @@ class FormElementTest: XCTestCase {
 //	assertEquals("pass", data.get(1).key());
 //	assertEquals("login", data.get(2).key());
 //	}
-	
+
 	static var allTests = {
 		return [
-			("testHasAssociatedControls" , testHasAssociatedControls),
-			("testFormsAddedAfterParseAreFormElements" , testFormsAddedAfterParseAreFormElements),
-			("testControlsAddedAfterParseAreLinkedWithForms" , testControlsAddedAfterParseAreLinkedWithForms)
+			("testHasAssociatedControls", testHasAssociatedControls),
+			("testFormsAddedAfterParseAreFormElements", testFormsAddedAfterParseAreFormElements),
+			("testControlsAddedAfterParseAreLinkedWithForms", testControlsAddedAfterParseAreLinkedWithForms)
 		]
 	}()
 }

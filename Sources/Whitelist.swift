@@ -57,24 +57,22 @@
 
 import Foundation
 
-
 public class Whitelist {
-    private var tagNames : Set<TagName> // tags allowed, lower case. e.g. [p, br, span]
-    private var attributes : Dictionary<TagName, Set<AttributeKey>> // tag -> attribute[]. allowed attributes [href] for a tag.
-    private var enforcedAttributes : Dictionary<TagName, Dictionary<AttributeKey, AttributeValue>> // always set these attribute values
-    private var protocols : Dictionary<TagName, Dictionary<AttributeKey, Set<Protocol>>> // allowed URL protocols for attributes
-    private var preserveRelativeLinks : Bool  // option to preserve relative links
-    
-    
+    private var tagNames: Set<TagName> // tags allowed, lower case. e.g. [p, br, span]
+    private var attributes: Dictionary<TagName, Set<AttributeKey>> // tag -> attribute[]. allowed attributes [href] for a tag.
+    private var enforcedAttributes: Dictionary<TagName, Dictionary<AttributeKey, AttributeValue>> // always set these attribute values
+    private var protocols: Dictionary<TagName, Dictionary<AttributeKey, Set<Protocol>>> // allowed URL protocols for attributes
+    private var preserveRelativeLinks: Bool  // option to preserve relative links
+
     /**
      This whitelist allows only text nodes: all HTML will be stripped.
      
      @return whitelist
      */
-    public static func none()->Whitelist {
+    public static func none() -> Whitelist {
         return Whitelist()
     }
-    
+
     /**
      This whitelist allows only simple text formatting: <code>b, em, i, strong, u</code>. All other HTML (tags and
      attributes) will be removed.
@@ -84,7 +82,7 @@ public class Whitelist {
     public static func simpleText()throws ->Whitelist {
         return try Whitelist().addTags("b", "em", "i", "strong", "u")
     }
-    
+
 	/**
 	<p>
 	This whitelist allows a fuller range of text nodes: <code>a, b, blockquote, br, cite, code, dd, dl, dt, em, i, li,
@@ -106,18 +104,18 @@ public class Whitelist {
 				"a", "b", "blockquote", "br", "cite", "code", "dd", "dl", "dt", "em",
 				"i", "li", "ol", "p", "pre", "q", "small", "span", "strike", "strong", "sub",
 				"sup", "u", "ul")
-			
+
 			.addAttributes("a", "href")
 			.addAttributes("blockquote", "cite")
 			.addAttributes("q", "cite")
-			
+
 			.addProtocols("a", "href", "ftp", "http", "https", "mailto")
 			.addProtocols("blockquote", "cite", "http", "https")
 			.addProtocols("cite", "cite", "http", "https")
-			
+
 			.addEnforcedAttribute("a", "rel", "nofollow")
 	}
-	
+
 	/**
 	This whitelist allows the same text tags as {@link #basic}, and also allows <code>img</code> tags, with appropriate
 	attributes, with <code>src</code> pointing to <code>http</code> or <code>https</code>.
@@ -129,9 +127,9 @@ public class Whitelist {
 			.addTags("img")
 			.addAttributes("img", "align", "alt", "height", "src", "title", "width")
 			.addProtocols("img", "src", "http", "https")
-		
+
 	}
-	
+
 	/**
 	This whitelist allows a full range of text and structural body HTML: <code>a, b, blockquote, br, caption, cite,
 	code, col, colgroup, dd, div, dl, dt, em, h1, h2, h3, h4, h5, h6, i, img, li, ol, p, pre, q, small, span, strike, strong, sub,
@@ -150,7 +148,7 @@ public class Whitelist {
 				"i", "img", "li", "ol", "p", "pre", "q", "small", "span", "strike", "strong",
 				"sub", "sup", "table", "tbody", "td", "tfoot", "th", "thead", "tr", "u",
 				"ul")
-			
+
 			.addAttributes("a", "href", "title")
 			.addAttributes("blockquote", "cite")
 			.addAttributes("col", "span", "width")
@@ -164,18 +162,14 @@ public class Whitelist {
 				"th", "abbr", "axis", "colspan", "rowspan", "scope",
 				"width")
 			.addAttributes("ul", "type")
-			
+
 			.addProtocols("a", "href", "ftp", "http", "https", "mailto")
 			.addProtocols("blockquote", "cite", "http", "https")
 			.addProtocols("cite", "cite", "http", "https")
 			.addProtocols("img", "src", "http", "https")
 			.addProtocols("q", "cite", "http", "https")
 	}
-	
-	
-	
-	
-	
+
     /**
      Create a new, empty whitelist. Generally it will be better to start with a default prepared whitelist instead.
 	
@@ -191,7 +185,7 @@ public class Whitelist {
         protocols = Dictionary<TagName, Dictionary<AttributeKey, Set<Protocol>>>()
         preserveRelativeLinks = false
     }
-    
+
     /**
      Add a list of allowed elements to a whitelist. (If a tag is not allowed, it will be removed from the HTML.)
      
@@ -200,14 +194,13 @@ public class Whitelist {
      */
     @discardableResult
     open func addTags(_ tags: String...)throws ->Whitelist {
-        for tagName in tags
-        {
+        for tagName in tags {
             try Validate.notEmpty(string: tagName)
             tagNames.insert(TagName.valueOf(tagName))
         }
         return self
     }
-    
+
     /**
      Remove a list of allowed elements from a whitelist. (If a tag is not allowed, it will be removed from the HTML.)
      
@@ -217,11 +210,11 @@ public class Whitelist {
     @discardableResult
     open func removeTags(_ tags: String...)throws ->Whitelist {
         try Validate.notNull(obj:tags)
-        
+
         for tag in tags {
             try Validate.notEmpty(string: tag)
-            let tagName : TagName = TagName.valueOf(tag)
-            
+            let tagName: TagName = TagName.valueOf(tag)
+
             if(tagNames.contains(tagName)) { // Only look in sub-maps if tag was allowed
                 tagNames.remove(tagName)
                 attributes.removeValue(forKey: tagName)
@@ -231,7 +224,7 @@ public class Whitelist {
         }
         return self
     }
-    
+
     /**
      Add a list of allowed attributes to a tag. (If an attribute is not allowed on an element, it will be removed.)
      <p>
@@ -251,31 +244,29 @@ public class Whitelist {
     open func addAttributes(_ tag: String, _ keys: String...)throws->Whitelist {
         try Validate.notEmpty(string: tag)
         try Validate.isTrue(val: keys.count > 0, msg: "No attributes supplied.")
-        
+
         let tagName = TagName.valueOf(tag)
-        if (!tagNames.contains(tagName)){
+        if (!tagNames.contains(tagName)) {
             tagNames.insert(tagName)
         }
         var attributeSet = Set<AttributeKey>()
-        for key in keys
-        {
+        for key in keys {
             try Validate.notEmpty(string: key)
             attributeSet.insert(AttributeKey.valueOf(key))
         }
-        
-        if var currentSet = attributes[tagName]
-        {
-            for at in attributeSet{
+
+        if var currentSet = attributes[tagName] {
+            for at in attributeSet {
                 currentSet.insert(at)
             }
             attributes[tagName] = currentSet
         } else {
             attributes[tagName] = attributeSet
         }
-        
+
         return self
     }
-    
+
     /**
      Remove a list of allowed attributes from a tag. (If an attribute is not allowed on an element, it will be removed.)
      <p>
@@ -295,47 +286,42 @@ public class Whitelist {
     open func removeAttributes(_ tag: String, _ keys: String...)throws->Whitelist {
         try Validate.notEmpty(string: tag)
         try Validate.isTrue(val: keys.count > 0, msg: "No attributes supplied.")
-        
-        let tagName : TagName = TagName.valueOf(tag)
+
+        let tagName: TagName = TagName.valueOf(tag)
         var attributeSet = Set<AttributeKey>()
         for key in keys {
             try Validate.notEmpty(string: key)
             attributeSet.insert(AttributeKey.valueOf(key))
         }
-        
-        
+
         if(tagNames.contains(tagName)) { // Only look in sub-maps if tag was allowed
-            if var currentSet = attributes[tagName]
-            {
-                for l in attributeSet
-                {
+            if var currentSet = attributes[tagName] {
+                for l in attributeSet {
                     currentSet.remove(l)
                 }
                 attributes[tagName] = currentSet
-                if(currentSet.isEmpty){ // Remove tag from attribute map if no attributes are allowed for tag
+                if(currentSet.isEmpty) { // Remove tag from attribute map if no attributes are allowed for tag
                     attributes.removeValue(forKey: tagName)
                 }
             }
-            
+
         }
-        
-        
-        if(tag == ":all"){ // Attribute needs to be removed from all individually set tags
-            for name in attributes.keys
-            {
-                var currentSet : Set<AttributeKey> = attributes[name]!
-                for l in attributeSet{
+
+        if(tag == ":all") { // Attribute needs to be removed from all individually set tags
+            for name in attributes.keys {
+                var currentSet: Set<AttributeKey> = attributes[name]!
+                for l in attributeSet {
                     currentSet.remove(l)
                 }
                 attributes[name] = currentSet
-                if(currentSet.isEmpty){ // Remove tag from attribute map if no attributes are allowed for tag
+                if(currentSet.isEmpty) { // Remove tag from attribute map if no attributes are allowed for tag
                     attributes.removeValue(forKey: name)
                 }
             }
         }
         return self
     }
-    
+
     /**
      Add an enforced attribute to a tag. An enforced attribute will always be added to the element. If the element
      already has the attribute set, it will be overridden.
@@ -354,24 +340,24 @@ public class Whitelist {
         try Validate.notEmpty(string: tag)
         try Validate.notEmpty(string: key)
         try Validate.notEmpty(string: value)
-        
-        let tagName : TagName = TagName.valueOf(tag)
-        if (!tagNames.contains(tagName)){
+
+        let tagName: TagName = TagName.valueOf(tag)
+        if (!tagNames.contains(tagName)) {
             tagNames.insert(tagName)
         }
-        let attrKey : AttributeKey = AttributeKey.valueOf(key)
-        let attrVal : AttributeValue = AttributeValue.valueOf(value)
-        
+        let attrKey: AttributeKey = AttributeKey.valueOf(key)
+        let attrVal: AttributeValue = AttributeValue.valueOf(value)
+
         if (enforcedAttributes[tagName] != nil) {
             enforcedAttributes[tagName]?[attrKey] = attrVal
         } else {
-            var attrMap : Dictionary<AttributeKey, AttributeValue> = Dictionary<AttributeKey, AttributeValue>()
+            var attrMap: Dictionary<AttributeKey, AttributeValue> = Dictionary<AttributeKey, AttributeValue>()
             attrMap[attrKey] = attrVal
             enforcedAttributes[tagName] = attrMap
         }
         return self
     }
-    
+
     /**
      Remove a previously configured enforced attribute from a tag.
      
@@ -383,21 +369,21 @@ public class Whitelist {
     open func removeEnforcedAttribute(_ tag: String, _ key: String)throws->Whitelist {
         try Validate.notEmpty(string: tag)
         try Validate.notEmpty(string: key)
-        
-        let tagName : TagName = TagName.valueOf(tag)
+
+        let tagName: TagName = TagName.valueOf(tag)
         if(tagNames.contains(tagName) && (enforcedAttributes[tagName] != nil)) {
-            let attrKey : AttributeKey = AttributeKey.valueOf(key)
-            var attrMap : Dictionary<AttributeKey, AttributeValue> = enforcedAttributes[tagName]!
+            let attrKey: AttributeKey = AttributeKey.valueOf(key)
+            var attrMap: Dictionary<AttributeKey, AttributeValue> = enforcedAttributes[tagName]!
             attrMap.removeValue(forKey: attrKey)
             enforcedAttributes[tagName] = attrMap
-            
-            if(attrMap.isEmpty){ // Remove tag from enforced attribute map if no enforced attributes are present
+
+            if(attrMap.isEmpty) { // Remove tag from enforced attribute map if no enforced attributes are present
                 enforcedAttributes.removeValue(forKey: tagName)
             }
         }
         return self
     }
-    
+
     /**
      * Configure this Whitelist to preserve relative links in an element's URL attribute, or convert them to absolute
      * links. By default, this is <b>false</b>: URLs will be  made absolute (e.g. start with an allowed protocol, like
@@ -414,11 +400,11 @@ public class Whitelist {
      * @see #addProtocols
      */
     @discardableResult
-    open func preserveRelativeLinks(_ preserve: Bool)->Whitelist {
+    open func preserveRelativeLinks(_ preserve: Bool) -> Whitelist {
         preserveRelativeLinks = preserve
         return self
     }
-    
+
     /**
      Add allowed URL protocols for an element's URL attribute. This restricts the possible values of the attribute to
      URLs with the defined protocol.
@@ -440,19 +426,19 @@ public class Whitelist {
         try Validate.notEmpty(string: tag)
         try Validate.notEmpty(string: key)
         try Validate.notNull(obj: protocols)
-        
-        let tagName : TagName = TagName.valueOf(tag)
-        let attrKey : AttributeKey = AttributeKey.valueOf(key)
-        var attrMap : Dictionary<AttributeKey, Set<Protocol>>
-        var protSet : Set<Protocol>
-        
+
+        let tagName: TagName = TagName.valueOf(tag)
+        let attrKey: AttributeKey = AttributeKey.valueOf(key)
+        var attrMap: Dictionary<AttributeKey, Set<Protocol>>
+        var protSet: Set<Protocol>
+
         if (self.protocols[tagName] != nil) {
             attrMap = self.protocols[tagName]!
         } else {
             attrMap =  Dictionary<AttributeKey, Set<Protocol>>()
             self.protocols[tagName] = attrMap
         }
-        
+
         if (attrMap[attrKey] != nil) {
             protSet = attrMap[attrKey]!
         } else {
@@ -460,17 +446,16 @@ public class Whitelist {
             attrMap[attrKey] = protSet
             self.protocols[tagName] = attrMap
         }
-        for ptl in protocols
-        {
+        for ptl in protocols {
             try Validate.notEmpty(string: ptl)
-            let prot : Protocol = Protocol.valueOf(ptl)
+            let prot: Protocol = Protocol.valueOf(ptl)
             protSet.insert(prot)
         }
         attrMap[attrKey] = protSet
-        
+
         return self
     }
-    
+
     /**
      Remove allowed URL protocols for an element's URL attribute.
      <p>
@@ -486,44 +471,43 @@ public class Whitelist {
     open func removeProtocols(_ tag: String, _ key: String, _ protocols: String...)throws->Whitelist {
         try Validate.notEmpty(string: tag)
         try Validate.notEmpty(string: key)
-        
-        let tagName : TagName = TagName.valueOf(tag)
-        let attrKey : AttributeKey = AttributeKey.valueOf(key)
-        
+
+        let tagName: TagName = TagName.valueOf(tag)
+        let attrKey: AttributeKey = AttributeKey.valueOf(key)
+
         if(self.protocols[tagName] != nil) {
-            var attrMap : Dictionary<AttributeKey, Set<Protocol>>= self.protocols[tagName]!
+            var attrMap: Dictionary<AttributeKey, Set<Protocol>>= self.protocols[tagName]!
             if(attrMap[attrKey] != nil) {
-                var protSet : Set<Protocol> = attrMap[attrKey]!
-                for ptl in protocols
-                {
+                var protSet: Set<Protocol> = attrMap[attrKey]!
+                for ptl in protocols {
                     try Validate.notEmpty(string: ptl)
-                    let prot : Protocol = Protocol.valueOf(ptl)
+                    let prot: Protocol = Protocol.valueOf(ptl)
                     protSet.remove(prot)
                 }
                 attrMap[attrKey] = protSet
-                
+
                 if(protSet.isEmpty) { // Remove protocol set if empty
                     attrMap.removeValue(forKey: attrKey)
-                    if(attrMap.isEmpty){ // Remove entry for tag if empty
+                    if(attrMap.isEmpty) { // Remove entry for tag if empty
                         self.protocols.removeValue(forKey: tagName)
                     }
-                    
+
                 }
             }
             self.protocols[tagName] = attrMap
         }
         return self
     }
-    
+
     /**
      * Test if the supplied tag is allowed by this whitelist
      * @param tag test tag
      * @return true if allowed
      */
-    public func isSafeTag(_ tag: String)->Bool {
+    public func isSafeTag(_ tag: String) -> Bool {
         return tagNames.contains(TagName.valueOf(tag))
     }
-    
+
     /**
      * Test if the supplied attribute is allowed by this whitelist for this tag
      * @param tagName tag to consider allowing the attribute in
@@ -531,10 +515,10 @@ public class Whitelist {
      * @param attr attribute under test
      * @return true if allowed
      */
-    public func isSafeAttribute(_ tagName: String, _ el: Element, _ attr: Attribute)->Bool {
-        let tag : TagName = TagName.valueOf(tagName)
-        let key : AttributeKey = AttributeKey.valueOf(attr.getKey())
-        
+    public func isSafeAttribute(_ tagName: String, _ el: Element, _ attr: Attribute) -> Bool {
+        let tag: TagName = TagName.valueOf(tagName)
+        let key: AttributeKey = AttributeKey.valueOf(attr.getKey())
+
         if (attributes[tag] != nil) {
             if (attributes[tag]?.contains(key))! {
                 if (protocols[tag] != nil) {
@@ -554,17 +538,16 @@ public class Whitelist {
     private func testValidProtocol(_ el: Element, _ attr: Attribute, _ protocols: Set<Protocol>)throws->Bool {
         // try to resolve relative urls to abs, and optionally update the attribute so output html has abs.
         // rels without a baseuri get removed
-        var value : String = try el.absUrl(attr.getKey())
-        if (value.characters.count == 0){
+        var value: String = try el.absUrl(attr.getKey())
+        if (value.characters.count == 0) {
             value = attr.getValue() // if it could not be made abs, run as-is to allow custom unknown protocols
-            if (!preserveRelativeLinks){
+            if (!preserveRelativeLinks) {
                 attr.setValue(value: value)
             }
-            
-            for  ptl in protocols
-            {
-                var prot : String = ptl.toString()
-                
+
+            for  ptl in protocols {
+                var prot: String = ptl.toString()
+
                 if (prot=="#") { // allows anchor links
                     if (isValidAnchor(value)) {
                         return true
@@ -572,93 +555,85 @@ public class Whitelist {
                         continue
                     }
                 }
-                
+
                 prot += ":"
-                
+
                 if (value.lowercased().hasPrefix(prot)) {
                     return true
                 }
             }
         }
-        
+
         return false
     }
-    
-    private func isValidAnchor(_ value: String)->Bool
-    {
+
+    private func isValidAnchor(_ value: String) -> Bool {
         return value.startsWith("#") && !(Pattern(".*\\s.*").matcher(in: value).count > 0)
     }
-	
+
 	public func getEnforcedAttributes(_ tagName: String)throws->Attributes {
 		let attrs: Attributes = Attributes()
 		let tag: TagName = TagName.valueOf(tagName)
-		if let keyVals: Dictionary<AttributeKey, AttributeValue> = enforcedAttributes[tag]
-		{
-			for entry in keyVals
-			{
+		if let keyVals: Dictionary<AttributeKey, AttributeValue> = enforcedAttributes[tag] {
+			for entry in keyVals {
 				try attrs.put(entry.key.toString(), entry.value.toString())
 			}
 		}
 		return attrs
 	}
-	
+
 }
-
-
 
 // named types for config. All just hold strings, but here for my sanity.
 
-open class TagName : TypedValue {
+open class TagName: TypedValue {
     override init(_ value: String) {
         super.init(value)
     }
-    
-    static func valueOf(_ value: String)->TagName{
+
+    static func valueOf(_ value: String) -> TagName {
         return TagName(value)
     }
 }
 
-open class  AttributeKey : TypedValue {
+open class  AttributeKey: TypedValue {
     override init(_ value: String) {
         super.init(value)
     }
-    
-    static func valueOf(_ value: String)->AttributeKey {
+
+    static func valueOf(_ value: String) -> AttributeKey {
         return AttributeKey(value)
     }
 }
 
-open class AttributeValue : TypedValue {
+open class AttributeValue: TypedValue {
     override init(_ value: String) {
         super.init(value)
     }
-    
-    static func valueOf(_ value: String)->AttributeValue {
+
+    static func valueOf(_ value: String) -> AttributeValue {
         return AttributeValue(value)
     }
 }
 
-open class Protocol : TypedValue {
+open class Protocol: TypedValue {
     override init(_ value: String) {
         super.init(value)
     }
-    
-    static func valueOf(_ value: String)->Protocol {
+
+    static func valueOf(_ value: String) -> Protocol {
         return Protocol(value)
     }
 }
 
+open class TypedValue {
+    fileprivate let value: String
 
-
-open class TypedValue
-{
-    fileprivate let value : String
-    
     init(_ value: String) {
         self.value = value
     }
-    
-    public func toString()->String {
+
+    public func toString() -> String {
         return value
     }
 }
@@ -667,13 +642,12 @@ extension TypedValue: Hashable {
     public var hashValue: Int {
         let prime = 31
         var result = 1
-        result = Int.addWithOverflow(Int.multiplyWithOverflow(prime,result).0, value.hash).0
+        result = Int.addWithOverflow(Int.multiplyWithOverflow(prime, result).0, value.hash).0
         return result
     }
 }
 
-public func == (lhs: TypedValue, rhs: TypedValue) -> Bool
-{
-    if(lhs === rhs){return true}
+public func == (lhs: TypedValue, rhs: TypedValue) -> Bool {
+    if(lhs === rhs) {return true}
     return lhs.value == rhs.value
 }

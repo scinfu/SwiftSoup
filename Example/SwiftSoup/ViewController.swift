@@ -22,15 +22,14 @@ class ViewController: UIViewController {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
     }
-	
-	
+
 	func parseDocument()throws->Document {
 		let html = "<html><head><title>First parse</title></head>"
 			+ "<body><p>Parsed HTML into a doc.</p></body></html>"
 		let doc: Document = try SwiftSoup.parse(html)
 		return doc
 	}
-	
+
 	func testPerformanceDiv() {
 		let h: String = "<!doctype html>\n" +
 			"<html>\n" +
@@ -69,18 +68,16 @@ class ViewController: UIViewController {
 			"  <foo />bar\n" +
 			" </body>\n" +
 		"</html>"
-		let doc: Document = try! SwiftSoup.parse(h);
+		let doc: Document = try! SwiftSoup.parse(h)
 		do {
-			for _ in 0...100000{
-				_ = try doc.select("div");
+			for _ in 0...100000 {
+				_ = try doc.select("div")
 			}
-		}
-		catch {
+		} catch {
 		}
 	}
-	
-		func testSite()
-		{
+
+		func testSite() {
 			let myURLString = "http://apple.com"
 			guard let myURL = URL(string: myURLString) else {
 				print("Error: \(myURLString) doesn't seem to be a valid URL")
@@ -88,18 +85,14 @@ class ViewController: UIViewController {
 			}
 			let html = try! String(contentsOf: myURL, encoding: .utf8)
 			let doc: Document = try! SwiftSoup.parse(html)
-			
+
 			do {
-				for _ in 0...100{
+				for _ in 0...100 {
 					_ = try doc.text()
 				}
-			}
-			catch {
+			} catch {
 				print("Error")
 			}
 		}
-	
-	
 
 }
-

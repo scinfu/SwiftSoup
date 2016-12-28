@@ -14,10 +14,10 @@ import Foundation
  * @author Jonathan Hedley
  */
 open class Collector {
-    
+
     private init() {
     }
-    
+
     /**
      Build a list of elements, by visiting root and every descendant of root, and testing it against the evaluator.
      @param eval Evaluator to test elements against
@@ -25,36 +25,35 @@ open class Collector {
      @return list of matches; empty if none
      */
     open static func collect (_ eval: Evaluator, _ root: Element)throws->Elements {
-        let elements : Elements = Elements()
+        let elements: Elements = Elements()
         try NodeTraversor(Accumulator(root, elements, eval)).traverse(root)
         return elements
     }
-    
+
 }
 
-private final class Accumulator : NodeVisitor {
+private final class Accumulator: NodeVisitor {
     private let root: Element
     private let elements: Elements
     private let eval: Evaluator
-    
+
     init(_ root: Element, _ elements: Elements, _ eval: Evaluator) {
         self.root = root
         self.elements = elements
         self.eval = eval
     }
-    
+
     open func head(_ node: Node, _ depth: Int) {
-        if let el = node as? Element
-        {
-            do{
-                if (try eval.matches(root, el)){
+        if let el = node as? Element {
+            do {
+                if (try eval.matches(root, el)) {
                     elements.add(el)
                 }
-            }catch{}
-            
+            } catch {}
+
         }
     }
-    
+
     open func tail(_ node: Node, _ depth: Int) {
         // void
     }

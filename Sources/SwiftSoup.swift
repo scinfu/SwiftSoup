@@ -8,13 +8,12 @@
 
 import Foundation
 
-
 /**
 The core public access point to the jsoup functionality.
 */
 open class SwiftSoup {
-    private init(){}
-    
+    private init() {}
+
 	/**
 	Parse HTML into a Document. The parser will make a sensible, balanced document tree out of any HTML.
 	
@@ -26,7 +25,7 @@ open class SwiftSoup {
 	public static func parse(_ html: String, _ baseUri: String)throws->Document {
 		return try Parser.parse(html, baseUri)
 	}
-	
+
 	/**
 	Parse HTML into a Document, using the provided Parser. You can provide an alternate parser, such as a simple XML
 	(non-HTML) parser.
@@ -40,7 +39,7 @@ open class SwiftSoup {
 	public static func parse(_ html: String, _ baseUri: String, _ parser: Parser)throws->Document {
 		return try parser.parseInput(html, baseUri)
 	}
-	
+
 	/**
 	Parse HTML into a Document. As no base URI is specified, absolute URL detection relies on the HTML including a
 	{@code <base href>} tag.
@@ -69,7 +68,7 @@ open class SwiftSoup {
 //	public static Connection connect(String url) {
 //		return HttpConnection.connect(url);
 //	}
-	
+
 	//todo:
 //	/**
 //	Parse the contents of a file as HTML.
@@ -85,7 +84,7 @@ open class SwiftSoup {
 //	public static Document parse(File in, String charsetName, String baseUri) throws IOException {
 //	return DataUtil.load(in, charsetName, baseUri);
 //	}
-	
+
 	//todo:
 //	/**
 //	Parse the contents of a file as HTML. The location of the file is used as the base URI to qualify relative URLs.
@@ -101,7 +100,7 @@ open class SwiftSoup {
 //	public static Document parse(File in, String charsetName) throws IOException {
 //	return DataUtil.load(in, charsetName, in.getAbsolutePath());
 //	}
-	
+
 //	/**
 //	Read an input stream, and parse it to a Document.
 //	
@@ -116,7 +115,7 @@ open class SwiftSoup {
 //	public static Document parse(InputStream in, String charsetName, String baseUri) throws IOException {
 //	return DataUtil.load(in, charsetName, baseUri);
 //	}
-	
+
 //	/**
 //	Read an input stream, and parse it to a Document. You can provide an alternate parser, such as a simple XML
 //	(non-HTML) parser.
@@ -133,7 +132,7 @@ open class SwiftSoup {
 //	public static Document parse(InputStream in, String charsetName, String baseUri, Parser parser) throws IOException {
 //	return DataUtil.load(in, charsetName, baseUri, parser);
 //	}
-	
+
 	/**
 	Parse a fragment of HTML, with the assumption that it forms the {@code body} of the HTML.
 	
@@ -146,7 +145,7 @@ open class SwiftSoup {
 	public static func parseBodyFragment(_ bodyHtml: String, _ baseUri: String)throws->Document {
 		return try Parser.parseBodyFragment(bodyHtml, baseUri)
 	}
-	
+
 	/**
 	Parse a fragment of HTML, with the assumption that it forms the {@code body} of the HTML.
 	
@@ -158,7 +157,7 @@ open class SwiftSoup {
 	public static func parseBodyFragment(_ bodyHtml: String)throws->Document {
 		return try Parser.parseBodyFragment(bodyHtml, "")
 	}
-	
+
 //	/**
 //	Fetch a URL, and parse it as HTML. Provided for compatibility; in most cases use {@link #connect(String)} instead.
 //	<p>
@@ -181,7 +180,7 @@ open class SwiftSoup {
 //	con.timeout(timeoutMillis);
 //	return con.get();
 //	}
-	
+
 	/**
 	Get safe HTML from untrusted input HTML, by parsing input HTML and filtering it through a white-list of permitted
 	tags and attributes.
@@ -199,7 +198,7 @@ open class SwiftSoup {
 		let clean: Document = try cleaner.clean(dirty)
 		return try clean.body()?.html()
 	}
-	
+
 	/**
 	Get safe HTML from untrusted input HTML, by parsing input HTML and filtering it through a white-list of permitted
 	tags and attributes.
@@ -213,7 +212,7 @@ open class SwiftSoup {
 	public static func clean(_ bodyHtml: String, _ whitelist: Whitelist)throws->String? {
 		return try SwiftSoup.clean(bodyHtml, "", whitelist)
 	}
-	
+
 	/**
 	* Get safe HTML from untrusted input HTML, by parsing input HTML and filtering it through a white-list of
 	* permitted
@@ -233,6 +232,5 @@ open class SwiftSoup {
 		clean.outputSettings(outputSettings)
 		return try clean.body()?.html()
 	}
-	
-	
+
 }

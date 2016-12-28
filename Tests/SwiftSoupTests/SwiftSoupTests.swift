@@ -10,10 +10,10 @@ import XCTest
 import SwiftSoup
 
 class SwiftSoupTests: XCTestCase {
-        	
+
 	static var allTests = {
 		return [
 		]
 	}()
-	
+
 }
