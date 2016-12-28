@@ -914,9 +914,9 @@ class ElementTest: XCTestCase {
 	
 	func testHashcodeIsStableWithContentChanges()throws {
 		let root: Element = try Element(Tag.valueOf("root"), "")
-		var set = Set<Element>()
+		let set = OrderedSet<Element>()
 		// Add root node:
-		set.insert(root)
+		set.append(root)
 		try root.appendChild(Element(Tag.valueOf("a"), ""))
 		XCTAssertTrue(set.contains(root))
 	}

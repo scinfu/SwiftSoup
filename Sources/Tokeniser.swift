@@ -202,7 +202,7 @@ final class Tokeniser
             } else if (numChars == 2) {
                 return multipointHolder
             } else {
-                try Validate.fail(msg: "Unexpected characters returned for " + nameRef)
+                try Validate.fail(msg: "Unexpected characters returned for \(nameRef) num: \(numChars)")
                 return multipointHolder
             }
         }

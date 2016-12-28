@@ -89,13 +89,30 @@ public class Entities {
 		
         public func codepointForName(_ name: String) -> Int
         {
-            let index = nameKeys.binarySearch(nameKeys,name)
-            return index >= 0 ? codeVals[index] : empty
+			var i = 0
+			var found = false
+			for s in nameKeys
+			{
+				if s == name{
+					found = true;
+					break
+				}
+				i += 1
+			}
+            return found ? codeVals[i] : empty
         }
 		
         public func nameForCodepoint(_ codepoint: Int )->String {
             //let ss = codeKeys.index(of: codepoint)
-            let index = codeKeys.binarySearch(codeKeys,codepoint)
+			
+			var index = -1
+			for s in codeKeys
+			{
+				if s == codepoint {
+					index = codeKeys.index(of: codepoint)!
+				}
+			}
+			
             if (index >= 0) {
                 // the results are ordered so lower case versions of same codepoint come after uppercase, and we prefer to emit lower
                 // (and binary search for same item with multi results is undefined
