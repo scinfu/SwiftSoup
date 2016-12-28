@@ -644,7 +644,8 @@ class SelectorTest: XCTestCase {
 	}
 	
 	func testSelectSupplementaryCharacter()throws {
-		let s = String(Character(UnicodeScalar(135361)!))
+		//let s = String(Character(UnicodeScalar(135361)!))
+		let s = "\u{000210C1}"
 		let doc: Document = try SwiftSoup.parse("<div k" + s + "='" + s + "'>^" + s + "$/div>")
 		XCTAssertEqual("div", try doc.select("div[k" + s + "]").first()?.tagName())
 		XCTAssertEqual("div", try doc.select("div:containsOwn(" + s + ")").first()?.tagName())
