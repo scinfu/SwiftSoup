@@ -1,6 +1,6 @@
 {
   "name": "SwiftSoup",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "summary": "Swift HTML Parser and XML, with best of DOM, CSS, and jquery",
   "description": "SwiftSoup is a Swift library for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jquery-like methods.",
   "homepage": "https://github.com/scinfu/SwiftSoup",
@@ -13,7 +13,7 @@
   },
   "source": {
     "git": "https://github.com/scinfu/SwiftSoup.git",
-    "tag": "1.1.2"
+    "tag": "1.1.3"
   },
   "social_media_url": "https://twitter.com/scinfu",
   "platforms": {
