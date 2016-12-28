@@ -447,8 +447,7 @@ class DocumentTest: XCTestCase {
 			("testMetaCharsetUpdateXmlNoCharset" , testMetaCharsetUpdateXmlNoCharset),
 			("testMetaCharsetUpdateXmlDisabled" , testMetaCharsetUpdateXmlDisabled),
 			("testMetaCharsetUpdateXmlDisabledNoChanges" , testMetaCharsetUpdateXmlDisabledNoChanges),
-			("testMetaCharsetUpdatedDisabledPerDefault" , testMetaCharsetUpdatedDisabledPerDefault),
-			("createXmlDocument" , createXmlDocument)
+			("testMetaCharsetUpdatedDisabledPerDefault" , testMetaCharsetUpdatedDisabledPerDefault)
 		]
 	}()
 	
