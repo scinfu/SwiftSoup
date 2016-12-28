@@ -741,8 +741,8 @@ class SelectorTest: XCTestCase {
 			("testNotAll" , testNotAll),
 			("testNotClass" , testNotClass),
 			("testHandlesCommasInSelector" , testHandlesCommasInSelector),
-			("testSelectSupplementaryCharacter" , testSelectSupplementaryCharacter),
-			//("testSelectClassWithSpace" , testSelectClassWithSpace),
+			//("testSelectSupplementaryCharacter" , testSelectSupplementaryCharacter),
+			("testSelectClassWithSpace" , testSelectClassWithSpace),
 			("testSelectSameElements" , testSelectSameElements),
 			("testAttributeWithBrackets" , testAttributeWithBrackets)
 		]
