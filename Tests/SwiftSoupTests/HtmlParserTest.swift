@@ -70,7 +70,7 @@ class HtmlParserTest: XCTestCase {
 	}
 
 	func testDropsUnterminatedTag()throws {
-		// jsoup used to parse this to <p>, but whatwg, webkit will drop.
+		// swiftsoup used to parse this to <p>, but whatwg, webkit will drop.
 		let h1: String = "<p"
 		var doc: Document = try SwiftSoup.parse(h1)
 		XCTAssertEqual(0, try doc.getElementsByTag("p").size())
@@ -82,7 +82,7 @@ class HtmlParserTest: XCTestCase {
 	}
 
 	func testDropsUnterminatedAttribute()throws {
-		// jsoup used to parse this to <p id="foo">, but whatwg, webkit will drop.
+		// swiftsoup used to parse this to <p id="foo">, but whatwg, webkit will drop.
 		let h1: String = "<p id=\"foo"
 		let doc: Document = try SwiftSoup.parse(h1)
 		XCTAssertEqual("", try doc.text())

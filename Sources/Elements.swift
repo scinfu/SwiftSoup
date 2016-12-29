@@ -19,11 +19,14 @@ import Foundation
 open class Elements: NSCopying {
 	fileprivate var this: Array<Element> = Array<Element>()
 
+	///base init
 	public init() {
 	}
+	///Initialized with an array
 	public init(_ a: Array<Element>) {
 		this = a
 	}
+	///Initialized with an order set
 	public init(_ a: OrderedSet<Element>) {
 		this.append(contentsOf: a)
 	}
@@ -194,6 +197,7 @@ open class Elements: NSCopying {
 		return sb.toString()
 	}
 
+	/// Check if an element has text
 	open func hasText() -> Bool {
 		for element: Element in this {
 			if (element.hasText()) {
@@ -481,10 +485,12 @@ open class Elements: NSCopying {
 		return isEmpty() ? nil : get(0)
 	}
 
+	/// Check if no element stored
 	open func isEmpty() -> Bool {
 		return array().count == 0
 	}
 
+	/// Count
 	open func size() -> Int {
 		return array().count
 	}
@@ -536,19 +542,27 @@ open class Elements: NSCopying {
 		this.append(e)
 	}
 
+	/**
+	* Insert the specified element at index.
+	*/
 	open func add(_ index: Int, _ element: Element) {
 		this.insert(element, at: index)
 	}
 
+	/// Return element at index
 	open func get(_ i: Int) -> Element {
 		return this[i]
 	}
 
+	/// Returns all elements
 	open func array()->Array<Element> {
 		return this
 	}
 }
 
+/**
+* Elements extension Equatable.
+*/
 extension Elements: Equatable {
 	/// Returns a Boolean value indicating whether two values are equal.
 	///
@@ -562,3 +576,38 @@ extension Elements: Equatable {
 		return lhs.this == rhs.this
 	}
 }
+
+/**
+* Elements IteratorProtocol.
+*/
+public struct ElementsIterator: IteratorProtocol {
+	/// Elements reference
+	let elements: Elements
+	//current element index
+	var index = 0
+	
+	/// Initializer
+	init(_ countdown: Elements) {
+		self.elements = countdown
+	}
+	
+	/// Advances to the next element and returns it, or `nil` if no next element
+	mutating public func next() -> Element? {
+		let result = index < elements.size() ? elements.get(index) : nil
+		index += 1;
+		return result
+	}
+}
+
+/**
+* Elements Extension Sequence.
+*/
+extension Elements: Sequence {
+	/// Returns an iterator over the elements of this sequence.
+	public func makeIterator() -> ElementsIterator {
+		return ElementsIterator(self)
+	}
+}
+
+
+

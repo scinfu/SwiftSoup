@@ -13,7 +13,45 @@ class DocumentTest: XCTestCase {
 
 	private static let charsetUtf8 = String.Encoding.utf8
 	private static let charsetIso8859 = String.Encoding.iso2022JP //"ISO-8859-1"
-
+	
+//	func testT()throws
+//	{
+//		do{
+//			let html = "<!DOCTYPE html>" +
+//				"<html>" +
+//				"<head>" +
+//				"<title>Some webpage</title>" +
+//				"</head>" +
+//				"<body>" +
+//				"<p class='normal'>This is the first paragraph.</p>" +
+//				"<p class='special'><b>this is in bold</b></p>" +
+//				"</body>" +
+//			"</html>";
+//			
+//			let doc: Document = try SwiftSoup.parse(html)
+//			try doc.append("<p class='special'><b>this is in bold</b></p>")
+//			try doc.append("<p class='special'><b>this is in bold</b></p>")
+//			try doc.append("<p class='special'><b>this is in bold</b></p>")
+//			try doc.append("<p class='special'><b>this is in bold</b></p>")
+//			let els: Elements = try doc.getElementsByClass("special")
+//			let special: Element? = els.first()//get first element
+//			print(try special?.text())//"this is in bold"
+//			print(special?.tagName())//"p"
+//			print(special?.child(0).tag().getName())//"b"
+//			
+//			for el in els{
+//				print(el)
+//			}
+//			
+//		}catch Exception.Error(let type, let message)
+//		{
+//			print()
+//		}catch{
+//			print("")
+//		}
+//	}
+	
+	
 	func testSetTextPreservesDocumentStructure() {
 		do {
 			let doc: Document = try SwiftSoup.parse("<p>Hello</p>")
