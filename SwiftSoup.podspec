@@ -7,7 +7,7 @@
 #
 
 Pod::Spec.new do |s|
-  s.name             = 'SwiftSoup HTML And XML'
+  s.name             = 'SwiftSoup'
   s.version          = '1.1.6'
   s.summary          = 'Swift HTML Parser / Reader, XML , with best of DOM, CSS, and jquery'
 
