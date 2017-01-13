@@ -232,5 +232,19 @@ open class SwiftSoup {
 		clean.outputSettings(outputSettings)
 		return try clean.body()?.html()
 	}
+    
+    /**
+     Test if the input HTML has only tags and attributes allowed by the Whitelist. Useful for form validation. The input HTML should
+     still be run through the cleaner to set up enforced attributes, and to tidy the output.
+     @param bodyHtml HTML to test
+     @param whitelist whitelist to test against
+     @return true if no tags or attributes were removed; false otherwise
+     @see #clean(String, org.jsoup.safety.Whitelist)
+     */
+    public static func isValid(_ bodyHtml: String, _ whitelist: Whitelist)throws->Bool {
+        let dirty = try parseBodyFragment(bodyHtml, "");
+        let cleaner  = Cleaner(whitelist);
+        return try cleaner.isValid(dirty);
+    }
 
 }
