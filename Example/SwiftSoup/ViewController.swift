@@ -15,12 +15,26 @@ class ViewController: UIViewController {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
 		//testPerformanceDiv()
-		testSite()
+		ddd()
     }
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
+    }
+    
+    func ddd()
+    {
+        do{
+            let unsafe: String = "<p><a href='http://example.com/' onclick='stealCookies()'>Link</a></p>"
+            let safe: String = try SwiftSoup.clean(unsafe, Whitelist.basic())!
+            print(safe)
+            // now: <p><a href="http://example.com/" rel="nofollow">Link</a></p>
+        }catch Exception.Error(let type, let message){
+            print(message)
+        }catch{
+            print("error")
+        }
     }
 
 	func parseDocument()throws->Document {
