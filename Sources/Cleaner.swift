@@ -69,7 +69,7 @@ open class Cleaner {
 
 		if let sourceAttrs = sourceEl.getAttributes() {
 			for sourceAttr: Attribute in sourceAttrs {
-				if (whitelist.isSafeAttribute(sourceTag, sourceEl, sourceAttr)) {
+				if (try whitelist.isSafeAttribute(sourceTag, sourceEl, sourceAttr)) {
 					destAttrs.put(attribute: sourceAttr)
 				} else {
 					numDiscarded+=1
@@ -118,7 +118,9 @@ extension Cleaner {
 					//let sourceData: DataNode = (DataNode) source
 					let destData: DataNode =  DataNode(sourceData.getWholeData(), source.getBaseUri())
 					try destination?.appendChild(destData)
-				}
+                }else{
+                    numDiscarded+=1
+                }
 			} else { // else, we don't care about comments, xml proc instructions, etc
 				numDiscarded+=1
 			}
