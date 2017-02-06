@@ -26,6 +26,12 @@ public class CombiningEvaluator: Evaluator {
         super.init()
         updateNumEvaluators()
     }
+    
+    public init(_ evaluators: Evaluator...) {
+        self.evaluators = evaluators
+        super.init()
+        updateNumEvaluators()
+    }
 
     func rightMostEvaluator() -> Evaluator? {
         return num > 0 && evaluators.count > 0 ? evaluators[num - 1] : nil

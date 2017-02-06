@@ -476,7 +476,7 @@ public class Whitelist {
         let attrKey: AttributeKey = AttributeKey.valueOf(key)
         
         if(self.protocols[tagName] != nil) {
-            var attrMap: Dictionary<AttributeKey, Set<Protocol>>= self.protocols[tagName]!
+            var attrMap: Dictionary<AttributeKey, Set<Protocol>> = self.protocols[tagName]!
             if(attrMap[attrKey] != nil) {
                 var protSet: Set<Protocol> = attrMap[attrKey]!
                 for ptl in protocols {
