@@ -136,15 +136,6 @@ class EntitiesTest: XCTestCase {
 		XCTAssertEqual("<a title=\"&lt;p>One&lt;/p>\">One</a>", try  element.outerHtml())
 	}
     
-    func testPerformanceExample()throws {
-        // This is an example of a performance test case.
-        
-        self.measure {
-            _ = Entities.EscapeMode.base
-            _ = Entities.EscapeMode.xhtml
-            _ = Entities.EscapeMode.extended
-        }
-    }
 
 	static var allTests = {
 		return [
