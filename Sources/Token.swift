@@ -37,6 +37,7 @@ open class Token {
 
 	final class Doctype: Token {
 		let name: StringBuilder = StringBuilder()
+        var pubSysKey: String?
 		let publicIdentifier: StringBuilder = StringBuilder()
 		let systemIdentifier: StringBuilder = StringBuilder()
 		var forceQuirks: Bool  = false
@@ -49,6 +50,7 @@ open class Token {
 		@discardableResult
 		override func reset() -> Token {
 			Token.reset(name)
+            pubSysKey = nil
 			Token.reset(publicIdentifier)
 			Token.reset(systemIdentifier)
 			forceQuirks = false
@@ -58,7 +60,13 @@ open class Token {
 		func getName() -> String {
 			return name.toString()
 		}
+        
+        func getPubSysKey()->String? {
+            return pubSysKey;
+        }
+        
 
+        
 		func getPublicIdentifier() -> String {
 			return publicIdentifier.toString()
 		}

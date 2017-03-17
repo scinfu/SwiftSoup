@@ -12,7 +12,10 @@ import Foundation
  * A {@code <!DOCTYPE>} node.
  */
 public class DocumentType: Node {
+    static let PUBLIC_KEY: String = "PUBLIC"
+    static let SYSTEM_KEY: String = "SYSTEM";
     private static let NAME: String = "name"
+    private static let PUB_SYS_KEY: String = "pubSysKey"; // PUBLIC or SYSTEM
     private static let PUBLIC_ID: String = "publicId"
     private static let SYSTEM_ID: String = "systemId"
     // todo: quirk mode from publicId and systemId
@@ -27,11 +30,37 @@ public class DocumentType: Node {
     public init(_ name: String, _ publicId: String, _ systemId: String, _ baseUri: String) {
         super.init(baseUri)
         do {
-            try attr(DocumentType.NAME, name)
-            try attr(DocumentType.PUBLIC_ID, publicId)
-            try attr(DocumentType.SYSTEM_ID, systemId)
+            try attr(DocumentType.NAME, name);
+            try attr(DocumentType.PUBLIC_ID, publicId);
+            if (has(DocumentType.PUBLIC_ID)) {
+                try attr(DocumentType.PUB_SYS_KEY, DocumentType.PUBLIC_KEY);
+            }
+            try attr(DocumentType.SYSTEM_ID, systemId);
         } catch {}
     }
+    
+    /**
+     * Create a new doctype element.
+     * @param name the doctype's name
+     * @param publicId the doctype's public ID
+     * @param systemId the doctype's system ID
+     * @param baseUri the doctype's base URI
+     */
+    public init(_ name: String, _ pubSysKey: String?, _ publicId: String, _ systemId: String, _ baseUri: String) {
+        super.init(baseUri)
+        do {
+            try attr(DocumentType.NAME, name)
+            if(pubSysKey != nil){
+                try attr(DocumentType.PUB_SYS_KEY, pubSysKey!)
+            }
+            try attr(DocumentType.PUBLIC_ID, publicId);
+            try attr(DocumentType.SYSTEM_ID, systemId);
+        } catch {}
+    }
+    
+    
+    
+    
 
     public override func nodeName() -> String {
         return "#doctype"
@@ -50,9 +79,16 @@ public class DocumentType: Node {
             } catch {}
 
         }
+        
+        if (has(DocumentType.PUB_SYS_KEY)){
+            do {
+                try accum.append(" ").append(attr(DocumentType.PUB_SYS_KEY))
+            } catch {}
+        }
+        
         if (has(DocumentType.PUBLIC_ID)) {
             do {
-                accum.append(" PUBLIC \"").append(try attr(DocumentType.PUBLIC_ID)).append("\"")
+                try accum.append(" \"").append(attr(DocumentType.PUBLIC_ID)).append("\"");
             } catch {}
 
         }
