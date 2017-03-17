@@ -211,8 +211,8 @@ class ElementsTest: XCTestCase {
 		let h = "<p>Hello<p title=foo>there<p>world"
 		let doc: Document = try SwiftSoup.parse(h)
 		let ps: Elements = try doc.select("p")
-		try XCTAssertTrue(ps.is("[title=foo]"))
-		try XCTAssertFalse(ps.is("[title=bar]"))
+		try XCTAssertTrue(ps.iS("[title=foo]"))
+		try XCTAssertFalse(ps.iS("[title=bar]"))
 	}
 
 	func testParents()throws {

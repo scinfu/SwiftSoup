@@ -268,6 +268,31 @@ open class Element: Node {
     public func select(_ cssQuery: String)throws->Elements {
         return try Selector.select(cssQuery, self)
     }
+    
+    /**
+     * Check if this element matches the given {@link Selector} CSS query.
+     * @param cssQuery a {@link Selector} CSS query
+     * @return if this element matches the query
+     */
+    public func iS(_ cssQuery: String)throws->Bool {
+        return try iS(QueryParser.parse(cssQuery));
+    }
+    
+    /**
+     * Check if this element matches the given {@link Selector} CSS query.
+     * @param cssQuery a {@link Selector} CSS query
+     * @return if this element matches the query
+     */
+    public func iS(_ evaluator: Evaluator)throws->Bool {
+        guard let od = self.ownerDocument() else {
+            return false;
+        }
+        return try evaluator.matches(od, self);
+    }
+
+    
+    
+    
 
     /**
      * Add a node child node to this element.

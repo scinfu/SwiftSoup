@@ -940,6 +940,29 @@ class ElementTest: XCTestCase {
             .removeAttr("five");
         XCTAssertEqual("<a>Text</a>", try a.outerHtml());
     }
+    
+    func testIs()throws {
+        let html = "<div><p>One <a class=big>Two</a> Three</p><p>Another</p>"
+        let doc: Document = try SwiftSoup.parse(html)
+        let p: Element = try doc.select("p").first()!
+        
+        try XCTAssertTrue(p.iS("p"));
+        try XCTAssertFalse(p.iS("div"));
+        try XCTAssertTrue(p.iS("p:has(a)"));
+        try XCTAssertTrue(p.iS("p:first-child"));
+        try XCTAssertFalse(p.iS("p:last-child"));
+        try XCTAssertTrue(p.iS("*"));
+        try XCTAssertTrue(p.iS("div p"));
+        
+        let q: Element = try doc.select("p").last()!
+        try XCTAssertTrue(q.iS("p"));
+        try XCTAssertTrue(q.iS("p ~ p"));
+        try XCTAssertTrue(q.iS("p + p"));
+        try XCTAssertTrue(q.iS("p:last-child"));
+        try XCTAssertFalse(q.iS("p a"));
+        try XCTAssertFalse(q.iS("a"));
+    }
+
 
 
 	static var allTests = {
@@ -1013,7 +1036,8 @@ class ElementTest: XCTestCase {
 			("testAppendMustCorrectlyMoveChildrenInsideOneParentElement", testAppendMustCorrectlyMoveChildrenInsideOneParentElement),
 			("testHashcodeIsStableWithContentChanges", testHashcodeIsStableWithContentChanges),
 			("testNamespacedElements", testNamespacedElements),
-			("testChainedRemoveAttributes",testChainedRemoveAttributes)
+			("testChainedRemoveAttributes",testChainedRemoveAttributes),
+			("testIs",testIs)
 		]
 	}()
 }

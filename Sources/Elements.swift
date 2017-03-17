@@ -458,10 +458,16 @@ open class Elements: NSCopying {
 	* @param query A selector
 	* @return true if at least one element in the list matches the query.
 	*/
-	open func `is`(_ query: String)throws->Bool {
-		let children: Elements = try select(query)
-		return !children.isEmpty()
-	}
+    open func iS(_ query: String)throws->Bool {
+        let eval: Evaluator = try QueryParser.parse(query);
+        for  e: Element in this {
+            if (try e.iS(eval)){
+                return true;
+            }
+        }
+        return false;
+        
+    }
 
 	/**
 	* Get all of the parents and ancestor elements of the matched elements.
