@@ -646,10 +646,6 @@ open class Node: Equatable, Hashable {
         return appendable
     }
 
-    open func toString()throws->String {
-    return try outerHtml()
-    }
-
     public func indent(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         accum.append("\n").append(StringUtil.padding(depth * Int(out.indentAmount())))
     }
@@ -785,7 +781,7 @@ open class Node: Equatable, Hashable {
 extension Node : CustomStringConvertible {
 	public var description: String {
 		do {
-			return try toString()
+			return try outerHtml()
 		} catch {
 
 		}
@@ -796,7 +792,7 @@ extension Node : CustomStringConvertible {
 extension Node : CustomDebugStringConvertible {
 	public var debugDescription: String {
 		do {
-			return try String(describing: type(of: self)) + " " + toString()
+			return try String(describing: type(of: self)) + " " + outerHtml()
 		} catch {
 
 		}

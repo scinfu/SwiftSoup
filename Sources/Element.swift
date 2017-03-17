@@ -1244,10 +1244,6 @@ open class Element: Node {
 		return self
 	}
 
-	open override func toString()throws->String {
-		return try outerHtml()
-	}
-
 	public override func copy(with zone: NSZone? = nil) -> Any {
 		let clone = Element(_tag, baseUri!, attributes!)
 		return copy(clone: clone)

@@ -109,7 +109,7 @@
 		8C19C8321DB7ECB700B8FC22 /* ParseErrorList.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ParseErrorList.swift; sourceTree = "<group>"; };
 		8C246B521DD7396200B31DA7 /* OrderedSet.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OrderedSet.swift; sourceTree = "<group>"; };
 		8C3617C01DBAC2AE00E00CFE /* Selector.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Selector.swift; sourceTree = "<group>"; };
-		8C55AE181E2904BB00DF7A9F /* CleanerTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CleanerTest.swift; sourceTree = "<group>"; };
+		8C55AE181E2904BB00DF7A9F /* CleanerTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CleanerTest.swift; path = SwiftSoupTests/CleanerTest.swift; sourceTree = "<group>"; };
 		8C6239C11DBE76D40024F42D /* TreeBuilder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TreeBuilder.swift; sourceTree = "<group>"; };
 		8C6239C31DBE90740024F42D /* HtmlTreeBuilderState.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HtmlTreeBuilderState.swift; sourceTree = "<group>"; };
 		8C6239C51DBE910B0024F42D /* HtmlTreeBuilder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HtmlTreeBuilder.swift; sourceTree = "<group>"; };
