@@ -244,4 +244,36 @@ class CleanerTest: XCTestCase {
         XCTAssertTrue( try SwiftSoup.isValid("Hello<script>alert('Doh')</script>World !", whitelist ) )
     }
     
+    static var allTests = {
+        return [
+            ("testHandlesCustomProtocols", testHandlesCustomProtocols),
+            ("testSimpleBehaviourTest", testSimpleBehaviourTest),
+            ("testSimpleBehaviourTest2", testSimpleBehaviourTest2),
+            ("testBasicBehaviourTest", testBasicBehaviourTest),
+            ("testBasicWithImagesTest", testBasicWithImagesTest),
+            ("testRelaxed", testRelaxed),
+            ("testRemoveTags", testRemoveTags),
+            ("testRemoveAttributes", testRemoveAttributes),
+            ("testRemoveEnforcedAttributes", testRemoveEnforcedAttributes),
+            ("testRemoveProtocols", testRemoveProtocols),
+            ("testDropComments", testDropComments),
+            ("testDropXmlProc", testDropXmlProc),
+            ("testDropScript", testDropScript),
+            ("testDropImageScript", testDropImageScript),
+            ("testCleanJavascriptHref", testCleanJavascriptHref),
+            ("testCleanAnchorProtocol", testCleanAnchorProtocol),
+            ("testDropsUnknownTags", testDropsUnknownTags),
+            ("testtestHandlesEmptyAttributes", testtestHandlesEmptyAttributes),
+            ("testIsValid", testIsValid),
+            ("testResolvesRelativeLinks", testResolvesRelativeLinks),
+            ("testPreservesRelativeLinksIfConfigured", testPreservesRelativeLinksIfConfigured),
+            ("testDropsUnresolvableRelativeLinks", testDropsUnresolvableRelativeLinks),
+            ("testHandlesAllPseudoTag", testHandlesAllPseudoTag),
+            ("testAddsTagOnAttributesIfNotSet", testAddsTagOnAttributesIfNotSet),
+            ("testHandlesFramesets", testHandlesFramesets),
+            ("testCleansInternationalText", testCleansInternationalText),
+            ("testScriptTagInWhiteList", testScriptTagInWhiteList)
+        ]
+    }()
+    
 }

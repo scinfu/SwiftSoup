@@ -28,5 +28,6 @@ XCTMain([
 	testCase(DocumentTest.allTests),
 	testCase(AttributesTest.allTests),
 	testCase(NodeTest.allTests),
-	testCase(AttributeTest.allTests)
+	testCase(AttributeTest.allTests),
+	testCase(CleanerTest.allTests)
 	])
