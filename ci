@@ -68,7 +68,7 @@ then
     exit 1;
 fi
 
-if [[ $OS != "macos" ]];
+if [[ $OS == "macos" ]];
 then
     xcodebuild -project SwiftSoup.xcodeproj -scheme SwiftSoup -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO -destination 'platform=iOS Simulator,name=iPhone 6' build test
     if [[ $? != 0 ]];
