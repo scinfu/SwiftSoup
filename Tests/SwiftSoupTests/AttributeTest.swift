@@ -22,11 +22,29 @@ class AttributeTest: XCTestCase {
         XCTAssertEqual(s + "=\"A" + s + "B\"", attr.html())
         XCTAssertEqual(attr.html(), attr.toString())
     }
+    
+    func testRemoveCaseSensitive()throws {
+        let a: Attributes = Attributes()
+        try a.put("Tot", "a&p")
+        try a.put("tot", "one")
+        try a.put("Hello", "There")
+        try a.put("hello", "There")
+        try a.put("data-name", "Jsoup")
+        
+        XCTAssertEqual(5, a.size());
+        try a.remove(key: "Tot");
+        try a.remove(key: "Hello");
+        XCTAssertEqual(3, a.size());
+        XCTAssertTrue(a.hasKey(key: "tot"));
+        XCTAssertFalse(a.hasKey(key: "Tot"));
+    }
+
 
 	static var allTests = {
 		return [
 			("testHtml", testHtml),
-			("testWithSupplementaryCharacterInAttributeKeyAndValue", testWithSupplementaryCharacterInAttributeKeyAndValue)
+			("testWithSupplementaryCharacterInAttributeKeyAndValue", testWithSupplementaryCharacterInAttributeKeyAndValue),
+			("testRemoveCaseSensitive",testRemoveCaseSensitive)
 		]
 	}()
 

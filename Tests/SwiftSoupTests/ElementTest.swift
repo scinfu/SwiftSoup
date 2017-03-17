@@ -927,6 +927,20 @@ class ElementTest: XCTestCase {
 		XCTAssertEqual(1, els.size())
 		XCTAssertEqual("html > body > fb|comments", try els.get(0).cssSelector())
 	}
+    
+    func testChainedRemoveAttributes()throws {
+        let html = "<a one two three four>Text</a>"
+        let doc = try SwiftSoup.parse(html)
+        let a: Element = try doc.select("a").first()!
+       try a.removeAttr("zero")
+            .removeAttr("one")
+            .removeAttr("two")
+            .removeAttr("three")
+            .removeAttr("four")
+            .removeAttr("five");
+        XCTAssertEqual("<a>Text</a>", try a.outerHtml());
+    }
+
 
 	static var allTests = {
 		return [
@@ -998,7 +1012,8 @@ class ElementTest: XCTestCase {
 			("testRelativeUrls", testRelativeUrls),
 			("testAppendMustCorrectlyMoveChildrenInsideOneParentElement", testAppendMustCorrectlyMoveChildrenInsideOneParentElement),
 			("testHashcodeIsStableWithContentChanges", testHashcodeIsStableWithContentChanges),
-			("testNamespacedElements", testNamespacedElements)
+			("testNamespacedElements", testNamespacedElements),
+			("testChainedRemoveAttributes",testChainedRemoveAttributes)
 		]
 	}()
 }
