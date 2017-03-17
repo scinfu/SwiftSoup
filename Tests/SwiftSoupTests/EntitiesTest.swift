@@ -135,6 +135,22 @@ class EntitiesTest: XCTestCase {
 		doc.outputSettings().escapeMode(Entities.EscapeMode.xhtml)
 		XCTAssertEqual("<a title=\"&lt;p>One&lt;/p>\">One</a>", try  element.outerHtml())
 	}
+    
+    func testPerformanceExample()throws {
+        // This is an example of a performance test case.
+        let string: String = "http://www.foo.com?a=1&num_rooms=1&children=0&int=VA&b=2"
+        
+        self.measure {
+            do{
+                for _ in 0...10
+                {
+                    _ = try Entities.unescape(string);
+                }
+            }catch Exception.Error( _, _){
+            }catch{
+            }
+        }
+    }
 
 	static var allTests = {
 		return [
