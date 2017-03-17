@@ -1,6 +1,12 @@
-language: objective-c
+os:
+  - linux
+  - osx
+language: generic
+sudo: required
+dist: trusty
 osx_image: xcode8.1
 script:
+  
   - set -o pipefail
   #- xcodebuild -project SwiftSoup.xcodeproj -target SwiftSoup -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO
   - xcodebuild -project SwiftSoup.xcodeproj -scheme SwiftSoup -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO -destination 'platform=iOS Simulator,name=iPhone 6' build test
