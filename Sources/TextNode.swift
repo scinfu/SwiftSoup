@@ -118,10 +118,6 @@ open class TextNode: Node {
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
     }
 
-    open override func toString()throws->String {
-        return try outerHtml()
-    }
-
     /**
      * Create a new TextNode from HTML encoded (aka escaped) data.
      * @param encodedText Text containing encoded HTML (e.g. &amp;lt;)

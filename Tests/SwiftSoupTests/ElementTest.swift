@@ -573,10 +573,10 @@ class ElementTest: XCTestCase {
 	func testpParentlessToString()throws {
 		let doc: Document = try SwiftSoup.parse("<img src='foo'>")
 		let img: Element = try doc.select("img").first()!
-		XCTAssertEqual("<img src=\"foo\">", try img.toString())
+		XCTAssertEqual("<img src=\"foo\">", try img.outerHtml())
 
 		try img.remove() // lost its parent
-		XCTAssertEqual("<img src=\"foo\">", try img.toString())
+		XCTAssertEqual("<img src=\"foo\">", try img.outerHtml())
 	}
 
 	func testClone()throws {
@@ -906,7 +906,7 @@ class ElementTest: XCTestCase {
 
 		try body.insertChildren(0, toMove)
 
-		let result: String = try doc.toString().replaceAll(of: "\\s+", with: "")
+		let result: String = try doc.outerHtml().replaceAll(of: "\\s+", with: "")
 		XCTAssertEqual("<body><div3>Check</div3><div4></div4><div1></div1><div2></div2></body>", result)
 	}
 
