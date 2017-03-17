@@ -68,21 +68,21 @@ then
     exit 1;
 fi
 
-# if [[ $OS != "macos" ]];
-# then
-#     xcodebuild -project SwiftSoup.xcodeproj -scheme SwiftSoup -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO -destination 'platform=iOS Simulator,name=iPhone 6' build test
-#     if [[ $? != 0]];
-#     then
-#         echo "❌ Xcode Project Tests failed";
-#         exit 1;
-#     fi
-#
-#     pod lib lint
-#     if [[ $? != 0]];
-#     then
-#         echo "❌ Pod failed to lint";
-#         exit 1;
-#     fi
-# fi
+if [[ $OS != "macos" ]];
+then
+    xcodebuild -project SwiftSoup.xcodeproj -scheme SwiftSoup -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO -destination 'platform=iOS Simulator,name=iPhone 6' build test
+    if [[ $? != 0 ]];
+    then
+        echo "❌ Xcode Project Tests failed";
+        exit 1;
+    fi
+
+    pod lib lint
+    if [[ $? != 0 ]];
+    then
+        echo "❌ Pod failed to lint";
+        exit 1;
+    fi
+fi
 
 echo "✅ Done"
