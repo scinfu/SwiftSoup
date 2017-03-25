@@ -145,7 +145,7 @@ public class Parser {
 		if let body: Element = doc.body() {
 			let nodeList: Array<Node> = try parseFragment(bodyHtml, body, baseUri)
 			//var nodes: [Node] = nodeList.toArray(Node[nodeList.size()]) // the node list gets modified when re-parented
-			for i in 1..<nodeList.count {
+			for i in 1..<nodeList.count{
 				try nodeList[i].remove()
 			}
 			for node: Node in nodeList {
