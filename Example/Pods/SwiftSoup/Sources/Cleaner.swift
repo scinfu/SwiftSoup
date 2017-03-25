@@ -69,7 +69,7 @@ open class Cleaner {
 
 		if let sourceAttrs = sourceEl.getAttributes() {
 			for sourceAttr: Attribute in sourceAttrs {
-				if (whitelist.isSafeAttribute(sourceTag, sourceEl, sourceAttr)) {
+				if (try whitelist.isSafeAttribute(sourceTag, sourceEl, sourceAttr)) {
 					destAttrs.put(attribute: sourceAttr)
 				} else {
 					numDiscarded+=1
@@ -90,17 +90,18 @@ extension Cleaner {
 		let root: Element
 		var destination: Element?  // current element to append nodes to
 
-		private weak var cleaner: Cleaner?
+		private var cleaner: Cleaner
 
 		public init(_ root: Element, _ destination: Element, _ cleaner: Cleaner) {
 			self.root = root
 			self.destination = destination
+            self.cleaner = cleaner
 		}
 
 		public func head(_ source: Node, _ depth: Int)throws {
 			if let sourceEl = (source as? Element) {
-				if (cleaner!.whitelist.isSafeTag(sourceEl.tagName())) { // safe, clone and copy safe attrs
-					let meta: Cleaner.ElementMeta = try cleaner!.createSafeElement(sourceEl)
+				if (cleaner.whitelist.isSafeTag(sourceEl.tagName())) { // safe, clone and copy safe attrs
+					let meta: Cleaner.ElementMeta = try cleaner.createSafeElement(sourceEl)
 					let destChild: Element = meta.el
 					try destination?.appendChild(destChild)
 
@@ -113,11 +114,13 @@ extension Cleaner {
 				let destText: TextNode = TextNode(sourceText.getWholeText(), source.getBaseUri())
 				try destination?.appendChild(destText)
 			} else if let sourceData = (source as? DataNode) {
-				if  sourceData.parent() != nil && cleaner!.whitelist.isSafeTag(sourceData.parent()!.nodeName()) {
+				if  sourceData.parent() != nil && cleaner.whitelist.isSafeTag(sourceData.parent()!.nodeName()) {
 					//let sourceData: DataNode = (DataNode) source
 					let destData: DataNode =  DataNode(sourceData.getWholeData(), source.getBaseUri())
 					try destination?.appendChild(destData)
-				}
+                }else{
+                    numDiscarded+=1
+                }
 			} else { // else, we don't care about comments, xml proc instructions, etc
 				numDiscarded+=1
 			}
@@ -125,7 +128,7 @@ extension Cleaner {
 
 		public func tail(_ source: Node, _ depth: Int)throws {
 			if let x = (source as? Element) {
-				if cleaner!.whitelist.isSafeTag(x.nodeName()) {
+				if cleaner.whitelist.isSafeTag(x.nodeName()) {
 					// would have descended, so pop destination stack
 					destination = destination?.parent()
 				}

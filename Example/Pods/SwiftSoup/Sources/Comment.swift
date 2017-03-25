@@ -50,15 +50,6 @@ public class Comment: Node {
 
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {}
 
-    public override func toString() -> String {
-        do {
-            return try
-				outerHtml()
-        } catch {
-            return ""
-        }
-    }
-
 	public override func copy(with zone: NSZone? = nil) -> Any {
 		let clone = Comment(attributes!.get(key: Comment.COMMENT_KEY), baseUri!)
 		return copy(clone: clone)

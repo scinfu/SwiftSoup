@@ -104,7 +104,7 @@ public class XmlTreeBuilder: TreeBuilder {
     }
 
     func insert(_ d: Token.Doctype)throws {
-        let doctypeNode: DocumentType = DocumentType(settings.normalizeTag(d.getName()), d.getPublicIdentifier(), d.getSystemIdentifier(), baseUri)
+        let doctypeNode = DocumentType(settings.normalizeTag(d.getName()), d.getPubSysKey(), d.getPublicIdentifier(), d.getSystemIdentifier(), baseUri)
         try insertNode(doctypeNode)
     }
 

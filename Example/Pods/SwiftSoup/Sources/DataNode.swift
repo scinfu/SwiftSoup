@@ -58,10 +58,6 @@ open class DataNode: Node {
 
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {}
 
-    open override func toString()throws->String {
-        return try outerHtml()
-    }
-
     /**
      Create a new DataNode from HTML encoded data.
      @param encodedData encoded data
