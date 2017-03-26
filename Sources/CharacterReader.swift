@@ -146,13 +146,7 @@ public final class CharacterReader {
         let start: Int = pos
         let remaining: Int = length
         let val = input
-		if(start == 2528) {
-			let d = 1
-		}
         OUTER: while (pos < remaining) {
-			if(pos == 41708) {
-				let d = 1
-			}
 			if chars.contains(val[pos]) {
 				break OUTER
 			}
