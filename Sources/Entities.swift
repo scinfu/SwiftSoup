@@ -132,16 +132,15 @@ public class Entities {
 //        }
         
         public func codepointForName(_ name: String) -> Int {
-            var i = 0
-            var found = false
-            for s in nameKeys {
-                if s == name {
-                    found = true
-                    break
-                }
-                i += 1
+//            for s in nameKeys {
+//                if s == name {
+//                    return codeVals[nameKeys.index(of: s)!]
+//                }
+//            }
+            guard let index = nameKeys.index(of: name) else {
+                return empty
             }
-            return found ? codeVals[i] : empty
+            return codeVals[index]
         }
         
         public func nameForCodepoint(_ codepoint: Int ) -> String {
