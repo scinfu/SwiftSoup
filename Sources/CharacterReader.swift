@@ -164,7 +164,7 @@ public final class CharacterReader {
             pos += 1
         }
 
-        return pos > start ? cacheString(start, pos-start) : ""
+        return pos > start ? cacheString(start, pos-start) : empty
     }
 
     public func consumeToAnySorted(_ chars: UnicodeScalar...) -> String {
@@ -176,13 +176,14 @@ public final class CharacterReader {
         let val = input
 
         while (pos < remaining) {
-            if (chars.binarySearch(chars, val[pos]) >= 0) {
+            
+            if chars.contains(val[pos]) {
                 break
             }
             pos += 1
         }
 
-        return pos > start ? cacheString(start, pos-start) : ""
+        return pos > start ? cacheString(start, pos-start) : empty
     }
 
     public func consumeData() -> String {
@@ -199,7 +200,7 @@ public final class CharacterReader {
             pos += 1
         }
 
-        return pos > start ? cacheString(start, pos-start) : ""
+        return pos > start ? cacheString(start, pos-start) : empty
     }
 
     public func consumeTagName() -> String {
@@ -339,7 +340,7 @@ public final class CharacterReader {
     }
 
     public func matchesAnySorted(_ seq: [UnicodeScalar]) -> Bool {
-        return !isEmpty() && seq.binarySearch(seq, input[pos]) >= 0
+        return !isEmpty() && seq.contains(input[pos])
     }
 
     public func matchesLetter() -> Bool {
