@@ -178,29 +178,29 @@ open class StringUtil {
         return false
     }
 
-    open static func inSorted(_ needle: String, haystack: [String]) -> Bool {
-        return binarySearch(haystack, searchItem: needle) >= 0
-    }
-
-    open static func binarySearch<T: Comparable>(_ inputArr: Array<T>, searchItem: T) -> Int {
-        var lowerIndex = 0
-        var upperIndex = inputArr.count - 1
-
-        while (true) {
-            let currentIndex = (lowerIndex + upperIndex)/2
-            if(inputArr[currentIndex] == searchItem) {
-                return currentIndex
-            } else if (lowerIndex > upperIndex) {
-                return -1
-            } else {
-                if (inputArr[currentIndex] > searchItem) {
-                    upperIndex = currentIndex - 1
-                } else {
-                    lowerIndex = currentIndex + 1
-                }
-            }
-        }
-    }
+//    open static func inSorted(_ needle: String, haystack: [String]) -> Bool {
+//        return binarySearch(haystack, searchItem: needle) >= 0
+//    }
+//
+//    open static func binarySearch<T: Comparable>(_ inputArr: Array<T>, searchItem: T) -> Int {
+//        var lowerIndex = 0
+//        var upperIndex = inputArr.count - 1
+//
+//        while (true) {
+//            let currentIndex = (lowerIndex + upperIndex)/2
+//            if(inputArr[currentIndex] == searchItem) {
+//                return currentIndex
+//            } else if (lowerIndex > upperIndex) {
+//                return -1
+//            } else {
+//                if (inputArr[currentIndex] > searchItem) {
+//                    upperIndex = currentIndex - 1
+//                } else {
+//                    lowerIndex = currentIndex + 1
+//                }
+//            }
+//        }
+//    }
 
     /**
      * Create a new absolute URL, from a provided existing absolute URL and a relative URL component.

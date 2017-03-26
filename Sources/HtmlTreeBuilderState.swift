@@ -327,11 +327,11 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         try tb.reconstructFormattingElements()
                         let a = try tb.insert(startTag)
                         tb.pushActiveFormattingElements(a)
-                    } else if (StringUtil.inSorted(name, haystack: Constants.InBodyStartEmptyFormatters)) {
+                    } else if (Constants.InBodyStartEmptyFormatters.contains(name)) {
                         try tb.reconstructFormattingElements()
                         try tb.insertEmpty(startTag)
                         tb.framesetOk(false)
-                    } else if (StringUtil.inSorted(name, haystack: Constants.InBodyStartPClosers)) {
+                    } else if Constants.InBodyStartPClosers.contains(name) {
                         if (try tb.inButtonScope("p")) {
                             try tb.processEndTag("p")
                         }
@@ -349,7 +349,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 try tb.processEndTag("li")
                                 break
                             }
-                            if (tb.isSpecial(el) && !StringUtil.inSorted(el.nodeName(), haystack: Constants.InBodyStartLiBreakers)) {
+                            if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeName())) {
                                 break
                             }
                         }
@@ -366,7 +366,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 html.getAttributes()?.put(attribute: attribute)
                             }
                         }
-                    } else if (StringUtil.inSorted(name, haystack: Constants.InBodyStartToHead)) {
+                    } else if Constants.InBodyStartToHead.contains(name) {
                         return try tb.process(t, .InHead)
                     } else if (name.equals("body")) {
                         tb.error(self)
@@ -403,16 +403,16 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             try tb.insert(startTag)
                             tb.transition(.InFrameset)
                         }
-                    } else if (StringUtil.inSorted(name, haystack: Constants.Headings)) {
+                    } else if Constants.Headings.contains(name) {
                         if (try tb.inButtonScope("p")) {
                             try tb.processEndTag("p")
                         }
-                        if (tb.currentElement() != nil && StringUtil.inSorted(tb.currentElement()!.nodeName(), haystack: Constants.Headings)) {
+                        if (tb.currentElement() != nil && Constants.Headings.contains(tb.currentElement()!.nodeName())) {
                             tb.error(self)
                             tb.pop()
                         }
                         try tb.insert(startTag)
-                    } else if (StringUtil.inSorted(name, haystack: Constants.InBodyStartPreListing)) {
+                    } else if Constants.InBodyStartPreListing.contains(name) {
                         if (try tb.inButtonScope("p")) {
                             try tb.processEndTag("p")
                         }
@@ -428,16 +428,16 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             try tb.processEndTag("p")
                         }
                         try tb.insertForm(startTag, true)
-                    } else if (StringUtil.inSorted(name, haystack: Constants.DdDt)) {
+                    } else if Constants.DdDt.contains(name) {
                         tb.framesetOk(false)
                         let stack: Array<Element> = tb.getStack()
                         for i in (1..<stack.count).reversed() {
                             let el: Element = stack[i]
-                            if (StringUtil.inSorted(el.nodeName(), haystack: Constants.DdDt)) {
+                            if Constants.DdDt.contains(el.nodeName()) {
                                 try tb.processEndTag(el.nodeName())
                                 break
                             }
-                            if (tb.isSpecial(el) && !StringUtil.inSorted(el.nodeName(), haystack: Constants.InBodyStartLiBreakers)) {
+                            if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeName())) {
                                 break
                             }
                         }
@@ -462,7 +462,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             try tb.insert(startTag)
                             tb.framesetOk(false)
                         }
-                    } else if (StringUtil.inSorted(name, haystack: Constants.Formatters)) {
+                    } else if Constants.Formatters.contains(name) {
                         try tb.reconstructFormattingElements()
                         let el: Element = try tb.insert(startTag)
                         tb.pushActiveFormattingElements(el)
@@ -475,7 +475,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         }
                         let el: Element = try tb.insert(startTag)
                         tb.pushActiveFormattingElements(el)
-                    } else if (StringUtil.inSorted(name, haystack: Constants.InBodyStartApplets)) {
+                    } else if Constants.InBodyStartApplets.contains(name) {
                         try tb.reconstructFormattingElements()
                         try tb.insert(startTag)
                         tb.insertMarkerToFormattingElements()
@@ -493,7 +493,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         if (try !el.attr("type").equalsIgnoreCase(string: "hidden")) {
                             tb.framesetOk(false)
                         }
-                    } else if (StringUtil.inSorted(name, haystack: Constants.InBodyStartMedia)) {
+                    } else if Constants.InBodyStartMedia.contains(name) {
                         try tb.insertEmpty(startTag)
                     } else if (name.equals("hr")) {
                         if (try tb.inButtonScope("p")) {
@@ -533,7 +533,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         // input
                         let inputAttribs: Attributes = Attributes()
                         for attr: Attribute in startTag._attributes.iterator() {
-                            if (!StringUtil.inSorted(attr.getKey(), haystack: Constants.InBodyStartInputAttribs)) {
+                            if (!Constants.InBodyStartInputAttribs.contains(attr.getKey())) {
                                 inputAttribs.put(attribute: attr)
                             }
                         }
@@ -573,13 +573,13 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         } else {
                             tb.transition(.InSelect)
                         }
-                    } else if (StringUtil.inSorted(name, haystack: Constants.InBodyStartOptions)) {
+                    } else if Constants.InBodyStartOptions.contains(name) {
                         if (tb.currentElement() != nil && tb.currentElement()!.nodeName().equals("option")) {
                             try tb.processEndTag("option")
                         }
                         try tb.reconstructFormattingElements()
                         try tb.insert(startTag)
-                    } else if (StringUtil.inSorted(name, haystack: Constants.InBodyStartRuby)) {
+                    } else if Constants.InBodyStartRuby.contains(name) {
                         if (try tb.inScope("ruby")) {
                             tb.generateImpliedEndTags()
                             if (tb.currentElement() != nil && !tb.currentElement()!.nodeName().equals("ruby")) {
@@ -598,7 +598,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         // todo: handle A start tag whose tag name is "svg" (xlink, svg)
                         try tb.insert(startTag)
                         tb.tokeniser.acknowledgeSelfClosingFlag()
-                    } else if (StringUtil.inSorted(name, haystack: Constants.InBodyStartDrop)) {
+                    } else if Constants.InBodyStartDrop.contains(name) {
                         tb.error(self)
                         return false
                     } else {
@@ -614,7 +614,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             case .EndTag:
                 let endTag: Token.EndTag = t.asEndTag()
                 if let name = endTag.normalName() {
-                    if (StringUtil.inSorted(name, haystack: Constants.InBodyEndAdoptionFormatters)) {
+                    if Constants.InBodyEndAdoptionFormatters.contains(name) {
                         // Adoption Agency Algorithm.
                         for i in 0..<8 {
                             let formatEl: Element? = tb.getActiveFormattingElement(name)
@@ -689,7 +689,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 lastNode = node
                             }
 
-                            if (StringUtil.inSorted(commonAncestor!.nodeName(), haystack: Constants.InBodyEndTableFosters)) {
+                            if Constants.InBodyEndTableFosters.contains(commonAncestor!.nodeName()) {
                                 if (lastNode!.parent() != nil) {
                                     try lastNode!.remove()
                                 }
@@ -713,7 +713,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             tb.removeFromStack(formatEl!)
                             try tb.insertOnStackAfter(furthestBlock!, adopter)
                         }
-                    } else if (StringUtil.inSorted(name, haystack: Constants.InBodyEndClosers)) {
+                    } else if Constants.InBodyEndClosers.contains(name) {
                         if (try !tb.inScope(name)) {
                             // nothing to close
                             tb.error(self)
@@ -778,7 +778,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             }
                             tb.popStackToClose(name)
                         }
-                    } else if (StringUtil.inSorted(name, haystack: Constants.DdDt)) {
+                    } else if Constants.DdDt.contains(name) {
                         if (try !tb.inScope(name)) {
                             tb.error(self)
                             return false
@@ -789,7 +789,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             }
                             tb.popStackToClose(name)
                         }
-                    } else if (StringUtil.inSorted(name, haystack: Constants.Headings)) {
+                    } else if Constants.Headings.contains(name) {
                         if (try !tb.inScope(Constants.Headings)) {
                             tb.error(self)
                             return false
@@ -803,7 +803,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     } else if (name.equals("sarcasm")) {
                         // *sigh*
                         return anyOtherEndTag(t, tb)
-                    } else if (StringUtil.inSorted(name, haystack: Constants.InBodyStartApplets)) {
+                    } else if Constants.InBodyStartApplets.contains(name) {
                         if (try !tb.inScope("name")) {
                             if (try !tb.inScope(name)) {
                                 tb.error(self)
