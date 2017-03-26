@@ -33,9 +33,8 @@ class ViewController: UIViewController {
         do {
             let html = try String(contentsOf: myURL, encoding: .utf8)
             
-            for _ in 0...100 {
+            for _ in 0...500 {
                 let doc: Document = try! SwiftSoup.parse(html)
-                let contentTag = try doc.select("div").first()
             }
         } catch {
             print("Error")
