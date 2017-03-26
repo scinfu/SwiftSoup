@@ -18,12 +18,12 @@ public final class CharacterReader {
     private let length: Int
     private var pos: Int = 0
     private var mark: Int = 0
-    private let stringCache: Array<String?> // holds reused strings in this doc, to lessen garbage
+    //private let stringCache: Array<String?> // holds reused strings in this doc, to lessen garbage
 
     public init(_ input: String) {
         self.input = Array(input.unicodeScalars)
         self.length = self.input.count
-        stringCache = Array(repeating:nil, count:512)
+        //stringCache = Array(repeating:nil, count:512)
     }
 
     public func getPos() -> Int {
@@ -147,12 +147,10 @@ public final class CharacterReader {
         let val = input
 		if(start == 2528) {
 			let d = 1
-			print(d)
 		}
         OUTER: while (pos < remaining) {
 			if(pos == 41708) {
 				let d = 1
-				print(d)
 			}
 			if chars.contains(val[pos]) {
 				break OUTER
@@ -399,43 +397,44 @@ public final class CharacterReader {
      * some more duplicates.
      */
     private func cacheString(_ start: Int, _ count: Int) -> String {
-        let val = input
-        var cache: [String?] = stringCache
-
-        // limit (no cache):
-        if (count > CharacterReader.maxCacheLen) {
-            return String.unicodescalars(Array(val[start..<start+count]))
-        }
-
-        // calculate hash:
-        var hash: Int = 0
-        var offset = start
-        for _ in 0..<count {
-            let ch = val[offset].value
-            hash = Int.addWithOverflow(Int.multiplyWithOverflow(31, hash).0, Int(ch)).0
-            offset+=1
-        }
-
-        // get from cache
-		hash = abs(hash)
-		let i = hash % cache.count
-        let index: Int = abs(i) //Int(hash & Int(cache.count) - 1)
-        var cached = cache[index]
-
-        if (cached == nil) { // miss, add
-			cached = String.unicodescalars(Array(val[start..<start+count]))
-            //cached = val.string(start, count)
-            cache[Int(index)] = cached
-        } else { // hashcode hit, check equality
-            if (rangeEquals(start, count, cached!)) { // hit
-                return cached!
-            } else { // hashcode conflict
-				cached = String.unicodescalars(Array(val[start..<start+count]))
-                //cached = val.string(start, count)
-                cache[index] = cached // update the cache, as recently used strings are more likely to show up again
-            }
-        }
-        return cached!
+        return String(input[start..<start+count].flatMap { Character($0) })
+// Too Slow
+//        var cache: [String?] = stringCache
+//
+//        // limit (no cache):
+//        if (count > CharacterReader.maxCacheLen) {
+//            return String(val[start..<start+count].flatMap { Character($0) })
+//        }
+//
+//        // calculate hash:
+//        var hash: Int = 0
+//        var offset = start
+//        for _ in 0..<count {
+//            let ch = val[offset].value
+//            hash = Int.addWithOverflow(Int.multiplyWithOverflow(31, hash).0, Int(ch)).0
+//            offset+=1
+//        }
+//
+//        // get from cache
+//		hash = abs(hash)
+//		let i = hash % cache.count
+//        let index: Int = abs(i) //Int(hash & Int(cache.count) - 1)
+//        var cached = cache[index]
+//
+//        if (cached == nil) { // miss, add
+//			cached = String(val[start..<start+count].flatMap { Character($0) })
+//            //cached = val.string(start, count)
+//            cache[Int(index)] = cached
+//        } else { // hashcode hit, check equality
+//            if (rangeEquals(start, count, cached!)) { // hit
+//                return cached!
+//            } else { // hashcode conflict
+//				cached = String(val[start..<start+count].flatMap { Character($0) })
+//                //cached = val.string(start, count)
+//                cache[index] = cached // update the cache, as recently used strings are more likely to show up again
+//            }
+//        }
+//        return cached!
     }
 
     /**
