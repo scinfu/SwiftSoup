@@ -171,7 +171,7 @@ open class StringUtil {
     open static func inString(_ needle: String?, _ haystack: [String?]) -> Bool {
         if(needle == nil) {return false}
         for hay in haystack {
-            if(hay != nil  && hay!.compare(needle!) == ComparisonResult.orderedSame) {
+            if(hay != nil  && hay! == needle!) {
                 return true
             }
         }
