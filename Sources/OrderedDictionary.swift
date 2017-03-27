@@ -117,20 +117,29 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
 
     @discardableResult
     private func updateValue(value: Value, forKey key: Key) -> Value? {
-        if _orderedKeys.contains(key) {
-            guard let currentValue = _keysToValues[key] else {
-                fatalError("Inconsistency error occured in OrderedDictionary")
-            }
-
-            _keysToValues[key] = value
-
-            return currentValue
-        } else {
+        
+        guard let currentValue = _keysToValues[key] else {
             _orderedKeys.append(key)
             _keysToValues[key] = value
-
             return nil
         }
+        _keysToValues[key] = value
+        return currentValue
+        
+//        if _orderedKeys.contains(key) {
+//            guard let currentValue = _keysToValues[key] else {
+//                fatalError("Inconsistency error occured in OrderedDictionary")
+//            }
+//
+//            _keysToValues[key] = value
+//
+//            return currentValue
+//        } else {
+//            _orderedKeys.append(key)
+//            _keysToValues[key] = value
+//
+//            return nil
+//        }
     }
 
     public func put(value: Value, forKey key: Key) {
