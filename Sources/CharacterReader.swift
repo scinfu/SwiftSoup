@@ -12,7 +12,7 @@ import Foundation
  CharacterReader consumes tokens off a string. To replace the old TokenQueue.
  */
 public final class CharacterReader {
-    private let empty = ""
+    private static let empty = ""
     public static let EOF: UnicodeScalar = "\u{FFFF}"//65535
     private static let maxCacheLen: Int = 12
     private let input: [UnicodeScalar]
@@ -158,7 +158,7 @@ public final class CharacterReader {
             pos += 1
         }
 
-        return pos > start ? cacheString(start, pos-start) : empty
+        return pos > start ? cacheString(start, pos-start) : CharacterReader.empty
     }
 
     public func consumeToAnySorted(_ chars: UnicodeScalar...) -> String {
@@ -177,7 +177,7 @@ public final class CharacterReader {
             pos += 1
         }
 
-        return pos > start ? cacheString(start, pos-start) : empty
+        return pos > start ? cacheString(start, pos-start) : CharacterReader.empty
     }
 
     public func consumeData() -> String {
@@ -194,7 +194,7 @@ public final class CharacterReader {
             pos += 1
         }
 
-        return pos > start ? cacheString(start, pos-start) : empty
+        return pos > start ? cacheString(start, pos-start) : CharacterReader.empty
     }
 
     public func consumeTagName() -> String {
@@ -210,7 +210,7 @@ public final class CharacterReader {
             }
             pos += 1
         }
-        return pos > start ? cacheString(start, pos-start) : empty
+        return pos > start ? cacheString(start, pos-start) : CharacterReader.empty
     }
 
     public func consumeToEnd() -> String {

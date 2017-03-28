@@ -25,7 +25,7 @@ open class Attributes: NSCopying {
 
     open static var dataPrefix: String = "data-"
 
-    private var attributes: OrderedDictionary<String, Attribute>  = OrderedDictionary<String, Attribute>()
+    var attributes: OrderedDictionary<String, Attribute>  = OrderedDictionary<String, Attribute>()
     // linked hash map to preserve insertion order.
     // null be default as so many elements have no attributes -- saves a good chunk of memory
 
