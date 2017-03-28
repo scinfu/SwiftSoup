@@ -390,3 +390,45 @@ extension OrderedDictionary: Equatable {
 //public func == <Key: Equatable, Value: Equatable>(lhs: OrderedDictionary<Key, Value>, rhs: OrderedDictionary<Key, Value>) -> Bool {
 //    return lhs._orderedKeys == rhs._orderedKeys && lhs._keysToValues == rhs._keysToValues
 //}
+
+
+
+/**
+ * Elements IteratorProtocol.
+ */
+public struct OrderedDictionaryIterator<Key: Hashable, Value: Equatable>: IteratorProtocol {
+    
+    /// Elements reference
+    let orderedDictionary: OrderedDictionary<Key, Value>
+    //current element index
+    var index = 0
+    
+    /// Initializer
+    init(_ od: OrderedDictionary<Key, Value>) {
+        self.orderedDictionary = od
+    }
+    
+    /// Advances to the next element and returns it, or `nil` if no next element
+    mutating public func next() -> Value? {
+        
+        let result = index < orderedDictionary.orderedKeys.count ? orderedDictionary[orderedDictionary.orderedKeys[index]] : nil
+        index += 1;
+        return result
+    }
+}
+
+/**
+ * Elements Extension Sequence.
+ */
+extension OrderedDictionary: Sequence {
+    /// Returns an iterator over the elements of this sequence.
+    func generate()->OrderedDictionaryIterator<Key, Value>
+    {
+        return OrderedDictionaryIterator(self)
+    }
+}
+
+
+
+
+

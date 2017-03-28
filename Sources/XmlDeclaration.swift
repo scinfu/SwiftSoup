@@ -10,8 +10,7 @@ import Foundation
 
 /**
  An XML Declaration.
- 
- @author Jonathan Hedley, jonathan@hedley.net */
+  */
 public class XmlDeclaration: Node {
     private let _name: String
     private let isProcessingInstruction: Bool // <! if true, <? if false, declaration (and last data char should be ?)

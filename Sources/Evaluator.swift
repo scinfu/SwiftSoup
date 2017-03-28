@@ -141,7 +141,7 @@ public class Evaluator {
 
         open override func matches(_ root: Element, _ element: Element)throws->Bool {
             if let values = element.getAttributes() {
-                for attribute in values.iterator() {
+                for attribute in values {
                     if (attribute.getKey().lowercased().hasPrefix(keyPrefix)) {
                         return true
                     }

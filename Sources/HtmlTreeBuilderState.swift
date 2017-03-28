@@ -361,7 +361,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         tb.error(self)
                         // merge attributes onto real html
                         let html: Element = tb.getStack()[0]
-                        for attribute in startTag.getAttributes().iterator() {
+                        for attribute in startTag.getAttributes() {
                             if (!html.hasAttr(attribute.getKey())) {
                                 html.getAttributes()?.put(attribute: attribute)
                             }
@@ -377,7 +377,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         } else {
                             tb.framesetOk(false)
                             let body: Element = stack[1]
-                            for attribute: Attribute in startTag.getAttributes().iterator() {
+                            for attribute: Attribute in startTag.getAttributes() {
                                 if (!body.hasAttr(attribute.getKey())) {
                                     body.getAttributes()?.put(attribute: attribute)
                                 }
@@ -532,7 +532,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
                         // input
                         let inputAttribs: Attributes = Attributes()
-                        for attr: Attribute in startTag._attributes.iterator() {
+                        for attr: Attribute in startTag._attributes {
                             if (!Constants.InBodyStartInputAttribs.contains(attr.getKey())) {
                                 inputAttribs.put(attribute: attr)
                             }

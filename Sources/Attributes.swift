@@ -19,13 +19,13 @@ import Foundation
  * name.
  * </p>
  *
- * @author Jonathan Hedley, jonathan@hedley.net
+ * 
  */
 open class Attributes: NSCopying {
 
     open static var dataPrefix: String = "data-"
 
-    fileprivate var attributes: OrderedDictionary<String, Attribute>  = OrderedDictionary<String, Attribute>()
+    private var attributes: OrderedDictionary<String, Attribute>  = OrderedDictionary<String, Attribute>()
     // linked hash map to preserve insertion order.
     // null be default as so many elements have no attributes -- saves a good chunk of memory
 
@@ -157,13 +157,13 @@ open class Attributes: NSCopying {
         attributes.putAll(all: incoming.attributes)
     }
 
-    open func iterator() -> IndexingIterator<Array<Attribute>> {
-        if (attributes.isEmpty) {
-            let args: [Attribute] = []
-            return args.makeIterator()
-        }
-        return attributes.orderedValues.makeIterator()
-    }
+//    open func iterator() -> IndexingIterator<Array<Attribute>> {
+//        if (attributes.isEmpty) {
+//            let args: [Attribute] = []
+//            return args.makeIterator()
+//        }
+//        return attributes.orderedValues.makeIterator()
+//    }
 
     /**
      Get the attributes as a List, for iteration. Do not modify the keys of the attributes via this view, as changes

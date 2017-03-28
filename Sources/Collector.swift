@@ -11,7 +11,6 @@ import Foundation
 /**
  * Collects a list of elements that match the supplied criteria.
  *
- * @author Jonathan Hedley
  */
 open class Collector {
 

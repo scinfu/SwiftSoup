@@ -49,7 +49,7 @@ open class ParseSettings {
 
     open func normalizeAttributes(_ attributes: Attributes)throws ->Attributes {
         if (!preserveAttributeCase) {
-            for  attr in attributes.iterator() {
+            for  attr in attributes {
                 try attr.setKey(key: attr.getKey().lowercased())
             }
         }
@@ -57,3 +57,8 @@ open class ParseSettings {
     }
 
 }
+
+
+
+
+
