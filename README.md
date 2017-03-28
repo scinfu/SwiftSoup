@@ -282,6 +282,7 @@ do{
 }catch{
 	print("error")
 }
+```
 
 ### Discussion
 The text setter methods mirror the [[HTML setter|Set the HTML of an element]] methods:
