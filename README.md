@@ -27,7 +27,7 @@ it, simply add the following line to your Podfile:
 pod "SwiftSoup"
 ```
 
-## To parse a HTML document:
+# To parse a HTML document:
 
 ```swift
 do{
@@ -54,11 +54,10 @@ do{
 
 
 
-## Extract
 # Extract attributes, text, and HTML from elements
-## Problem
+### Problem
 After parsing a document, and finding some elements, you'll want to get at the data inside those elements.
-# Solution
+### Solution
 - To get the value of an attribute, use `Node.attr(_ String key)` method
 - For the text on an element (and its combined children), use `Element.text()`
 - For HTML, use `Element.html()`, or `Node.outerHtml()¡ as appropriate
@@ -91,8 +90,10 @@ The methods above are the core of the element data access methods. There are add
 All of these accessor methods have corresponding setter methods to change the data.
 
 
-## Parsing a body fragment
-## Parse a document from a String
+
+
+
+# Parse a document from a String
 ### Problem
 You have HTML in a Swift String, and you want to parse that HTML to get at its contents, or to make sure it's well formed, or to modify it. The String may have come from user input, a file, or from the web.
 ### Solution
@@ -120,10 +121,10 @@ Once you have a `Document`, you can get get at the data using the appropriate me
 
 
 
-
-## Problem
+# Parsing a body fragment
+### Problem
 You have a fragment of body HTML (e.g. `div` containing a couple of p tags; as opposed to a full HTML document) that you want to parse. Perhaps it was provided by a user submitting a comment, or editing the body of a page in a CMS.
-## Solution
+### Solution
 Use the `SwiftSoup.parseBodyFragment(_ html : String)` method.
 
 ```swift
@@ -138,18 +139,18 @@ do{
 }
 ```
 
-## Description
+### Description
 The `parseBodyFragment` method creates an empty shell document, and inserts the parsed HTML into the `body` element. If you used the normal `SwiftSoup(_ html: String)` method, you would generally get the same result, but explicitly treating the input as a body fragment ensures that any bozo HTML provided by the user is parsed into the `body` element.
 
 The `Document.body()` method retrieves the element children of the document's `body` element; it is equivalent to `doc.getElementsByTag("body")`.
 
-## Stay safe
+### Stay safe
 If you are going to accept HTML input from a user, you need to be careful to avoid cross-site scripting attacks. See the documentation for the `Whitelist` based cleaner, and clean the input with `clean(String bodyHtml, Whitelist whitelist)`.
 
 
 
 
-## Sanitize untrusted HTML (to prevent XSS)
+
 # Sanitize untrusted HTML (to prevent XSS)
 ### Problem
 You want to allow untrusted users to supply HTML for output on your website (e.g. as comment submission). You need to clean this HTML to avoid [cross-site scripting](https://en.wikipedia.org/wiki/Cross-site_scripting) (XSS) attacks.
@@ -190,7 +191,7 @@ The cleaner is useful not only for avoiding XSS, but also in limiting the range 
 
 
 
-## Set attribute values
+# Set attribute values
 ### Problem
 You have a parsed document that you would like to update attribute values on, before saving it out to disk, or sending it on as a HTTP response.
 
@@ -210,7 +211,7 @@ do{
 	print("error")
 }
 ```
-# Description
+### Description
 Like the other methods in `Element, the attr methods return the current `Element` (or `Elements` when working on a collection from a select). This allows convenient method chaining:
 
 ```swift
@@ -259,6 +260,9 @@ do{
 You can also use the `Element.prependElement(_ tag: String)` and `Element.appendElement(_ tag: String)` methods to create new elements and insert them into the document flow as a child element.
 
 
+
+
+
 # Setting the text content of elements
 ### Problem
 You need to modify the text content of a HTML document.
@@ -290,10 +294,10 @@ The text should be supplied unencoded: characters like `<`, `>` etc will be trea
 
 
 # Use DOM methods to navigate a document
-## Problem
+### Problem
 You have a HTML document that you want to extract data from. You know generally the structure of the HTML document.
 
-## Solution
+### Solution
 Use the DOM-like methods available after parsing HTML into a `Document`.
 
 ```swift
@@ -310,9 +314,9 @@ do{
 	print("error")
 }
 ```
-## Description
+### Description
 Elements provide a range of DOM-like methods to find elements, and extract and manipulate their data. The DOM getters are contextual: called on a parent Document they find matching elements under the document; called on a child element they find elements under that child. In this way you can winnow in on the data you want.
-## Finding elements
+### Finding elements
 * `getElementById(_ id: String)`
 * `getElementsByTag(_ tag:String)`
 * `getElementsByClass(_ className: String)`
@@ -330,7 +334,7 @@ Elements provide a range of DOM-like methods to find elements, and extract and m
 * `data()` to get data content (e.g. of script and style tags)
 * `tag()` and `tagName()`
 
-## Manipulating HTML and text
+### Manipulating HTML and text
 * `append(_ html: String)`, `prepend(html: String)`
 * `appendText(text: String)`, `prependText(text: String)`
 * `appendElement(tagName: String)`, `prependElement(tagName: String)`
@@ -347,10 +351,10 @@ Elements provide a range of DOM-like methods to find elements, and extract and m
 
 
 
-## Use selector syntax to find elements
-## Problem
+# Use selector syntax to find elements
+### Problem
 You want to find or manipulate elements using a CSS or jquery-like selector syntax.
-## Solution
+### Solution
 Use the `Element.select(_ selector: String)` and `Elements.select(_ selector: String)` methods:
 
 ```swift
@@ -368,7 +372,7 @@ do{
 	print("error")
 }
 ```
-## Description
+### Description
 SwifSoup elements support a [CSS](https://www.w3.org/TR/2009/PR-css3-selectors-20091215/) (or [jquery](http://jquery.com)) like selector syntax to find matching elements, that allows very powerful and robust queries.
 
 The `select` method is available in a `Document`, `Element`, or in `Elements`. It is contextual, so you can filter by selecting from a specific element, or by chaining select calls.
@@ -385,7 +389,7 @@ Select returns a list of `Elements` (as `Elements`), which provides a range of m
 * `[attr^=value]`, `[attr$=value]`, `[attr*=value]`: elements with attributes that start with, end with, or contain the value, e.g. `[href*=/path/]`
 * `[attr~=regex]`: elements with attribute values that match the regular expression; e.g. `img[src~=(?i)\.(png|jpe?g)]`
 * `*`: all elements, e.g. `*`
-## Selector combinations
+### Selector combinations
 * `el#id`: elements with ID, e.g. `div#logo`
 * `el.class`: elements with class, e.g. `div.masthead`
 * `el[attr]`: elements with attribute, e.g. `a[href]`
@@ -396,7 +400,7 @@ Select returns a list of `Elements` (as `Elements`), which provides a range of m
 * `siblingA ~ siblingX`: finds sibling X element preceded by sibling A, e.g. `h1 ~ p`
 * `el`, `el`, `el`: group multiple selectors, find unique elements that match any of the selectors; e.g. `div.masthead`, `div.logo`
 
-## Pseudo selectors
+### Pseudo selectors
 * `:lt(n)`: find elements whose sibling index (i.e. its position in the DOM tree relative to its parent) is less than n; e.g. `td:lt(3)`
 * `:gt(n)`: find elements whose sibling index is greater than n; e.g. `div p:gt(2)`
 * `:eq(n)`: find elements whose sibling index is equal to n; e.g. `form input:eq(1)`
