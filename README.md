@@ -27,7 +27,7 @@ it, simply add the following line to your Podfile:
 pod "SwiftSoup"
 ```
 
-# To parse a HTML document:
+# To parse an HTML document:
 
 ```swift
 do{
