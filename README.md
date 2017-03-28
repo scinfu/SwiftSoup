@@ -111,7 +111,7 @@ do{
 }catch{
 	print("")
 }
-
+```
 ### Description
 The `parse(_ html : String, : baseUri: String)` method parses the input HTML into a new `Document`. The base URI argument is used to resolve relative URLs into absolute URLs, and should be set to the URL where the document was fetched from. If that's not applicable, or if you know the HTML has a base element, you can use the `parse(_ html : String)` method.
 
