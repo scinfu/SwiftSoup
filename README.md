@@ -174,11 +174,11 @@ A cross-site scripting attack against your site can really ruin your day, not to
 
 A better solution may be to use a rich text WYSIWYG editor (like [CKEditor](http://ckeditor.com) or [TinyMCE](https://www.tinymce.com)). These output HTML, and allow the user to work visually. However, their validation is done on the client side: you need to apply a server-side validation to clean up the input and ensure the HTML is safe to place on your site. Otherwise, an attacker can avoid the client-side Javascript validation and inject unsafe HMTL directly into your site
 
-The jsoup whitelist sanitizer works by parsing the input HTML (in a safe, sand-boxed environment), and then iterating through the parse tree and only allowing known-safe tags and attributes (and values) through into the cleaned output.
+The swiftsoup whitelist sanitizer works by parsing the input HTML (in a safe, sand-boxed environment), and then iterating through the parse tree and only allowing known-safe tags and attributes (and values) through into the cleaned output.
 
 It does not use regular expressions, which are inappropriate for this task.
 
-jsoup provides a range of `Whitelist` configurations to suit most requirements; they can be modified if necessary, but take care.
+swiftsoup provides a range of `Whitelist` configurations to suit most requirements; they can be modified if necessary, but take care.
 
 The cleaner is useful not only for avoiding XSS, but also in limiting the range of elements the user can provide: you may be OK with textual `a`, `strong` elements, but not structural `div` or `table` elements.
 
