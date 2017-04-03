@@ -71,7 +71,7 @@ extension String {
 
     func equalsIgnoreCase(string: String?) -> Bool {
 		if(string == nil) {return false}
-        return caseInsensitiveCompare(string!) == ComparisonResult.orderedSame
+        return string!.lowercased() == lowercased()
     }
 
     static func toHexString(n: Int) -> String {
