@@ -1,6 +1,10 @@
 os:
   - linux
   - osx
+ # safelist
+branches:
+  only:
+  - master
 language: generic
 sudo: required
 dist: trusty
