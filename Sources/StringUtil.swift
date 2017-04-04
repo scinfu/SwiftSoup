@@ -124,7 +124,7 @@ open class StringUtil {
      * @return true if code point is whitespace, false otherwise
      */
     open static func isWhitespace(_ c: Character) -> Bool {
-        //(c == " " || c == "\t" || c == "\n" || (c == "\f" ) || c == "\r")
+        //(c == " " || c == UnicodeScalar.BackslashT || c == "\n" || (c == "\f" ) || c == "\r")
         return c.isWhitespace
     }
 

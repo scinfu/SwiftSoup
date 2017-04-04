@@ -60,7 +60,7 @@ class AttributesTest: XCTestCase {
 			try! a.put(atts[0], atts[1])
 		}
 
-		var iterator = a.iterator()
+		let iterator = a.makeIterator()
 		XCTAssertTrue(iterator.next() != nil)
 		var i = 0
 		for attribute in a {
@@ -74,7 +74,7 @@ class AttributesTest: XCTestCase {
 	func testIteratorEmpty() {
 		let a = Attributes()
 
-		var iterator = a.iterator()
+		let iterator = a.makeIterator()
 		XCTAssertNil(iterator.next())
 	}
 

@@ -261,7 +261,7 @@ public class Entities {
                     if ((stripLeadingWhite && !reachedNonWhite) || lastWasWhite) {
                         continue
                     }
-                    accum.append(" ")
+                    accum.append(UnicodeScalar.Space)
                     lastWasWhite = true
                     continue
                 } else {
@@ -275,7 +275,7 @@ public class Entities {
                 let c = codePoint
                 // html specific and required escapes:
                 switch (codePoint) {
-                case "&":
+                case UnicodeScalar.Ampersand:
                     accum.append("&amp;")
                     break
                 case UnicodeScalar(UInt32(0xA0))!:
@@ -285,7 +285,7 @@ public class Entities {
                         accum.append("&#xa0;")
                     }
                     break
-                case "<":
+                case UnicodeScalar.LessThan:
                     // escape when in character data or when in a xml attribue val; not needed in html attr val
                     if (!inAttribute || escapeMode == EscapeMode.xhtml) {
                         accum.append("&lt;")
@@ -293,7 +293,7 @@ public class Entities {
                         accum.append(c)
                     }
                     break
-                case ">":
+                case UnicodeScalar.GreaterThan:
                     if (!inAttribute) {
                         accum.append("&gt;")
                     } else {
@@ -327,7 +327,7 @@ public class Entities {
     private static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, codePoint: UnicodeScalar) {
         let name = escapeMode.nameForCodepoint(Int(codePoint.value))
         if (name != emptyName) // ok for identity check
-        {accum.append("&").append(name).append(";")
+        {accum.append(UnicodeScalar.Ampersand).append(name).append(";")
         } else {
             accum.append("&#x").append(String.toHexString(n:Int(codePoint.value)) ).append(";")
         }

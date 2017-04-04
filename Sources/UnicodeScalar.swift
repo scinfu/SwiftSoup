@@ -16,7 +16,19 @@ private let symbolSet = CharacterSet.symbols
 private let digitSet = CharacterSet.decimalDigits
 
 extension UnicodeScalar {
+    public static let Ampersand : UnicodeScalar = "&"
+    public static let LessThan : UnicodeScalar = "<"
+    public static let GreaterThan : UnicodeScalar = ">"
+    
+    public static let Space: UnicodeScalar = " "
 	public static let BackslashF: UnicodeScalar = UnicodeScalar(12)
+    public static let BackslashT: UnicodeScalar = UnicodeScalar.BackslashT
+    public static let BackslashN: UnicodeScalar = "\n"
+    public static let BackslashR: UnicodeScalar = "\r"
+    public static let Slash: UnicodeScalar = "/"
+    
+    public static let FormFeed: UnicodeScalar = "\u{000B}"// Form Feed
+    public static let VerticalTab: UnicodeScalar = "\u{000C}"// vertical tab
 
 	func isMemberOfCharacterSet(_ set: CharacterSet) -> Bool {
 		return set.contains(self)
@@ -27,9 +39,9 @@ extension UnicodeScalar {
 
 		switch self {
 
-		case " ", "\t", "\n", "\r", UnicodeScalar.BackslashF: return true
+		case UnicodeScalar.Space, UnicodeScalar.BackslashT, UnicodeScalar.BackslashN, UnicodeScalar.BackslashR, UnicodeScalar.BackslashF: return true
 
-		case "\u{000B}", "\u{000C}": return true // Form Feed, vertical tab
+		case UnicodeScalar.FormFeed, UnicodeScalar.VerticalTab: return true // Form Feed, vertical tab
 
 		default: return false
 
@@ -37,26 +49,7 @@ extension UnicodeScalar {
 
 	}
 
-	/// True for any Unicode space character, and the control characters \t, \n, \r, \f, \v.
-	var isUnicodeSpace: Bool {
 
-		switch self {
-
-		case " ", "\t", "\n", "\r", UnicodeScalar.BackslashF: return true
-
-		case "\u{000C}", "\u{000B}", "\u{0085}": return true // Form Feed, vertical tab, next line (nel)
-
-		case "\u{00A0}", "\u{1680}", "\u{180E}": return true // No-break space, ogham space mark, mongolian vowel
-
-		case "\u{2000}"..."\u{200D}": return true // En quad, em quad, en space, em space, three-per-em space, four-per-em space, six-per-em space, figure space, ponctuation space, thin space, hair space, zero width space, zero width non-joiner, zero width joiner.
-		case "\u{2028}", "\u{2029}": return true // Line separator, paragraph separator.
-
-		case "\u{202F}", "\u{205F}", "\u{2060}", "\u{3000}", "\u{FEFF}": return true // Narrow no-break space, medium mathematical space, word joiner, ideographic space, zero width no-break space.
-
-		default: return false
-
-		}
-	}
 
 	/// `true` if `self` normalized contains a single code unit that is in the categories of Uppercase and Titlecase Letters.
 	var isUppercase: Bool {
