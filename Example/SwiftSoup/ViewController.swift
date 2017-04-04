@@ -10,10 +10,16 @@ import UIKit
 import SwiftSoup
 
 class ViewController: UIViewController {
-    
+    var html : String!
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
+        let myURLString = "https://samdutton.wordpress.com/2015/04/02/high-performance-html/"
+        guard let myURL = URL(string: myURLString) else {
+            print("Error: \(myURLString) doesn't seem to be a valid URL")
+            return
+        }
+        html = try! String(contentsOf: myURL, encoding: .utf8)
     }
     
     override func didReceiveMemoryWarning() {
@@ -22,19 +28,9 @@ class ViewController: UIViewController {
     }
     
     @IBAction func parse(_ sender: Any) {
-        let myURLString = "https://samdutton.wordpress.com/2015/04/02/high-performance-html/"
-        guard let myURL = URL(string: myURLString) else {
-            print("Error: \(myURLString) doesn't seem to be a valid URL")
-            return
-        }
-        
-        
-        
         do {
-            let html = try String(contentsOf: myURL, encoding: .utf8)
-            
             for _ in 0...500 {
-                let doc: Document = try! SwiftSoup.parse(html)
+                _ = try! SwiftSoup.parse(html)
             }
         } catch {
             print("Error")

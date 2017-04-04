@@ -10,7 +10,7 @@ import Foundation
 
 final class Tokeniser {
     static  let replacementChar: UnicodeScalar = "\u{FFFD}" // replaces null character
-    private static let notCharRefCharsSorted: [UnicodeScalar] = ["\t", "\n", "\r", UnicodeScalar.BackslashF, " ", "<", "&"].sorted()
+    private static let notCharRefCharsSorted: [UnicodeScalar] = [UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "<", UnicodeScalar.Ampersand].sorted()
 
     private let reader: CharacterReader // html input
     private let errors: ParseErrorList? // errors found while tokenising
@@ -288,12 +288,12 @@ final class Tokeniser {
     func unescapeEntities(_ inAttribute: Bool)throws->String {
         let builder: StringBuilder = StringBuilder()
         while (!reader.isEmpty()) {
-            builder.append(reader.consumeTo("&"))
-            if (reader.matches("&")) {
+            builder.append(reader.consumeTo(UnicodeScalar.Ampersand))
+            if (reader.matches(UnicodeScalar.Ampersand)) {
                 reader.consume()
                 if let c = try consumeCharacterReference(nil, inAttribute) {
                     if (c.count==0) {
-                        builder.append("&")
+                        builder.append(UnicodeScalar.Ampersand)
                     } else {
                         builder.appendCodePoint(c[0])
                         if (c.count == 2) {
@@ -301,7 +301,7 @@ final class Tokeniser {
                         }
                     }
                 } else {
-                    builder.append("&")
+                    builder.append(UnicodeScalar.Ampersand)
                 }
             }
         }

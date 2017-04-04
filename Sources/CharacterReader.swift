@@ -14,7 +14,6 @@ import Foundation
 public final class CharacterReader {
     private static let empty = ""
     public static let EOF: UnicodeScalar = "\u{FFFF}"//65535
-    private static let maxCacheLen: Int = 12
     private let input: [UnicodeScalar]
     private let length: Int
     private var pos: Int = 0
@@ -188,7 +187,7 @@ public final class CharacterReader {
 
         while (pos < remaining) {
             let c: UnicodeScalar = val[pos]
-            if (c == "&" || c ==  "<" || c ==  TokeniserStateVars.nullScalr) {
+            if (c == UnicodeScalar.Ampersand || c ==  UnicodeScalar.LessThan || c ==  TokeniserStateVars.nullScalr) {
                 break
             }
             pos += 1
@@ -205,7 +204,7 @@ public final class CharacterReader {
 
         while (pos < remaining) {
             let c: UnicodeScalar = val[pos]
-            if (c == "\t" || c ==  "\n" || c ==  "\r" || c ==  UnicodeScalar.BackslashF || c ==  " " || c ==  "/" || c ==  ">" || c ==  TokeniserStateVars.nullScalr) {
+            if (c == UnicodeScalar.BackslashT || c ==  UnicodeScalar.BackslashN || c ==  UnicodeScalar.BackslashR || c ==  UnicodeScalar.BackslashF || c ==  UnicodeScalar.Space || c ==  UnicodeScalar.Slash || c ==  UnicodeScalar.GreaterThan || c ==  TokeniserStateVars.nullScalr) {
                 break
             }
             pos += 1
@@ -433,25 +432,25 @@ public final class CharacterReader {
 //        return cached!
     }
 
-    /**
-     * Check if the value of the provided range equals the string.
-     */
-    public func rangeEquals(_ start: Int, _ count: Int, _ cached: String) -> Bool {
-        if (count == cached.unicodeScalars.count) {
-            var count = count
-            let one = input
-            var i = start
-            var j = 0
-            while (count != 0) {
-                count -= 1
-                if (one[i] != cached.unicodeScalar(j) ) {
-                    return false
-                }
-                j += 1
-                i += 1
-            }
-            return true
-        }
-        return false
-    }
+//    /**
+//     * Check if the value of the provided range equals the string.
+//     */
+//    public func rangeEquals(_ start: Int, _ count: Int, _ cached: String) -> Bool {
+//        if (count == cached.unicodeScalars.count) {
+//            var count = count
+//            let one = input
+//            var i = start
+//            var j = 0
+//            while (count != 0) {
+//                count -= 1
+//                if (one[i] != cached.unicodeScalar(j) ) {
+//                    return false
+//                }
+//                j += 1
+//                i += 1
+//            }
+//            return true
+//        }
+//        return false
+//    }
 }
