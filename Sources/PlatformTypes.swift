@@ -12,6 +12,6 @@ import Foundation
 	typealias NCRegularExpression = NSRegularExpression
 	typealias NCTextCheckingResult = NSTextCheckingResult
 #else
-	typealias NCRegularExpression = RegularExpression
+	typealias NCRegularExpression = NSRegularExpression
 	typealias NCTextCheckingResult = TextCheckingResult
 #endif
