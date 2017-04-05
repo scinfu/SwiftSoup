@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION="3.1.0"
+VERSION="3.1"
 echo "Swift $VERSION Continuous Integration";
 
 # Determine OS
