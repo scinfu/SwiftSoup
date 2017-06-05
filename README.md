@@ -54,6 +54,7 @@ do{
 
 
 
+
 # Extract attributes, text, and HTML from elements
 ### Problem
 After parsing a document, and finding some elements, you'll want to get at the data inside those elements.
@@ -413,9 +414,30 @@ Select returns a list of `Elements` (as `Elements`), which provides a range of m
 * `:matchesOwn(regex)`: find elements whose own text matches the specified regular expression
 * Note that the above indexed pseudo-selectors are 0-based, that is, the first element is at index 0, the second at 1, etc
 
+# Examples
+## To parse an HTML document from String:
 
+```swift
+let html = "<html><head><title>First parse</title></head><body><p>Parsed HTML into a doc.</p></body></html>"
+guard let doc: Document = try? SwiftSoup.parse(html) else { return }
+```
 
+## Get all text nodes:
 
+```swift
+guard let elements = try? doc.getAllElements() else { return html }
+    for element in elements {
+        for textNode in element.textNodes() {
+            [...]
+        }
+    }
+```
+
+## Set CSS using SwiftSoup:
+
+```swift
+try doc.head()?.append("<style>html {font-size: 2em}</style>")
+```
 
 
 
