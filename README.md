@@ -439,6 +439,31 @@ guard let elements = try? doc.getAllElements() else { return html }
 try doc.head()?.append("<style>html {font-size: 2em}</style>")
 ```
 
+## Get HTML value
+```swift
+let html = "<div class=\"container-fluid\">"
+    + "<div class=\"panel panel-default \">"
+    + "<div class=\"panel-body\">"
+    + "<form id=\"coupon_checkout\" action=\"http://uat.all.com.my/checkout/couponcode\" method=\"post\">"
+    + "<input type=\"hidden\" name=\"transaction_id\" value=\"4245\">"
+    + "<input type=\"hidden\" name=\"lang\" value=\"EN\">"
+    + "<input type=\"hidden\" name=\"devicetype\" value=\"\">"
+    + "<div class=\"input-group\">"
+    + "<input type=\"text\" class=\"form-control\" id=\"coupon_code\" name=\"coupon\" placeholder=\"Coupon Code\">"
+    + "<span class=\"input-group-btn\">"
+    + "<button class=\"btn btn-primary\" type=\"submit\">Enter Code</button>"
+    + "</span>"
+    + "</div>"
+    + "</form>"
+    + "</div>"
+    + "</div>"
+let doc: Document = try SwiftSoup.parse(html);//parse html
+let elements = try doc.select("[name=transaction_id]")//query
+let transaction_id = try elements.get(0)//select first element , 
+let value = try transaction_id.val()//get value
+print(value)//4245
+```
+
 
 
 ## Author
