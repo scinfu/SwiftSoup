@@ -457,12 +457,46 @@ let html = "<div class=\"container-fluid\">"
     + "</form>"
     + "</div>"
     + "</div>"
-let doc: Document = try SwiftSoup.parse(html);//parse html
+guard let doc: Document = try? SwiftSoup.parse(html) else{return}//parse html
 let elements = try doc.select("[name=transaction_id]")//query
 let transaction_id = try elements.get(0)//select first element , 
 let value = try transaction_id.val()//get value
 print(value)//4245
 ```
+## How to remove all the html from a string
+
+```swift
+guard let doc: Document = try? SwiftSoup.parse(html) else{return}//parse html
+guard let txt = try? doc.text() else {return}
+print(txt)
+```
+
+## how to get and update XML values
+
+```swift
+let xml = "<?xml version='1' encoding='UTF-8' something='else'?><val>One</val>"
+guard let doc = try? SwiftSoup.parse(xml, "", Parser.xmlParser()) else{return}
+guard let element = try? doc.getElementsByTag("val").first()//Find first element
+element.text("NewValue")//Edit Value
+let valueString = element.text() //"NewValue"
+```
+
+## How to get all <img src>
+
+```swift
+do {
+    let doc: Document = try SwiftSoup.parse(html)
+    let srcs: Elements = try doc.select("img[src]")
+    let srcsStringArray: [String?] = srcs.array().map { try? $0.attr("src").description }
+    // do something with srcsStringArray
+    } catch Exception.Error(_, let message) {
+        print(message)
+    } catch {
+        print("error")
+    }
+```
+
+
 
 
 
