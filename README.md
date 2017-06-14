@@ -481,7 +481,7 @@ element.text("NewValue")//Edit Value
 let valueString = element.text() //"NewValue"
 ```
 
-## How to get all <img src>
+## How to get all `<img src>`
 
 ```swift
 do {
