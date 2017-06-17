@@ -511,7 +511,35 @@ Output:
 "?foo=bar<qux&lg=1"
 ```
 
+## Escape and Enescape
 
+```swift
+let text = "Hello &<> Å å π 新 there ¾ © »"
+
+print(Entities.escape(text))
+print(Entities.unescape(text))
+
+
+print(Entities.escape(text, OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base)))
+print(Entities.escape(text, OutputSettings().charset(String.Encoding.ascii).escapeMode(Entities.EscapeMode.extended)))
+print(Entities.escape(text, OutputSettings().charset(String.Encoding.ascii).escapeMode(Entities.EscapeMode.xhtml)))
+print(Entities.escape(text, OutputSettings().charset(String.Encoding.utf8).escapeMode(Entities.EscapeMode.extended)))
+print(Entities.escape(text, OutputSettings().charset(String.Encoding.utf8).escapeMode(Entities.EscapeMode.xhtml)))
+
+```
+Output:
+```
+"Hello &amp;&lt;&gt; Å å π 新 there ¾ © »"
+"Hello &<> Å å π 新 there ¾ © »"
+
+
+"Hello &amp;&lt;&gt; &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;"
+"Hello &amp;&lt;&gt; &angst; &aring; &pi; &#x65b0; there &frac34; &copy; &raquo;"
+"Hello &amp;&lt;&gt; &#xc5; &#xe5; &#x3c0; &#x65b0; there &#xbe; &#xa9; &#xbb;"
+"Hello &amp;&lt;&gt; Å å π 新 there ¾ © »"
+"Hello &amp;&lt;&gt; Å å π 新 there ¾ © »"
+
+```
 
 
 
