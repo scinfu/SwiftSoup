@@ -496,6 +496,21 @@ do {
     }
 ```
 
+##  Get all `href` of `<a>`
+
+```swift
+let html = "<a id=1 href='?foo=bar&mid&lt=true'>One</a> <a id=2 href='?foo=bar&lt;qux&lg=1'>Two</a>"
+guard let els: Elements = try? SwiftSoup.parse(html).select("a")  else {return}
+for element: Element in els.array(){
+	print(try? element.attr("href"))
+}
+```
+Output:
+```
+"?foo=bar&mid&lt=true"
+"?foo=bar<qux&lg=1"
+```
+
 
 
 
