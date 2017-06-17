@@ -19,12 +19,14 @@ class EntitiesTest: XCTestCase {
 		let escapedAsciiFull = Entities.escape(text, OutputSettings().charset(String.Encoding.ascii).escapeMode(Entities.EscapeMode.extended))
 		let escapedAsciiXhtml = Entities.escape(text, OutputSettings().charset(String.Encoding.ascii).escapeMode(Entities.EscapeMode.xhtml))
 		let escapedUtfFull = Entities.escape(text, OutputSettings().charset(String.Encoding.utf8).escapeMode(Entities.EscapeMode.extended))
+        let escapedUtfFull2 = Entities.escape(text)
 		let escapedUtfMin = Entities.escape(text, OutputSettings().charset(String.Encoding.utf8).escapeMode(Entities.EscapeMode.xhtml))
 
 		XCTAssertEqual("Hello &amp;&lt;&gt; &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", escapedAscii)
 		XCTAssertEqual("Hello &amp;&lt;&gt; &angst; &aring; &pi; &#x65b0; there &frac34; &copy; &raquo;", escapedAsciiFull)
 		XCTAssertEqual("Hello &amp;&lt;&gt; &#xc5; &#xe5; &#x3c0; &#x65b0; there &#xbe; &#xa9; &#xbb;", escapedAsciiXhtml)
 		XCTAssertEqual("Hello &amp;&lt;&gt; Å å π 新 there ¾ © »", escapedUtfFull)
+        XCTAssertEqual("Hello &amp;&lt;&gt; Å å π 新 there ¾ © »", escapedUtfFull2)
 		XCTAssertEqual("Hello &amp;&lt;&gt; Å å π 新 there ¾ © »", escapedUtfMin)
 		// odd that it's defined as aring in base but angst in full
 
@@ -33,6 +35,7 @@ class EntitiesTest: XCTestCase {
 		XCTAssertEqual(text, try Entities.unescape(escapedAsciiFull))
 		XCTAssertEqual(text, try Entities.unescape(escapedAsciiXhtml))
 		XCTAssertEqual(text, try Entities.unescape(escapedUtfFull))
+        XCTAssertEqual(text, try Entities.unescape(escapedUtfFull2))
 		XCTAssertEqual(text, try Entities.unescape(escapedUtfMin))
 	}
 

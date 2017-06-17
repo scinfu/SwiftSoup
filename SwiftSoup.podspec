@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'SwiftSoup'
-  s.version          = '1.3.2'
+  s.version          = '1.3.3'
   s.summary          = 'Swift HTML Parser / Reader, XML , with best of DOM, CSS, and jquery'
 
 # This description is used to generate tags and improve search results.
