@@ -10,7 +10,7 @@ import Foundation
 
 open class Node: Equatable, Hashable {
     private static let EMPTY_NODES: Array<Node>  = Array<Node>()
-    var parentNode: Node?
+    weak var parentNode: Node?
     var childNodes: Array <Node>
     var attributes: Attributes?
     var baseUri: String?
