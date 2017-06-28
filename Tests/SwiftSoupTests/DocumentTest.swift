@@ -433,6 +433,20 @@ class DocumentTest: XCTestCase {
 
 		return doc
 	}
+    
+    
+    func testThai()
+    {
+        let str = "บังคับ"
+        guard let doc = try? SwiftSoup.parse(str) else {
+            XCTFail()
+            return}
+        guard let txt = try? doc.html() else {
+            XCTFail()
+            return}
+        XCTAssertEqual("<html>\n <head></head>\n <body>\n  บังคับ\n </body>\n</html>", txt)
+    }
+    
 	//todo:
 //	func testShiftJisRoundtrip()throws {
 //		let input =
@@ -482,7 +496,8 @@ class DocumentTest: XCTestCase {
 			("testMetaCharsetUpdateXmlNoCharset", testMetaCharsetUpdateXmlNoCharset),
 			("testMetaCharsetUpdateXmlDisabled", testMetaCharsetUpdateXmlDisabled),
 			("testMetaCharsetUpdateXmlDisabledNoChanges", testMetaCharsetUpdateXmlDisabledNoChanges),
-			("testMetaCharsetUpdatedDisabledPerDefault", testMetaCharsetUpdatedDisabledPerDefault)
+			("testMetaCharsetUpdatedDisabledPerDefault", testMetaCharsetUpdatedDisabledPerDefault),
+			("testThai",testThai)
 		]
 	}()
 

@@ -257,8 +257,8 @@ public class Entities {
         //let length = UInt32(string.characters.count)
         
         var codePoint: UnicodeScalar
-        for ch in string.characters {
-            codePoint = ch.unicodeScalar
+        for ch in string.unicodeScalars {
+            codePoint = ch
             
             if (normaliseWhite) {
                 if (codePoint.isWhitespace) {

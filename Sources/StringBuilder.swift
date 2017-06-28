@@ -82,6 +82,12 @@ open class StringBuilder {
     }
     
     @discardableResult
+    open func append(_ value: UnicodeScalar) -> StringBuilder {
+        stringValue.append(contentsOf: value.description.characters)
+        return self
+    }
+    
+    @discardableResult
     open func insert<T: CustomStringConvertible>(_ offset: Int, _ value: T) -> StringBuilder {
         stringValue.insert(contentsOf: value.description.characters, at: offset)
         return self
