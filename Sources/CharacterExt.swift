@@ -22,11 +22,11 @@ extension Character {
     //http://www.unicode.org/glossary/#supplementary_code_point
     public static let MIN_SUPPLEMENTARY_CODE_POINT: UInt32 = 0x010000
 
-    /// The first `UnicodeScalar` of `self`.
-    var unicodeScalar: UnicodeScalar {
-        let unicodes = String(self).unicodeScalars
-        return unicodes[unicodes.startIndex]
-    }
+//    /// The first `UnicodeScalar` of `self`.
+//    var unicodeScalar: UnicodeScalar {
+//        let unicodes = String(self).unicodeScalars
+//        return unicodes[unicodes.startIndex]
+//    }
 
     /// True for any space character, and the control characters \t, \n, \r, \f, \v.
     var isWhitespace: Bool {
@@ -146,10 +146,6 @@ extension Character {
 
 	static func convertFromIntegerLiteral(value: IntegerLiteralType) -> Character {
         return Character(UnicodeScalar(value)!)
-    }
-
-    func unicodeScalarCodePoint() -> UInt32 {
-        return unicodeScalar.value
     }
 
     static func charCount(codePoint: UInt32) -> Int {

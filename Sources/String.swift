@@ -78,10 +78,6 @@ extension String {
         return String(format:"%2x", n)
     }
 
-    func toCharArray() -> [Int] {
-        return characters.flatMap {Int($0.unicodeScalar.value)}
-    }
-
     func insert(string: String, ind: Int) -> String {
         return  String(self.characters.prefix(ind)) + string + String(self.characters.suffix(self.characters.count-ind))
     }
