@@ -1,4 +1,8 @@
-# SwiftSoup
+<p align="center" >
+  <img src="https://github.com/scinfu/SwiftSoup/blob/master/swifsoup.png" alt="SwiftSoup" title="SwiftSoup">
+</p>
+
+
 ![Platform OS X | iOS | tvOS | watchOS | Linux](https://img.shields.io/badge/platform-Linux%20%7C%20OS%20X%20%7C%20iOS%20%7C%20tvOS%20%7C%20watchOS-orange.svg)
 [![SPM compatible](https://img.shields.io/badge/SPM-compatible-4BC51D.svg?style=flat)](https://github.com/apple/swift-package-manager)
 ![🐧 linux: ready](https://img.shields.io/badge/%F0%9F%90%A7%20linux-ready-red.svg)
