@@ -1,5 +1,5 @@
 <p align="center" >
-  <img src="https://github.com/scinfu/SwiftSoup/blob/master/swifsoup.png" alt="SwiftSoup" title="SwiftSoup">
+  <img src="https://raw.githubusercontent.com/scinfu/SwiftSoup/master/swifsoup.png" alt="SwiftSoup" title="SwiftSoup">
 </p>
 
 
