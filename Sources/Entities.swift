@@ -45,7 +45,7 @@ public class Entities {
             return left.value != right.value
         }
         
-        private static let codeDelims : [UnicodeScalar]  = [",", ";"]
+        private static let codeDelims : [Byte]  = [Byte.comma, Byte.semicolon]
         
         init(string: String, size: Int, id: Int) {
             nameKeys = [String](repeating: "", count: size)
@@ -67,11 +67,11 @@ public class Entities {
                 let name: String = reader.consumeTo("=");
                 reader.advance();
                 let cp1: Int = Int(reader.consumeToAny(EscapeMode.codeDelims), radix: codepointRadix) ?? 0
-                let codeDelim: UnicodeScalar = reader.current();
+                let codeDelim = reader.current();
                 reader.advance();
                 let cp2: Int;
-                if (codeDelim == ",") {
-                    cp2 = Int(reader.consumeTo(";"), radix: codepointRadix) ?? 0
+                if (codeDelim == Byte.comma) {
+                    cp2 = Int(reader.consumeTo(Byte.semicolon), radix: codepointRadix) ?? 0
                     reader.advance();
                 } else {
                     cp2 = empty;
@@ -217,17 +217,17 @@ public class Entities {
         return emptyName
     }
     
-    open static func codepointsForName(_ name: String, codepoints: inout [UnicodeScalar]) -> Int {
+    open static func codepointsForName(_ name: String, codepoints: inout [Byte]) -> Int {
         
         if let val: String = multipoints[name] {
-            codepoints[0] = val.unicodeScalar(0)
-            codepoints[1] = val.unicodeScalar(1)
+            codepoints[0] = Int(val.unicodeScalar(0).value)
+            codepoints[1] = Int(val.unicodeScalar(1).value)
             return 2
         }
         
         let codepoint = EscapeMode.extended.codepointForName(name)
         if (codepoint != empty) {
-            codepoints[0] = UnicodeScalar(codepoint)!
+            codepoints[0] = codepoint
             return 1
         }
         return 0

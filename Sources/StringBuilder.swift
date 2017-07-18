@@ -54,7 +54,7 @@ open class StringBuilder {
         stringValue.append(contentsOf: chr)
     }
     
-    open func appendCodePoint(_ ch: Int) {
+    open func appendCodePoint(_ ch: Byte) {
         stringValue.append(Character(UnicodeScalar(ch)!))
     }
     
@@ -63,6 +63,12 @@ open class StringBuilder {
     }
     
     open func appendCodePoints(_ chr: [UnicodeScalar]) {
+        for c in chr {
+            appendCodePoint(c)
+        }
+    }
+    
+    open func appendCodePoints(_ chr: [Byte]) {
         for c in chr {
             appendCodePoint(c)
         }

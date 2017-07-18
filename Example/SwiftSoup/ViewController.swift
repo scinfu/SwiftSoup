@@ -30,7 +30,7 @@ class ViewController: UIViewController {
     @IBAction func parse(_ sender: Any) {
         do {
             for _ in 0...500 {
-                _ = try! SwiftSoup.parse(html)
+                _ = try SwiftSoup.parse(html)
             }
         } catch {
             print("Error")

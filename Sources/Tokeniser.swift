@@ -9,8 +9,7 @@
 import Foundation
 
 final class Tokeniser {
-    static  let replacementChar: UnicodeScalar = "\u{FFFD}" // replaces null character
-    private static let notCharRefCharsSorted: [UnicodeScalar] = [UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "<", UnicodeScalar.Ampersand].sorted()
+    private static let notCharRefCharsSorted: [Byte] = [Byte.horizontalTab, Byte.newLine, Byte.carriageReturn, Byte.formfeed, Byte.space, Byte.lessThan, Byte.ampersand].sorted()
 
     private let reader: CharacterReader // html input
     private let errors: ParseErrorList? // errors found while tokenising
@@ -95,15 +94,15 @@ final class Tokeniser {
         }
     }
 
-    func emit(_ chars: [UnicodeScalar]) {
-		emit(String(chars.map {Character($0)}))
+    func emit(_ chars: [Byte]) {
+		emit(chars.makeString())
     }
 
     //    func emit(_ codepoints: [Int]) {
     //        emit(String(codepoints, 0, codepoints.length));
     //    }
 
-    func emit(_ c: UnicodeScalar) {
+    func emit(_ c: Byte) {
         emit(String(c))
     }
 
@@ -124,10 +123,10 @@ final class Tokeniser {
         selfClosingFlagAcknowledged = true
     }
 
-    private var codepointHolder: [UnicodeScalar]  = [UnicodeScalar(0)!] // holder to not have to keep creating arrays
-    private var multipointHolder: [UnicodeScalar] = [UnicodeScalar(0)!, UnicodeScalar(0)!]
+    private var codepointHolder: [Byte]  = [0] // holder to not have to keep creating arrays
+    private var multipointHolder: [Byte] = [0, 0]
 
-    func consumeCharacterReference(_ additionalAllowedCharacter: UnicodeScalar?, _ inAttribute: Bool)throws->[UnicodeScalar]? {
+    func consumeCharacterReference(_ additionalAllowedCharacter: Byte?, _ inAttribute: Bool)throws->[Byte]? {
         if (reader.isEmpty()) {
             return nil
         }
@@ -138,17 +137,17 @@ final class Tokeniser {
             return nil
         }
 
-        var codeRef: [UnicodeScalar] = codepointHolder
+        var codeRef: [Byte] = codepointHolder
         reader.markPos()
-        if (reader.matchConsume("#")) { // numbered
-            let isHexMode: Bool = reader.matchConsumeIgnoreCase("X")
+        if reader.matchConsume(Byte.numberSign) { // numbered
+            let isHexMode: Bool = reader.matchConsumeIgnoreCase(Byte.X)
             let numRef: String = isHexMode ? reader.consumeHexSequence() : reader.consumeDigitSequence()
             if (numRef.unicodeScalars.count == 0) { // didn't match anything
                 characterReferenceError("numeric reference with no numerals")
                 reader.rewindToMark()
                 return nil
             }
-            if (!reader.matchConsume(";")) {
+            if (!reader.matchConsume(Byte.semicolon)) {
                 characterReferenceError("missing semicolon") // missing semi
             }
             var charval: Int  = -1
@@ -160,18 +159,18 @@ final class Tokeniser {
 
             if (charval == -1 || (charval >= 0xD800 && charval <= 0xDFFF) || charval > 0x10FFFF) {
                 characterReferenceError("character outside of valid range")
-                codeRef[0] = Tokeniser.replacementChar
+                codeRef[0] = Byte.replacementChar
                 return codeRef
             } else {
                 // todo: implement number replacement table
                 // todo: check for extra illegal unicode points as parse errors
-                codeRef[0] = UnicodeScalar(charval)!
+                codeRef[0] = charval
                 return codeRef
             }
         } else { // named
             // get as many letters as possible, and look for matching entities.
             let nameRef: String = reader.consumeLetterThenDigitSequence()
-            let looksLegit: Bool = reader.matches(";")
+            let looksLegit: Bool = reader.matches(Byte.semicolon)
             // found if a base named entity without a ;, or an extended entity with the ;.
             let found: Bool = (Entities.isBaseNamedEntity(nameRef) || (Entities.isNamedEntity(nameRef) && looksLegit))
 
@@ -182,12 +181,12 @@ final class Tokeniser {
                 }
                 return nil
             }
-            if (inAttribute && (reader.matchesLetter() || reader.matchesDigit() || reader.matchesAny("=", "-", "_"))) {
+            if (inAttribute && (reader.matchesLetter() || reader.matchesDigit() || reader.matchesAny(Byte.equals, Byte.hyphen, Byte.underscore))) {
                 // don't want that to match
                 reader.rewindToMark()
                 return nil
             }
-            if (!reader.matchConsume(";")) {
+            if (!reader.matchConsume(Byte.semicolon)) {
                 characterReferenceError("missing semicolon") // missing semi
             }
             let numChars: Int = Entities.codepointsForName(nameRef, codepoints: &multipointHolder)
@@ -288,8 +287,8 @@ final class Tokeniser {
     func unescapeEntities(_ inAttribute: Bool)throws->String {
         let builder: StringBuilder = StringBuilder()
         while (!reader.isEmpty()) {
-            builder.append(reader.consumeTo(UnicodeScalar.Ampersand))
-            if (reader.matches(UnicodeScalar.Ampersand)) {
+            builder.append(reader.consumeTo(Byte.ampersand))
+            if (reader.matches(Byte.ampersand)) {
                 reader.consume()
                 if let c = try consumeCharacterReference(nil, inAttribute) {
                     if (c.count==0) {

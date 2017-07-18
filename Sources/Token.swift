@@ -171,7 +171,7 @@ open class Token {
 			_normalName = _tagName?.lowercased()
 		}
 
-		func appendTagName(_ append: UnicodeScalar) {
+		func appendTagName(_ append: Byte) {
 			appendTagName("\(append)")
 		}
 
@@ -179,7 +179,7 @@ open class Token {
 			_pendingAttributeName = _pendingAttributeName == nil ? append : _pendingAttributeName?.appending(append)
 		}
 
-		func appendAttributeName(_ append: UnicodeScalar) {
+		func appendAttributeName(_ append: Byte) {
 			appendAttributeName("\(append)")
 		}
 
@@ -192,22 +192,22 @@ open class Token {
 			}
 		}
 
-		func appendAttributeValue(_ append: UnicodeScalar) {
+		func appendAttributeValue(_ append: Byte) {
 			ensureAttributeValue()
 			_pendingAttributeValue.appendCodePoint(append)
 		}
 
-		func appendAttributeValue(_ append: [UnicodeScalar]) {
+		func appendAttributeValue(_ append: [Byte]) {
 			ensureAttributeValue()
 			_pendingAttributeValue.appendCodePoints(append)
 		}
 
-		func appendAttributeValue(_ appendCodepoints: [Int]) {
-			ensureAttributeValue()
-			for codepoint in appendCodepoints {
-				_pendingAttributeValue.appendCodePoint(UnicodeScalar(codepoint)!)
-			}
-		}
+//		func appendAttributeValue(_ appendCodepoints: [Byte]) {
+//			ensureAttributeValue()
+//			for codepoint in appendCodepoints {
+//				_pendingAttributeValue.appendCodePoint(UnicodeScalar(codepoint)!)
+//			}
+//		}
 
 		func setEmptyAttributeValue() {
 			_hasEmptyAttributeValue = true
