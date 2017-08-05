@@ -73,7 +73,7 @@ public final class CharacterReader {
      * @param c scan target
      * @return offset between current position and next instance of target. -1 if not found.
      */
-    private func nextIndexOf(_ c: Byte) -> Int {
+    public func nextIndexOf(_ c: Byte) -> Int {
         // doesn't handle scanning for surrogates
         for i in pos..<length {
             if (c == input[i]) {
@@ -89,7 +89,7 @@ public final class CharacterReader {
      * @param seq scan target
      * @return offset between current position and next instance of target. -1 if not found.
      */
-    private func nextIndexOf(_ seq: String) -> Int {
+    public func nextIndexOf(_ seq: String) -> Int {
         let seq = seq.makeBytes()
         // doesn't handle scanning for surrogates
 		if(seq.isEmpty) {return -1}
@@ -418,7 +418,8 @@ public final class CharacterReader {
      * some more duplicates.
      */
     private func cacheString(_ start: Int, _ count: Int) -> String {
-        return input[start..<start+count].makeString()
+        let ar = input[start..<start+count]
+        return ar.makeString()
         //return String(input[start..<start+count].flatMap { Character($0) })
 // Too Slow
 //        var cache: [String?] = stringCache

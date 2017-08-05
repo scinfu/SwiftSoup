@@ -91,25 +91,16 @@
 		8CE4187A1DAA568700240B42 /* SwiftSoup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418571DAA568600240B42 /* SwiftSoup.swift */; };
 		8CEA29591DAC112B0064A341 /* CharacterReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CEA29581DAC112B0064A341 /* CharacterReader.swift */; };
 		8CEA295B1DAC23820064A341 /* String.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CEA295A1DAC23820064A341 /* String.swift */; };
-		BDBC18631F0AC907005EAAE6 /* Aliases.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18501F0AC907005EAAE6 /* Aliases.swift */; };
-		BDBC18641F0AC907005EAAE6 /* Base64Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18511F0AC907005EAAE6 /* Base64Encoder.swift */; };
-		BDBC18651F0AC907005EAAE6 /* Byte+Alphabet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18521F0AC907005EAAE6 /* Byte+Alphabet.swift */; };
-		BDBC18661F0AC907005EAAE6 /* Byte+ControlCharacters.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18531F0AC907005EAAE6 /* Byte+ControlCharacters.swift */; };
-		BDBC18671F0AC907005EAAE6 /* Byte+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18541F0AC907005EAAE6 /* Byte+Convenience.swift */; };
-		BDBC18681F0AC907005EAAE6 /* Byte+PatternMatching.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18551F0AC907005EAAE6 /* Byte+PatternMatching.swift */; };
-		BDBC18691F0AC907005EAAE6 /* Byte+Random.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18561F0AC907005EAAE6 /* Byte+Random.swift */; };
-		BDBC186A1F0AC907005EAAE6 /* Byte+UTF8Numbers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18571F0AC907005EAAE6 /* Byte+UTF8Numbers.swift */; };
-		BDBC186B1F0AC907005EAAE6 /* Bytes+Base64.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18581F0AC907005EAAE6 /* Bytes+Base64.swift */; };
-		BDBC186C1F0AC907005EAAE6 /* Bytes+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18591F0AC907005EAAE6 /* Bytes+Hex.swift */; };
-		BDBC186D1F0AC907005EAAE6 /* Bytes+Percent.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC185A1F0AC907005EAAE6 /* Bytes+Percent.swift */; };
-		BDBC186E1F0AC907005EAAE6 /* BytesConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC185B1F0AC907005EAAE6 /* BytesConvertible.swift */; };
-		BDBC186F1F0AC907005EAAE6 /* ByteSequence+Conversions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC185C1F0AC907005EAAE6 /* ByteSequence+Conversions.swift */; };
-		BDBC18701F0AC907005EAAE6 /* Data+BytesConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC185D1F0AC907005EAAE6 /* Data+BytesConvertible.swift */; };
-		BDBC18711F0AC907005EAAE6 /* HexEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC185E1F0AC907005EAAE6 /* HexEncoder.swift */; };
-		BDBC18721F0AC907005EAAE6 /* Operators.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC185F1F0AC907005EAAE6 /* Operators.swift */; };
-		BDBC18731F0AC907005EAAE6 /* String+BytesConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18601F0AC907005EAAE6 /* String+BytesConvertible.swift */; };
-		BDBC18741F0AC907005EAAE6 /* UnsignedInteger+BytesConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18611F0AC907005EAAE6 /* UnsignedInteger+BytesConvertible.swift */; };
-		BDBC18751F0AC907005EAAE6 /* UnsignedInteger+Shifting.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18621F0AC907005EAAE6 /* UnsignedInteger+Shifting.swift */; };
+		BD71B32C1F1EB56A0041103C /* Aliases.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD71B3221F1EB56A0041103C /* Aliases.swift */; };
+		BD71B32D1F1EB56A0041103C /* Byte+Alphabet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD71B3231F1EB56A0041103C /* Byte+Alphabet.swift */; };
+		BD71B32E1F1EB56A0041103C /* Byte+ControlCharacters.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD71B3241F1EB56A0041103C /* Byte+ControlCharacters.swift */; };
+		BD71B32F1F1EB56A0041103C /* Byte+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD71B3251F1EB56A0041103C /* Byte+Convenience.swift */; };
+		BD71B3301F1EB56A0041103C /* Byte+PatternMatching.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD71B3261F1EB56A0041103C /* Byte+PatternMatching.swift */; };
+		BD71B3311F1EB56A0041103C /* Byte+SwiftSoup.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD71B3271F1EB56A0041103C /* Byte+SwiftSoup.swift */; };
+		BD71B3321F1EB56A0041103C /* Byte+UTF8Numbers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD71B3281F1EB56A0041103C /* Byte+UTF8Numbers.swift */; };
+		BD71B3331F1EB56A0041103C /* ByteSequence+Conversions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD71B3291F1EB56A0041103C /* ByteSequence+Conversions.swift */; };
+		BD71B3341F1EB56A0041103C /* Operators.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD71B32A1F1EB56A0041103C /* Operators.swift */; };
+		BD71B3351F1EB56A0041103C /* String+BytesConvertible.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD71B32B1F1EB56A0041103C /* String+BytesConvertible.swift */; };
 		BDBC18771F0AC9E3005EAAE6 /* Scanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDBC18761F0AC9E3005EAAE6 /* Scanner.swift */; };
 /* End PBXBuildFile section */
 
@@ -212,25 +203,16 @@
 		8CE418571DAA568600240B42 /* SwiftSoup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SwiftSoup.swift; sourceTree = "<group>"; };
 		8CEA29581DAC112B0064A341 /* CharacterReader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CharacterReader.swift; sourceTree = "<group>"; };
 		8CEA295A1DAC23820064A341 /* String.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = String.swift; sourceTree = "<group>"; };
-		BDBC18501F0AC907005EAAE6 /* Aliases.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Aliases.swift; sourceTree = "<group>"; };
-		BDBC18511F0AC907005EAAE6 /* Base64Encoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Base64Encoder.swift; sourceTree = "<group>"; };
-		BDBC18521F0AC907005EAAE6 /* Byte+Alphabet.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Byte+Alphabet.swift"; sourceTree = "<group>"; };
-		BDBC18531F0AC907005EAAE6 /* Byte+ControlCharacters.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Byte+ControlCharacters.swift"; sourceTree = "<group>"; };
-		BDBC18541F0AC907005EAAE6 /* Byte+Convenience.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Byte+Convenience.swift"; sourceTree = "<group>"; };
-		BDBC18551F0AC907005EAAE6 /* Byte+PatternMatching.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Byte+PatternMatching.swift"; sourceTree = "<group>"; };
-		BDBC18561F0AC907005EAAE6 /* Byte+Random.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Byte+Random.swift"; sourceTree = "<group>"; };
-		BDBC18571F0AC907005EAAE6 /* Byte+UTF8Numbers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Byte+UTF8Numbers.swift"; sourceTree = "<group>"; };
-		BDBC18581F0AC907005EAAE6 /* Bytes+Base64.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Bytes+Base64.swift"; sourceTree = "<group>"; };
-		BDBC18591F0AC907005EAAE6 /* Bytes+Hex.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Bytes+Hex.swift"; sourceTree = "<group>"; };
-		BDBC185A1F0AC907005EAAE6 /* Bytes+Percent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Bytes+Percent.swift"; sourceTree = "<group>"; };
-		BDBC185B1F0AC907005EAAE6 /* BytesConvertible.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BytesConvertible.swift; sourceTree = "<group>"; };
-		BDBC185C1F0AC907005EAAE6 /* ByteSequence+Conversions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "ByteSequence+Conversions.swift"; sourceTree = "<group>"; };
-		BDBC185D1F0AC907005EAAE6 /* Data+BytesConvertible.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Data+BytesConvertible.swift"; sourceTree = "<group>"; };
-		BDBC185E1F0AC907005EAAE6 /* HexEncoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HexEncoder.swift; sourceTree = "<group>"; };
-		BDBC185F1F0AC907005EAAE6 /* Operators.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Operators.swift; sourceTree = "<group>"; };
-		BDBC18601F0AC907005EAAE6 /* String+BytesConvertible.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+BytesConvertible.swift"; sourceTree = "<group>"; };
-		BDBC18611F0AC907005EAAE6 /* UnsignedInteger+BytesConvertible.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "UnsignedInteger+BytesConvertible.swift"; sourceTree = "<group>"; };
-		BDBC18621F0AC907005EAAE6 /* UnsignedInteger+Shifting.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "UnsignedInteger+Shifting.swift"; sourceTree = "<group>"; };
+		BD71B3221F1EB56A0041103C /* Aliases.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Aliases.swift; sourceTree = "<group>"; };
+		BD71B3231F1EB56A0041103C /* Byte+Alphabet.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Byte+Alphabet.swift"; sourceTree = "<group>"; };
+		BD71B3241F1EB56A0041103C /* Byte+ControlCharacters.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Byte+ControlCharacters.swift"; sourceTree = "<group>"; };
+		BD71B3251F1EB56A0041103C /* Byte+Convenience.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Byte+Convenience.swift"; sourceTree = "<group>"; };
+		BD71B3261F1EB56A0041103C /* Byte+PatternMatching.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Byte+PatternMatching.swift"; sourceTree = "<group>"; };
+		BD71B3271F1EB56A0041103C /* Byte+SwiftSoup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Byte+SwiftSoup.swift"; sourceTree = "<group>"; };
+		BD71B3281F1EB56A0041103C /* Byte+UTF8Numbers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Byte+UTF8Numbers.swift"; sourceTree = "<group>"; };
+		BD71B3291F1EB56A0041103C /* ByteSequence+Conversions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "ByteSequence+Conversions.swift"; sourceTree = "<group>"; };
+		BD71B32A1F1EB56A0041103C /* Operators.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Operators.swift; sourceTree = "<group>"; };
+		BD71B32B1F1EB56A0041103C /* String+BytesConvertible.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+BytesConvertible.swift"; sourceTree = "<group>"; };
 		BDBC18761F0AC9E3005EAAE6 /* Scanner.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Scanner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -386,7 +368,7 @@
 		8CE418181DAA54A900240B42 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				BDBC184F1F0AC907005EAAE6 /* Bits */,
+				BD71B3211F1EB55B0041103C /* Byte */,
 				8C7ED6741E00B10F0032A27C /* helper */,
 				8C7ED6731E00B0690032A27C /* shared */,
 				8CE418301DAA568600240B42 /* Connection.swift */,
@@ -461,30 +443,21 @@
 			name = select;
 			sourceTree = "<group>";
 		};
-		BDBC184F1F0AC907005EAAE6 /* Bits */ = {
+		BD71B3211F1EB55B0041103C /* Byte */ = {
 			isa = PBXGroup;
 			children = (
-				BDBC18501F0AC907005EAAE6 /* Aliases.swift */,
-				BDBC18511F0AC907005EAAE6 /* Base64Encoder.swift */,
-				BDBC18521F0AC907005EAAE6 /* Byte+Alphabet.swift */,
-				BDBC18531F0AC907005EAAE6 /* Byte+ControlCharacters.swift */,
-				BDBC18541F0AC907005EAAE6 /* Byte+Convenience.swift */,
-				BDBC18551F0AC907005EAAE6 /* Byte+PatternMatching.swift */,
-				BDBC18561F0AC907005EAAE6 /* Byte+Random.swift */,
-				BDBC18571F0AC907005EAAE6 /* Byte+UTF8Numbers.swift */,
-				BDBC18581F0AC907005EAAE6 /* Bytes+Base64.swift */,
-				BDBC18591F0AC907005EAAE6 /* Bytes+Hex.swift */,
-				BDBC185A1F0AC907005EAAE6 /* Bytes+Percent.swift */,
-				BDBC185B1F0AC907005EAAE6 /* BytesConvertible.swift */,
-				BDBC185C1F0AC907005EAAE6 /* ByteSequence+Conversions.swift */,
-				BDBC185D1F0AC907005EAAE6 /* Data+BytesConvertible.swift */,
-				BDBC185E1F0AC907005EAAE6 /* HexEncoder.swift */,
-				BDBC185F1F0AC907005EAAE6 /* Operators.swift */,
-				BDBC18601F0AC907005EAAE6 /* String+BytesConvertible.swift */,
-				BDBC18611F0AC907005EAAE6 /* UnsignedInteger+BytesConvertible.swift */,
-				BDBC18621F0AC907005EAAE6 /* UnsignedInteger+Shifting.swift */,
+				BD71B3221F1EB56A0041103C /* Aliases.swift */,
+				BD71B3231F1EB56A0041103C /* Byte+Alphabet.swift */,
+				BD71B3241F1EB56A0041103C /* Byte+ControlCharacters.swift */,
+				BD71B3251F1EB56A0041103C /* Byte+Convenience.swift */,
+				BD71B3261F1EB56A0041103C /* Byte+PatternMatching.swift */,
+				BD71B3271F1EB56A0041103C /* Byte+SwiftSoup.swift */,
+				BD71B3281F1EB56A0041103C /* Byte+UTF8Numbers.swift */,
+				BD71B3291F1EB56A0041103C /* ByteSequence+Conversions.swift */,
+				BD71B32A1F1EB56A0041103C /* Operators.swift */,
+				BD71B32B1F1EB56A0041103C /* String+BytesConvertible.swift */,
 			);
-			path = Bits;
+			name = Byte;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -602,8 +575,6 @@
 			files = (
 				8CE418761DAA568700240B42 /* OrderedDictionary.swift in Sources */,
 				8CC2FD8D1DB12382002CB469 /* Whitelist.swift in Sources */,
-				BDBC186F1F0AC907005EAAE6 /* ByteSequence+Conversions.swift in Sources */,
-				BDBC18631F0AC907005EAAE6 /* Aliases.swift in Sources */,
 				8C19C82F1DB7E5D200B8FC22 /* Tokeniser.swift in Sources */,
 				8CD4E8F01E12B0FF0039B951 /* Pattern.swift in Sources */,
 				8CEA295B1DAC23820064A341 /* String.swift in Sources */,
@@ -613,39 +584,33 @@
 				8CE418641DAA568600240B42 /* BooleanAttribute.swift in Sources */,
 				8CD500DE1DAEC9FF002270FC /* TokeniserState.swift in Sources */,
 				8CE418741DAA568700240B42 /* CharacterExt.swift in Sources */,
-				BDBC186C1F0AC907005EAAE6 /* Bytes+Hex.swift in Sources */,
-				BDBC18691F0AC907005EAAE6 /* Byte+Random.swift in Sources */,
 				8C5B31C51DC3F2F000D2F649 /* HtmlTreeBuilderState.swift in Sources */,
 				8C246B531DD7396200B31DA7 /* OrderedSet.swift in Sources */,
 				8CE418681DAA568600240B42 /* Element.swift in Sources */,
 				8CE4186C1DAA568600240B42 /* Entities.swift in Sources */,
 				8CE418651DAA568600240B42 /* DataNode.swift in Sources */,
 				8CA859611DB69481006B8148 /* Token.swift in Sources */,
-				BDBC186A1F0AC907005EAAE6 /* Byte+UTF8Numbers.swift in Sources */,
-				BDBC186D1F0AC907005EAAE6 /* Bytes+Percent.swift in Sources */,
 				8CE4185D1DAA568600240B42 /* StringBuilder.swift in Sources */,
 				8CE4185B1DAA568600240B42 /* Exception.swift in Sources */,
+				BD71B3321F1EB56A0041103C /* Byte+UTF8Numbers.swift in Sources */,
 				8CE4186E1DAA568700240B42 /* Node.swift in Sources */,
 				8CE4186F1DAA568700240B42 /* TextNode.swift in Sources */,
 				8C9380121DC6945B0014DAD6 /* SimpleDictionary.swift in Sources */,
-				BDBC18661F0AC907005EAAE6 /* Byte+ControlCharacters.swift in Sources */,
-				BDBC186B1F0AC907005EAAE6 /* Bytes+Base64.swift in Sources */,
 				8CC2FD851DB11B64002CB469 /* ParseSettings.swift in Sources */,
+				BD71B32E1F1EB56A0041103C /* Byte+ControlCharacters.swift in Sources */,
 				BDBC18771F0AC9E3005EAAE6 /* Scanner.swift in Sources */,
 				8CE4187A1DAA568700240B42 /* SwiftSoup.swift in Sources */,
-				BDBC18741F0AC907005EAAE6 /* UnsignedInteger+BytesConvertible.swift in Sources */,
-				BDBC18641F0AC907005EAAE6 /* Base64Encoder.swift in Sources */,
 				8CE4185F1DAA568600240B42 /* StringUtil.swift in Sources */,
 				8C89785C1DBCBC5600B1C024 /* StructuralEvaluator.swift in Sources */,
 				8C9651A81DBC16D800FCB4C2 /* Comment.swift in Sources */,
+				BD71B3351F1EB56A0041103C /* String+BytesConvertible.swift in Sources */,
 				8CEA29591DAC112B0064A341 /* CharacterReader.swift in Sources */,
+				BD71B3341F1EB56A0041103C /* Operators.swift in Sources */,
 				8CA209871DB3A38E00A9EC9D /* NodeVisitor.swift in Sources */,
 				8C8062901DB9560C0064EC33 /* Elements.swift in Sources */,
-				BDBC18721F0AC907005EAAE6 /* Operators.swift in Sources */,
-				BDBC18671F0AC907005EAAE6 /* Byte+Convenience.swift in Sources */,
-				BDBC18701F0AC907005EAAE6 /* Data+BytesConvertible.swift in Sources */,
-				BDBC186E1F0AC907005EAAE6 /* BytesConvertible.swift in Sources */,
 				8CE4186D1DAA568700240B42 /* FormElement.swift in Sources */,
+				BD71B32F1F1EB56A0041103C /* Byte+Convenience.swift in Sources */,
+				BD71B3311F1EB56A0041103C /* Byte+SwiftSoup.swift in Sources */,
 				8C73DB4B1DDA605900233A68 /* UnicodeScalar.swift in Sources */,
 				8CE418601DAA568600240B42 /* Validate.swift in Sources */,
 				8C3617C11DBAC2AE00E00CFE /* Selector.swift in Sources */,
@@ -658,9 +623,9 @@
 				8C84C43D1DB516C700D63B0D /* NodeTraversor.swift in Sources */,
 				8CE418781DAA568700240B42 /* StreamReader.swift in Sources */,
 				8C9651AA1DBC2B6B00FCB4C2 /* QueryParser.swift in Sources */,
-				BDBC18681F0AC907005EAAE6 /* Byte+PatternMatching.swift in Sources */,
-				BDBC18711F0AC907005EAAE6 /* HexEncoder.swift in Sources */,
+				BD71B3331F1EB56A0041103C /* ByteSequence+Conversions.swift in Sources */,
 				8C5B31C61DC3F2F600D2F649 /* XmlTreeBuilder.swift in Sources */,
+				BD71B3301F1EB56A0041103C /* Byte+PatternMatching.swift in Sources */,
 				8C5B31C41DC3F2E900D2F649 /* HtmlTreeBuilder.swift in Sources */,
 				8CE418731DAA568700240B42 /* ArrayExt.swift in Sources */,
 				8CD48F1F1DBB6B5100D1D88F /* Collector.swift in Sources */,
@@ -669,13 +634,12 @@
 				8CE418671DAA568600240B42 /* DocumentType.swift in Sources */,
 				8CE418721DAA568700240B42 /* SerializationException.swift in Sources */,
 				8C7D44D81DB018D500A815E0 /* TokenQueue.swift in Sources */,
-				BDBC18651F0AC907005EAAE6 /* Byte+Alphabet.swift in Sources */,
-				BDBC18731F0AC907005EAAE6 /* String+BytesConvertible.swift in Sources */,
 				8CE418661DAA568600240B42 /* Document.swift in Sources */,
-				BDBC18751F0AC907005EAAE6 /* UnsignedInteger+Shifting.swift in Sources */,
+				BD71B32D1F1EB56A0041103C /* Byte+Alphabet.swift in Sources */,
 				8CD4E8F21E12E2670039B951 /* PlatformTypes.swift in Sources */,
 				8C6239C21DBE76D40024F42D /* TreeBuilder.swift in Sources */,
 				8CE4185A1DAA568600240B42 /* DataUtil.swift in Sources */,
+				BD71B32C1F1EB56A0041103C /* Aliases.swift in Sources */,
 				8C19C8311DB7E8CD00B8FC22 /* ParseError.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

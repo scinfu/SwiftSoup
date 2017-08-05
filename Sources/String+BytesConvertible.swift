@@ -1,4 +1,4 @@
-extension String: BytesConvertible {
+extension String {
     /**
          UTF8 Array representation of string
     */

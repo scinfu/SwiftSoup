@@ -172,7 +172,7 @@ open class Token {
 		}
 
 		func appendTagName(_ append: Byte) {
-			appendTagName("\(append)")
+			appendTagName(String(UnicodeScalar(append)!))
 		}
 
 		func appendAttributeName(_ append: String) {
@@ -180,7 +180,7 @@ open class Token {
 		}
 
 		func appendAttributeName(_ append: Byte) {
-			appendAttributeName("\(append)")
+			appendAttributeName(String(UnicodeScalar(append)!))
 		}
 
 		func appendAttributeValue(_ append: String) {

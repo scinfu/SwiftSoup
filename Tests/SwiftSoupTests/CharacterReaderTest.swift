@@ -7,58 +7,58 @@
 //
 
 import XCTest
-import SwiftSoup
+@testable import SwiftSoup
 
 class CharacterReaderTest: XCTestCase {
 
     func testConsume() {
         let r = CharacterReader("one")
         XCTAssertEqual(0, r.getPos())
-        XCTAssertEqual("o", r.current())
-        XCTAssertEqual("o", r.consume())
+        XCTAssertEqual(Byte.o, r.current())
+        XCTAssertEqual(Byte.o, r.consume())
         XCTAssertEqual(1, r.getPos())
-        XCTAssertEqual("n", r.current())
+        XCTAssertEqual(Byte.n, r.current())
         XCTAssertEqual(1, r.getPos())
-        XCTAssertEqual("n", r.consume())
-        XCTAssertEqual("e", r.consume())
+        XCTAssertEqual(Byte.n, r.consume())
+        XCTAssertEqual(Byte.e, r.consume())
         XCTAssertTrue(r.isEmpty())
-        XCTAssertEqual(CharacterReader.EOF, r.consume())
+        XCTAssertEqual(Byte.EOF, r.consume())
         XCTAssertTrue(r.isEmpty())
-        XCTAssertEqual(CharacterReader.EOF, r.consume())
+        XCTAssertEqual(Byte.EOF, r.consume())
     }
 
     func testUnconsume() {
         let r = CharacterReader("one")
-        XCTAssertEqual("o", r.consume())
-        XCTAssertEqual("n", r.current())
+        XCTAssertEqual(Byte.o, r.consume())
+        XCTAssertEqual(Byte.n, r.current())
         r.unconsume()
-        XCTAssertEqual("o", r.current())
+        XCTAssertEqual(Byte.o, r.current())
 
-        XCTAssertEqual("o", r.consume())
-        XCTAssertEqual("n", r.consume())
-        XCTAssertEqual("e", r.consume())
+        XCTAssertEqual(Byte.o, r.consume())
+        XCTAssertEqual(Byte.n, r.consume())
+        XCTAssertEqual(Byte.e, r.consume())
         XCTAssertTrue(r.isEmpty())
         r.unconsume()
         XCTAssertFalse(r.isEmpty())
-        XCTAssertEqual("e", r.current())
-        XCTAssertEqual("e", r.consume())
+        XCTAssertEqual(Byte.e, r.current())
+        XCTAssertEqual(Byte.e, r.consume())
         XCTAssertTrue(r.isEmpty())
 
-        XCTAssertEqual(CharacterReader.EOF, r.consume())
+        XCTAssertEqual(Byte.EOF, r.consume())
         r.unconsume()
         XCTAssertTrue(r.isEmpty())
-        XCTAssertEqual(CharacterReader.EOF, r.current())
+        XCTAssertEqual(Byte.EOF, r.current())
     }
 
     func testMark() {
         let r = CharacterReader("one")
-        XCTAssertEqual("o", r.consume())
+        XCTAssertEqual(Byte.o, r.consume())
         r.markPos()
-        XCTAssertEqual("n", r.consume())
-        XCTAssertEqual("e", r.consume())
+        XCTAssertEqual(Byte.n, r.consume())
+        XCTAssertEqual(Byte.e, r.consume())
         XCTAssertTrue(r.isEmpty())
         r.rewindToMark()
-        XCTAssertEqual("n", r.consume())
+        XCTAssertEqual(Byte.n, r.consume())
     }
 
     func testConsumeToEnd() {
@@ -73,14 +73,14 @@ class CharacterReaderTest: XCTestCase {
         let input = "blah blah"
         let r = CharacterReader(input)
 
-        XCTAssertEqual(-1, r.nextIndexOf("x"))
-        XCTAssertEqual(3, r.nextIndexOf("h"))
-        let pull = r.consumeTo("h")
+        XCTAssertEqual(-1, r.nextIndexOf(Byte.x))
+        XCTAssertEqual(3, r.nextIndexOf(Byte.h))
+        let pull = r.consumeTo(Byte.h)
         XCTAssertEqual("bla", pull)
-        XCTAssertEqual("h", r.consume())
-        XCTAssertEqual(2, r.nextIndexOf("l"))
+        XCTAssertEqual(Byte.h, r.consume())
+        XCTAssertEqual(2, r.nextIndexOf(Byte.l))
         XCTAssertEqual(" blah", r.consumeToEnd())
-        XCTAssertEqual(-1, r.nextIndexOf("x"))
+        XCTAssertEqual(-1, r.nextIndexOf(Byte.x))
     }
 
     func testNextIndexOfString() {
@@ -102,39 +102,39 @@ class CharacterReaderTest: XCTestCase {
 
     func testConsumeToChar() {
         let r = CharacterReader("One Two Three")
-        XCTAssertEqual("One ", r.consumeTo("T"))
-        XCTAssertEqual("", r.consumeTo("T")) // on Two
-        XCTAssertEqual("T", r.consume())
-        XCTAssertEqual("wo ", r.consumeTo("T"))
-        XCTAssertEqual("T", r.consume())
-        XCTAssertEqual("hree", r.consumeTo("T")) // consume to end
+        XCTAssertEqual("One ", r.consumeTo(Byte.T))
+        XCTAssertEqual("", r.consumeTo(Byte.T)) // on Two
+        XCTAssertEqual(Byte.T, r.consume())
+        XCTAssertEqual("wo ", r.consumeTo(Byte.T))
+        XCTAssertEqual(Byte.T, r.consume())
+        XCTAssertEqual("hree", r.consumeTo(Byte.T)) // consume to end
     }
 
     func testConsumeToString() {
         let r = CharacterReader("One Two Two Four")
         XCTAssertEqual("One ", r.consumeTo("Two"))
-        XCTAssertEqual("T", r.consume())
+        XCTAssertEqual(Byte.T, r.consume())
         XCTAssertEqual("wo ", r.consumeTo("Two"))
-        XCTAssertEqual("T", r.consume())
+        XCTAssertEqual(Byte.T, r.consume())
         XCTAssertEqual("wo Four", r.consumeTo("Qux"))
     }
 
     func testAdvance() {
         let r = CharacterReader("One Two Three")
-        XCTAssertEqual("O", r.consume())
+        XCTAssertEqual(Byte.O, r.consume())
         r.advance()
-        XCTAssertEqual("e", r.consume())
+        XCTAssertEqual(Byte.e, r.consume())
     }
 
     func testConsumeToAny() {
         let r = CharacterReader("One &bar; qux")
-        XCTAssertEqual("One ", r.consumeToAny("&", ";"))
-        XCTAssertTrue(r.matches("&"))
-        XCTAssertTrue(r.matches("&bar;"))
-        XCTAssertEqual("&", r.consume())
-        XCTAssertEqual("bar", r.consumeToAny("&", ";"))
-        XCTAssertEqual(";", r.consume())
-        XCTAssertEqual(" qux", r.consumeToAny("&", ";"))
+        XCTAssertEqual("One ", r.consumeToAny(Byte.ampersand, Byte.semicolon))
+        XCTAssertTrue(r.matches(Byte.ampersand))
+        XCTAssertTrue(r.matches("&bar;".makeBytes()))
+        XCTAssertEqual(Byte.ampersand, r.consume())
+        XCTAssertEqual("bar", r.consumeToAny(Byte.ampersand, Byte.semicolon))
+        XCTAssertEqual(Byte.semicolon, r.consume())
+        XCTAssertEqual(" qux", r.consumeToAny(Byte.ampersand, Byte.semicolon))
     }
 
     func testConsumeLetterSequence() {
@@ -148,36 +148,36 @@ class CharacterReaderTest: XCTestCase {
     func testConsumeLetterThenDigitSequence() {
         let r = CharacterReader("One12 Two &bar; qux")
         XCTAssertEqual("One12", r.consumeLetterThenDigitSequence())
-        XCTAssertEqual(" ", r.consume())
+        XCTAssertEqual(Byte.space, r.consume())
         XCTAssertEqual("Two", r.consumeLetterThenDigitSequence())
         XCTAssertEqual(" &bar; qux", r.consumeToEnd())
     }
 
     func testMatches() {
         let r = CharacterReader("One Two Three")
-        XCTAssertTrue(r.matches("O"))
-        XCTAssertTrue(r.matches("One Two Three"))
-        XCTAssertTrue(r.matches("One"))
-        XCTAssertFalse(r.matches("one"))
-        XCTAssertEqual("O", r.consume())
-        XCTAssertFalse(r.matches("One"))
-        XCTAssertTrue(r.matches("ne Two Three"))
-        XCTAssertFalse(r.matches("ne Two Three Four"))
+        XCTAssertTrue(r.matches(Byte.O))
+        XCTAssertTrue(r.matches("One Two Three".makeBytes()))
+        XCTAssertTrue(r.matches("One".makeBytes()))
+        XCTAssertFalse(r.matches("one".makeBytes()))
+        XCTAssertEqual(Byte.O, r.consume())
+        XCTAssertFalse(r.matches("One".makeBytes()))
+        XCTAssertTrue(r.matches("ne Two Three".makeBytes()))
+        XCTAssertFalse(r.matches("ne Two Three Four".makeBytes()))
         XCTAssertEqual("ne Two Three", r.consumeToEnd())
-        XCTAssertFalse(r.matches("ne"))
+        XCTAssertFalse(r.matches("ne".makeBytes()))
     }
 
     func testMatchesIgnoreCase() {
         let r = CharacterReader("One Two Three")
-        XCTAssertTrue(r.matchesIgnoreCase("O"))
         XCTAssertTrue(r.matchesIgnoreCase("o"))
-        XCTAssertTrue(r.matches("O"))
-        XCTAssertFalse(r.matches("o"))
+        XCTAssertTrue(r.matchesIgnoreCase("O"))
+        XCTAssertTrue(r.matches(Byte.O))
+        XCTAssertFalse(r.matches(Byte.o))
         XCTAssertTrue(r.matchesIgnoreCase("One Two Three"))
         XCTAssertTrue(r.matchesIgnoreCase("ONE two THREE"))
         XCTAssertTrue(r.matchesIgnoreCase("One"))
         XCTAssertTrue(r.matchesIgnoreCase("one"))
-        XCTAssertEqual("O", r.consume())
+        XCTAssertEqual(Byte.O, r.consume())
         XCTAssertFalse(r.matchesIgnoreCase("One"))
         XCTAssertTrue(r.matchesIgnoreCase("NE Two Three"))
         XCTAssertFalse(r.matchesIgnoreCase("ne Two Three Four"))
@@ -196,23 +196,23 @@ class CharacterReaderTest: XCTestCase {
     func testMatchesAny() {
         //let scan = [" ", "\n", "\t"]
         let r = CharacterReader("One\nTwo\tThree")
-        XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
-        XCTAssertEqual("One", r.consumeToAny(" ", "\n", "\t"))
-        XCTAssertTrue(r.matchesAny(" ", "\n", "\t"))
-        XCTAssertEqual("\n", r.consume())
-        XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
+        XCTAssertFalse(r.matchesAny(Byte.space, Byte.newLine, Byte.horizontalTab))
+        XCTAssertEqual("One", r.consumeToAny(Byte.space, Byte.newLine, Byte.horizontalTab))
+        XCTAssertTrue(r.matchesAny(Byte.space, Byte.newLine, Byte.horizontalTab))
+        XCTAssertEqual(Byte.newLine, r.consume())
+        XCTAssertFalse(r.matchesAny(Byte.space, Byte.newLine, Byte.horizontalTab))
     }
 
     func testCachesStrings() {
         let r = CharacterReader("Check\tCheck\tCheck\tCHOKE\tA string that is longer than 16 chars")
         let one = r.consumeTo("\t")
-        XCTAssertEqual("\t", r.consume())
+        XCTAssertEqual(Byte.horizontalTab, r.consume())
         let two = r.consumeTo("\t")
-        XCTAssertEqual("\t", r.consume())
+        XCTAssertEqual(Byte.horizontalTab, r.consume())
         let three = r.consumeTo("\t")
-        XCTAssertEqual("\t", r.consume())
+        XCTAssertEqual(Byte.horizontalTab, r.consume())
         let four = r.consumeTo("\t")
-        XCTAssertEqual("\t", r.consume())
+        XCTAssertEqual(Byte.horizontalTab, r.consume())
         let five = r.consumeTo("\t")
 
         XCTAssertEqual("Check", one)

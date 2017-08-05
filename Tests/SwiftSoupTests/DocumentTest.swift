@@ -86,6 +86,16 @@ class DocumentTest: XCTestCase {
 		}
 
 	}
+    
+    func testOutputEnco() {
+        do {
+            let doc: Document = try SwiftSoup.parse("π")
+            // default is utf-8
+            XCTAssertEqual("<p title=\"π\">π &amp; &lt; &gt; </p>", try doc.body()?.html())
+        } catch {
+            XCTAssertEqual(1, 2)
+        }
+    }
 
 	func testOutputEncoding() {
 		do {

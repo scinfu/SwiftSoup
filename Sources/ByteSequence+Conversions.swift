@@ -2,12 +2,17 @@ extension Sequence where Iterator.Element == Byte {
     /// Converts a slice of bytes to
     /// string. Courtesy of @vzsg
     public func makeString() -> String {
-        let array = Array(self) + [0]
+        
+        let array = Array(self) //+ [0]
+        return String(array.flatMap { Character(UnicodeScalar($0)!)})
+        
+        
+        
         
         return array.withUnsafeBytes { rawBuffer in
             guard let pointer = rawBuffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return nil }
             return String(validatingUTF8: pointer)
-        } ?? ""
+            } ?? ""
     }
 
     /**
