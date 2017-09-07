@@ -1288,9 +1288,10 @@ open class Element: Node {
 	}
 
 	override public var hashValue: Int {
-		var h = super.hashValue
-		h = Int.addWithOverflow(Int.multiplyWithOverflow(31, h).0, _tag.hashValue).0
-		return h
+        let prime = 31
+		var result = super.hashValue
+        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_tag.hashValue).partialValue
+		return result
 	}
 
 }

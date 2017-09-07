@@ -399,31 +399,31 @@ public struct OrderedSetGenerator<T: Hashable>: IteratorProtocol {
 
 extension OrderedSetGenerator where T: Comparable {}
 
-public func +<T: Hashable, S: Sequence> (lhs: OrderedSet<T>, rhs: S) -> OrderedSet<T> where S.Iterator.Element == T {
+public func +<T, S: Sequence> (lhs: OrderedSet<T>, rhs: S) -> OrderedSet<T> where S.Iterator.Element == T {
 	let joinedSet = lhs
 	joinedSet.append(contentsOf: rhs)
 
 	return joinedSet
 }
 
-public func +=<T: Hashable, S: Sequence> (lhs: inout OrderedSet<T>, rhs: S) where S.Iterator.Element == T {
+public func +=<T, S: Sequence> (lhs: inout OrderedSet<T>, rhs: S) where S.Iterator.Element == T {
 	lhs.append(contentsOf: rhs)
 }
 
-public func -<T: Hashable, S: Sequence> (lhs: OrderedSet<T>, rhs: S) -> OrderedSet<T> where S.Iterator.Element == T {
+public func -<T, S: Sequence> (lhs: OrderedSet<T>, rhs: S) -> OrderedSet<T> where S.Iterator.Element == T {
 	let purgedSet = lhs
 	purgedSet.remove(rhs)
 
 	return purgedSet
 }
 
-public func -=<T: Hashable, S: Sequence> (lhs: inout OrderedSet<T>, rhs: S) where S.Iterator.Element == T {
+public func -=<T, S: Sequence> (lhs: inout OrderedSet<T>, rhs: S) where S.Iterator.Element == T {
 	lhs.remove(rhs)
 }
 
 extension OrderedSet: Equatable { }
 
-public func ==<T: Hashable> (lhs: OrderedSet<T>, rhs: OrderedSet<T>) -> Bool {
+public func ==<T> (lhs: OrderedSet<T>, rhs: OrderedSet<T>) -> Bool {
 	if lhs.count != rhs.count {
 		return false
 	}

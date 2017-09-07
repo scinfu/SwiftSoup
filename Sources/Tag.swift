@@ -235,16 +235,18 @@ open class Tag: Hashable {
     /// Hash values are not guaranteed to be equal across different executions of
     /// your program. Do not save hash values to use during a future execution.
     public var hashValue: Int {
-        var result: Int  = _tagName.hashValue
-        result = Int.addWithOverflow(Int.multiplyWithOverflow(31, result).0, _isBlock ? 1 : 0).0
-        result = Int.addWithOverflow(Int.multiplyWithOverflow(31, result).0, _formatAsBlock ? 1 : 0).0
-        result = Int.addWithOverflow(Int.multiplyWithOverflow(31, result).0, _canContainBlock ? 1 : 0).0
-        result = Int.addWithOverflow(Int.multiplyWithOverflow(31, result).0, _canContainInline ? 1 : 0).0
-        result = Int.addWithOverflow(Int.multiplyWithOverflow(31, result).0, _empty ? 1 : 0).0
-        result = Int.addWithOverflow(Int.multiplyWithOverflow(31, result).0, _selfClosing ? 1 : 0).0
-        result = Int.addWithOverflow(Int.multiplyWithOverflow(31, result).0, _preserveWhitespace ? 1 : 0).0
-        result = Int.addWithOverflow(Int.multiplyWithOverflow(31, result).0, _formList ? 1 : 0).0
-        result = Int.addWithOverflow(Int.multiplyWithOverflow(31, result).0, _formSubmit ? 1 : 0).0
+        let prime = 31
+        var result = 1
+        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_tagName.hashValue).partialValue
+        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_isBlock.hashValue).partialValue
+        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_formatAsBlock.hashValue).partialValue
+        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_canContainBlock.hashValue).partialValue
+        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_canContainInline.hashValue).partialValue
+        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_empty.hashValue).partialValue
+        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_selfClosing.hashValue).partialValue
+        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_preserveWhitespace.hashValue).partialValue
+        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_formList.hashValue).partialValue
+        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_formSubmit.hashValue).partialValue
         return result
     }
 
