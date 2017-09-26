@@ -475,7 +475,7 @@ class DocumentTest: XCTestCase {
         
         let doc: Document = try! SwiftSoup.parse(h)
         let text = try! doc.text()
-        try! XCTAssertEqual(text, "TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST")
+        XCTAssertEqual(text, "TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST")
     }
 
 	static var allTests = {

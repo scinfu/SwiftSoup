@@ -68,7 +68,12 @@ public class  Matcher {
 
     public func group(_ i: Int) -> String? {
         let b = matches[index]
-        let c = b.rangeAt(i)
+        #if swift(>=4.0)
+            let c = b.range(at: i)
+        #else
+            let c = b.rangeAt(i)
+        #endif
+        
         if(c.location == NSNotFound) {return nil}
         let result = string.substring(c.location, c.length)
         return result
