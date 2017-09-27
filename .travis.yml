@@ -10,4 +10,4 @@ sudo: required
 dist: trusty
 osx_image: xcode9
 script:
-  - sh ci.sh
+  - ./ci
