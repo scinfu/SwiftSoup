@@ -14,6 +14,15 @@ import SwiftSoup
 
 class HtmlParserTest: XCTestCase {
 
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
+
 	func testParsesSimpleDocument()throws {
 		let html: String = "<html><head><title>First!</title></head><body><p>First post! <img src=\"foo.png\" /></p></body></html>"
 		let doc: Document = try SwiftSoup.parse(html)
@@ -587,7 +596,8 @@ class HtmlParserTest: XCTestCase {
 
 	static var allTests = {
 		return [
-			("testParsesSimpleDocument", testParsesSimpleDocument),
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testParsesSimpleDocument", testParsesSimpleDocument),
 			("testParsesRoughAttributes", testParsesRoughAttributes),
 			("testParsesQuiteRoughAttributes", testParsesQuiteRoughAttributes),
 			("testParsesComments", testParsesComments),

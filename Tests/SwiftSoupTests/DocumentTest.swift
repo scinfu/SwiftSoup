@@ -50,7 +50,15 @@ class DocumentTest: XCTestCase {
 //			print("")
 //		}
 //	}
-	
+
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
 	
 	func testSetTextPreservesDocumentStructure() {
 		do {
@@ -480,7 +488,8 @@ class DocumentTest: XCTestCase {
 
 	static var allTests = {
 		return [
-			("testSetTextPreservesDocumentStructure", testSetTextPreservesDocumentStructure),
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testSetTextPreservesDocumentStructure", testSetTextPreservesDocumentStructure),
 			("testTitles", testTitles),
 			("testOutputEncoding", testOutputEncoding),
 			("testXhtmlReferences", testXhtmlReferences),
@@ -505,7 +514,8 @@ class DocumentTest: XCTestCase {
 			("testMetaCharsetUpdateXmlDisabled", testMetaCharsetUpdateXmlDisabled),
 			("testMetaCharsetUpdateXmlDisabledNoChanges", testMetaCharsetUpdateXmlDisabledNoChanges),
 			("testMetaCharsetUpdatedDisabledPerDefault", testMetaCharsetUpdatedDisabledPerDefault),
-			("testThai",testThai)
+			("testThai",testThai),
+            ("testNewLine", testNewLine),
 		]
 	}()
 

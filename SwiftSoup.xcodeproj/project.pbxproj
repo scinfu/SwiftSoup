@@ -46,7 +46,6 @@
 		8CC1423E1E092E89002F536D /* QueryParserTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC142261E092E89002F536D /* QueryParserTest.swift */; };
 		8CC1423F1E092E89002F536D /* SelectorTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC142271E092E89002F536D /* SelectorTest.swift */; };
 		8CC142401E092E89002F536D /* StringUtilTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC142281E092E89002F536D /* StringUtilTest.swift */; };
-		8CC142411E092E89002F536D /* SwiftSoupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC142291E092E89002F536D /* SwiftSoupTests.swift */; };
 		8CC142421E092E89002F536D /* TagTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC1422A1E092E89002F536D /* TagTest.swift */; };
 		8CC142431E092E89002F536D /* TextNodeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC1422B1E092E89002F536D /* TextNodeTest.swift */; };
 		8CC142441E092E89002F536D /* TextUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC1422C1E092E89002F536D /* TextUtil.swift */; };
@@ -57,7 +56,6 @@
 		8CD48F1F1DBB6B5100D1D88F /* Collector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CD48F1E1DBB6B5100D1D88F /* Collector.swift */; };
 		8CD48F211DBB6D2F00D1D88F /* Evaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CD48F201DBB6D2F00D1D88F /* Evaluator.swift */; };
 		8CD4E8F01E12B0FF0039B951 /* Pattern.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418541DAA568600240B42 /* Pattern.swift */; };
-		8CD4E8F21E12E2670039B951 /* PlatformTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CD4E8F11E12E2670039B951 /* PlatformTypes.swift */; };
 		8CD500DE1DAEC9FF002270FC /* TokeniserState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CD500DD1DAEC9FF002270FC /* TokeniserState.swift */; };
 		8CE2D93F1DB2796C00C7BDE3 /* Cleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE2D93E1DB2796C00C7BDE3 /* Cleaner.swift */; };
 		8CE2D9411DB27CAD00C7BDE3 /* Tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE2D9401DB27CAD00C7BDE3 /* Tag.swift */; };
@@ -142,7 +140,6 @@
 		8CC142261E092E89002F536D /* QueryParserTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = QueryParserTest.swift; path = SwiftSoupTests/QueryParserTest.swift; sourceTree = "<group>"; };
 		8CC142271E092E89002F536D /* SelectorTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SelectorTest.swift; path = SwiftSoupTests/SelectorTest.swift; sourceTree = "<group>"; };
 		8CC142281E092E89002F536D /* StringUtilTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = StringUtilTest.swift; path = SwiftSoupTests/StringUtilTest.swift; sourceTree = "<group>"; };
-		8CC142291E092E89002F536D /* SwiftSoupTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SwiftSoupTests.swift; path = SwiftSoupTests/SwiftSoupTests.swift; sourceTree = "<group>"; };
 		8CC1422A1E092E89002F536D /* TagTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TagTest.swift; path = SwiftSoupTests/TagTest.swift; sourceTree = "<group>"; };
 		8CC1422B1E092E89002F536D /* TextNodeTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TextNodeTest.swift; path = SwiftSoupTests/TextNodeTest.swift; sourceTree = "<group>"; };
 		8CC1422C1E092E89002F536D /* TextUtil.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TextUtil.swift; path = SwiftSoupTests/TextUtil.swift; sourceTree = "<group>"; };
@@ -153,7 +150,6 @@
 		8CC2FD8C1DB12382002CB469 /* Whitelist.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Whitelist.swift; sourceTree = "<group>"; };
 		8CD48F1E1DBB6B5100D1D88F /* Collector.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Collector.swift; sourceTree = "<group>"; };
 		8CD48F201DBB6D2F00D1D88F /* Evaluator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Evaluator.swift; sourceTree = "<group>"; };
-		8CD4E8F11E12E2670039B951 /* PlatformTypes.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PlatformTypes.swift; sourceTree = "<group>"; };
 		8CD4E8F31E13200C0039B951 /* LinuxMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinuxMain.swift; sourceTree = "<group>"; };
 		8CD500DD1DAEC9FF002270FC /* TokeniserState.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TokeniserState.swift; sourceTree = "<group>"; };
 		8CE2D93E1DB2796C00C7BDE3 /* Cleaner.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Cleaner.swift; sourceTree = "<group>"; };
@@ -233,7 +229,6 @@
 				8C9380111DC6945B0014DAD6 /* SimpleDictionary.swift */,
 				8C246B521DD7396200B31DA7 /* OrderedSet.swift */,
 				8C73DB4A1DDA605900233A68 /* UnicodeScalar.swift */,
-				8CD4E8F11E12E2670039B951 /* PlatformTypes.swift */,
 			);
 			name = shared;
 			sourceTree = "<group>";
@@ -370,7 +365,6 @@
 				8CF3E73A1E09BEBE00F505D2 /* select */,
 				8CF3E7391E09BE8500F505D2 /* parser */,
 				8CF3E7381E09BD7100F505D2 /* nodes */,
-				8CC142291E092E89002F536D /* SwiftSoupTests.swift */,
 				8CC1422C1E092E89002F536D /* TextUtil.swift */,
 				8CD4E8F31E13200C0039B951 /* LinuxMain.swift */,
 				8CC141E61E092D92002F536D /* helper */,
@@ -587,7 +581,6 @@
 				8CE418721DAA568700240B42 /* SerializationException.swift in Sources */,
 				8C7D44D81DB018D500A815E0 /* TokenQueue.swift in Sources */,
 				8CE418661DAA568600240B42 /* Document.swift in Sources */,
-				8CD4E8F21E12E2670039B951 /* PlatformTypes.swift in Sources */,
 				8C6239C21DBE76D40024F42D /* TreeBuilder.swift in Sources */,
 				8CE4185A1DAA568600240B42 /* DataUtil.swift in Sources */,
 				8C19C8311DB7E8CD00B8FC22 /* ParseError.swift in Sources */,
@@ -606,7 +599,6 @@
 				8CC142451E092E89002F536D /* TokenQueueTest.swift in Sources */,
 				8CC1423E1E092E89002F536D /* QueryParserTest.swift in Sources */,
 				8CC142371E092E89002F536D /* ElementsTest.swift in Sources */,
-				8CC142411E092E89002F536D /* SwiftSoupTests.swift in Sources */,
 				8CC142361E092E89002F536D /* DocumentTypeTest.swift in Sources */,
 				8CC142431E092E89002F536D /* TextNodeTest.swift in Sources */,
 				8C74BC5A1E7AE5E5000032AF /* CleanerTest.swift in Sources */,
@@ -692,7 +684,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_SWIFT3_OBJC_INFERENCE = Off;
-				SWIFT_VERSION = 3.0;
+				SWIFT_VERSION = 4.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -746,7 +738,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
 				SWIFT_SWIFT3_OBJC_INFERENCE = Off;
-				SWIFT_VERSION = 3.0;
+				SWIFT_VERSION = 4.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -777,7 +769,7 @@
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_SWIFT3_OBJC_INFERENCE = On;
+				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
 				SWIFT_VERSION = 4.0;
 			};
 			name = Debug;
@@ -804,7 +796,7 @@
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-				SWIFT_SWIFT3_OBJC_INFERENCE = On;
+				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
 				SWIFT_VERSION = 4.0;
 			};
 			name = Release;
@@ -825,7 +817,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_SWIFT3_OBJC_INFERENCE = On;
+				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
 				SWIFT_VERSION = 4.0;
 			};
 			name = Debug;
@@ -845,7 +837,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoupTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				SWIFT_SWIFT3_OBJC_INFERENCE = On;
+				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
 				SWIFT_VERSION = 4.0;
 			};
 			name = Release;

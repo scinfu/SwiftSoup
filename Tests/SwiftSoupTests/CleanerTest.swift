@@ -10,6 +10,15 @@ import XCTest
 @testable import SwiftSoup
 
 class CleanerTest: XCTestCase {
+
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
     
     func testHandlesCustomProtocols()throws{
         let html = "<img src='cid:12345' /> <img src='data:gzzt' />"
@@ -246,6 +255,7 @@ class CleanerTest: XCTestCase {
     
     static var allTests = {
         return [
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
             ("testHandlesCustomProtocols", testHandlesCustomProtocols),
             ("testSimpleBehaviourTest", testSimpleBehaviourTest),
             ("testSimpleBehaviourTest2", testSimpleBehaviourTest2),

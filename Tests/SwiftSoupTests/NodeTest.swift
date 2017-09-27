@@ -11,6 +11,15 @@ import SwiftSoup
 
 class NodeTest: XCTestCase {
 
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
+
 	func testHandlesBaseUri() {
 		do {
 			let tag: Tag = try Tag.valueOf("a")
@@ -372,7 +381,8 @@ class NodeTest: XCTestCase {
 
 	static var allTests = {
 		return [
-			("testHandlesBaseUri", testHandlesBaseUri),
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testHandlesBaseUri", testHandlesBaseUri),
 			("testSetBaseUriIsRecursive", testSetBaseUriIsRecursive),
 			("testHandlesAbsPrefix", testHandlesAbsPrefix),
 			("testHandlesAbsOnImage", testHandlesAbsOnImage),

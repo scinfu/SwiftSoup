@@ -24,12 +24,12 @@ public struct Pattern {
     }
 
     func validate()throws {
-         _ = try NCRegularExpression(pattern: self.pattern, options:[])
+         _ = try NSRegularExpression(pattern: self.pattern, options:[])
     }
 
     func matcher(in text: String) -> Matcher {
         do {
-            let regex = try NCRegularExpression(pattern: self.pattern, options:[])
+            let regex = try NSRegularExpression(pattern: self.pattern, options:[])
             let nsString = NSString(string: text)
             let results = regex.matches(in: text, options:[], range: NSRange(location: 0, length: nsString.length))
 
@@ -46,13 +46,13 @@ public struct Pattern {
 }
 
 public class  Matcher {
-    let matches: [NCTextCheckingResult]
+    let matches: [NSTextCheckingResult]
     let string: String
     var index: Int = -1
 
     public var count: Int { return matches.count}
 
-    init(_ m: [NCTextCheckingResult], _ s: String) {
+    init(_ m: [NSTextCheckingResult], _ s: String) {
         matches = m
         string = s
     }
@@ -68,10 +68,10 @@ public class  Matcher {
 
     public func group(_ i: Int) -> String? {
         let b = matches[index]
-        #if swift(>=4.0)
-            let c = b.range(at: i)
-        #else
+        #if !os(Linux) && !swift(>=3.2)
             let c = b.rangeAt(i)
+        #else
+            let c = b.range(at: i)
         #endif
         
         if(c.location == NSNotFound) {return nil}
