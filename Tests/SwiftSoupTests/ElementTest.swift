@@ -12,6 +12,15 @@ class ElementTest: XCTestCase {
 
 	private let reference = "<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>"
 
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
+
 	func testGetElementsByTagName() {
 		let doc: Document = try! SwiftSoup.parse(reference)
 		let divs = try! doc.getElementsByTag("div")
@@ -967,7 +976,8 @@ class ElementTest: XCTestCase {
 
 	static var allTests = {
 		return [
-			("testGetElementsByTagName", testGetElementsByTagName),
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testGetElementsByTagName", testGetElementsByTagName),
 			("testGetNamespacedElementsByTag", testGetNamespacedElementsByTag),
 			("testGetElementById", testGetElementById),
 			("testGetText", testGetText),

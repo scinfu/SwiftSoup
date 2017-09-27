@@ -11,6 +11,15 @@ import SwiftSoup
 
 class ParseSettingsTest: XCTestCase {
 
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
+
     func testCaseSupport() {
         let bothOn = ParseSettings(true, true)
         let bothOff = ParseSettings(false, false)
@@ -32,7 +41,8 @@ class ParseSettingsTest: XCTestCase {
 
 	static var allTests = {
 		return [
-			("testCaseSupport", testCaseSupport)
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testCaseSupport", testCaseSupport)
 		]
 	}()
 }

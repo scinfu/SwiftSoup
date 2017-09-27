@@ -12,6 +12,15 @@ import SwiftSoup
 
 class EntitiesTest: XCTestCase {
 
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
+
 	func testEscape()throws {
 		let text = "Hello &<> Å å π 新 there ¾ © »"
 
@@ -142,7 +151,8 @@ class EntitiesTest: XCTestCase {
 
 	static var allTests = {
 		return [
-			("testEscape", testEscape),
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testEscape", testEscape),
 			("testXhtml", testXhtml),
 			("testGetByName", testGetByName),
 			("testEscapeSupplementaryCharacter", testEscapeSupplementaryCharacter),

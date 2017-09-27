@@ -12,6 +12,15 @@ import XCTest
 import SwiftSoup
 class ElementsTest: XCTestCase {
 
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
+
 	func testFilter()throws {
 		let h: String = "<p>Excl</p><div class=headline><p>Hello</p><p>There</p></div><div class=headline><h1>Headline</h1></div>"
 		let doc: Document = try SwiftSoup.parse(h)
@@ -286,7 +295,8 @@ class ElementsTest: XCTestCase {
 
 	static var allTests = {
 		return [
-			("testFilter", testFilter),
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testFilter", testFilter),
 			("testAttributes", testAttributes),
 			("testHasAttr", testHasAttr),
 			("testHasAbsAttr", testHasAbsAttr),

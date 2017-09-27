@@ -46,7 +46,6 @@
 		8CC1423E1E092E89002F536D /* QueryParserTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC142261E092E89002F536D /* QueryParserTest.swift */; };
 		8CC1423F1E092E89002F536D /* SelectorTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC142271E092E89002F536D /* SelectorTest.swift */; };
 		8CC142401E092E89002F536D /* StringUtilTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC142281E092E89002F536D /* StringUtilTest.swift */; };
-		8CC142411E092E89002F536D /* SwiftSoupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC142291E092E89002F536D /* SwiftSoupTests.swift */; };
 		8CC142421E092E89002F536D /* TagTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC1422A1E092E89002F536D /* TagTest.swift */; };
 		8CC142431E092E89002F536D /* TextNodeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC1422B1E092E89002F536D /* TextNodeTest.swift */; };
 		8CC142441E092E89002F536D /* TextUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC1422C1E092E89002F536D /* TextUtil.swift */; };
@@ -141,7 +140,6 @@
 		8CC142261E092E89002F536D /* QueryParserTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = QueryParserTest.swift; path = SwiftSoupTests/QueryParserTest.swift; sourceTree = "<group>"; };
 		8CC142271E092E89002F536D /* SelectorTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SelectorTest.swift; path = SwiftSoupTests/SelectorTest.swift; sourceTree = "<group>"; };
 		8CC142281E092E89002F536D /* StringUtilTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = StringUtilTest.swift; path = SwiftSoupTests/StringUtilTest.swift; sourceTree = "<group>"; };
-		8CC142291E092E89002F536D /* SwiftSoupTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SwiftSoupTests.swift; path = SwiftSoupTests/SwiftSoupTests.swift; sourceTree = "<group>"; };
 		8CC1422A1E092E89002F536D /* TagTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TagTest.swift; path = SwiftSoupTests/TagTest.swift; sourceTree = "<group>"; };
 		8CC1422B1E092E89002F536D /* TextNodeTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TextNodeTest.swift; path = SwiftSoupTests/TextNodeTest.swift; sourceTree = "<group>"; };
 		8CC1422C1E092E89002F536D /* TextUtil.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TextUtil.swift; path = SwiftSoupTests/TextUtil.swift; sourceTree = "<group>"; };
@@ -367,7 +365,6 @@
 				8CF3E73A1E09BEBE00F505D2 /* select */,
 				8CF3E7391E09BE8500F505D2 /* parser */,
 				8CF3E7381E09BD7100F505D2 /* nodes */,
-				8CC142291E092E89002F536D /* SwiftSoupTests.swift */,
 				8CC1422C1E092E89002F536D /* TextUtil.swift */,
 				8CD4E8F31E13200C0039B951 /* LinuxMain.swift */,
 				8CC141E61E092D92002F536D /* helper */,
@@ -602,7 +599,6 @@
 				8CC142451E092E89002F536D /* TokenQueueTest.swift in Sources */,
 				8CC1423E1E092E89002F536D /* QueryParserTest.swift in Sources */,
 				8CC142371E092E89002F536D /* ElementsTest.swift in Sources */,
-				8CC142411E092E89002F536D /* SwiftSoupTests.swift in Sources */,
 				8CC142361E092E89002F536D /* DocumentTypeTest.swift in Sources */,
 				8CC142431E092E89002F536D /* TextNodeTest.swift in Sources */,
 				8C74BC5A1E7AE5E5000032AF /* CleanerTest.swift in Sources */,
