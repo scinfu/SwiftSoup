@@ -68,10 +68,10 @@ public class  Matcher {
 
     public func group(_ i: Int) -> String? {
         let b = matches[index]
-        #if swift(>=4.0)
-            let c = b.range(at: i)
-        #else
+        #if !os(Linux) && !swift(>=3.2)
             let c = b.rangeAt(i)
+        #else
+            let c = b.range(at: i)
         #endif
         
         if(c.location == NSNotFound) {return nil}
