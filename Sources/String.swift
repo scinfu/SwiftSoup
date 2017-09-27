@@ -137,9 +137,9 @@ extension String {
         }
     }
 
-    func replaceAll(of pattern: String, with replacement: String, options: NCRegularExpression.Options = []) -> String {
+    func replaceAll(of pattern: String, with replacement: String, options: NSRegularExpression.Options = []) -> String {
         do {
-            let regex = try NCRegularExpression(pattern: pattern, options: [])
+            let regex = try NSRegularExpression(pattern: pattern, options: [])
             let range = NSRange(0..<self.utf16.count)
             return regex.stringByReplacingMatches(in: self, options: [],
                                                   range: range, withTemplate: replacement)
