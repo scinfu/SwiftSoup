@@ -22,6 +22,7 @@ XCTMain([
 	testCase(TokenQueueTest.allTests),
 	testCase(XmlTreeBuilderTest.allTests),
 	testCase(FormElementTest.allTests),
+	testCase(ElementTest.allTests),
 	testCase(EntitiesTest.allTests),
 	testCase(DocumentTypeTest.allTests),
 	testCase(TextNodeTest.allTests),
