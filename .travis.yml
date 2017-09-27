@@ -8,6 +8,6 @@ branches:
 language: generic
 sudo: required
 dist: trusty
-osx_image: xcode8.3
+osx_image: xcode9
 script:
-  - eval "$(curl -sL https://raw.githubusercontent.com/scinfu/SwiftSoup/master/ci)"
+  - sh ci.sh
