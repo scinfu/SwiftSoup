@@ -1,4 +1,8 @@
-# SwiftSoup
+<p align="center" >
+  <img src="https://raw.githubusercontent.com/scinfu/SwiftSoup/master/swifsoup.png" alt="SwiftSoup" title="SwiftSoup">
+</p>
+
+
 ![Platform OS X | iOS | tvOS | watchOS | Linux](https://img.shields.io/badge/platform-Linux%20%7C%20OS%20X%20%7C%20iOS%20%7C%20tvOS%20%7C%20watchOS-orange.svg)
 [![SPM compatible](https://img.shields.io/badge/SPM-compatible-4BC51D.svg?style=flat)](https://github.com/apple/swift-package-manager)
 ![🐧 linux: ready](https://img.shields.io/badge/%F0%9F%90%A7%20linux-ready-red.svg)
@@ -8,7 +12,7 @@
 [![License](https://img.shields.io/cocoapods/l/SwiftSoup.svg?style=flat)](http://cocoapods.org/pods/SwiftSoup)
 [![Twitter](https://img.shields.io/badge/twitter-@scinfu-blue.svg?style=flat)](http://twitter.com/scinfu)
 
-`SwiftSoup` is a pure Swift library for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jquery-like methods.
+`SwiftSoup` is a pure Swift library, cross-platform(macOS, iOS, tvOS, watchOS and Linux!), for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jquery-like methods.
 `SwiftSoup` implements the WHATWG HTML5 specification, and parses HTML to the same DOM as modern browsers do.
 * scrape and parse HTML from a URL, file, or string
 * find and extract data, using DOM traversal or CSS selectors
@@ -51,6 +55,7 @@ do{
 * Documents consist of Elements and TextNodes
 * The inheritance chain is: `Document` extends `Element` extends `Node.TextNode` extends `Node`.
 * An Element contains a list of children Nodes, and has one parent Element. They also have provide a filtered list of child Elements only.
+
 
 
 
@@ -413,9 +418,132 @@ Select returns a list of `Elements` (as `Elements`), which provides a range of m
 * `:matchesOwn(regex)`: find elements whose own text matches the specified regular expression
 * Note that the above indexed pseudo-selectors are 0-based, that is, the first element is at index 0, the second at 1, etc
 
+# Examples
+## To parse an HTML document from String:
+
+```swift
+let html = "<html><head><title>First parse</title></head><body><p>Parsed HTML into a doc.</p></body></html>"
+guard let doc: Document = try? SwiftSoup.parse(html) else { return }
+```
+
+## Get all text nodes:
+
+```swift
+guard let elements = try? doc.getAllElements() else { return html }
+    for element in elements {
+        for textNode in element.textNodes() {
+            [...]
+        }
+    }
+```
+
+## Set CSS using SwiftSoup:
+
+```swift
+try doc.head()?.append("<style>html {font-size: 2em}</style>")
+```
+
+## Get HTML value
+```swift
+let html = "<div class=\"container-fluid\">"
+    + "<div class=\"panel panel-default \">"
+    + "<div class=\"panel-body\">"
+    + "<form id=\"coupon_checkout\" action=\"http://uat.all.com.my/checkout/couponcode\" method=\"post\">"
+    + "<input type=\"hidden\" name=\"transaction_id\" value=\"4245\">"
+    + "<input type=\"hidden\" name=\"lang\" value=\"EN\">"
+    + "<input type=\"hidden\" name=\"devicetype\" value=\"\">"
+    + "<div class=\"input-group\">"
+    + "<input type=\"text\" class=\"form-control\" id=\"coupon_code\" name=\"coupon\" placeholder=\"Coupon Code\">"
+    + "<span class=\"input-group-btn\">"
+    + "<button class=\"btn btn-primary\" type=\"submit\">Enter Code</button>"
+    + "</span>"
+    + "</div>"
+    + "</form>"
+    + "</div>"
+    + "</div>"
+guard let doc: Document = try? SwiftSoup.parse(html) else{return}//parse html
+let elements = try doc.select("[name=transaction_id]")//query
+let transaction_id = try elements.get(0)//select first element , 
+let value = try transaction_id.val()//get value
+print(value)//4245
+```
+## How to remove all the html from a string
+
+```swift
+guard let doc: Document = try? SwiftSoup.parse(html) else{return}//parse html
+guard let txt = try? doc.text() else {return}
+print(txt)
+```
+
+## how to get and update XML values
+
+```swift
+let xml = "<?xml version='1' encoding='UTF-8' something='else'?><val>One</val>"
+guard let doc = try? SwiftSoup.parse(xml, "", Parser.xmlParser()) else{return}
+guard let element = try? doc.getElementsByTag("val").first()//Find first element
+element.text("NewValue")//Edit Value
+let valueString = element.text() //"NewValue"
+```
+
+## How to get all `<img src>`
+
+```swift
+do {
+    let doc: Document = try SwiftSoup.parse(html)
+    let srcs: Elements = try doc.select("img[src]")
+    let srcsStringArray: [String?] = srcs.array().map { try? $0.attr("src").description }
+    // do something with srcsStringArray
+    } catch Exception.Error(_, let message) {
+        print(message)
+    } catch {
+        print("error")
+    }
+```
+
+##  Get all `href` of `<a>`
+
+```swift
+let html = "<a id=1 href='?foo=bar&mid&lt=true'>One</a> <a id=2 href='?foo=bar&lt;qux&lg=1'>Two</a>"
+guard let els: Elements = try? SwiftSoup.parse(html).select("a")  else {return}
+for element: Element in els.array(){
+	print(try? element.attr("href"))
+}
+```
+Output:
+```
+"?foo=bar&mid&lt=true"
+"?foo=bar<qux&lg=1"
+```
+
+## Escape and Enescape
+
+```swift
+let text = "Hello &<> Å å π 新 there ¾ © »"
+
+print(Entities.escape(text))
+print(Entities.unescape(text))
 
 
+print(Entities.escape(text, OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base)))
+print(Entities.escape(text, OutputSettings().charset(String.Encoding.ascii).escapeMode(Entities.EscapeMode.extended)))
+print(Entities.escape(text, OutputSettings().charset(String.Encoding.ascii).escapeMode(Entities.EscapeMode.xhtml)))
+print(Entities.escape(text, OutputSettings().charset(String.Encoding.utf8).escapeMode(Entities.EscapeMode.extended)))
+print(Entities.escape(text, OutputSettings().charset(String.Encoding.utf8).escapeMode(Entities.EscapeMode.xhtml)))
 
+```
+Output:
+```
+"Hello &amp;&lt;&gt; Å å π 新 there ¾ © »"
+"Hello &<> Å å π 新 there ¾ © »"
+
+
+"Hello &amp;&lt;&gt; &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;"
+"Hello &amp;&lt;&gt; &angst; &aring; &pi; &#x65b0; there &frac34; &copy; &raquo;"
+"Hello &amp;&lt;&gt; &#xc5; &#xe5; &#x3c0; &#x65b0; there &#xbe; &#xa9; &#xbb;"
+"Hello &amp;&lt;&gt; Å å π 新 there ¾ © »"
+"Hello &amp;&lt;&gt; Å å π 新 there ¾ © »"
+
+```
 
 
 

@@ -45,6 +45,15 @@ class CssTest: XCTestCase {
 		html  = try! SwiftSoup.parse(htmlString)
 	}
 
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
+
 	func testFirstChild()throws {
 		try check(html.select("#pseudo :first-child"), "1")
 		try check(html.select("html:first-child"))
@@ -201,7 +210,8 @@ class CssTest: XCTestCase {
 
 	static var allTests = {
 		return [
-			("testFirstChild", testFirstChild),
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testFirstChild", testFirstChild),
 			("testLastChild", testLastChild),
 			("testNthChild_simple", testNthChild_simple),
 			("testNthOfType_unknownTag", testNthOfType_unknownTag),

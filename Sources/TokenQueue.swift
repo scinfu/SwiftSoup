@@ -11,7 +11,7 @@ import Foundation
 open class TokenQueue {
     private var queue: String
     private var pos: Int = 0
-
+    private static let empty: Character = Character(UnicodeScalar(0))
     private static let ESC: Character = "\\" // escape char for chomp balanced.
 
     /**
@@ -278,13 +278,13 @@ open class TokenQueue {
         var start = -1
         var end = -1
         var depth = 0
-        var last: Character = Character(UnicodeScalar(0))
+        var last: Character = TokenQueue.empty
         var inQuote = false
 
         repeat {
             if (isEmpty()) {break}
             let c = consume()
-            if (last.unicodeScalar.value == 0 || last != TokenQueue.ESC) {
+            if (last == TokenQueue.empty || last != TokenQueue.ESC) {
                 if ((c=="'" || c=="\"") && c != open) {
                     inQuote = !inQuote
                 }
@@ -301,7 +301,7 @@ open class TokenQueue {
                 }
             }
 
-            if (depth > 0 && last.unicodeScalar.value != 0) {
+            if (depth > 0 && last != TokenQueue.empty) {
                 end = pos // don't include the outer match pair in the return
             }
             last = c
@@ -316,10 +316,10 @@ open class TokenQueue {
      */
     open static func unescape(_ input: String) -> String {
         let out = StringBuilder()
-        var last = Character(UnicodeScalar(0))
+        var last = empty
         for c in input.characters {
             if (c == ESC) {
-                if (last.unicodeScalar.value != 0 && last == TokenQueue.ESC) {
+                if (last != empty && last == TokenQueue.ESC) {
                     out.append(c)
                 }
             } else {

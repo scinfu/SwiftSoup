@@ -146,7 +146,7 @@ open class Document: Element {
             }
         }
 
-        for i in toMove.count-1...0 {
+        for i in (0..<toMove.count).reversed() {
             let node: Node = toMove[i]
             try element.removeChild(node)
             try body()?.prependChild(TextNode(" ", ""))

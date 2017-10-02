@@ -14,6 +14,15 @@ import SwiftSoup
 
 class AttributeParseTest: XCTestCase {
 
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
+
 	func testparsesRoughAttributeString()throws {
 		let html: String = "<a id=\"123\" class=\"baz = 'bar'\" style = 'border: 2px'qux zim foo = 12 mux=18 />"
 		// should be: <id=123>, <class=baz = 'bar'>, <qux=>, <zim=>, <foo=12>, <mux.=18>
@@ -98,7 +107,8 @@ class AttributeParseTest: XCTestCase {
 
 	static var allTests = {
 		return [
-			("testparsesRoughAttributeString", testparsesRoughAttributeString),
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testparsesRoughAttributeString", testparsesRoughAttributeString),
 			("testhandlesNewLinesAndReturns", testhandlesNewLinesAndReturns),
 			("testparsesEmptyString", testparsesEmptyString),
 			("testcanStartWithEq", testcanStartWithEq),

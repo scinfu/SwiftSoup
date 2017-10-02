@@ -50,7 +50,15 @@ class DocumentTest: XCTestCase {
 //			print("")
 //		}
 //	}
-	
+
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
 	
 	func testSetTextPreservesDocumentStructure() {
 		do {
@@ -443,6 +451,20 @@ class DocumentTest: XCTestCase {
 
 		return doc
 	}
+    
+    
+    func testThai()
+    {
+        let str = "บังคับ"
+        guard let doc = try? SwiftSoup.parse(str) else {
+            XCTFail()
+            return}
+        guard let txt = try? doc.html() else {
+            XCTFail()
+            return}
+        XCTAssertEqual("<html>\n <head></head>\n <body>\n  บังคับ\n </body>\n</html>", txt)
+    }
+    
 	//todo:
 //	func testShiftJisRoundtrip()throws {
 //		let input =
@@ -465,10 +487,19 @@ class DocumentTest: XCTestCase {
 //		assertTrue("Should have contained a '&#xa0;' or a '&nbsp;'.",
 //		output.contains("&#xa0;") || output.contains("&nbsp;"));
 //	}
+    
+    func testNewLine(){
+        let h = "<html><body><div>\r\n<div dir=\"ltr\">\r\n<div id=\"divtagdefaultwrapper\"><font face=\"Calibri,Helvetica,sans-serif\" size=\"3\" color=\"black\"><span style=\"font-size:12pt;\" id=\"divtagdefaultwrapper\">\r\n<div style=\"margin-top:0;margin-bottom:0;\">&nbsp;TEST</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\">TEST</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\">TEST</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\"><br>\r\n\r\n</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\">TEST</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\">TEST</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\">TEST</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\"><br>\r\n\r\n</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\"><br>\r\n\r\n</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\">TEST</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\">TEST</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\">TEST</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\"><br>\r\n\r\n</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\"><br>\r\n\r\n</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\"><br>\r\n\r\n</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\"><br>\r\n\r\n</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\"><br>\r\n\r\n</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\"><br>\r\n\r\n</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\"><br>\r\n\r\n</div>\r\n<div style=\"margin-top:0;margin-bottom:0;\">TEST</div>\r\n</span></font></div>\r\n</div>\r\n</div>\r\n</body></html>"
+        
+        let doc: Document = try! SwiftSoup.parse(h)
+        let text = try! doc.text()
+        XCTAssertEqual(text, "TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST")
+    }
 
 	static var allTests = {
 		return [
-			("testSetTextPreservesDocumentStructure", testSetTextPreservesDocumentStructure),
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testSetTextPreservesDocumentStructure", testSetTextPreservesDocumentStructure),
 			("testTitles", testTitles),
 			("testOutputEncoding", testOutputEncoding),
 			("testXhtmlReferences", testXhtmlReferences),
@@ -492,7 +523,9 @@ class DocumentTest: XCTestCase {
 			("testMetaCharsetUpdateXmlNoCharset", testMetaCharsetUpdateXmlNoCharset),
 			("testMetaCharsetUpdateXmlDisabled", testMetaCharsetUpdateXmlDisabled),
 			("testMetaCharsetUpdateXmlDisabledNoChanges", testMetaCharsetUpdateXmlDisabledNoChanges),
-			("testMetaCharsetUpdatedDisabledPerDefault", testMetaCharsetUpdatedDisabledPerDefault)
+			("testMetaCharsetUpdatedDisabledPerDefault", testMetaCharsetUpdatedDisabledPerDefault),
+			("testThai",testThai),
+            ("testNewLine", testNewLine),
 		]
 	}()
 

@@ -11,6 +11,15 @@ import XCTest
 
 class CharacterReaderTest: XCTestCase {
 
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
+
     func testConsume() {
         let r = CharacterReader("one")
         XCTAssertEqual(0, r.getPos())
@@ -244,7 +253,8 @@ class CharacterReaderTest: XCTestCase {
 
 	static var allTests = {
 		return [
-			("testConsume", testConsume),
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testConsume", testConsume),
 			("testUnconsume", testUnconsume),
 			("testMark", testMark),
 			("testConsumeToEnd", testConsumeToEnd),

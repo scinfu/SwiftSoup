@@ -11,7 +11,7 @@ import Foundation
 
 class TextUtil {
 	public static func stripNewlines(_ text: String) -> String {
-		let regex = try! NCRegularExpression(pattern: "\\n\\s*", options: .caseInsensitive)
+		let regex = try! NSRegularExpression(pattern: "\\n\\s*", options: .caseInsensitive)
 		var str = text
 		str = regex.stringByReplacingMatches(in: str, options: [], range: NSRange(0..<str.characters.count), withTemplate: "")
 		return str

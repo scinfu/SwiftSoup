@@ -11,6 +11,15 @@ import SwiftSoup
 
 class TagTest: XCTestCase {
 
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
+
     func testIsCaseSensitive()throws {
         let p1: Tag = try Tag.valueOf("P")
         let p2: Tag = try Tag.valueOf("p")
@@ -72,7 +81,8 @@ class TagTest: XCTestCase {
 
 	static var allTests = {
 		return [
-			("testIsCaseSensitive", testIsCaseSensitive),
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testIsCaseSensitive", testIsCaseSensitive),
 			("testCanBeInsensitive", testCanBeInsensitive),
 			("testTrims", testTrims),
 			("testEquality", testEquality),

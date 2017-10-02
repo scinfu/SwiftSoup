@@ -11,6 +11,15 @@ import SwiftSoup
 
 class XmlTreeBuilderTest: XCTestCase {
 
+    func testLinuxTestSuiteIncludesAllTests() {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            let thisClass = type(of: self)
+            let linuxCount = thisClass.allTests.count
+            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
+            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
+        #endif
+    }
+
 	func testSimpleXmlParse()throws {
 		let xml = "<doc id=2 href='/bar'>Foo <br /><link>One</link><link>Two</link></doc>"
 		let tb: XmlTreeBuilder = XmlTreeBuilder()
@@ -144,13 +153,13 @@ class XmlTreeBuilderTest: XCTestCase {
 			"</html>", document.outerHtml())
 	}
 
-	func preservesCaseByDefault()throws {
+	func testPreservesCaseByDefault()throws {
 		let xml = "<TEST ID=1>Check</TEST>"
 		let doc = try SwiftSoup.parse(xml, "", Parser.xmlParser())
 		try XCTAssertEqual("<TEST ID=\"1\">Check</TEST>", TextUtil.stripNewlines(doc.html()))
 	}
 
-	func canNormalizeCase()throws {
+	func testCanNormalizeCase()throws {
 		let xml = "<TEST ID=1>Check</TEST>"
 		let doc = try  SwiftSoup.parse(xml, "", Parser.xmlParser().settings(ParseSettings.htmlDefault))
 		try XCTAssertEqual("<test id=\"1\">Check</test>", TextUtil.stripNewlines(doc.html()))
@@ -158,12 +167,12 @@ class XmlTreeBuilderTest: XCTestCase {
 
 	static var allTests = {
 		return [
-			("testSimpleXmlParse", testSimpleXmlParse),
+            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
+            ("testSimpleXmlParse", testSimpleXmlParse),
 			("testPopToClose", testPopToClose),
 			("testCommentAndDocType", testCommentAndDocType),
 			("testSupplyParserToJsoupClass", testSupplyParserToJsoupClass),
 			("testDoesNotForceSelfClosingKnownTags", testDoesNotForceSelfClosingKnownTags),
-
 			("testHandlesXmlDeclarationAsDeclaration", testHandlesXmlDeclarationAsDeclaration),
 			("testXmlFragment", testXmlFragment),
 			("testXmlParseDefaultsToHtmlOutputSyntax", testXmlParseDefaultsToHtmlOutputSyntax),
@@ -171,8 +180,8 @@ class XmlTreeBuilderTest: XCTestCase {
 			("testParseDeclarationAttributes", testParseDeclarationAttributes),
 			("testCaseSensitiveDeclaration", testCaseSensitiveDeclaration),
 			("testCreatesValidProlog", testCreatesValidProlog),
-			("preservesCaseByDefault", preservesCaseByDefault),
-			("canNormalizeCase", canNormalizeCase)
+			("testPreservesCaseByDefault", testPreservesCaseByDefault),
+			("testCanNormalizeCase", testCanNormalizeCase)
 		]
 	}()
 

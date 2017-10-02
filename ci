@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-VERSION="3.0.2"
-echo "Swift $VERSION Continuous Integration";
-
 # Determine OS
 UNAME=`uname`;
 if [[ $UNAME == "Darwin" ]];
@@ -26,19 +23,10 @@ echo "🖥 Operating System: $OS";
 
 if [[ $OS != "macos" ]];
 then
-    echo "📚 Installing Dependencies"
-    sudo apt-get install -y clang libicu-dev uuid-dev
-
     echo "🐦 Installing Swift";
-    if [[ $OS == "ubuntu1604" ]];
-    then
-        SWIFTFILE="swift-$VERSION-RELEASE-ubuntu16.04";
-    else
-        SWIFTFILE="swift-$VERSION-RELEASE-ubuntu14.04";
-    fi
-    wget https://swift.org/builds/swift-$VERSION-release/$OS/swift-$VERSION-RELEASE/$SWIFTFILE.tar.gz
-    tar -zxf $SWIFTFILE.tar.gz
-    export PATH=$PWD/$SWIFTFILE/usr/bin:"${PATH}"
+    eval "$(curl -sL https://apt.vapor.sh)";
+    sudo apt-get install vapor;
+    sudo chmod -R a+rx /usr/;
 fi
 
 echo "📅 Version: `swift --version`";

@@ -233,6 +233,10 @@ public class Entities {
         return 0
     }
     
+    open static func escape(_ string: String, _ encode: String.Encoding = .utf8 )-> String{
+        return Entities.escape(string, OutputSettings().charset(encode).escapeMode(Entities.EscapeMode.extended))
+    }
+    
     open static func escape(_ string: String, _ out: OutputSettings) -> String {
         let accum = StringBuilder()//string.characters.count * 2
         escape(accum, string, out, false, false, false)
@@ -253,8 +257,8 @@ public class Entities {
         //let length = UInt32(string.characters.count)
         
         var codePoint: UnicodeScalar
-        for ch in string.characters {
-            codePoint = ch.unicodeScalar
+        for ch in string.unicodeScalars {
+            codePoint = ch
             
             if (normaliseWhite) {
                 if (codePoint.isWhitespace) {
