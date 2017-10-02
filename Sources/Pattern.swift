@@ -68,7 +68,7 @@ public class  Matcher {
 
     public func group(_ i: Int) -> String? {
         let b = matches[index]
-        #if !os(Linux) && !swift(>=3.2)
+        #if !os(Linux) && !swift(>=4)
             let c = b.rangeAt(i)
         #else
             let c = b.range(at: i)

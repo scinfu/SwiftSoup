@@ -1,11 +1,16 @@
-FROM swift:3.1
+FROM swiftdocker/swift:latest
 
 WORKDIR /package
 
 COPY . ./
 
-RUN swift package fetch
-# swift package clean requires Swift 3.1 or later.
-# Use swift build --clean for Swift 3.0 compatibility.
+RUN swift --version
+RUN swift package tools-version --set 3.2
+RUN swift package resolve
+RUN swift package clean
+RUN swift test
+RUN swift package tools-version --set 4.0
+RUN swift package resolve
 RUN swift package clean
 CMD swift test
+
