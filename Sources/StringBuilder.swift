@@ -3,7 +3,7 @@
  https://gist.github.com/kristopherjohnson/1fc55e811d944a430289
  */
 open class StringBuilder {
-    fileprivate var stringValue: Array<Character>
+    fileprivate var stringValue: Bytes = []
     
     /**
      Construct with initial String contents
@@ -11,12 +11,10 @@ open class StringBuilder {
      :param: string Initial value; defaults to empty string
      */
     public init(string: String = "") {
-        self.stringValue = Array(string.characters)
+        self.stringValue.append(contentsOf:string.makeBytes())
     }
-    
-    public init(_ size: Int) {
-        self.stringValue = Array()
-    }
+    public init(_ size: Int) {}
+    public init() {}
     
     /**
      Return the String object
@@ -24,7 +22,7 @@ open class StringBuilder {
      :return: String
      */
     open func toString() -> String {
-        return String(stringValue)
+        return stringValue.makeString()
     }
     
     /**
@@ -35,96 +33,44 @@ open class StringBuilder {
         //return countElements(stringValue)
     }
     
-    /**
-     Append a String to the object
-     
-     :param: string String
-     
-     :return: reference to this StringBuilder instance
-     */
-    open func append(_ string: String) {
-        stringValue.append(contentsOf: string.characters)
-    }
-    
-    open func appendCodePoint(_ chr: Character) {
-        stringValue.append(chr)
-    }
-    
-    open func appendCodePoints(_ chr: [Character]) {
-        stringValue.append(contentsOf: chr)
-    }
-    
-    open func appendCodePoint(_ ch: Byte) {
-        stringValue.append(Character(UnicodeScalar(ch)!))
-    }
-    
-    open func appendCodePoint(_ ch: UnicodeScalar) {
-        stringValue.append(Character(ch))
-    }
-    
-    open func appendCodePoints(_ chr: [UnicodeScalar]) {
-        for c in chr {
-            appendCodePoint(c)
-        }
-    }
-    
-    open func appendCodePoints(_ chr: [Byte]) {
-        for c in chr {
-            appendCodePoint(c)
-        }
-    }
-    
-    /**
-     Append a Printable to the object
-     
-     :param: value a value supporting the Printable protocol
-     
-     :return: reference to this StringBuilder instance
-     */
     @discardableResult
-    open func append<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
-        stringValue.append(contentsOf: value.description.characters)
+    public func append(_ value: String)->StringBuilder {
+        self.stringValue.append(contentsOf: value.makeBytes())
         return self
     }
     
     @discardableResult
-    open func append(_ value: UnicodeScalar) -> StringBuilder {
-        stringValue.append(contentsOf: value.description.characters)
+    public func append(_ value: UnicodeScalar)->StringBuilder {
+        self.stringValue.append(Byte(value.value))
         return self
     }
     
     @discardableResult
-    open func insert<T: CustomStringConvertible>(_ offset: Int, _ value: T) -> StringBuilder {
-        stringValue.insert(contentsOf: value.description.characters, at: offset)
+    public func append(_ value: Byte)->StringBuilder {
+        self.stringValue.append(value)
+        return self
+    }
+
+    @discardableResult
+    public func append(_ value: Bytes)->StringBuilder {
+        self.stringValue.append(contentsOf:value)
         return self
     }
     
-    /**
-     Append a String and a newline to the object
-     
-     :param: string String
-     
-     :return: reference to this StringBuilder instance
-     */
     @discardableResult
-    open func appendLine(_ string: String) -> StringBuilder {
-        stringValue.append(contentsOf: "\n".characters)
+    public func append(_ value: Character)->StringBuilder {
+        let bytes : Bytes = value.unicodeScalars.flatMap { Byte($0.value) }
+        self.append(bytes)
         return self
     }
     
-    /**
-     Append a Printable and a newline to the object
-     
-     :param: value a value supporting the Printable protocol
-     
-     :return: reference to this StringBuilder instance
-     */
+    
     @discardableResult
-    open func appendLine<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
-        stringValue.append(contentsOf: value.description.characters)
-        stringValue.append(contentsOf: "\n".characters)
+    public func insert(_ index: Int, _ value: String)->StringBuilder {
+        self.stringValue.insert(contentsOf: value.makeBytes(), at: index)
         return self
     }
+
     
     /**
      Reset the object to an empty string
@@ -138,34 +84,3 @@ open class StringBuilder {
     }
 }
 
-/**
- Append a String to a StringBuilder using operator syntax
- 
- :param: lhs StringBuilder
- :param: rhs String
- */
-public func += (lhs: StringBuilder, rhs: String) {
-    lhs.append(rhs)
-}
-
-/**
- Append a Printable to a StringBuilder using operator syntax
- 
- :param: lhs Printable
- :param: rhs String
- */
-public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
-    lhs.append(rhs.description)
-}
-
-/**
- Create a StringBuilder by concatenating the values of two StringBuilders
- 
- :param: lhs first StringBuilder
- :param: rhs second StringBuilder
- 
- :result StringBuilder
- */
-public func +(lhs: StringBuilder, rhs: StringBuilder) -> StringBuilder {
-    return StringBuilder(string: lhs.toString() + rhs.toString())
-}

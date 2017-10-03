@@ -1,14 +1,15 @@
+import Foundation
+
 extension Sequence where Iterator.Element == Byte {
     /// Converts a slice of bytes to
     /// string. Courtesy of @vzsg
     public func makeString() -> String {
+//        let array = Array(self) //+ [0]
+//        return String(array.map { Character(UnicodeScalar($0)!)})
         
-        let array = Array(self) //+ [0]
-        return String(array.flatMap { Character(UnicodeScalar($0)!)})
-        
-        
-        
-        
+
+        let arInt = Array(self) + [0]
+        let array = arInt.map{UInt16($0)}
         return array.withUnsafeBytes { rawBuffer in
             guard let pointer = rawBuffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return nil }
             return String(validatingUTF8: pointer)
@@ -99,4 +100,14 @@ extension Sequence where Iterator.Element == Byte {
 
         return bytes
     }
+    
+    
 }
+
+extension Array where Iterator.Element == Byte
+{
+    func substring(_ beginIndex: Int) -> Bytes {
+        return Array(self[beginIndex..<self.count])
+    }
+}
+

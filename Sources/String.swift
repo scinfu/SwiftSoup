@@ -86,6 +86,10 @@ extension String {
     static func toHexString(n: Int) -> String {
         return String(format:"%2x", n)
     }
+    
+    static func toHexString(n: Byte) -> String {
+        return String(format:"%2x", n)
+    }
 
     func insert(string: String, ind: Int) -> String {
         return  String(self.characters.prefix(ind)) + string + String(self.characters.suffix(self.characters.count-ind))

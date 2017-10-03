@@ -14,7 +14,7 @@ import Foundation
  * named character references</a>.
  */
 public class Entities {
-    private static let empty = -1
+    private static let empty: Byte = 255 //-1
     private static let emptyName = ""
     private static let codepointRadix: Int = 36
     
@@ -31,10 +31,10 @@ public class Entities {
         
         // table of named references to their codepoints. sorted so we can binary search. built by BuildEntities.
         fileprivate var nameKeys: [String]
-        fileprivate var codeVals: [Int]  // limitation is the few references with multiple characters; those go into multipoints.
+        fileprivate var codeVals: [Byte]  // limitation is the few references with multiple characters; those go into multipoints.
         
         // table of codepoints to named entities.
-        fileprivate var codeKeys: [Int] // we don' support multicodepoints to single named value currently
+        fileprivate var codeKeys: [Byte] // we don' support multicodepoints to single named value currently
         fileprivate var nameVals: [String]
         
         public static func == (left: EscapeMode, right: EscapeMode) -> Bool {
@@ -49,8 +49,8 @@ public class Entities {
         
         init(string: String, size: Int, id: Int) {
             nameKeys = [String](repeating: "", count: size)
-            codeVals = [Int](repeating: 0, count: size)
-            codeKeys = [Int](repeating: 0, count: size)
+            codeVals = [Byte](repeating: 0, count: size)
+            codeKeys = [Byte](repeating: 0, count: size)
             nameVals = [String](repeating: "", count: size)
             value  = id
             
@@ -66,29 +66,29 @@ public class Entities {
                 
                 let name: String = reader.consumeTo("=");
                 reader.advance();
-                let cp1: Int = Int(reader.consumeToAny(EscapeMode.codeDelims), radix: codepointRadix) ?? 0
+                let cp1: Byte = Byte(reader.consumeToAny(EscapeMode.codeDelims), radix: codepointRadix) ?? 0
                 let codeDelim = reader.current();
                 reader.advance();
-                let cp2: Int;
+                let cp2: Byte;
                 if (codeDelim == Byte.comma) {
-                    cp2 = Int(reader.consumeTo(Byte.semicolon), radix: codepointRadix) ?? 0
+                    cp2 = Byte(reader.consumeTo(Byte.semicolon), radix: codepointRadix) ?? 0
                     reader.advance();
                 } else {
                     cp2 = empty;
                 }
-                let index: Int = Int(reader.consumeTo("\n"), radix: codepointRadix) ?? 0
+                let index: Byte = Byte(reader.consumeTo("\n"), radix: codepointRadix) ?? 0
                 reader.advance();
                 
                 nameKeys[i] = name;
                 codeVals[i] = cp1;
-                codeKeys[index] = cp1;
-                nameVals[index] = name;
+                codeKeys[Int(index)] = cp1;
+                nameVals[Int(index)] = name;
                 
                 if (cp2 != empty) {
                     var s = String()
-                    s.append(Character(UnicodeScalar(cp1)!))
-                    s.append(Character(UnicodeScalar(cp2)!))
-                    multipoints[name] = s
+//                    s.append(Character(UnicodeScalar(cp1)!))
+//                    s.append(Character(UnicodeScalar(cp2)!))
+                    multipoints[name] = [cp1,cp2].makeString()
                 }
                 i = i + 1
             }
@@ -131,7 +131,7 @@ public class Entities {
 //            }
 //        }
         
-        public func codepointForName(_ name: String) -> Int {
+        public func codepointForName(_ name: String) -> Byte {
 //            for s in nameKeys {
 //                if s == name {
 //                    return codeVals[nameKeys.index(of: s)!]
@@ -143,7 +143,7 @@ public class Entities {
             return codeVals[index]
         }
         
-        public func nameForCodepoint(_ codepoint: Int ) -> String {
+        public func nameForCodepoint(_ codepoint: Byte ) -> String {
             //let ss = codeKeys.index(of: codepoint)
             
             var index = -1
@@ -199,7 +199,7 @@ public class Entities {
      * @deprecated does not support characters outside the BMP or multiple character names
      */
     open static func getCharacterByName(name: String) -> Character {
-        return Character.convertFromIntegerLiteral(value:EscapeMode.extended.codepointForName(name))
+        return Character(UnicodeScalar(EscapeMode.extended.codepointForName(name))!)
     }
     
     /**
@@ -217,11 +217,14 @@ public class Entities {
         return emptyName
     }
     
+    
     open static func codepointsForName(_ name: String, codepoints: inout [Byte]) -> Int {
         
         if let val: String = multipoints[name] {
-            codepoints[0] = Int(val.unicodeScalar(0).value)
-            codepoints[1] = Int(val.unicodeScalar(1).value)
+            codepoints.removeAll()
+            codepoints.append(contentsOf: val.makeBytes())
+//            codepoints[0] = Int(val.unicodeScalar(0).value)
+//            codepoints[1] = Int(val.unicodeScalar(1).value)
             return 2
         }
         
@@ -256,8 +259,8 @@ public class Entities {
         let encoder: String.Encoding = out.encoder()
         //let length = UInt32(string.characters.count)
         
-        var codePoint: UnicodeScalar
-        for ch in string.unicodeScalars {
+        var codePoint: Byte
+        for ch in string.makeBytes() {
             codePoint = ch
             
             if (normaliseWhite) {
@@ -274,22 +277,24 @@ public class Entities {
                 }
             }
             
+            //TODO: see what can i do here if (codePoint < Character.MIN_SUPPLEMENTARY_CODE_POINT)
             // surrogate pairs, split implementation for efficiency on single char common case (saves creating strings, char[]):
-            if (codePoint.value < Character.MIN_SUPPLEMENTARY_CODE_POINT) {
+            if (codePoint < Character.MIN_SUPPLEMENTARY_CODE_POINT) {
                 let c = codePoint
                 // html specific and required escapes:
                 switch (codePoint) {
-                case UnicodeScalar.Ampersand:
+                case Byte.ampersand:
                     accum.append("&amp;")
                     break
-                case UnicodeScalar(UInt32(0xA0))!:
+                //TODO: give a name to 0xA0
+                case 0xA0:
                     if (escapeMode != EscapeMode.xhtml) {
                         accum.append("&nbsp;")
                     } else {
                         accum.append("&#xa0;")
                     }
                     break
-                case UnicodeScalar.LessThan:
+                case Byte.lessThan:
                     // escape when in character data or when in a xml attribue val; not needed in html attr val
                     if (!inAttribute || escapeMode == EscapeMode.xhtml) {
                         accum.append("&lt;")
@@ -297,13 +302,13 @@ public class Entities {
                         accum.append(c)
                     }
                     break
-                case UnicodeScalar.GreaterThan:
+                case Byte.greaterThan:
                     if (!inAttribute) {
                         accum.append("&gt;")
                     } else {
                         accum.append(c)}
                     break
-                case "\"":
+                case Byte.quote:// "\"":
                     if (inAttribute) {
                         accum.append("&quot;")
                     } else {
@@ -328,12 +333,12 @@ public class Entities {
         }
     }
     
-    private static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, codePoint: UnicodeScalar) {
-        let name = escapeMode.nameForCodepoint(Int(codePoint.value))
+    private static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, codePoint: Byte) {
+        let name = escapeMode.nameForCodepoint(codePoint)
         if (name != emptyName) // ok for identity check
         {accum.append(UnicodeScalar.Ampersand).append(name).append(";")
         } else {
-            accum.append("&#x").append(String.toHexString(n:Int(codePoint.value)) ).append(";")
+            accum.append("&#x").append(String.toHexString(n:codePoint) ).append(";")
         }
     }
     
@@ -364,15 +369,15 @@ public class Entities {
      * Alterslash: 3013, 28
      * Jsoup: 167, 2
      */
-    private static func canEncode(_ c: UnicodeScalar, _ fallback: String.Encoding) -> Bool {
+    private static func canEncode(_ c: Byte, _ fallback: String.Encoding) -> Bool {
         // todo add more charset tests if impacted by Android's bad perf in canEncode
         switch (fallback) {
         case String.Encoding.ascii:
-            return c.value < 0x80
+            return c < 0x80
         case String.Encoding.utf8:
             return true // real is:!(Character.isLowSurrogate(c) || Character.isHighSurrogate(c)) - but already check above
         default:
-            return fallback.canEncode(String(Character(c)))
+            return fallback.canEncode(String(Character(UnicodeScalar(c)!)))
         }
     }
     

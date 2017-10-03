@@ -150,14 +150,14 @@ final class Tokeniser {
             if (!reader.matchConsume(Byte.semicolon)) {
                 characterReferenceError("missing semicolon") // missing semi
             }
-            var charval: Int  = -1
+            var charval: Byte  = 255
 
             let base: Int = isHexMode ? 16 : 10
-            if let num = Int(numRef, radix: base) {
+            if let num = Byte(numRef, radix: base) {
                 charval = num
             }
 
-            if (charval == -1 || (charval >= 0xD800 && charval <= 0xDFFF) || charval > 0x10FFFF) {
+            if (charval == 255 || (charval >= 0xD800 && charval <= 0xDFFF) || charval > 0x10FFFF) {
                 characterReferenceError("character outside of valid range")
                 codeRef[0] = Byte.replacementChar
                 return codeRef
@@ -294,9 +294,9 @@ final class Tokeniser {
                     if (c.count==0) {
                         builder.append(UnicodeScalar.Ampersand)
                     } else {
-                        builder.appendCodePoint(c[0])
+                        builder.append(c[0])
                         if (c.count == 2) {
-                            builder.appendCodePoint(c[1])
+                            builder.append(c[1])
                         }
                     }
                 } else {

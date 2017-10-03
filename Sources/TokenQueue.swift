@@ -11,7 +11,7 @@ import Foundation
 open class TokenQueue {
     private var queue: String
     private var pos: Int = 0
-    private static let empty: Character = Character(UnicodeScalar(0))
+    private static let empty: Byte = 0
     private static let ESC: Character = "\\" // escape char for chomp balanced.
 
     /**
@@ -278,25 +278,27 @@ open class TokenQueue {
         var start = -1
         var end = -1
         var depth = 0
-        var last: Character = TokenQueue.empty
+        var last: Byte = Byte.empty
         var inQuote = false
 
         repeat {
             if (isEmpty()) {break}
-            let c = consume()
-            if (last == TokenQueue.empty || last != TokenQueue.ESC) {
-                if ((c=="'" || c=="\"") && c != open) {
+            //TODO: da rivedere
+            let ccc = consume()
+            let c = Byte(ccc.unicodeScalars.first?.value ?? 0 )
+            if (last == TokenQueue.empty || last != Byte.esc) {
+                if ((c=="'".makeBytes()[0] || c=="\"".makeBytes()[0]) && c != Byte(open.unicodeScalars.first!.value)) {
                     inQuote = !inQuote
                 }
                 if (inQuote) {
                     continue
                 }
-                if (c==open) {
+                if (c == Byte(open.unicodeScalars.first!.value)) {
                     depth+=1
                     if (start == -1) {
                         start = pos
                     }
-                } else if (c==close) {
+                } else if (c == Byte(close.unicodeScalars.first!.value)) {
                     depth-=1
                 }
             }
@@ -316,10 +318,10 @@ open class TokenQueue {
      */
     open static func unescape(_ input: String) -> String {
         let out = StringBuilder()
-        var last = empty
-        for c in input.characters {
-            if (c == ESC) {
-                if (last != empty && last == TokenQueue.ESC) {
+        var last = Byte.empty
+        for c in input.makeBytes() {
+            if (c == Byte.esc) {
+                if (last != empty && last == Byte.esc) {
                     out.append(c)
                 }
             } else {

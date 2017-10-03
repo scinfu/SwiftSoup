@@ -158,7 +158,7 @@ open class StringUtil {
                 accum.append(" ")
                 lastWasWhite = true
             } else {
-                accum.appendCodePoint(c)
+                accum.append(c)
                 lastWasWhite = false
                 reachedNonWhite = true
             }

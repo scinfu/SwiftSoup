@@ -5,7 +5,7 @@ extension String {
     public func makeBytes() -> Bytes {
         var retVal : [Byte] = []
         for thing in self.utf8 {
-            retVal.append(Int(thing))
+            retVal.append(Byte(thing))
         }
         return retVal
     }

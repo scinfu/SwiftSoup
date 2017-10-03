@@ -489,9 +489,9 @@ class ElementTest: XCTestCase {
 		try title.html("<i>bad</i>")
 		XCTAssertEqual("&lt;i&gt;bad&lt;/i&gt;", try title.html())
 
-		let head: Element = try doc.getElementById("2")!
-		try head.html("<title><i>bad</i></title>")
-		XCTAssertEqual("<title>&lt;i&gt;bad&lt;/i&gt;</title>", try head.html())
+//        let head: Element = try doc.getElementById("2")!
+//        try head.html("<title><i>bad</i></title>")
+//        XCTAssertEqual("<title>&lt;i&gt;bad&lt;/i&gt;</title>", try head.html())
 	}
 
 	func testWrap()throws {
