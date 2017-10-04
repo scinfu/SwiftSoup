@@ -10,7 +10,7 @@ import XCTest
 @testable import SwiftSoup
 
 class CleanerTest: XCTestCase {
-
+    
     func testLinuxTestSuiteIncludesAllTests() {
         #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
             let thisClass = type(of: self)
@@ -22,8 +22,8 @@ class CleanerTest: XCTestCase {
     
     func testHandlesCustomProtocols()throws{
         let html = "<img src='cid:12345' /> <img src='data:gzzt' />"
-//        let dropped = try SwiftSoup.clean(html, Whitelist.basicWithImages())
-//        XCTAssertEqual("<img> \n<img>", dropped)
+        //        let dropped = try SwiftSoup.clean(html, Whitelist.basicWithImages())
+        //        XCTAssertEqual("<img> \n<img>", dropped)
         
         let preserved = try SwiftSoup.clean(html, Whitelist.basicWithImages().addProtocols("img", "src", "cid", "data"))
         XCTAssertEqual("<img src=\"cid:12345\"> \n<img src=\"data:gzzt\">", preserved)
@@ -48,7 +48,7 @@ class CleanerTest: XCTestCase {
         let cleanHtml = try SwiftSoup.clean(h, Whitelist.basic())
         
         XCTAssertEqual("<p><a rel=\"nofollow\">Dodgy</a> <a href=\"HTTP://nice.com\" rel=\"nofollow\">Nice</a></p><blockquote>Hello</blockquote>",
-                     TextUtil.stripNewlines(cleanHtml!))
+                       TextUtil.stripNewlines(cleanHtml!))
     }
     
     func testBasicWithImagesTest()throws {
@@ -82,7 +82,7 @@ class CleanerTest: XCTestCase {
         let cleanHtml = try SwiftSoup.clean(h, Whitelist.basic().removeEnforcedAttribute("a", "rel"))
         
         XCTAssertEqual("<p><a href=\"HTTP://nice.com\">Nice</a></p><blockquote>Hello</blockquote>",
-                     TextUtil.stripNewlines(cleanHtml!))
+                       TextUtil.stripNewlines(cleanHtml!))
     }
     
     func testRemoveProtocols()throws{
@@ -90,7 +90,7 @@ class CleanerTest: XCTestCase {
         let cleanHtml = try SwiftSoup.clean(h, Whitelist.basic().removeProtocols("a", "href", "ftp", "mailto"))
         
         XCTAssertEqual("<p>Contact me <a rel=\"nofollow\">here</a></p>",
-                     TextUtil.stripNewlines(cleanHtml!))
+                       TextUtil.stripNewlines(cleanHtml!))
     }
     
     func testDropComments()throws{
@@ -208,28 +208,28 @@ class CleanerTest: XCTestCase {
         XCTAssertEqual("<p class=\"foo\">One</p>", clean)
     }
     
-//    func testSupplyOutputSettings()throws{
-//        // test that one can override the default document output settings
-//        let os: OutputSettings = OutputSettings()
-//        os.prettyPrint(pretty: false)
-//        os.escapeMode(Entities.EscapeMode.extended)
-//        os.charset(.ascii)
-//        
-//        let html = "<div><p>&bernou</p></div>"
-//        let customOut = try SwiftSoup.clean(html, "http://foo.com/", Whitelist.relaxed(), os)
-//        let defaultOut = try SwiftSoup.clean(html, "http://foo.com/", Whitelist.relaxed())
-//        XCTAssertNotEqual(defaultOut, customOut)
-//        
-//        XCTAssertEqual("<div><p>&Bscr;</p></div>", customOut) // entities now prefers shorted names if aliased
-//        XCTAssertEqual("<div>\n" +
-//            " <p>ℬ</p>\n" +
-//            "</div>", defaultOut)
-//        
-//        os.charset(.ascii)
-//        os.escapeMode(Entities.EscapeMode.base)
-//        let customOut2 = try SwiftSoup.clean(html, "http://foo.com/", Whitelist.relaxed(), os)
-//        XCTAssertEqual("<div><p>&#x212c;</p></div>", customOut2)
-//    }
+    //    func testSupplyOutputSettings()throws{
+    //        // test that one can override the default document output settings
+    //        let os: OutputSettings = OutputSettings()
+    //        os.prettyPrint(pretty: false)
+    //        os.escapeMode(Entities.EscapeMode.extended)
+    //        os.charset(.ascii)
+    //
+    //        let html = "<div><p>&bernou</p></div>"
+    //        let customOut = try SwiftSoup.clean(html, "http://foo.com/", Whitelist.relaxed(), os)
+    //        let defaultOut = try SwiftSoup.clean(html, "http://foo.com/", Whitelist.relaxed())
+    //        XCTAssertNotEqual(defaultOut, customOut)
+    //
+    //        XCTAssertEqual("<div><p>&Bscr;</p></div>", customOut) // entities now prefers shorted names if aliased
+    //        XCTAssertEqual("<div>\n" +
+    //            " <p>ℬ</p>\n" +
+    //            "</div>", defaultOut)
+    //
+    //        os.charset(.ascii)
+    //        os.escapeMode(Entities.EscapeMode.base)
+    //        let customOut2 = try SwiftSoup.clean(html, "http://foo.com/", Whitelist.relaxed(), os)
+    //        XCTAssertEqual("<div><p>&#x212c;</p></div>", customOut2)
+    //    }
     
     func testHandlesFramesets()throws{
         let dirty = "<html><head><script></script><noscript></noscript></head><frameset><frame src=\"foo\" /><frame src=\"foo\" /></frameset></html>"
@@ -251,6 +251,43 @@ class CleanerTest: XCTestCase {
         let whitelist: Whitelist = try Whitelist.relaxed()
         try whitelist.addTags( "script" )
         XCTAssertTrue( try SwiftSoup.isValid("Hello<script>alert('Doh')</script>World !", whitelist ) )
+    }
+    
+    func testHandlesFramesetsw()throws{
+        
+        
+        while true {
+            
+            do{
+                let myURLString = "https://www.discuvver.com/jump2.php"
+                guard let myURL = URL(string: myURLString) else {
+                    print("Error: \(myURLString) doesn't seem to be a valid URL")
+                    continue
+                }
+                var dirty = ""
+                dirty = try String(contentsOf: myURL, encoding: .utf8)
+                print(dirty)
+                
+                let doc = try SwiftSoup.parse(dirty)
+                _ = try doc.select("div")
+                _ = try doc.select("var")
+                _ = doc.body()
+                _ = doc.copy()
+                _ = try doc.createElement("ddd")
+                _ = try doc.select("ddd")
+                _ = try doc.text()
+                _ = try doc.outerHtml()
+                _ =  try SwiftSoup.clean(dirty, Whitelist.basic())
+            }catch{
+                
+            }
+            
+            
+            
+            sleep(4)
+        }
+        
+        
     }
     
     static var allTests = {
@@ -287,3 +324,4 @@ class CleanerTest: XCTestCase {
     }()
     
 }
+

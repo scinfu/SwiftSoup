@@ -380,7 +380,8 @@ public final class CharacterReader {
     }
 
     public func toString() -> String {
-		return String.unicodescalars(Array(input[pos..<length]))
+        return String(input[pos..<length])
+		//return String.unicodescalars(Array(input[pos..<length]))
         //return  input.string(pos, length - pos)
     }
 
@@ -392,7 +393,7 @@ public final class CharacterReader {
      * some more duplicates.
      */
     private func cacheString(_ start: Int, _ count: Int) -> String {
-        return String(input[start..<start+count].flatMap { Character($0) })
+        return String(input[start..<start+count])
 // Too Slow
 //        var cache: [String?] = stringCache
 //

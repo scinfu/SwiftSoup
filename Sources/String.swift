@@ -17,6 +17,13 @@ extension String {
 	subscript (i: Int) -> String {
         return String(self[i] as Character)
     }
+    
+    init<S: Sequence>(_ ucs: S)where S.Iterator.Element == UnicodeScalar
+    {
+        var s = ""
+        s.unicodeScalars.append(contentsOf: ucs)
+        self = s
+    }
 
 	func unicodeScalar(_ i: Int) -> UnicodeScalar {
 		return self.unicodeScalars.prefix(i+1).last!
@@ -153,7 +160,6 @@ extension String {
             return regex.stringByReplacingMatches(in: self, options: [],
                                                   range: range, withTemplate: replacement)
         } catch {
-            NSLog("replaceAll error: \(error)")
             return self
         }
     }
@@ -162,11 +168,6 @@ extension String {
 		if(s == nil) {return false}
         return self == s!
     }
-
-	static func unicodescalars ( _ scalars: [UnicodeScalar]) -> String {
-		return String(scalars.flatMap { Character($0) })
-	}
-
 }
 
 extension String.Encoding {
