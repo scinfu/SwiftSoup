@@ -6,14 +6,16 @@ extension Sequence where Iterator.Element == Byte {
     public func makeString() -> String {
 //        let array = Array(self) //+ [0]
 //        return String(array.map { Character(UnicodeScalar($0)!)})
-        
+        var x = self
+        let xx = String.init(bytesNoCopy: &x, length: 5 * MemoryLayout<UnicodeScalar>.size, encoding: String.Encoding.utf16BigEndian, freeWhenDone: false)!
+        return xx
 
-        let arInt = Array(self) + [0]
-        let array = arInt.map{UInt16($0)}
-        return array.withUnsafeBytes { rawBuffer in
-            guard let pointer = rawBuffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return nil }
-            return String(validatingUTF8: pointer)
-            } ?? ""
+//        let arInt = Array(self) + [0]
+//        let array = arInt.map{UInt16($0)}
+//        return array.withUnsafeBytes { rawBuffer in
+//            guard let pointer = rawBuffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return nil }
+//            return String(validatingUTF8: pointer)
+//            } ?? ""
     }
 
     /**

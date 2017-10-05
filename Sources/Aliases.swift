@@ -1,7 +1,7 @@
 /**
     A single byte represented as a UInt8
 */
-public typealias Byte = UInt32
+public typealias Byte = UInt16
 
 /**
     A byte array or collection of raw data
