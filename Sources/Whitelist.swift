@@ -640,10 +640,7 @@ open class TypedValue {
 
 extension TypedValue: Hashable {
     public var hashValue: Int {
-        let prime = 31
-        var result = 1
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(value.hash).partialValue
-        return result
+        return value.hashValue
     }
 }
 

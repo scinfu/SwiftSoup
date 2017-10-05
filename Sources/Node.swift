@@ -771,11 +771,7 @@ open class Node: Equatable, Hashable {
 	/// Hash values are not guaranteed to be equal across different executions of
 	/// your program. Do not save hash values to use during a future execution.
 	public var hashValue: Int {
-        let prime = 31
-        var result = 1
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(description.hashValue).partialValue
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(baseUri?.hashValue ?? 31).partialValue
-		return result
+		return description.hashValue ^ (baseUri?.hashValue ?? 31)
 	}
 
 }

@@ -1288,10 +1288,7 @@ open class Element: Node {
 	}
 
 	override public var hashValue: Int {
-        let prime = 31
-		var result = super.hashValue
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_tag.hashValue).partialValue
-		return result
+		return super.hashValue ^ _tag.hashValue
 	}
 
 }

@@ -235,19 +235,7 @@ open class Tag: Hashable {
     /// Hash values are not guaranteed to be equal across different executions of
     /// your program. Do not save hash values to use during a future execution.
     public var hashValue: Int {
-        let prime = 31
-        var result = 1
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_tagName.hashValue).partialValue
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_isBlock.hashValue).partialValue
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_formatAsBlock.hashValue).partialValue
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_canContainBlock.hashValue).partialValue
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_canContainInline.hashValue).partialValue
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_empty.hashValue).partialValue
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_selfClosing.hashValue).partialValue
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_preserveWhitespace.hashValue).partialValue
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_formList.hashValue).partialValue
-        result = prime.multipliedReportingOverflow(by: result).partialValue.addingReportingOverflow(_formSubmit.hashValue).partialValue
-        return result
+        return _tagName.hashValue ^ _isBlock.hashValue ^ _formatAsBlock.hashValue ^ _canContainBlock.hashValue ^ _canContainInline.hashValue ^ _empty.hashValue ^ _selfClosing.hashValue ^ _preserveWhitespace.hashValue ^ _formList.hashValue ^ _formSubmit.hashValue
     }
 
     open func toString() -> String {
