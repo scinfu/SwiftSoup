@@ -9,6 +9,8 @@
 import Foundation
 
 open class Node: Equatable, Hashable {
+    private static let abs = "abs:"
+    private static let empty = ""
     private static let EMPTY_NODES: Array<Node>  = Array<Node>()
     weak var parentNode: Node?
     var childNodes: Array <Node>
@@ -76,9 +78,9 @@ open class Node: Equatable, Hashable {
         let val: String = try attributes!.getIgnoreCase(key: attributeKey)
         if (val.characters.count > 0) {
             return val
-        } else if (attributeKey.lowercased().startsWith("abs:")) {
-            return try absUrl(attributeKey.substring("abs:".characters.count))
-        } else {return ""}
+        } else if (attributeKey.lowercased().startsWith(Node.abs)) {
+            return try absUrl(attributeKey.substring(Node.abs.characters.count))
+        } else {return Node.empty}
     }
 
     /**
@@ -110,11 +112,11 @@ open class Node: Equatable, Hashable {
 		guard let attributes = attributes else {
 			return false
 		}
-        if (attributeKey.startsWith("abs:")) {
-            let key: String = attributeKey.substring("abs:".characters.count)
+        if (attributeKey.startsWith(Node.abs)) {
+            let key: String = attributeKey.substring(Node.abs.characters.count)
             do {
                 let abs = try absUrl(key)
-                if (attributes.hasKeyIgnoreCase(key: key) &&  !"".equals(abs)) {
+                if (attributes.hasKeyIgnoreCase(key: key) &&  !Node.empty.equals(abs)) {
                     return true
                 }
             } catch {
@@ -192,7 +194,7 @@ open class Node: Equatable, Hashable {
         try Validate.notEmpty(string: attributeKey)
 
         if (!hasAttr(attributeKey)) {
-            return "" // nothing to make absolute with
+            return Node.empty // nothing to make absolute with
         } else {
             return StringUtil.resolve(baseUri!, relUrl: try attr(attributeKey))
         }
@@ -618,7 +620,7 @@ open class Node: Equatable, Hashable {
 
     // if this node has no document (or parent), retrieve the default output settings
     func getOutputSettings() -> OutputSettings {
-        return ownerDocument() != nil ? ownerDocument()!.outputSettings() : (Document("")).outputSettings()
+        return ownerDocument() != nil ? ownerDocument()!.outputSettings() : (Document(Node.empty)).outputSettings()
     }
 
     /**
@@ -646,7 +648,7 @@ open class Node: Equatable, Hashable {
     }
 
     public func indent(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
-        accum.append("\n").append(StringUtil.padding(depth * Int(out.indentAmount())))
+        accum.append(UnicodeScalar.BackslashN).append(StringUtil.padding(depth * Int(out.indentAmount())))
     }
 
     /**
@@ -735,6 +737,7 @@ open class Node: Equatable, Hashable {
     private class OuterHtmlVisitor: NodeVisitor {
         private var accum: StringBuilder
         private var out: OutputSettings
+        static private let  text = "#text"
 
         init(_ accum: StringBuilder, _ out: OutputSettings) {
             self.accum = accum
@@ -747,7 +750,7 @@ open class Node: Equatable, Hashable {
         }
 
         open func tail(_ node: Node, _ depth: Int)throws {
-            if (!(node.nodeName() == "#text")) { // saves a void hit.
+            if (!(node.nodeName() == OuterHtmlVisitor.text)) { // saves a void hit.
                 try node.outerHtmlTail(accum, depth, out)
             }
         }
@@ -782,14 +785,15 @@ extension Node : CustomStringConvertible {
 		} catch {
 
 		}
-		return ""
+		return Node.empty
 	}
 }
 
 extension Node : CustomDebugStringConvertible {
+    private static let space = " "
 	public var debugDescription: String {
 		do {
-			return try String(describing: type(of: self)) + " " + outerHtml()
+            return try String(describing: type(of: self)) + Node.space + outerHtml()
 		} catch {
 
 		}
