@@ -56,6 +56,9 @@ open class Element: Node {
     open func tagName() -> String {
         return _tag.getName()
     }
+    open func tagNameNormal() -> String {
+        return _tag.getNameNormal()
+    }
 
     /**
      * Change the tag of this element. For example, convert a {@code <span>} to a {@code <div>} with

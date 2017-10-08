@@ -20,6 +20,7 @@ open class Tag: Hashable {
     }()
 
     fileprivate var _tagName: String
+    fileprivate var _tagNameNormal: String
     fileprivate var _isBlock: Bool = true // block or inline
     fileprivate var _formatAsBlock: Bool = true // should be formatted as a block
     fileprivate var _canContainBlock: Bool = true // Can this tag hold block level tags?
@@ -32,6 +33,7 @@ open class Tag: Hashable {
 
     public init(_ tagName: String) {
         self._tagName = tagName
+        self._tagNameNormal = tagName.lowercased()
     }
 
     /**
@@ -41,6 +43,9 @@ open class Tag: Hashable {
      */
     open func getName() -> String {
         return self._tagName
+    }
+    open func getNameNormal() -> String {
+        return self._tagNameNormal
     }
 
     /**

@@ -35,13 +35,15 @@ public class Evaluator {
      */
     public class Tag: Evaluator {
         private let tagName: String
+        private let tagNameNormal: String
 
         public init(_ tagName: String) {
             self.tagName = tagName
+            self.tagNameNormal = tagName.lowercased()
         }
 
         open override func matches(_ root: Element, _ element: Element)throws->Bool {
-            return (element.tagName().equalsIgnoreCase(string: tagName))
+            return element.tagNameNormal() == tagNameNormal
         }
 
         open override func toString() -> String {
