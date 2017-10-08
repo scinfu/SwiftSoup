@@ -41,16 +41,16 @@ private final class Accumulator: NodeVisitor {
         self.elements = elements
         self.eval = eval
     }
-
+    
     open func head(_ node: Node, _ depth: Int) {
-        if let el = node as? Element {
-            do {
-                if (try eval.matches(root, el)) {
-                    elements.add(el)
-                }
-            } catch {}
-
+        guard let el = node as? Element else {
+            return
         }
+        do {
+            if try eval.matches(root, el) {
+                elements.add(el)
+            }
+        } catch {}
     }
 
     open func tail(_ node: Node, _ depth: Int) {

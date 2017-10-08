@@ -558,11 +558,10 @@ open class Node: Equatable, Hashable {
      @return next sibling, or null if this is the last sibling
      */
     open func nextSibling() -> Node? {
-        if (parentNode == nil) {
-            return nil // root
+        guard let siblings: Array<Node> =  parentNode?.childNodes else{
+            return nil
         }
 
-        let siblings: Array<Node> = parentNode!.childNodes
         let index: Int = siblingIndex+1
         if (siblings.count > index) {
             return siblings[index]
