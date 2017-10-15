@@ -1,0 +1,6 @@
+use_frameworks!
+
+target 'Example' do
+  #pod 'SwiftSoup'
+  pod 'SwiftSoup', :path => '../'
+end
