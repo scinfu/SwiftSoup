@@ -1499,7 +1499,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     private static func isWhitespace(_ data: String?) -> Bool {
         // todo: self checks more than spec - UnicodeScalar.BackslashT, "\n", "\f", "\r", " "
         if let data = data {
-            for c in data.characters {
+            for c in data {
                 if (!StringUtil.isWhitespace(c)) {
                     return false}
             }
