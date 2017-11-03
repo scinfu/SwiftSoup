@@ -455,3 +455,9 @@ public final class CharacterReader {
 //        return false
 //    }
 }
+
+extension CharacterReader: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        return  self.toString()
+    }
+}

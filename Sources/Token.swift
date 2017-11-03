@@ -386,3 +386,13 @@ open class Token {
 		case EOF
 	}
 }
+
+extension Token: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        do{
+            return try self.toString()
+        }catch{
+            return "Error while get string debug"
+        }
+    }
+}

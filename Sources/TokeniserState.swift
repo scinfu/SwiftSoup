@@ -601,19 +601,7 @@ enum TokeniserState: TokeniserStateProtocol {
             // from tagname <xxx
             let c = r.consume()
             switch (c) {
-            case UnicodeScalar.BackslashT:
-                t.transition(.SelfClosingStartTag)
-                break
-            case "\n":
-                t.transition(.SelfClosingStartTag)
-                break
-            case "\r":
-                t.transition(.SelfClosingStartTag)
-                break
-            case UnicodeScalar.BackslashF:
-                t.transition(.SelfClosingStartTag)
-                break
-            case " ":
+            case UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ":
                 break // ignore whitespace
             case "/":
                 t.transition(.SelfClosingStartTag)
@@ -632,25 +620,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.eofError(self)
                 t.transition(.Data)
                 break
-            case "\"":
-                t.error(self)
-                try t.tagPending.newAttribute()
-                t.tagPending.appendAttributeName(c)
-                t.transition(.AttributeName)
-                break
-            case "'":
-                t.error(self)
-                try t.tagPending.newAttribute()
-                t.tagPending.appendAttributeName(c)
-                t.transition(.AttributeName)
-                break
-            case UnicodeScalar.LessThan:
-                t.error(self)
-                try t.tagPending.newAttribute()
-                t.tagPending.appendAttributeName(c)
-                t.transition(.AttributeName)
-                break
-            case "=":
+            case "\"", "'",UnicodeScalar.LessThan, "=":
                 t.error(self)
                 try t.tagPending.newAttribute()
                 t.tagPending.appendAttributeName(c)
