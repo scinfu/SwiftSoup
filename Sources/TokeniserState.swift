@@ -765,7 +765,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .AttributeValue_doubleQuoted:
             let value = r.consumeToAny(TokeniserStateVars.attributeDoubleValueCharsSorted)
-            if (value.characters.count > 0) {
+            if (value.count > 0) {
             t.tagPending.appendAttributeValue(value)
             } else {
             t.tagPending.setEmptyAttributeValue()
@@ -799,7 +799,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .AttributeValue_singleQuoted:
             let value = r.consumeToAny(TokeniserStateVars.attributeSingleValueCharsSorted)
-            if (value.characters.count > 0) {
+            if (value.count > 0) {
             t.tagPending.appendAttributeValue(value)
             } else {
             t.tagPending.setEmptyAttributeValue()
@@ -833,7 +833,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .AttributeValue_unquoted:
             let value = r.consumeToAnySorted(TokeniserStateVars.attributeValueUnquoted)
-            if (value.characters.count > 0) {
+            if (value.count > 0) {
             t.tagPending.appendAttributeValue(value)
             }
 

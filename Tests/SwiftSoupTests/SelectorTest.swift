@@ -210,7 +210,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("div", els.get(1).tagName())
 		try XCTAssertEqual("bar", els.get(1).attr("title"))
 		XCTAssertEqual("div", els.get(2).tagName())
-		try XCTAssertTrue(els.get(2).attr("title").characters.count == 0) // missing attributes come back as empty string
+		try XCTAssertTrue(els.get(2).attr("title").count == 0) // missing attributes come back as empty string
 		XCTAssertFalse(els.get(2).hasAttr("title"))
 		XCTAssertEqual("p", els.get(3).tagName())
 		XCTAssertEqual("span", els.get(4).tagName())

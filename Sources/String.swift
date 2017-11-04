@@ -11,7 +11,7 @@ import Foundation
 extension String {
 
 	subscript (i: Int) -> Character {
-        return self[self.characters.index(self.startIndex, offsetBy: i)]
+        return self[self.index(self.startIndex, offsetBy: i)]
     }
 
 	subscript (i: Int) -> String {
@@ -58,12 +58,12 @@ extension String {
     }
 
 	func indexOf(_ substring: String, _ offset: Int ) -> Int {
-        if(offset > characters.count) {return -1}
+        if(offset > count) {return -1}
 
-        let maxIndex = self.characters.count - substring.characters.count
+        let maxIndex = self.count - substring.count
         if(maxIndex >= 0) {
             for index in offset...maxIndex {
-                let rangeSubstring = self.characters.index(self.startIndex, offsetBy: index)..<self.characters.index(self.startIndex, offsetBy: index + substring.characters.count)
+                let rangeSubstring = self.index(self.startIndex, offsetBy: index)..<self.index(self.startIndex, offsetBy: index + substring.count)
                 #if swift(>=4)
                 let selfSubstring = self[rangeSubstring]
                 #else
@@ -95,7 +95,7 @@ extension String {
     }
 
     func insert(string: String, ind: Int) -> String {
-        return  String(self.characters.prefix(ind)) + string + String(self.characters.suffix(self.characters.count-ind))
+        return  String(self.prefix(ind)) + string + String(self.suffix(self.count-ind))
     }
 
     func charAt(_ i: Int) -> Character {
@@ -103,7 +103,7 @@ extension String {
     }
 
 	func substring(_ beginIndex: Int) -> String {
-        return String.split(self, beginIndex, self.characters.count-beginIndex)
+        return String.split(self, beginIndex, self.count-beginIndex)
     }
 
 	func substring(_ beginIndex: Int, _ count: Int) -> String {
@@ -112,8 +112,8 @@ extension String {
 
     func regionMatches(_ ignoreCase: Bool, _ selfOffset: Int, _ other: String, _ otherOffset: Int, _ length: Int ) -> Bool {
         if ((otherOffset < 0) || (selfOffset < 0)
-            || (selfOffset > self.characters.count - length)
-            || (otherOffset > other.characters.count - length)) {
+            || (selfOffset > self.count - length)
+            || (otherOffset > other.count - length)) {
             return false
         }
 
@@ -134,10 +134,10 @@ extension String {
     }
 
     func startsWith(_ input: String, _ offset: Int) -> Bool {
-        if ((offset < 0) || (offset > characters.count - input.characters.count)) {
+        if ((offset < 0) || (offset > count - input.count)) {
             return false
         }
-        for i in 0..<input.characters.count {
+        for i in 0..<input.count {
             let charSelf: Character = self[i+offset]
             let charOther: Character = input[i]
             if(charSelf != charOther) {return false}

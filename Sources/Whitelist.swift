@@ -538,7 +538,7 @@ public class Whitelist {
         // try to resolve relative urls to abs, and optionally update the attribute so output html has abs.
         // rels without a baseuri get removed
         var value: String = try el.absUrl(attr.getKey())
-        if (value.characters.count == 0) {
+        if (value.count == 0) {
             value = attr.getValue()
         }// if it could not be made abs, run as-is to allow custom unknown protocols
         if (!preserveRelativeLinks) {

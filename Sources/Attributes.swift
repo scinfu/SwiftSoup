@@ -189,7 +189,7 @@ open class Attributes: NSCopying {
 		for attribute in attributes {
 			let attr = attribute.1
 			if(attr.isDataAttribute()) {
-				let key = attr.getKey().substring(Attributes.dataPrefix.characters.count)
+				let key = attr.getKey().substring(Attributes.dataPrefix.count)
 				dataset[key] = attribute.1.getValue()
 			}
 		}

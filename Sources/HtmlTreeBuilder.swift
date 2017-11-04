@@ -162,7 +162,7 @@ class HtmlTreeBuilder: TreeBuilder {
         }
 
         let href: String = try base.absUrl("href")
-        if (href.characters.count != 0) { // ignore <base target> etc
+        if (href.count != 0) { // ignore <base target> etc
             baseUri = href
             baseUriSetFromDoc = true
             try doc.setBaseUri(href) // set on the doc so doc.createElement(Tag) will get updated base, and to update all descendants

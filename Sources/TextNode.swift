@@ -90,7 +90,7 @@ open class TextNode: Node {
      */
     open func splitText(_ offset: Int)throws->TextNode {
         try Validate.isTrue(val: offset >= 0, msg: "Split offset must be not be negative")
-        try Validate.isTrue(val: offset < _text.characters.count, msg: "Split offset must not be greater than current text length")
+        try Validate.isTrue(val: offset < _text.count, msg: "Split offset must not be greater than current text length")
 
         let head: String = getWholeText().substring(0, offset)
         let tail: String = getWholeText().substring(offset)
@@ -140,7 +140,7 @@ open class TextNode: Node {
     }
 
     static open func lastCharIsWhitespace(_ sb: StringBuilder) -> Bool {
-        return sb.toString().characters.last == " "
+        return sb.toString().last == " "
     }
 
     // attribute fiddling. create on first access.

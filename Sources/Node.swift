@@ -76,10 +76,10 @@ open class Node: Equatable, Hashable {
      */
     open func attr(_ attributeKey: String)throws ->String {
         let val: String = try attributes!.getIgnoreCase(key: attributeKey)
-        if (val.characters.count > 0) {
+        if (val.count > 0) {
             return val
         } else if (attributeKey.lowercased().startsWith(Node.abs)) {
-            return try absUrl(attributeKey.substring(Node.abs.characters.count))
+            return try absUrl(attributeKey.substring(Node.abs.count))
         } else {return Node.empty}
     }
 
@@ -113,7 +113,7 @@ open class Node: Equatable, Hashable {
 			return false
 		}
         if (attributeKey.startsWith(Node.abs)) {
-            let key: String = attributeKey.substring(Node.abs.characters.count)
+            let key: String = attributeKey.substring(Node.abs.count)
             do {
                 let abs = try absUrl(key)
                 if (attributes.hasKeyIgnoreCase(key: key) &&  !Node.empty.equals(abs)) {

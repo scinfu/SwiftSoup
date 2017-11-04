@@ -88,11 +88,11 @@ open class StringUtil {
      * @return if string is blank
      */
     open static func isBlank(_ string: String) -> Bool {
-        if (string.characters.count == 0) {
+        if (string.count == 0) {
             return true
         }
 
-        for chr in string.characters {
+        for chr in string {
             if (!StringUtil.isWhitespace(chr)) {
                 return false
             }
@@ -106,11 +106,11 @@ open class StringUtil {
      * @return true if only digit chars, false if empty or null or contains non-digit chrs
      */
     open static func isNumeric(_ string: String) -> Bool {
-        if (string.characters.count == 0) {
+        if (string.count == 0) {
             return false
         }
 
-        for chr in string.characters {
+        for chr in string {
             if !("0"..."9" ~= chr) {
                 return false
             }
@@ -150,7 +150,7 @@ open class StringUtil {
         var lastWasWhite: Bool = false
         var reachedNonWhite: Bool  = false
 
-        for c in string.characters {
+        for c in string {
             if (isWhitespace(c)) {
                 if ((stripLeading && !reachedNonWhite) || lastWasWhite) {
                     continue
@@ -212,7 +212,7 @@ open class StringUtil {
     //NOTE: Not sure it work
     open static func resolve(_ base: URL, relUrl: String ) -> URL? {
         var base = base
-        if(base.pathComponents.count == 0 && base.absoluteString.characters.last != "/" && !base.isFileURL) {
+        if(base.pathComponents.count == 0 && base.absoluteString.last != "/" && !base.isFileURL) {
             base = base.appendingPathComponent("/", isDirectory: false)
         }
         let u =  URL(string: relUrl, relativeTo : base)

@@ -103,7 +103,7 @@ open class Attribute {
     }
 
     public func isDataAttribute() -> Bool {
-        return key.startsWith(Attributes.dataPrefix) && key.characters.count > Attributes.dataPrefix.characters.count
+        return key.startsWith(Attributes.dataPrefix) && key.count > Attributes.dataPrefix.count
     }
 
     /**

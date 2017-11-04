@@ -99,7 +99,7 @@ struct Validate {
      * @param string the string to test
      */
     public static func notEmpty(string: String?) throws {
-        if (string == nil || string?.characters.count == 0) {
+        if (string == nil || string?.count == 0) {
             throw Exception.Error(type: ExceptionType.IllegalArgumentException, Message: "String must not be empty")
         }
 
@@ -111,7 +111,7 @@ struct Validate {
      * @param msg message to output if validation fails
      */
    public static func notEmpty(string: String?, msg: String ) throws {
-        if (string == nil || string?.characters.count == 0) {
+        if (string == nil || string?.count == 0) {
             throw Exception.Error(type: ExceptionType.IllegalArgumentException, Message: msg)
         }
     }
