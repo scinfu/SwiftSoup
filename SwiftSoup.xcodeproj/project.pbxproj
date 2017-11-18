@@ -59,7 +59,7 @@
 		8CD500DE1DAEC9FF002270FC /* TokeniserState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CD500DD1DAEC9FF002270FC /* TokeniserState.swift */; };
 		8CE2D93F1DB2796C00C7BDE3 /* Cleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE2D93E1DB2796C00C7BDE3 /* Cleaner.swift */; };
 		8CE2D9411DB27CAD00C7BDE3 /* Tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE2D9401DB27CAD00C7BDE3 /* Tag.swift */; };
-		8CE418201DAA54A900240B42 /* SwiftSoup-iOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CE418161DAA54A900240B42 /* SwiftSoup-iOS.framework */; };
+		8CE418201DAA54A900240B42 /* SwiftSoup.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8CE418161DAA54A900240B42 /* SwiftSoup.framework */; };
 		8CE418271DAA54A900240B42 /* SwiftSoup.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CE418191DAA54A900240B42 /* SwiftSoup.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		8CE418591DAA568600240B42 /* Connection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418301DAA568600240B42 /* Connection.swift */; };
 		8CE4185A1DAA568600240B42 /* DataUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418321DAA568600240B42 /* DataUtil.swift */; };
@@ -211,7 +211,7 @@
 		8CD500DD1DAEC9FF002270FC /* TokeniserState.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TokeniserState.swift; sourceTree = "<group>"; };
 		8CE2D93E1DB2796C00C7BDE3 /* Cleaner.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Cleaner.swift; sourceTree = "<group>"; };
 		8CE2D9401DB27CAD00C7BDE3 /* Tag.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Tag.swift; sourceTree = "<group>"; };
-		8CE418161DAA54A900240B42 /* SwiftSoup-iOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = "SwiftSoup-iOS.framework"; sourceTree = BUILT_PRODUCTS_DIR; };
+		8CE418161DAA54A900240B42 /* SwiftSoup.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SwiftSoup.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		8CE418191DAA54A900240B42 /* SwiftSoup.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SwiftSoup.h; sourceTree = "<group>"; };
 		8CE4181A1DAA54A900240B42 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		8CE4181F1DAA54A900240B42 /* SwiftSoupTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SwiftSoupTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -245,7 +245,7 @@
 		8CE418571DAA568600240B42 /* SwiftSoup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SwiftSoup.swift; sourceTree = "<group>"; };
 		8CEA29581DAC112B0064A341 /* CharacterReader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CharacterReader.swift; sourceTree = "<group>"; };
 		8CEA295A1DAC23820064A341 /* String.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = String.swift; sourceTree = "<group>"; };
-		BD3B5BA91FBED933001FDB3B /* SwiftSoup-macOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = "SwiftSoup-macOS.framework"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BD3B5BA91FBED933001FDB3B /* SwitSoup.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SwitSoup.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD3B5BAA1FBED934001FDB3B /* InfoMac.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = InfoMac.plist; path = /Users/nabil/Documents/nabil/SwiftSoup/Sources/InfoMac.plist; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
@@ -261,7 +261,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8CE418201DAA54A900240B42 /* SwiftSoup-iOS.framework in Frameworks */,
+				8CE418201DAA54A900240B42 /* SwiftSoup.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -399,9 +399,9 @@
 		8CE418171DAA54A900240B42 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				8CE418161DAA54A900240B42 /* SwiftSoup-iOS.framework */,
+				8CE418161DAA54A900240B42 /* SwiftSoup.framework */,
 				8CE4181F1DAA54A900240B42 /* SwiftSoupTests.xctest */,
-				BD3B5BA91FBED933001FDB3B /* SwiftSoup-macOS.framework */,
+				BD3B5BA91FBED933001FDB3B /* SwitSoup.framework */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -520,7 +520,7 @@
 			);
 			name = "SwiftSoup-iOS";
 			productName = SwiftSoup;
-			productReference = 8CE418161DAA54A900240B42 /* SwiftSoup-iOS.framework */;
+			productReference = 8CE418161DAA54A900240B42 /* SwiftSoup.framework */;
 			productType = "com.apple.product-type.framework";
 		};
 		8CE4181E1DAA54A900240B42 /* SwiftSoupTests */ = {
@@ -556,7 +556,7 @@
 			);
 			name = "SwiftSoup-macOS";
 			productName = SwiftSoup;
-			productReference = BD3B5BA91FBED933001FDB3B /* SwiftSoup-macOS.framework */;
+			productReference = BD3B5BA91FBED933001FDB3B /* SwitSoup.framework */;
 			productType = "com.apple.product-type.framework";
 		};
 /* End PBXNativeTarget section */
@@ -930,7 +930,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoup;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = SwiftSoup;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -960,7 +960,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoup;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = SwiftSoup;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1022,9 +1022,6 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				GCC_WARN_UNUSED_FUNCTION = NO;
-				GCC_WARN_UNUSED_VALUE = NO;
-				GCC_WARN_UNUSED_VARIABLE = NO;
 				INFOPLIST_FILE = "$(SRCROOT)/Sources/InfoMac.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
@@ -1032,7 +1029,7 @@
 				MACH_O_TYPE = mh_dylib;
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoup;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = SwitSoup;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = macosx;
@@ -1051,9 +1048,6 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				GCC_WARN_UNUSED_FUNCTION = NO;
-				GCC_WARN_UNUSED_VALUE = NO;
-				GCC_WARN_UNUSED_VARIABLE = NO;
 				INFOPLIST_FILE = "$(SRCROOT)/Sources/InfoMac.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
@@ -1061,7 +1055,7 @@
 				MACH_O_TYPE = mh_dylib;
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoup;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = SwitSoup;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = macosx;
