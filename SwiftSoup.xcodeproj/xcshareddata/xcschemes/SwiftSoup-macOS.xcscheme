@@ -34,7 +34,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "8CE418151DAA54A900240B42"
-            BuildableName = "SwiftSoup-iOS.framework"
+            BuildableName = "SwiftSoup.framework"
             BlueprintName = "SwiftSoup-iOS"
             ReferencedContainer = "container:SwiftSoup.xcodeproj">
          </BuildableReference>
