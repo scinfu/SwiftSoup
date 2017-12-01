@@ -24,11 +24,20 @@
 
 ## Installation
 
+### Cocoapods
 SwiftSoup is available through [CocoaPods](http://cocoapods.org). To install
 it, simply add the following line to your Podfile:
 
 ```ruby
 pod "SwiftSoup"
+```
+
+### Carthage
+SwiftSoup is also available through [Carthage](https://github.com/Carthage/Carthage). To install
+it, simply add the following line to your Cartfile:
+
+```ruby
+github "scinfu/SwiftSoup"
 ```
 
 # To parse an HTML document:
