@@ -14,11 +14,11 @@
 
 `SwiftSoup` is a pure Swift library, cross-platform(macOS, iOS, tvOS, watchOS and Linux!), for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jquery-like methods.
 `SwiftSoup` implements the WHATWG HTML5 specification, and parses HTML to the same DOM as modern browsers do.
-* scrape and parse HTML from a URL, file, or string
-* find and extract data, using DOM traversal or CSS selectors
-* manipulate the HTML elements, attributes, and text
-* clean user-submitted content against a safe white-list, to prevent XSS attacks
-* output tidy HTML
+* Scrape and parse HTML from a URL, file, or string
+* Find and extract data, using DOM traversal or CSS selectors
+* Manipulate the HTML elements, attributes, and text
+* Clean user-submitted content against a safe white-list, to prevent XSS attacks
+* Output tidy HTML
 `SwiftSoup` is designed to deal with all varieties of HTML found in the wild; from pristine and validating, to invalid tag-soup; `SwiftSoup` will create a sensible parse tree.
 
 
@@ -29,7 +29,7 @@ SwiftSoup is available through [CocoaPods](http://cocoapods.org). To install
 it, simply add the following line to your Podfile:
 
 ```ruby
-pod "SwiftSoup"
+pod 'SwiftSoup'
 ```
 
 ### Carthage
@@ -43,21 +43,21 @@ github "scinfu/SwiftSoup"
 # To parse an HTML document:
 
 ```swift
-do{
+do {
    let html = "<html><head><title>First parse</title></head>"
-			+ "<body><p>Parsed HTML into a doc.</p></body></html>"
+       + "<body><p>Parsed HTML into a doc.</p></body></html>"
    let doc: Document = try SwiftSoup.parse(html)
    return try doc.text()
-}catch Exception.Error(let type, let message){
-	print(message)
-}catch{
-	print("error")
+} catch Exception.Error(let type, let message) {
+    print(message)
+} catch {
+    print("error")
 }
 ```
 
-*   unclosed tags (e.g. `<p>Lorem <p>Ipsum` parses to `<p>Lorem</p> <p>Ipsum</p>`)
-*   implicit tags (e.g. a naked `<td>Table data</td>` is wrapped into a `<table><tr><td>...`)
-*  reliably creating the document structure (`html` containing a `head` and `body`, and only appropriate elements within the head)
+*   Unclosed tags (e.g. `<p>Lorem <p>Ipsum` parses to `<p>Lorem</p> <p>Ipsum</p>`)
+*   Implicit tags (e.g. a naked `<td>Table data</td>` is wrapped into a `<table><tr><td>...`)
+*  Reliably creating the document structure (`html` containing a `head` and `body`, and only appropriate elements within the head)
 
 
 ### The object model of a document
@@ -76,22 +76,21 @@ After parsing a document, and finding some elements, you'll want to get at the d
 - For the text on an element (and its combined children), use `Element.text()`
 - For HTML, use `Element.html()`, or `Node.outerHtml()¡ as appropriate
 ```swift
-do{
-	let html: String = "<p>An <a href='http://example.com/'><b>example</b></a> link.</p>";
-	let doc: Document = try! SwiftSoup.parse(html)
-	let link: Element = try! doc.select("a").first()!
-	
-	let text: String = try! doc.body()!.text(); // "An example link"
-	let linkHref: String = try! link.attr("href"); // "http://example.com/"
-	let linkText: String = try! link.text(); // "example""
-	
-	let linkOuterH: String = try! link.outerHtml();
-	// "<a href="http://example.com"><b>example</b></a>"
-	let linkInnerH: String = try! link.html(); // "<b>example</b>"
-}catch Exception.Error(let type, let message){
-	print(message)
-}catch{
-	print("error")
+do {
+    let html: String = "<p>An <a href='http://example.com/'><b>example</b></a> link.</p>";
+    let doc: Document = try! SwiftSoup.parse(html)
+    let link: Element = try! doc.select("a").first()!
+    
+    let text: String = try! doc.body()!.text(); // "An example link"
+    let linkHref: String = try! link.attr("href"); // "http://example.com/"
+    let linkText: String = try! link.text(); // "example""
+    
+    let linkOuterH: String = try! link.outerHtml(); // "<a href="http://example.com"><b>example</b></a>"
+    let linkInnerH: String = try! link.html(); // "<b>example</b>"
+} catch Exception.Error(let type, let message) {
+    print(message)
+} catch{
+    print("error")
 }
 ```
 
@@ -114,16 +113,15 @@ You have HTML in a Swift String, and you want to parse that HTML to get at its c
 Use the static `SwiftSoup.parse(_ html : String)` method, or `SwiftSoup.parse(_ html : String, : baseUri: String)`.
 
 ```swift
-do{
-	let html = "<html><head><title>First parse</title></head>"
-				+ "<body><p>Parsed HTML into a doc.</p></body></html>"
-	let doc: Document = try SwiftSoup.parse(html)
-	return try doc.text()
-}catch Exception.Error(let type, let message)
-{
-	print("")
-}catch{
-	print("")
+do {
+    let html = "<html><head><title>First parse</title></head>"
+        + "<body><p>Parsed HTML into a doc.</p></body></html>"
+    let doc: Document = try SwiftSoup.parse(html)
+    return try doc.text()
+} catch Exception.Error(let type, let message) {
+    print("")
+} catch {
+    print("")
 }
 ```
 ### Description
@@ -142,14 +140,14 @@ You have a fragment of body HTML (e.g. `div` containing a couple of p tags; as o
 Use the `SwiftSoup.parseBodyFragment(_ html : String)` method.
 
 ```swift
-do{
-   let html: String = "<div><p>Lorem ipsum.</p>"
-   let doc: Document = try SwiftSoup.parseBodyFragment(html)
-   let body: Element? = doc.body()
-}catch Exception.Error(let type, let message){
-	print(message)
-}catch{
-	print("error")
+do {
+    let html: String = "<div><p>Lorem ipsum.</p>"
+    let doc: Document = try SwiftSoup.parseBodyFragment(html)
+    let body: Element? = doc.body()
+} catch Exception.Error(let type, let message) {
+    print(message)
+} catch {
+    print("error")
 }
 ```
 
@@ -172,14 +170,14 @@ You want to allow untrusted users to supply HTML for output on your website (e.g
 Use the SwiftSoup HTML `Cleaner` with a configuration specified by a `Whitelist`.
 
 ```swift
-do{
-	let unsafe: String = "<p><a href='http://example.com/' onclick='stealCookies()'>Link</a></p>"
-	let safe: String = try SwiftSoup.clean(unsafe, Whitelist.basic())!
-	// now: <p><a href="http://example.com/" rel="nofollow">Link</a></p>
-}catch Exception.Error(let type, let message){
-	print(message)
-}catch{
-	print("error")
+do {
+    let unsafe: String = "<p><a href='http://example.com/' onclick='stealCookies()'>Link</a></p>"
+    let safe: String = try SwiftSoup.clean(unsafe, Whitelist.basic())!
+    // now: <p><a href="http://example.com/" rel="nofollow">Link</a></p>
+} catch Exception.Error(let type, let message) {
+    print(message)
+} catch{
+    print("error")
 }
 ```
 
@@ -188,11 +186,11 @@ A cross-site scripting attack against your site can really ruin your day, not to
 
 A better solution may be to use a rich text WYSIWYG editor (like [CKEditor](http://ckeditor.com) or [TinyMCE](https://www.tinymce.com)). These output HTML, and allow the user to work visually. However, their validation is done on the client side: you need to apply a server-side validation to clean up the input and ensure the HTML is safe to place on your site. Otherwise, an attacker can avoid the client-side Javascript validation and inject unsafe HMTL directly into your site
 
-The swiftsoup whitelist sanitizer works by parsing the input HTML (in a safe, sand-boxed environment), and then iterating through the parse tree and only allowing known-safe tags and attributes (and values) through into the cleaned output.
+The SwiftSoup whitelist sanitizer works by parsing the input HTML (in a safe, sand-boxed environment), and then iterating through the parse tree and only allowing known-safe tags and attributes (and values) through into the cleaned output.
 
 It does not use regular expressions, which are inappropriate for this task.
 
-swiftsoup provides a range of `Whitelist` configurations to suit most requirements; they can be modified if necessary, but take care.
+SwiftSoup provides a range of `Whitelist` configurations to suit most requirements; they can be modified if necessary, but take care.
 
 The cleaner is useful not only for avoiding XSS, but also in limiting the range of elements the user can provide: you may be OK with textual `a`, `strong` elements, but not structural `div` or `table` elements.
 
@@ -217,24 +215,24 @@ If you need to modify the class attribute of an element, use the `Element.addCla
 The `Elements collection has bulk attribue and class methods. For example, to add a `rel="nofollow" attribute to every `a` element inside a div:
 
 ```swift
-do{
-   try doc.select("div.comments a").attr("rel", "nofollow")
-}catch Exception.Error(let type, let message){
-	print(message)
-}catch{
-	print("error")
+do {
+    try doc.select("div.comments a").attr("rel", "nofollow")
+} catch Exception.Error(let type, let message) {
+    print(message)
+} catch{
+    print("error")
 }
 ```
 ### Description
 Like the other methods in `Element, the attr methods return the current `Element` (or `Elements` when working on a collection from a select). This allows convenient method chaining:
 
 ```swift
-do{
-   try doc.select("div.masthead").attr("title", "swiftsoup").addClass("round-box");
-}catch Exception.Error(let type, let message){
-	print(message)
-}catch{
-	print("error")
+do {
+    try doc.select("div.masthead").attr("title", "swiftsoup").addClass("round-box");
+} catch Exception.Error(let type, let message) {
+    print(message)
+} catch{
+    print("error")
 }
 ```
 
@@ -245,23 +243,22 @@ You need to modify the HTML of an element.
 ### Solution
 Use the HTML setter methods in `Element`:
 ```swift
-do{
-	let doc: Document = try SwiftSoup.parse("<div>One</div><span>One</span>")
-	let div: Element = try doc.select("div").first()! // <div></div>
-	try div.html("<p>lorem ipsum</p>") // <div><p>lorem ipsum</p></div>
-	try div.prepend("<p>First</p>")
-	try div.append("<p>Last</p>")
-	print(div)
-	// now div is: <div><p>First</p><p>lorem ipsum</p><p>Last</p></div>
-	
-	let span: Element = try doc.select("span").first()! // <span>One</span>
-	try span.wrap("<li><a href='http://example.com/'></a></li>")
-	print(doc)
-	// now: <li><a href="http://example.com/"><span>One</span></a></li>
-}catch Exception.Error(let type, let message)
-{
+do {
+    let doc: Document = try SwiftSoup.parse("<div>One</div><span>One</span>")
+    let div: Element = try doc.select("div").first()! // <div></div>
+    try div.html("<p>lorem ipsum</p>") // <div><p>lorem ipsum</p></div>
+    try div.prepend("<p>First</p>")
+    try div.append("<p>Last</p>")
+    print(div)
+    // now div is: <div><p>First</p><p>lorem ipsum</p><p>Last</p></div>
+    
+    let span: Element = try doc.select("span").first()! // <span>One</span>
+    try span.wrap("<li><a href='http://example.com/'></a></li>")
+    print(doc)
+    // now: <li><a href="http://example.com/"><span>One</span></a></li>
+} catch Exception.Error(let type, let message) {
 	print(message)
-}catch{
+} catch {
 	print("error")
 }
 ```
@@ -284,17 +281,17 @@ You need to modify the text content of a HTML document.
 Use the text setter methods of `Element`:
 
 ```swift
-do{
-   let doc: Document = try! SwiftSoup.parse("")
-	let div: Element = try! doc.select("div").first()! // <div></div>
-	try div.text("five > four") // <div>five &gt; four</div>
-	try div.prepend("First ")
-	try div.append(" Last")
-	// now: <div>First five &gt; four Last</div>
-}catch Exception.Error(let type, let message){
-	print(message)
-}catch{
-	print("error")
+do {
+    let doc: Document = try! SwiftSoup.parse("")
+    let div: Element = try! doc.select("div").first()! // <div></div>
+    try div.text("five > four") // <div>five &gt; four</div>
+    try div.prepend("First ")
+    try div.append(" Last")
+    // now: <div>First five &gt; four Last</div>
+} catch Exception.Error(let type, let message) {
+    print(message)
+} catch {
+    print("error")
 }
 ```
 
@@ -316,17 +313,17 @@ You have a HTML document that you want to extract data from. You know generally 
 Use the DOM-like methods available after parsing HTML into a `Document`.
 
 ```swift
-do{
-	let html: String = "<a id=1 href='?foo=bar&mid&lt=true'>One</a> <a id=2 href='?foo=bar&lt;qux&lg=1'>Two</a>"
-	let els: Elements = try SwiftSoup.parse(html).select("a")
-	for link: Element in els.array(){
-    	let linkHref: String = try link.attr("href")
-    	let linkText: String = try link.text()
-	}
-}catch Exception.Error(let type, let message){
-	print(message)
-}catch{
-	print("error")
+do {
+    let html: String = "<a id=1 href='?foo=bar&mid&lt=true'>One</a> <a id=2 href='?foo=bar&lt;qux&lg=1'>Two</a>"
+    let els: Elements = try SwiftSoup.parse(html).select("a")
+    for link: Element in els.array() {
+        let linkHref: String = try link.attr("href")
+        let linkText: String = try link.text()
+    }
+} catch Exception.Error(let type, let message) {
+    print(message)
+} catch {
+    print("error")
 }
 ```
 ### Description
@@ -373,18 +370,18 @@ You want to find or manipulate elements using a CSS or jquery-like selector synt
 Use the `Element.select(_ selector: String)` and `Elements.select(_ selector: String)` methods:
 
 ```swift
-do{
-	let doc: Document = try SwiftSoup.parse("...")
-	let links: Elements = try doc.select("a[href]") // a with href
-	let pngs: Elements = try doc.select("img[src$=.png]")
-	// img with src ending .png
-	let masthead: Element? = try doc.select("div.masthead").first()
-	// div with class=masthead
-	let resultLinks: Elements? = try doc.select("h3.r > a") // direct a after h3
-}catch Exception.Error(let type, let message){
-	print(message)
-}catch{
-	print("error")
+do {
+    let doc: Document = try SwiftSoup.parse("...")
+    let links: Elements = try doc.select("a[href]") // a with href
+    let pngs: Elements = try doc.select("img[src$=.png]")
+    // img with src ending .png
+    let masthead: Element? = try doc.select("div.masthead").first()
+    // div with class=masthead
+    let resultLinks: Elements? = try doc.select("h3.r > a") // direct a after h3
+} catch Exception.Error(let type, let message) {
+    print(message)
+} catch{
+    print("error")
 }
 ```
 ### Description
@@ -409,7 +406,7 @@ Select returns a list of `Elements` (as `Elements`), which provides a range of m
 * `el.class`: elements with class, e.g. `div.masthead`
 * `el[attr]`: elements with attribute, e.g. `a[href]`
 * Any combination, e.g. `a[href].highlight`
-* ancestor `child`: child elements that descend from ancestor, e.g. `.body p` finds `p` elements anywhere under a block with class "body"
+* Ancestor `child`: child elements that descend from ancestor, e.g. `.body p` finds `p` elements anywhere under a block with class "body"
 * `parent > child`: child elements that descend directly from parent, e.g. `div.content > p` finds p elements; and `body > *` finds the direct children of the body tag
 * `siblingA + siblingB`: finds sibling B element immediately preceded by sibling A, e.g. `div.head + div`
 * `siblingA ~ siblingX`: finds sibling X element preceded by sibling A, e.g. `h1 ~ p`
@@ -439,11 +436,11 @@ guard let doc: Document = try? SwiftSoup.parse(html) else { return }
 
 ```swift
 guard let elements = try? doc.getAllElements() else { return html }
-    for element in elements {
-        for textNode in element.textNodes() {
-            [...]
-        }
+for element in elements {
+    for textNode in element.textNodes() {
+        [...]
     }
+}
 ```
 
 ## Set CSS using SwiftSoup:
@@ -470,28 +467,28 @@ let html = "<div class=\"container-fluid\">"
     + "</form>"
     + "</div>"
     + "</div>"
-guard let doc: Document = try? SwiftSoup.parse(html) else{return}//parse html
-let elements = try doc.select("[name=transaction_id]")//query
-let transaction_id = try elements.get(0)//select first element , 
-let value = try transaction_id.val()//get value
-print(value)//4245
+guard let doc: Document = try? SwiftSoup.parse(html) else{return} // parse html
+let elements = try doc.select("[name=transaction_id]") // query
+let transaction_id = try elements.get(0) // select first element
+let value = try transaction_id.val() // get value
+print(value) // 4245
 ```
 ## How to remove all the html from a string
 
 ```swift
-guard let doc: Document = try? SwiftSoup.parse(html) else{return}//parse html
+guard let doc: Document = try? SwiftSoup.parse(html) else{return} // parse html
 guard let txt = try? doc.text() else {return}
 print(txt)
 ```
 
-## how to get and update XML values
+## How to get and update XML values
 
 ```swift
 let xml = "<?xml version='1' encoding='UTF-8' something='else'?><val>One</val>"
 guard let doc = try? SwiftSoup.parse(xml, "", Parser.xmlParser()) else{return}
-guard let element = try? doc.getElementsByTag("val").first()//Find first element
-element.text("NewValue")//Edit Value
-let valueString = element.text() //"NewValue"
+guard let element = try? doc.getElementsByTag("val").first() // Find first element
+element.text("NewValue") // Edit Value
+let valueString = element.text() // "NewValue"
 ```
 
 ## How to get all `<img src>`
@@ -502,11 +499,11 @@ do {
     let srcs: Elements = try doc.select("img[src]")
     let srcsStringArray: [String?] = srcs.array().map { try? $0.attr("src").description }
     // do something with srcsStringArray
-    } catch Exception.Error(_, let message) {
-        print(message)
-    } catch {
-        print("error")
-    }
+} catch Exception.Error(_, let message) {
+    print(message)
+} catch {
+    print("error")
+}
 ```
 
 ##  Get all `href` of `<a>`
@@ -515,7 +512,7 @@ do {
 let html = "<a id=1 href='?foo=bar&mid&lt=true'>One</a> <a id=2 href='?foo=bar&lt;qux&lg=1'>Two</a>"
 guard let els: Elements = try? SwiftSoup.parse(html).select("a")  else {return}
 for element: Element in els.array(){
-	print(try? element.attr("href"))
+    print(try? element.attr("href"))
 }
 ```
 Output:
