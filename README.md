@@ -89,7 +89,7 @@ do {
     let linkInnerH: String = try! link.html(); // "<b>example</b>"
 } catch Exception.Error(let type, let message) {
     print(message)
-} catch{
+} catch {
     print("error")
 }
 ```
@@ -176,7 +176,7 @@ do {
     // now: <p><a href="http://example.com/" rel="nofollow">Link</a></p>
 } catch Exception.Error(let type, let message) {
     print(message)
-} catch{
+} catch {
     print("error")
 }
 ```
@@ -219,7 +219,7 @@ do {
     try doc.select("div.comments a").attr("rel", "nofollow")
 } catch Exception.Error(let type, let message) {
     print(message)
-} catch{
+} catch {
     print("error")
 }
 ```
@@ -231,7 +231,7 @@ do {
     try doc.select("div.masthead").attr("title", "swiftsoup").addClass("round-box");
 } catch Exception.Error(let type, let message) {
     print(message)
-} catch{
+} catch {
     print("error")
 }
 ```
@@ -257,9 +257,9 @@ do {
     print(doc)
     // now: <li><a href="http://example.com/"><span>One</span></a></li>
 } catch Exception.Error(let type, let message) {
-	print(message)
+    print(message)
 } catch {
-	print("error")
+    print("error")
 }
 ```
 ### Discussion
@@ -380,7 +380,7 @@ do {
     let resultLinks: Elements? = try doc.select("h3.r > a") // direct a after h3
 } catch Exception.Error(let type, let message) {
     print(message)
-} catch{
+} catch {
     print("error")
 }
 ```
@@ -467,7 +467,7 @@ let html = "<div class=\"container-fluid\">"
     + "</form>"
     + "</div>"
     + "</div>"
-guard let doc: Document = try? SwiftSoup.parse(html) else{return} // parse html
+guard let doc: Document = try? SwiftSoup.parse(html) else { return } // parse html
 let elements = try doc.select("[name=transaction_id]") // query
 let transaction_id = try elements.get(0) // select first element
 let value = try transaction_id.val() // get value
@@ -476,8 +476,8 @@ print(value) // 4245
 ## How to remove all the html from a string
 
 ```swift
-guard let doc: Document = try? SwiftSoup.parse(html) else{return} // parse html
-guard let txt = try? doc.text() else {return}
+guard let doc: Document = try? SwiftSoup.parse(html) else { return } // parse html
+guard let txt = try? doc.text() else { return }
 print(txt)
 ```
 
@@ -485,7 +485,7 @@ print(txt)
 
 ```swift
 let xml = "<?xml version='1' encoding='UTF-8' something='else'?><val>One</val>"
-guard let doc = try? SwiftSoup.parse(xml, "", Parser.xmlParser()) else{return}
+guard let doc = try? SwiftSoup.parse(xml, "", Parser.xmlParser()) else { return }
 guard let element = try? doc.getElementsByTag("val").first() // Find first element
 element.text("NewValue") // Edit Value
 let valueString = element.text() // "NewValue"
@@ -510,8 +510,8 @@ do {
 
 ```swift
 let html = "<a id=1 href='?foo=bar&mid&lt=true'>One</a> <a id=2 href='?foo=bar&lt;qux&lg=1'>Two</a>"
-guard let els: Elements = try? SwiftSoup.parse(html).select("a")  else {return}
-for element: Element in els.array(){
+guard let els: Elements = try? SwiftSoup.parse(html).select("a") else { return }
+for element: Element in els.array() {
     print(try? element.attr("href"))
 }
 ```
