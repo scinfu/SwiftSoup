@@ -359,6 +359,7 @@
 		8CE418571DAA568600240B42 /* SwiftSoup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SwiftSoup.swift; sourceTree = "<group>"; };
 		8CEA29581DAC112B0064A341 /* CharacterReader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CharacterReader.swift; sourceTree = "<group>"; };
 		8CEA295A1DAC23820064A341 /* String.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = String.swift; sourceTree = "<group>"; };
+		BD36975B20135EBB00D8FAC6 /* SwiftSoup.podspec */ = {isa = PBXFileReference; lastKnownFileType = text; path = SwiftSoup.podspec; sourceTree = "<group>"; };
 		BD3B5BA91FBED933001FDB3B /* SwiftSoup.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SwiftSoup.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD3B5BAA1FBED934001FDB3B /* InfoMac.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = InfoMac.plist; path = /Users/nabil/Documents/nabil/SwiftSoup/Sources/InfoMac.plist; sourceTree = "<absolute>"; };
 		BD3B5BEC1FC063BD001FDB3B /* SwiftSoup.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SwiftSoup.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -520,6 +521,7 @@
 		8CE4180C1DAA54A900240B42 = {
 			isa = PBXGroup;
 			children = (
+				BD36975B20135EBB00D8FAC6 /* SwiftSoup.podspec */,
 				8CE418181DAA54A900240B42 /* Sources */,
 				8CE418231DAA54A900240B42 /* Tests */,
 				8CE418171DAA54A900240B42 /* Products */,
