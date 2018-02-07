@@ -164,6 +164,11 @@ class XmlTreeBuilderTest: XCTestCase {
 		let doc = try  SwiftSoup.parse(xml, "", Parser.xmlParser().settings(ParseSettings.htmlDefault))
 		try XCTAssertEqual("<test id=\"1\">Check</test>", TextUtil.stripNewlines(doc.html()))
 	}
+    
+    func testNilReplaceInQueue()throws {
+        let html: String = "<TABLE><TBODY><TR><TD></TD><TD><FONT color=#000000 size=1><I><FONT size=5><P align=center></FONT></I></FONT>&nbsp;</P></TD></TR></TBODY></TABLE></TD></TR></TBODY></TABLE></DIV></DIV></DIV><BLOCKQUOTE></BLOCKQUOTE><DIV style=\"FONT: 10pt Courier New\"><BR><BR>&nbsp;</DIV></BODY></HTML>"
+        _ = try SwiftSoup.parse(html)
+    }
 
 	static var allTests = {
 		return [
@@ -181,7 +186,8 @@ class XmlTreeBuilderTest: XCTestCase {
 			("testCaseSensitiveDeclaration", testCaseSensitiveDeclaration),
 			("testCreatesValidProlog", testCreatesValidProlog),
 			("testPreservesCaseByDefault", testPreservesCaseByDefault),
-			("testCanNormalizeCase", testCanNormalizeCase)
+			("testCanNormalizeCase", testCanNormalizeCase),
+            ("testNilReplaceInQueue",testNilReplaceInQueue)
 		]
 	}()
 

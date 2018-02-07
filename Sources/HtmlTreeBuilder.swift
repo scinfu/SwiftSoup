@@ -418,6 +418,19 @@ class HtmlTreeBuilder: TreeBuilder {
         queue[i] = input
         return queue
     }
+    
+    private func replaceInQueue(_ queue: Array<Element?>, _ out: Element, _ input: Element)throws->Array<Element?> {
+        var queue = queue
+        var i: Int = -1
+        for index in 0..<queue.count{
+            if(out == queue[index]){
+                i = index
+            }
+        }
+        try Validate.isTrue(val: i != -1)
+        queue[i] = input
+        return queue
+    }
 
     func resetInsertionMode() {
         var last = false
@@ -726,7 +739,7 @@ class HtmlTreeBuilder: TreeBuilder {
     }
 
     func replaceActiveFormattingElement(_ out: Element, _ input: Element)throws {
-        try formattingElements = replaceInQueue(formattingElements as! Array<Element>, out, input)//todo: testare as! non è bello
+        try formattingElements = replaceInQueue(formattingElements, out, input)
     }
 
     func insertMarkerToFormattingElements() {
