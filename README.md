@@ -32,6 +32,17 @@ it, simply add the following line to your Podfile:
 pod 'SwiftSoup'
 ```
 
+
+try example project opening Terminal and type:
+
+```shell
+pod try SwiftSoup
+```
+<p align="center" >
+  <img src="https://raw.githubusercontent.com/scinfu/SwiftSoup/master/Example/img1.png" alt="SwiftSoup" title="SwiftSoup">
+  <img src="https://raw.githubusercontent.com/scinfu/SwiftSoup/master/Example/img2.png" alt="SwiftSoup" title="SwiftSoup">
+</p>
+
 ### Carthage
 SwiftSoup is also available through [Carthage](https://github.com/Carthage/Carthage). To install
 it, simply add the following line to your Cartfile:
