@@ -16,7 +16,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "8CE418151DAA54A900240B42"
                BuildableName = "SwiftSoup.framework"
-               BlueprintName = "SwiftSoup"
+               BlueprintName = "SwiftSoup-iOS"
                ReferencedContainer = "container:SwiftSoup.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -45,7 +45,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "8CE418151DAA54A900240B42"
             BuildableName = "SwiftSoup.framework"
-            BlueprintName = "SwiftSoup"
+            BlueprintName = "SwiftSoup-iOS"
             ReferencedContainer = "container:SwiftSoup.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -68,7 +68,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "8CE418151DAA54A900240B42"
             BuildableName = "SwiftSoup.framework"
-            BlueprintName = "SwiftSoup"
+            BlueprintName = "SwiftSoup-iOS"
             ReferencedContainer = "container:SwiftSoup.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -86,7 +86,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "8CE418151DAA54A900240B42"
             BuildableName = "SwiftSoup.framework"
-            BlueprintName = "SwiftSoup"
+            BlueprintName = "SwiftSoup-iOS"
             ReferencedContainer = "container:SwiftSoup.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
