@@ -11,7 +11,7 @@ open class StringBuilder {
      :param: string Initial value; defaults to empty string
      */
     public init(string: String = "") {
-        self.stringValue = Array(string.characters)
+        self.stringValue = Array(string)
     }
     
     public init(_ size: Int) {
@@ -43,7 +43,7 @@ open class StringBuilder {
      :return: reference to this StringBuilder instance
      */
     open func append(_ string: String) {
-        stringValue.append(contentsOf: string.characters)
+        stringValue.append(contentsOf: string)
     }
     
     open func appendCodePoint(_ chr: Character) {
@@ -77,19 +77,19 @@ open class StringBuilder {
      */
     @discardableResult
     open func append<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
-        stringValue.append(contentsOf: value.description.characters)
+        stringValue.append(contentsOf: value.description)
         return self
     }
     
     @discardableResult
     open func append(_ value: UnicodeScalar) -> StringBuilder {
-        stringValue.append(contentsOf: value.description.characters)
+        stringValue.append(contentsOf: value.description)
         return self
     }
     
     @discardableResult
     open func insert<T: CustomStringConvertible>(_ offset: Int, _ value: T) -> StringBuilder {
-        stringValue.insert(contentsOf: value.description.characters, at: offset)
+        stringValue.insert(contentsOf: value.description, at: offset)
         return self
     }
     
@@ -102,7 +102,7 @@ open class StringBuilder {
      */
     @discardableResult
     open func appendLine(_ string: String) -> StringBuilder {
-        stringValue.append(contentsOf: "\n".characters)
+        stringValue.append(contentsOf: "\n")
         return self
     }
     
@@ -115,8 +115,8 @@ open class StringBuilder {
      */
     @discardableResult
     open func appendLine<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
-        stringValue.append(contentsOf: value.description.characters)
-        stringValue.append(contentsOf: "\n".characters)
+        stringValue.append(contentsOf: value.description)
+        stringValue.append(contentsOf: "\n")
         return self
     }
     

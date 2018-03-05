@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0900"
+   LastUpgradeVersion = "0910"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "8CE418151DAA54A900240B42"
+               BlueprintIdentifier = "BD3B5B681FBED933001FDB3B"
                BuildableName = "SwiftSoup.framework"
-               BlueprintName = "SwiftSoup-iOS"
+               BlueprintName = "SwiftSoup-macOS"
                ReferencedContainer = "container:SwiftSoup.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -29,16 +29,6 @@
       language = ""
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "8CE4181E1DAA54A900240B42"
-               BuildableName = "SwiftSoupTests.xctest"
-               BlueprintName = "SwiftSoupTests"
-               ReferencedContainer = "container:SwiftSoup.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
       <MacroExpansion>
          <BuildableReference
@@ -66,9 +56,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "8CE418151DAA54A900240B42"
+            BlueprintIdentifier = "BD3B5B681FBED933001FDB3B"
             BuildableName = "SwiftSoup.framework"
-            BlueprintName = "SwiftSoup-iOS"
+            BlueprintName = "SwiftSoup-macOS"
             ReferencedContainer = "container:SwiftSoup.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -81,15 +71,6 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "8CE418151DAA54A900240B42"
-            BuildableName = "SwiftSoup.framework"
-            BlueprintName = "SwiftSoup-iOS"
-            ReferencedContainer = "container:SwiftSoup.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

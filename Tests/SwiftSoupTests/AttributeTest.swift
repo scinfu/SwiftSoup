@@ -26,7 +26,7 @@ class AttributeTest: XCTestCase {
     }
 
     func testWithSupplementaryCharacterInAttributeKeyAndValue() {
-        let s =  String("135361".characters)
+        let s =  "135361"
         let attr = try! Attribute(key: s, value: "A" + s + "B")
         XCTAssertEqual(s + "=\"A" + s + "B\"", attr.html())
         XCTAssertEqual(attr.html(), attr.toString())

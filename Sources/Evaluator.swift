@@ -303,7 +303,7 @@ public class Evaluator {
 
             self.key = key.trim().lowercased()
             if (value2.startsWith("\"") && value2.hasSuffix("\"") || value2.startsWith("'") && value2.hasSuffix("'")) {
-                value2 = value2.substring(1, value2.characters.count-2)
+                value2 = value2.substring(1, value2.count-2)
             }
             self.value = value2.trim().lowercased()
         }

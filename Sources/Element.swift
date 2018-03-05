@@ -508,7 +508,7 @@ open class Element: Node {
      * @return the CSS Path that can be used to retrieve the element in a selector.
      */
     public func cssSelector()throws->String {
-        if (id().characters.count > 0) {
+        if (id().count > 0) {
             return "#" + id()
         }
 
@@ -517,7 +517,7 @@ open class Element: Node {
         let selector: StringBuilder = StringBuilder(string: tagName)
         let cl = try classNames()
         let classes: String = cl.joined(separator: ".")
-        if (classes.characters.count > 0) {
+        if (classes.count > 0) {
             selector.append(".").append(classes)
         }
 
@@ -1089,8 +1089,8 @@ open class Element: Node {
     // performance sensitive
     public func hasClass(_ className: String) -> Bool {
         let classAtt: String? = attributes?.get(key: Element.classString)
-        let len: Int = (classAtt != nil) ? classAtt!.characters.count : 0
-        let wantLen: Int = className.characters.count
+        let len: Int = (classAtt != nil) ? classAtt!.count : 0
+        let wantLen: Int = className.count
 
         if (len == 0 || len < wantLen) {
             return false

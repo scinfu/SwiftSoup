@@ -162,7 +162,7 @@ class HtmlTreeBuilder: TreeBuilder {
         }
 
         let href: String = try base.absUrl("href")
-        if (href.characters.count != 0) { // ignore <base target> etc
+        if (href.count != 0) { // ignore <base target> etc
             baseUri = href
             baseUriSetFromDoc = true
             try doc.setBaseUri(href) // set on the doc so doc.createElement(Tag) will get updated base, and to update all descendants
@@ -414,6 +414,19 @@ class HtmlTreeBuilder: TreeBuilder {
     private func replaceInQueue(_ queue: Array<Element>, _ out: Element, _ input: Element)throws->Array<Element> {
         var queue = queue
         let i: Int = queue.lastIndexOf(out)
+        try Validate.isTrue(val: i != -1)
+        queue[i] = input
+        return queue
+    }
+    
+    private func replaceInQueue(_ queue: Array<Element?>, _ out: Element, _ input: Element)throws->Array<Element?> {
+        var queue = queue
+        var i: Int = -1
+        for index in 0..<queue.count{
+            if(out == queue[index]){
+                i = index
+            }
+        }
         try Validate.isTrue(val: i != -1)
         queue[i] = input
         return queue
@@ -726,7 +739,7 @@ class HtmlTreeBuilder: TreeBuilder {
     }
 
     func replaceActiveFormattingElement(_ out: Element, _ input: Element)throws {
-        try formattingElements = replaceInQueue(formattingElements as! Array<Element>, out, input)//todo: testare as! non è bello
+        try formattingElements = replaceInQueue(formattingElements, out, input)
     }
 
     func insertMarkerToFormattingElements() {

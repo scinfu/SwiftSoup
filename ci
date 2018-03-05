@@ -59,7 +59,7 @@ fi
 if [[ $OS == "macos" ]];
 then
     echo "Running on $OS - building on Xcode"
-    xcodebuild -project SwiftSoup.xcodeproj -scheme SwiftSoup -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO -destination 'platform=iOS Simulator,name=iPhone 6' build test
+    xcodebuild -project SwiftSoup.xcodeproj -scheme SwiftSoup-iOS -sdk iphonesimulator ONLY_ACTIVE_ARCH=NO -destination 'platform=iOS Simulator,name=iPhone 6' build test
     if [[ $? != 0 ]];
     then
         echo "❌ Xcode Project Tests failed";
