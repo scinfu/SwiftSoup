@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "BD3B5B681FBED933001FDB3B"
-               BuildableName = "SwitSoup.framework"
+               BuildableName = "SwiftSoup.framework"
                BlueprintName = "SwiftSoup-macOS"
                ReferencedContainer = "container:SwiftSoup.xcodeproj">
             </BuildableReference>
@@ -53,6 +53,15 @@
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "BD3B5B681FBED933001FDB3B"
+            BuildableName = "SwiftSoup.framework"
+            BlueprintName = "SwiftSoup-macOS"
+            ReferencedContainer = "container:SwiftSoup.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
       <AdditionalOptions>
       </AdditionalOptions>
    </LaunchAction>

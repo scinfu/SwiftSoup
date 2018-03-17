@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "BD3B5BEE1FC06423001FDB3B"
-               BuildableName = "SwiftSoup-watchOS.framework"
+               BuildableName = "SwiftSoup.framework"
                BlueprintName = "SwiftSoup-watchOS"
                ReferencedContainer = "container:SwiftSoup.xcodeproj">
             </BuildableReference>
@@ -48,7 +48,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "BD3B5BEE1FC06423001FDB3B"
-            BuildableName = "SwiftSoup-watchOS.framework"
+            BuildableName = "SwiftSoup.framework"
             BlueprintName = "SwiftSoup-watchOS"
             ReferencedContainer = "container:SwiftSoup.xcodeproj">
          </BuildableReference>
@@ -66,7 +66,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "BD3B5BEE1FC06423001FDB3B"
-            BuildableName = "SwiftSoup-watchOS.framework"
+            BuildableName = "SwiftSoup.framework"
             BlueprintName = "SwiftSoup-watchOS"
             ReferencedContainer = "container:SwiftSoup.xcodeproj">
          </BuildableReference>
