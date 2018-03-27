@@ -8,7 +8,7 @@
 
 import Foundation
 import XCTest
-import SwiftSoup
+@testable import SwiftSoup
 
 class EntitiesTest: XCTestCase {
 
@@ -47,6 +47,35 @@ class EntitiesTest: XCTestCase {
         XCTAssertEqual(text, try Entities.unescape(escapedUtfFull2))
 		XCTAssertEqual(text, try Entities.unescape(escapedUtfMin))
 	}
+
+    func testEscapeInAttribute() {
+        let text = "H   ello &<> Å å π 新 there ¾ © »"
+        let accum = StringBuilder()
+        Entities.escape(accum, text, OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base), true, false, false)
+        XCTAssertEqual("H   ello &amp;<> &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", accum.toString())
+    }
+
+    func testEscapeNormalizeWhiteSpace() {
+        let text = "H   ello &<> Å å π 新 there ¾ © »"
+        let accum = StringBuilder()
+        Entities.escape(accum, text, OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base), false, true, false)
+        XCTAssertEqual("H ello &amp;&lt;&gt; &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", accum.toString())
+
+        accum.clear()
+        Entities.escape(accum, "Hello\nthere", OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base), false, true, true)
+        XCTAssertEqual("Hello there", accum.toString())
+    }
+
+    func testEscapeStripLeadingWhitespace() {
+        let text = "     Hello &<> Å å π 新 there ¾ © »"
+        let accum = StringBuilder()
+        Entities.escape(accum, text, OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base), false, false, true)
+        XCTAssertEqual("     Hello &amp;&lt;&gt; &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", accum.toString())
+
+        accum.clear()
+        Entities.escape(accum, text, OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base), false, true, true)
+        XCTAssertEqual("Hello &amp;&lt;&gt; &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", accum.toString())
+    }
 
 	func testXhtml() {
 		//let text = "&amp; &gt; &lt; &quot;";
@@ -153,6 +182,10 @@ class EntitiesTest: XCTestCase {
 		return [
             ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
             ("testEscape", testEscape),
+            ("testEscapeInAttribute", testEscapeInAttribute),
+            ("testEscapeBenchmark", testEscapeBenchmark),
+            ("testEscapeNormalizeWhiteSpace", testEscapeNormalizeWhiteSpace),
+            ("testEscapeStripLeadingWhitespace", testEscapeStripLeadingWhitespace),
 			("testXhtml", testXhtml),
 			("testGetByName", testGetByName),
 			("testEscapeSupplementaryCharacter", testEscapeSupplementaryCharacter),
