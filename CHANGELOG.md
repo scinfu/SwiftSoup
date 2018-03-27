@@ -1,7 +1,13 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [1.6.3](https://github.com/scinfu/SwiftSoup/tree/1.6.4)
+## [1.6.5](https://github.com/scinfu/SwiftSoup/tree/1.6.5)
+* Performance improvement
+* Remove StringBuilder from Entities.escape
+* Write explicit tests to cover Entities.escape
+* Write benchmarks to document improvement
+
+## [1.6.4](https://github.com/scinfu/SwiftSoup/tree/1.6.4)
 * Add newer simulators to targeted devices to build with Carthage [tvOS]
 
 ## [1.6.3](https://github.com/scinfu/SwiftSoup/tree/1.6.3)
