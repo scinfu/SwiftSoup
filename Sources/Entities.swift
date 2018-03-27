@@ -238,103 +238,58 @@ public class Entities {
     }
     
     open static func escape(_ string: String, _ out: OutputSettings) -> String {
-        let accum = StringBuilder()//string.characters.count * 2
+        let accum = StringBuilder()
         escape(accum, string, out, false, false, false)
-        //        try {
-        //
-        //        } catch (IOException e) {
-        //        throw new SerializationException(e) // doesn't happen
-        //        }
         return accum.toString()
     }
     
     // this method is ugly, and does a lot. but other breakups cause rescanning and stringbuilder generations
     static func escape(_ accum: StringBuilder, _ string: String, _ out: OutputSettings, _ inAttribute: Bool, _ normaliseWhite: Bool, _ stripLeadingWhite: Bool ) {
-        var lastWasWhite = false
-        var reachedNonWhite = false
-        let escapeMode: EscapeMode = out.escapeMode()
-        let encoder: String.Encoding = out.encoder()
-        //let length = UInt32(string.characters.count)
-        
-        var codePoint: UnicodeScalar
-        for ch in string.unicodeScalars {
-            codePoint = ch
-            
-            if (normaliseWhite) {
-                if (codePoint.isWhitespace) {
-                    if ((stripLeadingWhite && !reachedNonWhite) || lastWasWhite) {
-                        continue
-                    }
-                    accum.append(UnicodeScalar.Space)
-                    lastWasWhite = true
-                    continue
+        func foo(_ codePoint: UnicodeScalar, _ accumString: inout String) {
+            switch (codePoint, inAttribute, out.escapeMode()) {
+            case (.Ampersand, _, _):
+                accumString.append("&amp;")
+            case (UnicodeScalar(0xA0)!, _, .base), (UnicodeScalar(0xA0)!, _, .extended):
+                accumString.append("&nbsp;")
+            case (UnicodeScalar(0xA0)!, _, _):
+                accumString.append("&#xa0;")
+            case (.LessThan, false, _), (.LessThan, _, .xhtml):
+                // escape when in character data or when in a xml attribue val; not needed in html attr val
+                accumString.append("&lt;")
+            case (.GreaterThan, false, _):
+                accumString.append("&gt;")
+            case ("\"", true, _):
+                accumString.append("&quot;")
+            default:
+                if (out.encoder().canEncode(String(codePoint))) {
+                    accumString.unicodeScalars.append(codePoint)
                 } else {
-                    lastWasWhite = false
-                    reachedNonWhite = true
-                }
-            }
-            
-            // surrogate pairs, split implementation for efficiency on single char common case (saves creating strings, char[]):
-            if (codePoint.value < Character.MIN_SUPPLEMENTARY_CODE_POINT) {
-                let c = codePoint
-                // html specific and required escapes:
-                switch (codePoint) {
-                case UnicodeScalar.Ampersand:
-                    accum.append("&amp;")
-                    break
-                case UnicodeScalar(UInt32(0xA0))!:
-                    if (escapeMode != EscapeMode.xhtml) {
-                        accum.append("&nbsp;")
+                    let name = out.escapeMode().nameForCodepoint(Int(codePoint.value))
+                    if name.isEmpty {
+                        accumString.append("&#x\(String.toHexString(n:Int(codePoint.value)));")
                     } else {
-                        accum.append("&#xa0;")
+                        accumString.append("&\(name);")
                     }
-                    break
-                case UnicodeScalar.LessThan:
-                    // escape when in character data or when in a xml attribue val; not needed in html attr val
-                    if (!inAttribute || escapeMode == EscapeMode.xhtml) {
-                        accum.append("&lt;")
-                    } else {
-                        accum.append(c)
-                    }
-                    break
-                case UnicodeScalar.GreaterThan:
-                    if (!inAttribute) {
-                        accum.append("&gt;")
-                    } else {
-                        accum.append(c)}
-                    break
-                case "\"":
-                    if (inAttribute) {
-                        accum.append("&quot;")
-                    } else {
-                        accum.append(c)
-                    }
-                    break
-                default:
-                    if (canEncode(c, encoder)) {
-                        accum.append(c)
-                    } else {
-                        appendEncoded(accum: accum, escapeMode: escapeMode, codePoint: codePoint)
-                    }
-                }
-            } else {
-                if (encoder.canEncode(String(codePoint))) // uses fallback encoder for simplicity
-                {
-                    accum.append(String(codePoint))
-                } else {
-                    appendEncoded(accum: accum, escapeMode: escapeMode, codePoint: codePoint)
                 }
             }
         }
-    }
-    
-    private static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, codePoint: UnicodeScalar) {
-        let name = escapeMode.nameForCodepoint(Int(codePoint.value))
-        if (name != emptyName) // ok for identity check
-        {accum.append(UnicodeScalar.Ampersand).append(name).append(";")
-        } else {
-            accum.append("&#x").append(String.toHexString(n:Int(codePoint.value)) ).append(";")
+
+        let escapedString = string.unicodeScalars.reduce(into: "") { (accumString, codePoint) in
+            let lastWasWhite = accumString.last?.isWhitespace
+
+            switch (normaliseWhite, stripLeadingWhite, lastWasWhite, codePoint.isWhitespace) {
+            case (true, _, true?, true), (true, true, .none, true):
+                return
+            default:
+                if codePoint.value < Character.MIN_SUPPLEMENTARY_CODE_POINT {
+                    foo(codePoint, &accumString)
+                } else {
+                    accumString.unicodeScalars.append(codePoint)
+                }
+            }
         }
+
+        accum.append(escapedString)
     }
     
     public static func unescape(_ string: String)throws-> String {
@@ -349,31 +304,6 @@ public class Entities {
      */
     public static func unescape(string: String, strict: Bool)throws -> String {
         return try Parser.unescapeEntities(string, strict)
-    }
-    
-    /*
-     * Provides a fast-path for Encoder.canEncode, which drastically improves performance on Android post JellyBean.
-     * After KitKat, the implementation of canEncode degrades to the point of being useless. For non ASCII or UTF,
-     * performance may be bad. We can add more encoders for common character sets that are impacted by performance
-     * issues on Android if required.
-     *
-     * Benchmarks:     *
-     * OLD toHtml() impl v New (fastpath) in millis
-     * Wiki: 1895, 16
-     * CNN: 6378, 55
-     * Alterslash: 3013, 28
-     * Jsoup: 167, 2
-     */
-    private static func canEncode(_ c: UnicodeScalar, _ fallback: String.Encoding) -> Bool {
-        // todo add more charset tests if impacted by Android's bad perf in canEncode
-        switch (fallback) {
-        case String.Encoding.ascii:
-            return c.value < 0x80
-        case String.Encoding.utf8:
-            return true // real is:!(Character.isLowSurrogate(c) || Character.isHighSurrogate(c)) - but already check above
-        default:
-            return fallback.canEncode(String(Character(c)))
-        }
     }
     
     static let xhtml: String = "amp=12;1\ngt=1q;3\nlt=1o;2\nquot=y;0"
