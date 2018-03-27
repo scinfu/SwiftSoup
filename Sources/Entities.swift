@@ -274,18 +274,19 @@ public class Entities {
             }
         }
 
+        var reachedNonWhite = false
         let escapedString = string.unicodeScalars.reduce(into: "") { (accumString, codePoint) in
             let lastWasWhite = accumString.last?.isWhitespace
 
-            switch (normaliseWhite, stripLeadingWhite, lastWasWhite, codePoint.isWhitespace) {
-            case (true, _, true?, true), (true, true, .none, true):
+            switch (normaliseWhite, codePoint.isWhitespace, stripLeadingWhite, reachedNonWhite, lastWasWhite) {
+            case (true, true, true, false, _), (true, true, _, _, true?):
+                return
+            case (true, true, _, _, _):
+                accumString.unicodeScalars.append(UnicodeScalar.Space)
                 return
             default:
-                if codePoint.value < Character.MIN_SUPPLEMENTARY_CODE_POINT {
-                    foo(codePoint, &accumString)
-                } else {
-                    accumString.unicodeScalars.append(codePoint)
-                }
+                reachedNonWhite = true
+                foo(codePoint, &accumString)
             }
         }
 
