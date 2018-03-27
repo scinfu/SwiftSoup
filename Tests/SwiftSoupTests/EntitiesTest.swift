@@ -55,6 +55,17 @@ class EntitiesTest: XCTestCase {
         XCTAssertEqual("H   ello &amp;<> &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", accum.toString())
     }
 
+    func testEscapeBenchmark() {
+        let text = "   Hello      &<> Å å π 新 there ¾ © »"
+        let accum = StringBuilder()
+        let settings = OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base)
+        measure {
+            accum.clear()
+            Entities.escape(accum, text, settings, true, true, true)
+        }
+        XCTAssertEqual("Hello &amp;<> &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", accum.toString())
+    }
+
     func testEscapeNormalizeWhiteSpace() {
         let text = "H   ello &<> Å å π 新 there ¾ © »"
         let accum = StringBuilder()
