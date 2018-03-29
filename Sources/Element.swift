@@ -508,30 +508,32 @@ open class Element: Node {
      * @return the CSS Path that can be used to retrieve the element in a selector.
      */
     public func cssSelector()throws->String {
-        if (id().count > 0) {
-            return "#" + id()
+        let elementId = id()
+        if (elementId.count > 0) {
+            return "#" + elementId
         }
-
+        
         // Translate HTML namespace ns:tag to CSS namespace syntax ns|tag
         let tagName: String = self.tagName().replacingOccurrences(of: ":", with: "|")
-        let selector: StringBuilder = StringBuilder(string: tagName)
+        var selector: String = tagName
         let cl = try classNames()
         let classes: String = cl.joined(separator: ".")
         if (classes.count > 0) {
-            selector.append(".").append(classes)
+            selector.append(".")
+            selector.append(classes)
         }
-
+        
         if (parent() == nil || ((parent() as? Document) != nil)) // don't add Document to selector, as will always have a html node
         {
-            return selector.toString()
+            return selector
         }
-
-        selector.insert(0, " > ")
-        if (try parent()!.select(selector.toString()).array().count > 1) {
+        
+        selector.insert(contentsOf: " > ", at: selector.startIndex)
+        if (try parent()!.select(selector).array().count > 1) {
             selector.append(":nth-child(\(try elementSiblingIndex() + 1))")
         }
-
-        return try parent()!.cssSelector() + (selector.toString())
+        
+        return try parent()!.cssSelector() + (selector)
     }
 
     /**
