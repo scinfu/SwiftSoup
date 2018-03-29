@@ -238,13 +238,11 @@ public class Entities {
     }
     
     open static func escape(_ string: String, _ out: OutputSettings) -> String {
-        let accum = StringBuilder()
-        escape(accum, string, out, false, false, false)
-        return accum.toString()
+        return escape(string, out, false, false, false)
     }
     
-    // this method is ugly, and does a lot. but other breakups cause rescanning and stringbuilder generations
-    static func escape(_ accum: StringBuilder, _ string: String, _ out: OutputSettings, _ inAttribute: Bool, _ normaliseWhite: Bool, _ stripLeadingWhite: Bool ) {
+    // this method is ugly, and does a lot.
+    static func escape(_ string: String, _ out: OutputSettings, _ inAttribute: Bool, _ normaliseWhite: Bool, _ stripLeadingWhite: Bool ) -> String {
         func foo(_ codePoint: UnicodeScalar, _ accumString: inout String) {
             switch (codePoint, inAttribute, out.escapeMode()) {
             case (.Ampersand, _, _):
@@ -290,7 +288,7 @@ public class Entities {
             }
         }
 
-        accum.append(escapedString)
+        return escapedString
     }
     
     public static func unescape(_ string: String)throws-> String {

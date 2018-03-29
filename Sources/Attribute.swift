@@ -78,7 +78,7 @@ open class Attribute {
         accum.append(key)
         if (!shouldCollapseAttribute(out: out)) {
             accum.append("=\"")
-            Entities.escape(accum, value, out, true, false, false)
+            accum.append(Entities.escape(value, out, true, false, false))
             accum.append("\"")
         }
     }

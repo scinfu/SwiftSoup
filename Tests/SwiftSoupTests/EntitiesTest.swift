@@ -50,42 +50,39 @@ class EntitiesTest: XCTestCase {
 
     func testEscapeInAttribute() {
         let text = "H   ello &<> Å å π 新 there ¾ © »"
-        let accum = StringBuilder()
-        Entities.escape(accum, text, OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base), true, false, false)
-        XCTAssertEqual("H   ello &amp;<> &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", accum.toString())
+        let settings = OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base)
+        let result = Entities.escape(text, settings, true, false, false)
+        XCTAssertEqual("H   ello &amp;<> &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", result)
     }
 
     func testEscapeBenchmark() {
         let text = "   Hello      &<> Å å π 新 there ¾ © »"
-        let accum = StringBuilder()
         let settings = OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base)
+        var result: String = ""
         measure {
-            accum.clear()
-            Entities.escape(accum, text, settings, true, true, true)
+            result = Entities.escape(text, settings, true, true, true)
         }
-        XCTAssertEqual("Hello &amp;<> &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", accum.toString())
+        XCTAssertEqual("Hello &amp;<> &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", result)
     }
 
     func testEscapeNormalizeWhiteSpace() {
         let text = "H   ello &<> Å å π 新 there ¾ © »"
-        let accum = StringBuilder()
-        Entities.escape(accum, text, OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base), false, true, false)
-        XCTAssertEqual("H ello &amp;&lt;&gt; &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", accum.toString())
+        let settings = OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base)
+        let result = Entities.escape(text, settings, false, true, false)
+        XCTAssertEqual("H ello &amp;&lt;&gt; &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", result)
 
-        accum.clear()
-        Entities.escape(accum, "Hello\nthere", OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base), false, true, true)
-        XCTAssertEqual("Hello there", accum.toString())
+        let result2 = Entities.escape("Hello\nthere", settings, false, true, true)
+        XCTAssertEqual("Hello there", result2)
     }
 
     func testEscapeStripLeadingWhitespace() {
         let text = "     Hello &<> Å å π 新 there ¾ © »"
-        let accum = StringBuilder()
-        Entities.escape(accum, text, OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base), false, false, true)
-        XCTAssertEqual("     Hello &amp;&lt;&gt; &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", accum.toString())
+        let settings = OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base)
+        let result = Entities.escape(text, settings, false, false, true)
+        XCTAssertEqual("     Hello &amp;&lt;&gt; &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", result)
 
-        accum.clear()
-        Entities.escape(accum, text, OutputSettings().encoder(String.Encoding.ascii).escapeMode(Entities.EscapeMode.base), false, true, true)
-        XCTAssertEqual("Hello &amp;&lt;&gt; &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", accum.toString())
+        let result2 = Entities.escape(text, settings, false, true, true)
+        XCTAssertEqual("Hello &amp;&lt;&gt; &Aring; &aring; &#x3c0; &#x65b0; there &frac34; &copy; &raquo;", result2)
     }
 
 	func testXhtml() {
