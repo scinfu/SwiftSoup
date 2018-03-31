@@ -60,7 +60,7 @@ public class Entities {
 
             let reader: CharacterReader = CharacterReader(string)
 
-            while (!reader.isEmpty()) {
+            while !reader.isEmpty() {
                 // NotNestedLessLess=10913,824;1887
 
                 let name: String = reader.consumeTo("=")
@@ -83,13 +83,13 @@ public class Entities {
                 codeKeys[index] = cp1
                 nameVals[index] = name
 
-                if (cp2 != empty) {
-                    var s = String()
-                    s.append(Character(UnicodeScalar(cp1)!))
-                    s.append(Character(UnicodeScalar(cp2)!))
-                    multipoints[name] = s
+                if cp2 != empty {
+                    var string = String()
+                    string.append(Character(UnicodeScalar(cp1)!))
+                    string.append(Character(UnicodeScalar(cp2)!))
+                    multipoints[name] = string
                 }
-                i = i + 1
+                i += 1
             }
         }
 
@@ -142,21 +142,15 @@ public class Entities {
 
         public func nameForCodepoint(_ codepoint: Int ) -> String {
             //let ss = codeKeys.index(of: codepoint)
-
-            var index = -1
-            for s in codeKeys {
-                if s == codepoint {
-                    index = codeKeys.index(of: codepoint)!
-                }
+            
+            guard let  index = codeKeys.index(of: codepoint) else{
+                return emptyName
             }
-
-            if (index >= 0) {
-                // the results are ordered so lower case versions of same codepoint come after uppercase, and we prefer to emit lower
-                // (and binary search for same item with multi results is undefined
-                return (index < nameVals.count-1 && codeKeys[index+1] == codepoint) ?
-                    nameVals[index+1] : nameVals[index]
-            }
-            return emptyName
+            // the results are ordered so lower case versions of same codepoint come after uppercase,
+            // and we prefer to emit lower
+            // (and binary search for same item with multi results is undefined
+            return (index < nameVals.count-1 && codeKeys[index+1] == codepoint) ?
+                nameVals[index+1] : nameVals[index]
         }
 
         private func size() -> Int {
@@ -206,9 +200,9 @@ public class Entities {
      */
     open static func getByName(name: String) -> String {
         let val = multipoints[name]
-        if (val != nil) {return val!}
+        if val != nil {return val!}
         let codepoint = EscapeMode.extended.codepointForName(name)
-        if (codepoint != empty) {
+        if codepoint != empty {
             return String(Character(UnicodeScalar(codepoint)!))
         }
         return emptyName
@@ -223,7 +217,7 @@ public class Entities {
         }
 
         let codepoint = EscapeMode.extended.codepointForName(name)
-        if (codepoint != empty) {
+        if codepoint != empty {
             codepoints[0] = UnicodeScalar(codepoint)!
             return 1
         }
