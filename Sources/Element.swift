@@ -10,12 +10,12 @@ import Foundation
 
 open class Element: Node {
 	var _tag: Tag
-    
+
     private static let classString = "class"
     private static let emptyString = ""
     private static let idString = "id"
     private static let rootString = "#root"
-    
+
     //private static let classSplit : Pattern = Pattern("\\s+")
 	private static let classSplit = "\\s+"
 
@@ -276,16 +276,16 @@ open class Element: Node {
     public func select(_ cssQuery: String)throws->Elements {
         return try Selector.select(cssQuery, self)
     }
-    
+
     /**
      * Check if this element matches the given {@link Selector} CSS query.
      * @param cssQuery a {@link Selector} CSS query
      * @return if this element matches the query
      */
     public func iS(_ cssQuery: String)throws->Bool {
-        return try iS(QueryParser.parse(cssQuery));
+        return try iS(QueryParser.parse(cssQuery))
     }
-    
+
     /**
      * Check if this element matches the given {@link Selector} CSS query.
      * @param cssQuery a {@link Selector} CSS query
@@ -293,14 +293,10 @@ open class Element: Node {
      */
     public func iS(_ evaluator: Evaluator)throws->Bool {
         guard let od = self.ownerDocument() else {
-            return false;
+            return false
         }
-        return try evaluator.matches(od, self);
+        return try evaluator.matches(od, self)
     }
-
-    
-    
-    
 
     /**
      * Add a node child node to this element.
@@ -512,7 +508,7 @@ open class Element: Node {
         if (elementId.count > 0) {
             return "#" + elementId
         }
-        
+
         // Translate HTML namespace ns:tag to CSS namespace syntax ns|tag
         let tagName: String = self.tagName().replacingOccurrences(of: ":", with: "|")
         var selector: String = tagName
@@ -522,17 +518,17 @@ open class Element: Node {
             selector.append(".")
             selector.append(classes)
         }
-        
+
         if (parent() == nil || ((parent() as? Document) != nil)) // don't add Document to selector, as will always have a html node
         {
             return selector
         }
-        
+
         selector.insert(contentsOf: " > ", at: selector.startIndex)
         if (try parent()!.select(selector).array().count > 1) {
             selector.append(":nth-child(\(try elementSiblingIndex() + 1))")
         }
-        
+
         return try parent()!.cssSelector() + (selector)
     }
 
@@ -1065,9 +1061,9 @@ open class Element: Node {
      * @return set of classnames, empty if no class attribute
      */
 	public func classNames()throws->OrderedSet<String> {
-		let fitted = try className().replaceAll(of: Element.classSplit, with: " ", options:.caseInsensitive)
+		let fitted = try className().replaceAll(of: Element.classSplit, with: " ", options: .caseInsensitive)
 		let names: [String] = fitted.components(separatedBy: " ")
-		let classNames: OrderedSet<String> = OrderedSet(sequence:names)
+		let classNames: OrderedSet<String> = OrderedSet(sequence: names)
 		classNames.remove(Element.emptyString) // if classNames() was empty, would include an empty class
 		return classNames
 	}

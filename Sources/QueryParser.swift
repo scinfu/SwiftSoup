@@ -140,7 +140,7 @@ public class QueryParser {
         } else if (tq.matchChomp(".")) {
             try byClass()} else if (tq.matchesWord() || tq.matches("*|")) {try byTag()} else if (tq.matches("[")) {try byAttribute()} else if (tq.matchChomp("*")) { allElements()} else if (tq.matchChomp(":lt(")) {try indexLessThan()} else if (tq.matchChomp(":gt(")) {try indexGreaterThan()} else if (tq.matchChomp(":eq(")) {try indexEquals()} else if (tq.matches(":has(")) {try has()} else if (tq.matches(":contains(")) {try contains(false)} else if (tq.matches(":containsOwn(")) {try contains(true)} else if (tq.matches(":matches(")) {try matches(false)} else if (tq.matches(":matchesOwn(")) {try matches(true)} else if (tq.matches(":not(")) {try not()} else if (tq.matchChomp(":nth-child(")) {try cssNthChild(false, false)} else if (tq.matchChomp(":nth-last-child(")) {try cssNthChild(true, false)} else if (tq.matchChomp(":nth-of-type(")) {try cssNthChild(false, true)} else if (tq.matchChomp(":nth-last-of-type(")) {try cssNthChild(true, true)} else if (tq.matchChomp(":first-child")) {evals.append(Evaluator.IsFirstChild())} else if (tq.matchChomp(":last-child")) {evals.append(Evaluator.IsLastChild())} else if (tq.matchChomp(":first-of-type")) {evals.append(Evaluator.IsFirstOfType())} else if (tq.matchChomp(":last-of-type")) {evals.append(Evaluator.IsLastOfType())} else if (tq.matchChomp(":only-child")) {evals.append(Evaluator.IsOnlyChild())} else if (tq.matchChomp(":only-of-type")) {evals.append(Evaluator.IsOnlyOfType())} else if (tq.matchChomp(":empty")) {evals.append(Evaluator.IsEmpty())} else if (tq.matchChomp(":root")) {evals.append(Evaluator.IsRoot())} else // unhandled
         {
-            throw Exception.Error(type: ExceptionType.SelectorParseException, Message:"Could not parse query \(query): unexpected token at \(tq.remainder())")
+            throw Exception.Error(type: ExceptionType.SelectorParseException, Message: "Could not parse query \(query): unexpected token at \(tq.remainder())")
         }
     }
 
@@ -203,7 +203,7 @@ public class QueryParser {
             } else if (cq.matchChomp("~=")) {
                 evals.append( Evaluator.AttributeWithValueMatching(key, Pattern.compile(cq.remainder())))
             } else {
-                throw Exception.Error(type: ExceptionType.SelectorParseException, Message:"Could not parse attribute query '\(query)': unexpected token at '\(cq.remainder())'")
+                throw Exception.Error(type: ExceptionType.SelectorParseException, Message: "Could not parse attribute query '\(query)': unexpected token at '\(cq.remainder())'")
             }
         }
     }
@@ -250,7 +250,7 @@ public class QueryParser {
 			mB.find()
             b = Int(mB.group()!.replaceFirst(of: "^\\+", with: ""))!
         } else {
-            throw Exception.Error(type: ExceptionType.SelectorParseException, Message:"Could not parse nth-index '\(argS)': unexpected format")
+            throw Exception.Error(type: ExceptionType.SelectorParseException, Message: "Could not parse nth-index '\(argS)': unexpected format")
         }
         if (ofType) {
             if (backwards) {

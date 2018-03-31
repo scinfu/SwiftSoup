@@ -17,9 +17,8 @@ extension String {
 	subscript (i: Int) -> String {
         return String(self[i] as Character)
     }
-    
-    init<S: Sequence>(_ ucs: S)where S.Iterator.Element == UnicodeScalar
-    {
+
+    init<S: Sequence>(_ ucs: S)where S.Iterator.Element == UnicodeScalar {
         var s = ""
         s.unicodeScalars.append(contentsOf: ucs)
         self = s
@@ -91,7 +90,7 @@ extension String {
     }
 
     static func toHexString(n: Int) -> String {
-        return String(format:"%2x", n)
+        return String(format: "%2x", n)
     }
 
     func insert(string: String, ind: Int) -> String {

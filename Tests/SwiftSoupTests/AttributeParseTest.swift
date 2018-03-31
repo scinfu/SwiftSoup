@@ -115,7 +115,7 @@ class AttributeParseTest: XCTestCase {
 			("teststrictAttributeUnescapes", teststrictAttributeUnescapes),
 			("testmoreAttributeUnescapes", testmoreAttributeUnescapes),
 			("testparsesBooleanAttributes", testparsesBooleanAttributes),
-			("testdropsSlashFromAttributeName", testdropsSlashFromAttributeName),
+			("testdropsSlashFromAttributeName", testdropsSlashFromAttributeName)
 		]
 	}()
 

@@ -366,6 +366,7 @@
 		BD3B5BED1FC063BD001FDB3B /* InfotvOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = InfotvOS.plist; path = /Users/nabil/Documents/nabil/SwiftSoup/Sources/InfotvOS.plist; sourceTree = "<absolute>"; };
 		BD3B5C2F1FC06423001FDB3B /* SwiftSoup.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SwiftSoup.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD3B5C301FC06424001FDB3B /* InfoWatchOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = InfoWatchOS.plist; path = /Users/nabil/Documents/nabil/SwiftSoup/Sources/InfoWatchOS.plist; sourceTree = "<absolute>"; };
+		BD76883E206D8B6900B7F940 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -522,6 +523,7 @@
 			isa = PBXGroup;
 			children = (
 				BD36975B20135EBB00D8FAC6 /* SwiftSoup.podspec */,
+				BD76883E206D8B6900B7F940 /* CHANGELOG.md */,
 				8CE418181DAA54A900240B42 /* Sources */,
 				8CE418231DAA54A900240B42 /* Tests */,
 				8CE418171DAA54A900240B42 /* Products */,
@@ -667,6 +669,7 @@
 				8CE418121DAA54A900240B42 /* Frameworks */,
 				8CE418131DAA54A900240B42 /* Headers */,
 				8CE418141DAA54A900240B42 /* Resources */,
+				BD76883F206D9DAC00B7F940 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -756,7 +759,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 0800;
-				LastUpgradeCheck = 0900;
+				LastUpgradeCheck = 0930;
 				ORGANIZATIONNAME = "Nabil Chatbi";
 				TargetAttributes = {
 					8CE418151DAA54A900240B42 = {
@@ -835,6 +838,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		BD76883F206D9DAC00B7F940 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		8CE418111DAA54A900240B42 /* Sources */ = {
@@ -1144,6 +1163,7 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
@@ -1151,6 +1171,7 @@
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
@@ -1206,6 +1227,7 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
@@ -1213,6 +1235,7 @@
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;

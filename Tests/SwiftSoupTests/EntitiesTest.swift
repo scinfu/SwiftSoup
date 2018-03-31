@@ -147,7 +147,6 @@ class EntitiesTest: XCTestCase {
 		doc.outputSettings().escapeMode(Entities.EscapeMode.xhtml)
 		XCTAssertEqual("<a title=\"&lt;p>One&lt;/p>\">One</a>", try  element.outerHtml())
 	}
-    
 
 	static var allTests = {
 		return [

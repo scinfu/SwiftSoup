@@ -14,7 +14,7 @@ struct Validate {
      * Validates that the object is not null
      * @param obj object to test
      */
-    public static func notNull(obj:Any?) throws {
+    public static func notNull(obj: Any?) throws {
         if (obj == nil) {
             throw Exception.Error(type: ExceptionType.IllegalArgumentException, Message: "Object must not be null")
         }

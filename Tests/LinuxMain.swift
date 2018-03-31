@@ -31,5 +31,5 @@ XCTMain([
 	testCase(NodeTest.allTests),
 	testCase(AttributeTest.allTests),
 	testCase(CleanerTest.allTests),
-	testCase(StringUtilTest.allTests),
+	testCase(StringUtilTest.allTests)
 	])

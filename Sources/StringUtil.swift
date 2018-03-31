@@ -215,7 +215,7 @@ open class StringUtil {
         if(base.pathComponents.count == 0 && base.absoluteString.last != "/" && !base.isFileURL) {
             base = base.appendingPathComponent("/", isDirectory: false)
         }
-        let u =  URL(string: relUrl, relativeTo : base)
+        let u =  URL(string: relUrl, relativeTo: base)
         return u
     }
 

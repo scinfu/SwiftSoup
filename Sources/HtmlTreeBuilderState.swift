@@ -153,7 +153,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     // todo: charset switches
                 } else if (name.equals("title")) {
                     try HtmlTreeBuilderState.handleRcData(start, tb)
-                } else if (StringUtil.inString(name, haystack:"noframes", "style")) {
+                } else if (StringUtil.inString(name, haystack: "noframes", "style")) {
                     try HtmlTreeBuilderState.handleRawtext(start, tb)
                 } else if (name.equals("noscript")) {
                     // else if noscript && scripting flag = true: rawtext (jsoup doesn't run script, to handle as noscript)
@@ -179,7 +179,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 if (name?.equals("head"))! {
                     tb.pop()
                     tb.transition(.AfterHead)
-                } else if (name != nil && StringUtil.inString(name!, haystack:"body", "html", "br")) {
+                } else if (name != nil && StringUtil.inString(name!, haystack: "body", "html", "br")) {
                     return try anythingElse(t, tb)
                 } else {
                     tb.error(self)

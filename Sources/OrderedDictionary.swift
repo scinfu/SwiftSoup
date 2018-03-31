@@ -74,7 +74,7 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
     }
 
     public var orderedValues: [Value] {
-        return _orderedKeys.flatMap { _keysToValues[$0] }
+        return _orderedKeys.compactMap { _keysToValues[$0] }
     }
 
     // ======================================================= //
@@ -117,7 +117,7 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
 
     @discardableResult
     private func updateValue(value: Value, forKey key: Key) -> Value? {
-        
+
         guard let currentValue = _keysToValues[key] else {
             _orderedKeys.append(key)
             _keysToValues[key] = value
@@ -125,7 +125,7 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
         }
         _keysToValues[key] = value
         return currentValue
-        
+
 //        if _orderedKeys.contains(key) {
 //            guard let currentValue = _keysToValues[key] else {
 //                fatalError("Inconsistency error occured in OrderedDictionary")
@@ -148,7 +148,7 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
 
     public func putAll(all: OrderedDictionary<Key, Value>) {
         for i in all.orderedKeys {
-            put(value:all[i]!, forKey: i)
+            put(value: all[i]!, forKey: i)
         }
     }
 
@@ -170,7 +170,7 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
 
     @discardableResult
     public func remove(key: Key) -> Value? {
-        return removeValueForKey(key:key)
+        return removeValueForKey(key: key)
     }
 
     public func removeAll(keepCapacity: Bool = true) {
@@ -391,28 +391,26 @@ extension OrderedDictionary: Equatable {
 //    return lhs._orderedKeys == rhs._orderedKeys && lhs._keysToValues == rhs._keysToValues
 //}
 
-
-
 /**
  * Elements IteratorProtocol.
  */
 public struct OrderedDictionaryIterator<Key: Hashable, Value: Equatable>: IteratorProtocol {
-    
+
     /// Elements reference
     let orderedDictionary: OrderedDictionary<Key, Value>
     //current element index
     var index = 0
-    
+
     /// Initializer
     init(_ od: OrderedDictionary<Key, Value>) {
         self.orderedDictionary = od
     }
-    
+
     /// Advances to the next element and returns it, or `nil` if no next element
     mutating public func next() -> Value? {
-        
+
         let result = index < orderedDictionary.orderedKeys.count ? orderedDictionary[orderedDictionary.orderedKeys[index]] : nil
-        index += 1;
+        index += 1
         return result
     }
 }
@@ -422,13 +420,7 @@ public struct OrderedDictionaryIterator<Key: Hashable, Value: Equatable>: Iterat
  */
 extension OrderedDictionary: Sequence {
     /// Returns an iterator over the elements of this sequence.
-    func generate()->OrderedDictionaryIterator<Key, Value>
-    {
+    func generate()->OrderedDictionaryIterator<Key, Value> {
         return OrderedDictionaryIterator(self)
     }
 }
-
-
-
-
-

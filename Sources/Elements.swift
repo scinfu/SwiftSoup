@@ -459,14 +459,14 @@ open class Elements: NSCopying {
 	* @return true if at least one element in the list matches the query.
 	*/
     open func iS(_ query: String)throws->Bool {
-        let eval: Evaluator = try QueryParser.parse(query);
+        let eval: Evaluator = try QueryParser.parse(query)
         for  e: Element in this {
-            if (try e.iS(eval)){
-                return true;
+            if (try e.iS(eval)) {
+                return true
             }
         }
-        return false;
-        
+        return false
+
     }
 
 	/**
@@ -591,16 +591,16 @@ public struct ElementsIterator: IteratorProtocol {
 	let elements: Elements
 	//current element index
 	var index = 0
-	
+
 	/// Initializer
 	init(_ countdown: Elements) {
 		self.elements = countdown
 	}
-	
+
 	/// Advances to the next element and returns it, or `nil` if no next element
 	mutating public func next() -> Element? {
 		let result = index < elements.size() ? elements.get(index) : nil
-		index += 1;
+		index += 1
 		return result
 	}
 }
@@ -614,6 +614,3 @@ extension Elements: Sequence {
 		return ElementsIterator(self)
 	}
 }
-
-
-

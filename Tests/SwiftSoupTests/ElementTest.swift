@@ -823,7 +823,7 @@ class ElementTest: XCTestCase {
 
 		// Update the class names to a fresh set
 		let newSet = OrderedSet<String>()
-		newSet.append(contentsOf:set1)
+		newSet.append(contentsOf: set1)
 		//newSet["c3"] //todo: nabil not a set , add == append but not change exists c3
 
 		try div.classNames(newSet)
@@ -936,7 +936,7 @@ class ElementTest: XCTestCase {
 		XCTAssertEqual(1, els.size())
 		XCTAssertEqual("html > body > fb|comments", try els.get(0).cssSelector())
 	}
-    
+
     func testChainedRemoveAttributes()throws {
         let html = "<a one two three four>Text</a>"
         let doc = try SwiftSoup.parse(html)
@@ -946,33 +946,31 @@ class ElementTest: XCTestCase {
             .removeAttr("two")
             .removeAttr("three")
             .removeAttr("four")
-            .removeAttr("five");
-        XCTAssertEqual("<a>Text</a>", try a.outerHtml());
+            .removeAttr("five")
+        XCTAssertEqual("<a>Text</a>", try a.outerHtml())
     }
-    
+
     func testIs()throws {
         let html = "<div><p>One <a class=big>Two</a> Three</p><p>Another</p>"
         let doc: Document = try SwiftSoup.parse(html)
         let p: Element = try doc.select("p").first()!
-        
-        try XCTAssertTrue(p.iS("p"));
-        try XCTAssertFalse(p.iS("div"));
-        try XCTAssertTrue(p.iS("p:has(a)"));
-        try XCTAssertTrue(p.iS("p:first-child"));
-        try XCTAssertFalse(p.iS("p:last-child"));
-        try XCTAssertTrue(p.iS("*"));
-        try XCTAssertTrue(p.iS("div p"));
-        
+
+        try XCTAssertTrue(p.iS("p"))
+        try XCTAssertFalse(p.iS("div"))
+        try XCTAssertTrue(p.iS("p:has(a)"))
+        try XCTAssertTrue(p.iS("p:first-child"))
+        try XCTAssertFalse(p.iS("p:last-child"))
+        try XCTAssertTrue(p.iS("*"))
+        try XCTAssertTrue(p.iS("div p"))
+
         let q: Element = try doc.select("p").last()!
-        try XCTAssertTrue(q.iS("p"));
-        try XCTAssertTrue(q.iS("p ~ p"));
-        try XCTAssertTrue(q.iS("p + p"));
-        try XCTAssertTrue(q.iS("p:last-child"));
-        try XCTAssertFalse(q.iS("p a"));
-        try XCTAssertFalse(q.iS("a"));
+        try XCTAssertTrue(q.iS("p"))
+        try XCTAssertTrue(q.iS("p ~ p"))
+        try XCTAssertTrue(q.iS("p + p"))
+        try XCTAssertTrue(q.iS("p:last-child"))
+        try XCTAssertFalse(q.iS("p a"))
+        try XCTAssertFalse(q.iS("a"))
     }
-
-
 
 	static var allTests = {
 		return [
@@ -1046,8 +1044,8 @@ class ElementTest: XCTestCase {
 			("testAppendMustCorrectlyMoveChildrenInsideOneParentElement", testAppendMustCorrectlyMoveChildrenInsideOneParentElement),
 			("testHashcodeIsStableWithContentChanges", testHashcodeIsStableWithContentChanges),
 			("testNamespacedElements", testNamespacedElements),
-			("testChainedRemoveAttributes",testChainedRemoveAttributes),
-			("testIs",testIs)
+			("testChainedRemoveAttributes", testChainedRemoveAttributes),
+			("testIs", testIs)
 		]
 	}()
 }

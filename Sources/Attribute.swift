@@ -140,7 +140,7 @@ open class Attribute {
     }
 }
 
-extension Attribute : Equatable {
+extension Attribute: Equatable {
 	static public func == (lhs: Attribute, rhs: Attribute) -> Bool {
 		return lhs.value == rhs.value && lhs.key == rhs.key
 	}

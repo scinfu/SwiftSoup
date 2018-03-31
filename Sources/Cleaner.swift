@@ -118,7 +118,7 @@ extension Cleaner {
 					//let sourceData: DataNode = (DataNode) source
 					let destData: DataNode =  DataNode(sourceData.getWholeData(), source.getBaseUri())
 					try destination?.appendChild(destData)
-                }else{
+                } else {
                     numDiscarded+=1
                 }
 			} else { // else, we don't care about comments, xml proc instructions, etc

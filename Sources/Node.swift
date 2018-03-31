@@ -560,7 +560,7 @@ open class Node: Equatable, Hashable {
      @return next sibling, or null if this is the last sibling
      */
     open func nextSibling() -> Node? {
-        guard let siblings: Array<Node> =  parentNode?.childNodes else{
+        guard let siblings: Array<Node> =  parentNode?.childNodes else {
             return nil
         }
 
@@ -708,7 +708,7 @@ open class Node: Equatable, Hashable {
 			let currParent: Node = nodesToProcess.removeFirst()
 
 			for i in 0..<currParent.childNodes.count {
-				let childClone: Node = currParent.childNodes[i].copy(parent:currParent)
+				let childClone: Node = currParent.childNodes[i].copy(parent: currParent)
 				currParent.childNodes[i] = childClone
 				nodesToProcess.append(childClone)
 			}
@@ -778,7 +778,7 @@ open class Node: Equatable, Hashable {
 
 }
 
-extension Node : CustomStringConvertible {
+extension Node: CustomStringConvertible {
 	public var description: String {
 		do {
 			return try outerHtml()
@@ -789,7 +789,7 @@ extension Node : CustomStringConvertible {
 	}
 }
 
-extension Node : CustomDebugStringConvertible {
+extension Node: CustomDebugStringConvertible {
     private static let space = " "
 	public var debugDescription: String {
 		do {

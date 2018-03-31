@@ -16,7 +16,7 @@ class CssTest: XCTestCase {
 	override func setUp() {
 		super.setUp()
 
-		let sb: StringBuilder = StringBuilder(string:"<html><head></head><body>")
+		let sb: StringBuilder = StringBuilder(string: "<html><head></head><body>")
 
 		sb.append("<div id='pseudo'>")
 		for i in 1...10 {

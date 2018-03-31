@@ -16,17 +16,17 @@ private let symbolSet = CharacterSet.symbols
 private let digitSet = CharacterSet.decimalDigits
 
 extension UnicodeScalar {
-    public static let Ampersand : UnicodeScalar = "&"
-    public static let LessThan : UnicodeScalar = "<"
-    public static let GreaterThan : UnicodeScalar = ">"
-    
+    public static let Ampersand: UnicodeScalar = "&"
+    public static let LessThan: UnicodeScalar = "<"
+    public static let GreaterThan: UnicodeScalar = ">"
+
     public static let Space: UnicodeScalar = " "
 	public static let BackslashF: UnicodeScalar = UnicodeScalar(12)
     public static let BackslashT: UnicodeScalar = "\t"
     public static let BackslashN: UnicodeScalar = "\n"
     public static let BackslashR: UnicodeScalar = "\r"
     public static let Slash: UnicodeScalar = "/"
-    
+
     public static let FormFeed: UnicodeScalar = "\u{000B}"// Form Feed
     public static let VerticalTab: UnicodeScalar = "\u{000C}"// vertical tab
 

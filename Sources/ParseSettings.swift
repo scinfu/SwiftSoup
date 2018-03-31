@@ -57,8 +57,3 @@ open class ParseSettings {
     }
 
 }
-
-
-
-
-
