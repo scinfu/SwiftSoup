@@ -26,7 +26,7 @@ public class CombiningEvaluator: Evaluator {
         super.init()
         updateNumEvaluators()
     }
-    
+
     public init(_ evaluators: Evaluator...) {
         self.evaluators = evaluators
         super.init()

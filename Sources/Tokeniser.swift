@@ -18,7 +18,7 @@ final class Tokeniser {
     private var state: TokeniserState = TokeniserState.Data // current tokenisation state
     private var emitPending: Token?  // the token we are about to emit on next read
     private var isEmitPending: Bool = false
-    private var charsString: String? = nil // characters pending an emit. Will fall to charsBuilder if more than one
+    private var charsString: String? // characters pending an emit. Will fall to charsBuilder if more than one
     private let charsBuilder: StringBuilder = StringBuilder(1024) // buffers characters to output as one token, if more than one emit per read
     let dataBuffer: StringBuilder = StringBuilder(1024) // buffers data looking for </script>
 

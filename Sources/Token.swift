@@ -60,13 +60,11 @@ open class Token {
 		func getName() -> String {
 			return name.toString()
 		}
-        
-        func getPubSysKey()->String? {
-            return pubSysKey;
-        }
-        
 
-        
+        func getPubSysKey() -> String? {
+            return pubSysKey
+        }
+
 		func getPublicIdentifier() -> String {
 			return publicIdentifier.toString()
 		}
@@ -389,9 +387,9 @@ open class Token {
 
 extension Token: CustomDebugStringConvertible {
     public var debugDescription: String {
-        do{
+        do {
             return try self.toString()
-        }catch{
+        } catch {
             return "Error while get string debug"
         }
     }

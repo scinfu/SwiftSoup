@@ -169,7 +169,7 @@ public final class CharacterReader {
         let val = input
 
         while (pos < remaining) {
-            
+
             if chars.contains(val[pos]) {
                 break
             }

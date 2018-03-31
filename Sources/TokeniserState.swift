@@ -620,7 +620,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.eofError(self)
                 t.transition(.Data)
                 break
-            case "\"", "'",UnicodeScalar.LessThan, "=":
+            case "\"", "'", UnicodeScalar.LessThan, "=":
                 t.error(self)
                 try t.tagPending.newAttribute()
                 t.tagPending.appendAttributeName(c)
@@ -1185,7 +1185,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.doctypePending.pubSysKey = DocumentType.PUBLIC_KEY
                 t.transition(.AfterDoctypePublicKeyword)
             } else if (r.matchConsumeIgnoreCase(DocumentType.SYSTEM_KEY)) {
-                t.doctypePending.pubSysKey = DocumentType.SYSTEM_KEY;
+                t.doctypePending.pubSysKey = DocumentType.SYSTEM_KEY
                 t.transition(.AfterDoctypeSystemKeyword)
             } else {
                 t.error(self)

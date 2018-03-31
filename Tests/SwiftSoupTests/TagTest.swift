@@ -90,7 +90,7 @@ class TagTest: XCTestCase {
 			("testPSemantics", testPSemantics),
 			("testImgSemantics", testImgSemantics),
 			("testDefaultSemantics", testDefaultSemantics),
-			("testValueOfChecksNotEmpty", testValueOfChecksNotEmpty),
+			("testValueOfChecksNotEmpty", testValueOfChecksNotEmpty)
 		]
 	}()
 }

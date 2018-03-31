@@ -124,15 +124,14 @@ class StringUtilTest: XCTestCase {
         return [
             ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
             ("testJoin", testJoin),
-            ("testPadding",testPadding),
+            ("testPadding", testPadding),
             ("testIsBlank", testIsBlank),
             ("testIsNumeric", testIsNumeric),
             ("testIsWhitespace", testIsWhitespace),
             ("testNormaliseWhiteSpace", testNormaliseWhiteSpace),
             ("testNormaliseWhiteSpaceHandlesHighSurrogates", testNormaliseWhiteSpaceHandlesHighSurrogates),
-            ("testResolvesRelativeUrls", testResolvesRelativeUrls),
+            ("testResolvesRelativeUrls", testResolvesRelativeUrls)
         ]
     }()
-    
 
 }

@@ -87,7 +87,7 @@ class HtmlTreeBuilder: TreeBuilder {
             }
 
             root = try Element(Tag.valueOf("html", settings), baseUri)
-            try Validate.notNull(obj:root)
+            try Validate.notNull(obj: root)
             try doc.appendChild(root!)
             stack.append(root!)
             resetInsertionMode()
@@ -418,12 +418,12 @@ class HtmlTreeBuilder: TreeBuilder {
         queue[i] = input
         return queue
     }
-    
+
     private func replaceInQueue(_ queue: Array<Element?>, _ out: Element, _ input: Element)throws->Array<Element?> {
         var queue = queue
         var i: Int = -1
-        for index in 0..<queue.count{
-            if(out == queue[index]){
+        for index in 0..<queue.count {
+            if(out == queue[index]) {
                 i = index
             }
         }

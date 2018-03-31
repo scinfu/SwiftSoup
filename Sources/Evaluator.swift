@@ -278,7 +278,7 @@ public class Evaluator {
         open override func matches(_ root: Element, _ element: Element)throws->Bool {
             if(element.hasAttr(key)) {
                 let s = try element.attr(key)
-                return pattern.matcher(in:s).find()
+                return pattern.matcher(in: s).find()
             }
             return false
         }

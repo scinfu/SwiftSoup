@@ -215,7 +215,7 @@ open class Tag: Hashable {
         let this = lhs
         let o = rhs
         if (this === o) {return true}
-        if (type(of:this) != type(of:o)) {return false}
+        if (type(of: this) != type(of: o)) {return false}
 
         let tag: Tag = o
 

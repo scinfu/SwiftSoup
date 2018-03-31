@@ -55,7 +55,7 @@ class DocumentTypeTest: XCTestCase {
             ("testConstructorValidationOkWithBlankName", testConstructorValidationOkWithBlankName),
 			("testConstructorValidationThrowsExceptionOnNulls", testConstructorValidationThrowsExceptionOnNulls),
 			("testConstructorValidationOkWithBlankPublicAndSystemIds", testConstructorValidationOkWithBlankPublicAndSystemIds),
-			("testOuterHtmlGeneration", testOuterHtmlGeneration),
+			("testOuterHtmlGeneration", testOuterHtmlGeneration)
 		]
 	}()
 }
