@@ -74,7 +74,7 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
     }
 
     public var orderedValues: [Value] {
-        return _orderedKeys.flatMap { _keysToValues[$0] }
+        return _orderedKeys.compactMap { _keysToValues[$0] }
     }
 
     // ======================================================= //
