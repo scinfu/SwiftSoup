@@ -31,7 +31,9 @@ public class Entities {
 
         // table of named references to their codepoints. sorted so we can binary search. built by BuildEntities.
         fileprivate var nameKeys: [String]
-        fileprivate var codeVals: [Int]  // limitation is the few references with multiple characters; those go into multipoints.
+        // limitation is the few references with multiple characters;
+        // those go into multipoints.
+        fileprivate var codeVals: [Int]
 
         // table of codepoints to named entities.
         fileprivate var codeKeys: [Int] // we don' support multicodepoints to single named value currently
@@ -142,8 +144,7 @@ public class Entities {
 
         public func nameForCodepoint(_ codepoint: Int ) -> String {
             //let ss = codeKeys.index(of: codepoint)
-            
-            guard let  index = codeKeys.index(of: codepoint) else{
+            guard let  index = codeKeys.index(of: codepoint) else {
                 return emptyName
             }
             // the results are ordered so lower case versions of same codepoint come after uppercase,
@@ -159,7 +160,8 @@ public class Entities {
 
     }
 
-    private static var multipoints: Dictionary<String, String>  = Dictionary<String, String>() // name -> multiple character references
+    // name -> multiple character references
+    private static var multipoints: [String: String]  = [:]
 
     private init() {
     }
@@ -248,12 +250,12 @@ public class Entities {
         //let length = UInt32(string.characters.count)
 
         var codePoint: UnicodeScalar
-        for ch in string.unicodeScalars {
-            codePoint = ch
+        for char in string.unicodeScalars {
+            codePoint = char
 
-            if (normaliseWhite) {
-                if (codePoint.isWhitespace) {
-                    if ((stripLeadingWhite && !reachedNonWhite) || lastWasWhite) {
+            if normaliseWhite {
+                if codePoint.isWhitespace {
+                    if (stripLeadingWhite && !reachedNonWhite) || lastWasWhite {
                         continue
                     }
                     accum.append(UnicodeScalar.Space)
@@ -265,45 +267,41 @@ public class Entities {
                 }
             }
 
-            // surrogate pairs, split implementation for efficiency on single char common case (saves creating strings, char[]):
-            if (codePoint.value < Character.MIN_SUPPLEMENTARY_CODE_POINT) {
-                let c = codePoint
+            // surrogate pairs, split implementation for efficiency on single char
+            // common case (saves creating strings, char[]):
+            if codePoint.value < Character.MIN_SUPPLEMENTARY_CODE_POINT {
+                //let c = codePoint
                 // html specific and required escapes:
-                switch (codePoint) {
+                switch codePoint {
                 case UnicodeScalar.Ampersand:
                     accum.append("&amp;")
-                    break
                 case UnicodeScalar(UInt32(0xA0))!:
-                    if (escapeMode != EscapeMode.xhtml) {
+                    if escapeMode != EscapeMode.xhtml {
                         accum.append("&nbsp;")
                     } else {
                         accum.append("&#xa0;")
                     }
-                    break
                 case UnicodeScalar.LessThan:
                     // escape when in character data or when in a xml attribue val; not needed in html attr val
-                    if (!inAttribute || escapeMode == EscapeMode.xhtml) {
+                    if !inAttribute || escapeMode == EscapeMode.xhtml {
                         accum.append("&lt;")
                     } else {
-                        accum.append(c)
+                        accum.append(codePoint)
                     }
-                    break
                 case UnicodeScalar.GreaterThan:
-                    if (!inAttribute) {
+                    if !inAttribute {
                         accum.append("&gt;")
                     } else {
-                        accum.append(c)}
-                    break
+                        accum.append(codePoint)}
                 case "\"":
-                    if (inAttribute) {
+                    if inAttribute {
                         accum.append("&quot;")
                     } else {
-                        accum.append(c)
+                        accum.append(codePoint)
                     }
-                    break
                 default:
-                    if (canEncode(c, encoder)) {
-                        accum.append(c)
+                    if (canEncode(codePoint, encoder)) {
+                        accum.append(codePoint)
                     } else {
                         appendEncoded(accum: accum, escapeMode: escapeMode, codePoint: codePoint)
                     }
@@ -355,15 +353,17 @@ public class Entities {
      * Alterslash: 3013, 28
      * Jsoup: 167, 2
      */
-    private static func canEncode(_ c: UnicodeScalar, _ fallback: String.Encoding) -> Bool {
+    private static func canEncode(_ char: UnicodeScalar, _ fallback: String.Encoding) -> Bool {
         // todo add more charset tests if impacted by Android's bad perf in canEncode
-        switch (fallback) {
+        switch fallback {
         case String.Encoding.ascii:
-            return c.value < 0x80
+            return char.value < 0x80
         case String.Encoding.utf8:
-            return true // real is:!(Character.isLowSurrogate(c) || Character.isHighSurrogate(c)) - but already check above
+            // real is:!(Character.isLowSurrogate(c) ||
+            // Character.isHighSurrogate(c)) - but already check above
+            return true
         default:
-            return fallback.canEncode(String(Character(c)))
+            return fallback.canEncode(String(Character(char)))
         }
     }
 
