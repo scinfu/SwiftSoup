@@ -1,7 +1,7 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [1.6.6](https://github.com/scinfu/SwiftSoup/tree/1.6.6)
+## [1.7.0](https://github.com/scinfu/SwiftSoup/tree/1.7.0)
 * Removed StringBuilder from Element.cssSelector
 * Lint Code
 * Swift 4.1
