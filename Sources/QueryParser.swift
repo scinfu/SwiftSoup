@@ -119,19 +119,23 @@ public class QueryParser {
     }
 
     private func consumeSubQuery() -> String {
-        let sq: StringBuilder = StringBuilder()
+        var sq = ""
         while (!tq.isEmpty()) {
             if (tq.matches("(")) {
-                sq.append("(").append(tq.chompBalanced("(", ")")).append(")")
+                sq.append("(")
+                sq.append(tq.chompBalanced("(", ")"))
+                sq.append(")")
             } else if (tq.matches("[")) {
-                sq.append("[").append(tq.chompBalanced("[", "]")).append("]")
+                sq.append("[")
+                sq.append(tq.chompBalanced("[", "]"))
+                sq.append("]")
             } else if (tq.matchesAny(QueryParser.combinators)) {
                 break
             } else {
                 sq.append(tq.consume())
             }
         }
-        return sq.toString()
+        return sq
     }
 
     private func findElements()throws {
