@@ -11,10 +11,16 @@ import Foundation
 
 class TextUtil {
 	public static func stripNewlines(_ text: String) -> String {
-		let regex = try! NSRegularExpression(pattern: "\\n\\s*", options: .caseInsensitive)
-		var str = text
-		str = regex.stringByReplacingMatches(in: str, options: [], range: NSRange(0..<str.count), withTemplate: "")
-		return str
+        do {
+            let regex = try NSRegularExpression(pattern: "\\n\\s*", options: .caseInsensitive)
+            let str = regex.stringByReplacingMatches(in: text,
+                                                     options: [],
+                                                     range: NSRange(0..<text.count),
+                                                     withTemplate: "")
+            return str
+        } catch {
+            return ""
+        }
 	}
 }
 

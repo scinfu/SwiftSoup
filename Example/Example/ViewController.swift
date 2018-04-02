@@ -82,15 +82,16 @@ class ViewController: UIViewController {
     }
 
     @IBAction func chooseQuery(_ sender: Any) {
-        guard let vc = storyboard?.instantiateViewController(withIdentifier: "QueryViewController") as? QueryViewController  else {
+        guard let viewController = storyboard?.instantiateViewController(
+            withIdentifier: "QueryViewController") as? QueryViewController  else {
             return
         }
-        vc.completionHandler = {[weak self](resilt) in
+        viewController.completionHandler = {[weak self](resilt) in
             self?.navigationController?.popViewController(animated: true)
             self?.cssTextField.text = resilt.example
             self?.parse()
         }
-        self.show(vc, sender: self)
+        self.show(viewController, sender: self)
     }
 
 }
