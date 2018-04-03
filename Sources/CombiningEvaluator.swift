@@ -47,7 +47,7 @@ public class CombiningEvaluator: Evaluator {
     }
 
     public final class And: CombiningEvaluator {
-        public override init(_ evaluators: Array<Evaluator>) {
+        public override init(_ evaluators: [Evaluator]) {
             super.init(evaluators)
         }
 
@@ -56,10 +56,10 @@ public class CombiningEvaluator: Evaluator {
         }
 
         public override func matches(_ root: Element, _ node: Element) -> Bool {
-            for i in 0..<num {
-                let s = evaluators[i]
+            for index in 0..<num {
+                let evaluator = evaluators[index]
                 do {
-                    if (try !s.matches(root, node)) {
+                    if (try !evaluator.matches(root, node)) {
                         return false
                     }
                 } catch {}
@@ -69,8 +69,8 @@ public class CombiningEvaluator: Evaluator {
         }
 
         public override func toString() -> String {
-            let ar: [String] = evaluators.map { String($0.toString()) }
-            return StringUtil.join(ar, sep: " ")
+            let array: [String] = evaluators.map { String($0.toString()) }
+            return StringUtil.join(array, sep: " ")
         }
     }
 
@@ -79,9 +79,9 @@ public class CombiningEvaluator: Evaluator {
          * Create a new Or evaluator. The initial evaluators are ANDed together and used as the first clause of the OR.
          * @param evaluators initial OR clause (these are wrapped into an AND evaluator).
          */
-        public override init(_ evaluators: Array<Evaluator>) {
+        public override init(_ evaluators: [Evaluator]) {
             super.init()
-            if (num > 1) {
+            if num > 1 {
                 self.evaluators.append(And(evaluators))
             } else { // 0 or 1
                 self.evaluators.append(contentsOf: evaluators)
@@ -91,7 +91,7 @@ public class CombiningEvaluator: Evaluator {
 
         override init(_ evaluators: Evaluator...) {
             super.init()
-            if (num > 1) {
+            if num > 1 {
                 self.evaluators.append(And(evaluators))
             } else { // 0 or 1
                 self.evaluators.append(contentsOf: evaluators)
@@ -103,16 +103,16 @@ public class CombiningEvaluator: Evaluator {
             super.init()
         }
 
-        public func add(_ e: Evaluator) {
-            evaluators.append(e)
+        public func add(_ evaluator: Evaluator) {
+            evaluators.append(evaluator)
             updateNumEvaluators()
         }
 
         public override func matches(_ root: Element, _ node: Element) -> Bool {
-            for i in 0..<num {
-                let s: Evaluator = evaluators[i]
+            for index in 0..<num {
+                let evaluator: Evaluator = evaluators[index]
                 do {
-                    if (try s.matches(root, node)) {
+                    if (try evaluator.matches(root, node)) {
                         return true
                     }
                 } catch {}

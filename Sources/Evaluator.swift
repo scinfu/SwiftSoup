@@ -143,10 +143,8 @@ public class Evaluator {
 
         open override func matches(_ root: Element, _ element: Element)throws->Bool {
             if let values = element.getAttributes() {
-                for attribute in values {
-                    if (attribute.getKey().lowercased().hasPrefix(keyPrefix)) {
-                        return true
-                    }
+                for attribute in values where attribute.getKey().lowercased().hasPrefix(keyPrefix) {
+                    return true
                 }
             }
             return false
@@ -167,9 +165,9 @@ public class Evaluator {
         }
 
         open override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if(element.hasAttr(key)) {
-                let s = try element.attr(key)
-                return value.equalsIgnoreCase(string: s.trim())
+            if element.hasAttr(key) {
+                let string = try element.attr(key)
+                return value.equalsIgnoreCase(string: string.trim())
             }
             return false
         }
@@ -189,8 +187,8 @@ public class Evaluator {
         }
 
         open override func matches(_ root: Element, _ element: Element)throws->Bool {
-            let s = try element.attr(key)
-            return !value.equalsIgnoreCase(string: s)
+            let string = try element.attr(key)
+            return !value.equalsIgnoreCase(string: string)
         }
 
         open override func toString() -> String {
@@ -208,7 +206,7 @@ public class Evaluator {
         }
 
         open override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if(element.hasAttr(key)) {
+            if element.hasAttr(key) {
                 return try element.attr(key).lowercased().hasPrefix(value)  // value is lower case already
             }
             return false
@@ -229,7 +227,7 @@ public class Evaluator {
         }
 
         open override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if(element.hasAttr(key)) {
+            if element.hasAttr(key) {
                 return try element.attr(key).lowercased().hasSuffix(value) // value is lower case
             }
             return false
@@ -250,7 +248,7 @@ public class Evaluator {
         }
 
         open override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if(element.hasAttr(key)) {
+            if element.hasAttr(key) {
                 return try element.attr(key).lowercased().contains(value) // value is lower case
             }
             return false
@@ -276,9 +274,9 @@ public class Evaluator {
         }
 
         open override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if(element.hasAttr(key)) {
-                let s = try element.attr(key)
-                return pattern.matcher(in: s).find()
+            if element.hasAttr(key) {
+                let string = try element.attr(key)
+                return pattern.matcher(in: string).find()
             }
             return false
         }
@@ -302,7 +300,7 @@ public class Evaluator {
             try Validate.notEmpty(string: value2)
 
             self.key = key.trim().lowercased()
-            if (value2.startsWith("\"") && value2.hasSuffix("\"") || value2.startsWith("'") && value2.hasSuffix("'")) {
+            if value2.startsWith("\"") && value2.hasSuffix("\"") || value2.startsWith("'") && value2.hasSuffix("'") {
                 value2 = value2.substring(1, value2.count-2)
             }
             self.value = value2.trim().lowercased()
@@ -387,9 +385,9 @@ public class Evaluator {
     public final class IsLastChild: Evaluator {
         open override func matches(_ root: Element, _ element: Element)throws->Bool {
 
-            if let p = element.parent() {
-                let i = try element.elementSiblingIndex()
-                return !((p as? Document) != nil) && i == (p.getChildNodes().count - 1)
+            if let parent = element.parent() {
+                let index = try element.elementSiblingIndex()
+                return !(parent is Document) && index == (parent.getChildNodes().count - 1)
             }
             return false
         }

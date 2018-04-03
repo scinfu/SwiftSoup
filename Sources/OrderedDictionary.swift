@@ -74,7 +74,11 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
     }
 
     public var orderedValues: [Value] {
-        return _orderedKeys.compactMap { _keysToValues[$0] }
+        #if !swift(>=4.1)
+            return _orderedKeys.flatMap { _keysToValues[$0] }
+        #else
+            return _orderedKeys.compactMap { _keysToValues[$0] }
+        #endif
     }
 
     // ======================================================= //

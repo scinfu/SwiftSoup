@@ -19,33 +19,33 @@ class AttributeTest: XCTestCase {
         #endif
     }
 
-    func testHtml() {
-        let attr = try! Attribute(key: "key", value: "value &")
+    func testHtml()throws {
+        let attr = try Attribute(key: "key", value: "value &")
         XCTAssertEqual("key=\"value &amp;\"", attr.html())
         XCTAssertEqual(attr.html(), attr.toString())
     }
 
-    func testWithSupplementaryCharacterInAttributeKeyAndValue() {
-        let s =  "135361"
-        let attr = try! Attribute(key: s, value: "A" + s + "B")
-        XCTAssertEqual(s + "=\"A" + s + "B\"", attr.html())
+    func testWithSupplementaryCharacterInAttributeKeyAndValue()throws {
+        let string =  "135361"
+        let attr = try Attribute(key: string, value: "A" + string + "B")
+        XCTAssertEqual(string + "=\"A" + string + "B\"", attr.html())
         XCTAssertEqual(attr.html(), attr.toString())
     }
 
     func testRemoveCaseSensitive()throws {
-        let a: Attributes = Attributes()
-        try a.put("Tot", "a&p")
-        try a.put("tot", "one")
-        try a.put("Hello", "There")
-        try a.put("hello", "There")
-        try a.put("data-name", "Jsoup")
+        let atteibute: Attributes = Attributes()
+        try atteibute.put("Tot", "a&p")
+        try atteibute.put("tot", "one")
+        try atteibute.put("Hello", "There")
+        try atteibute.put("hello", "There")
+        try atteibute.put("data-name", "Jsoup")
 
-        XCTAssertEqual(5, a.size())
-        try a.remove(key: "Tot")
-        try a.remove(key: "Hello")
-        XCTAssertEqual(3, a.size())
-        XCTAssertTrue(a.hasKey(key: "tot"))
-        XCTAssertFalse(a.hasKey(key: "Tot"))
+        XCTAssertEqual(5, atteibute.size())
+        try atteibute.remove(key: "Tot")
+        try atteibute.remove(key: "Hello")
+        XCTAssertEqual(3, atteibute.size())
+        XCTAssertTrue(atteibute.hasKey(key: "tot"))
+        XCTAssertFalse(atteibute.hasKey(key: "Tot"))
     }
 
 	static var allTests = {
