@@ -60,8 +60,8 @@ class CssTest: XCTestCase {
 	}
 
 	func testLastChild()throws {
-		try check(html.select("#pseudo :last-child"), "10")
-		try check(html.select("html:last-child"))
+        try! check(html.select("#pseudo :last-child"), "10")
+        try! check(html.select("html:last-child"))
 	}
 
 	func testNthChild_simple()throws {

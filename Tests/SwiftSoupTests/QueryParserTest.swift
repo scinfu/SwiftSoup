@@ -24,12 +24,16 @@ class QueryParserTest: XCTestCase {
 		// tests that a selector "a b, c d, e f" evals to (a AND b) OR (c AND d) OR (e AND f)"
 		// top level or, three child ands
 		let eval: Evaluator = try QueryParser.parse("a b, c d, e f")
-		XCTAssertTrue((eval as? CombiningEvaluator.Or) != nil)
-		let or: CombiningEvaluator.Or = eval as! CombiningEvaluator.Or
-		XCTAssertEqual(3, or.evaluators.count)
-		for innerEval: Evaluator in or.evaluators {
-			XCTAssertTrue((innerEval as? CombiningEvaluator.And) != nil)
-			let and: CombiningEvaluator.And = innerEval as! CombiningEvaluator.And
+        guard let orEvaluator = eval as? CombiningEvaluator.Or else {
+            XCTAssertTrue(false)
+            return
+        }
+		XCTAssertEqual(3, orEvaluator.evaluators.count)
+		for innerEval: Evaluator in orEvaluator.evaluators {
+            guard let and: CombiningEvaluator.And = innerEval as? CombiningEvaluator.And else {
+                XCTAssertTrue(false)
+                return
+            }
 			XCTAssertEqual(2, and.evaluators.count)
 			XCTAssertTrue((and.evaluators[0] as? Evaluator.Tag) != nil)
 			XCTAssertTrue((and.evaluators[1] as? StructuralEvaluator.Parent) != nil)
@@ -38,12 +42,19 @@ class QueryParserTest: XCTestCase {
 
 	func testParsesMultiCorrectly()throws {
 		let eval: Evaluator = try QueryParser.parse(".foo > ol, ol > li + li")
-		XCTAssertTrue((eval as? CombiningEvaluator.Or) != nil)
-		let or: CombiningEvaluator.Or = eval as! CombiningEvaluator.Or
-		XCTAssertEqual(2, or.evaluators.count)
-
-		let andLeft: CombiningEvaluator.And = or.evaluators[0] as! CombiningEvaluator.And
-		let andRight: CombiningEvaluator.And = or.evaluators[1] as! CombiningEvaluator.And
+        guard let orEvaluator: CombiningEvaluator.Or = eval as? CombiningEvaluator.Or else {
+            XCTAssertTrue(false)
+            return
+        }
+		XCTAssertEqual(2, orEvaluator.evaluators.count)
+        guard let andLeft: CombiningEvaluator.And = orEvaluator.evaluators[0] as? CombiningEvaluator.And else {
+            XCTAssertTrue(false)
+            return
+        }
+        guard let andRight: CombiningEvaluator.And = orEvaluator.evaluators[1] as? CombiningEvaluator.And else {
+            XCTAssertTrue(false)
+            return
+        }
 
 		XCTAssertEqual("ol :ImmediateParent.foo", andLeft.toString())
 		XCTAssertEqual(2, andLeft.evaluators.count)

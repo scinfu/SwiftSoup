@@ -387,7 +387,7 @@ public class Evaluator {
 
             if let parent = element.parent() {
                 let index = try element.elementSiblingIndex()
-                return !((parent as? Document) != nil) && index == (parent.getChildNodes().count - 1)
+                return !(parent is Document) && index == (parent.getChildNodes().count - 1)
             }
             return false
         }
