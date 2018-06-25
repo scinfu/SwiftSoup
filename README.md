@@ -43,7 +43,14 @@ SwiftSoup is also available through [Swift Package Manager](https://github.com/a
 To install it, simply add the dependency to your Package.Swift file:
 
 ```swift
-.package(url: "https://github.com/scinfu/SwiftSoup.git", from: "1.7.1")
+...
+dependencies: [
+    .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "1.5.10"),
+],
+targets: [
+    .target( name: "YourTarget", dependencies: ["SwiftSoup"]),
+]
+...
 ```
 
 ## Try
