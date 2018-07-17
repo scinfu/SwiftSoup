@@ -8,12 +8,6 @@
 
 import Foundation
 
-/**
-The core public access point to the jsoup functionality.
-*/
-open class SwiftSoup {
-    private init() {}
-
 	/**
 	Parse HTML into a Document. The parser will make a sensible, balanced document tree out of any HTML.
 	
@@ -22,7 +16,7 @@ open class SwiftSoup {
 	before the HTML declares a {@code <base href>} tag.
 	@return sane HTML
 	*/
-	public static func parse(_ html: String, _ baseUri: String)throws->Document {
+	public  func parse(_ html: String, _ baseUri: String)throws->Document {
 		return try Parser.parse(html, baseUri)
 	}
 
@@ -36,7 +30,7 @@ open class SwiftSoup {
 	@param parser alternate {@link Parser#xmlParser() parser} to use.
 	@return sane HTML
 	*/
-	public static func parse(_ html: String, _ baseUri: String, _ parser: Parser)throws->Document {
+	public  func parse(_ html: String, _ baseUri: String, _ parser: Parser)throws->Document {
 		return try parser.parseInput(html, baseUri)
 	}
 
@@ -49,7 +43,7 @@ open class SwiftSoup {
 	
 	@see #parse(String, String)
 	*/
-	public static func parse(_ html: String)throws->Document {
+	public  func parse(_ html: String)throws->Document {
 		return try Parser.parse(html, "")
 	}
 
@@ -142,7 +136,7 @@ open class SwiftSoup {
 	
 	@see Document#body()
 	*/
-	public static func parseBodyFragment(_ bodyHtml: String, _ baseUri: String)throws->Document {
+	public  func parseBodyFragment(_ bodyHtml: String, _ baseUri: String)throws->Document {
 		return try Parser.parseBodyFragment(bodyHtml, baseUri)
 	}
 
@@ -154,7 +148,7 @@ open class SwiftSoup {
 	
 	@see Document#body()
 	*/
-	public static func parseBodyFragment(_ bodyHtml: String)throws->Document {
+	public  func parseBodyFragment(_ bodyHtml: String)throws->Document {
 		return try Parser.parseBodyFragment(bodyHtml, "")
 	}
 
@@ -192,7 +186,7 @@ open class SwiftSoup {
 	
 	@see Cleaner#clean(Document)
 	*/
-	public static func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist)throws->String? {
+	public  func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist)throws->String? {
 		let dirty: Document = try parseBodyFragment(bodyHtml, baseUri)
 		let cleaner: Cleaner = Cleaner(whitelist)
 		let clean: Document = try cleaner.clean(dirty)
@@ -209,7 +203,7 @@ open class SwiftSoup {
 	
 	@see Cleaner#clean(Document)
 	*/
-	public static func clean(_ bodyHtml: String, _ whitelist: Whitelist)throws->String? {
+	public  func clean(_ bodyHtml: String, _ whitelist: Whitelist)throws->String? {
 		return try SwiftSoup.clean(bodyHtml, "", whitelist)
 	}
 
@@ -225,7 +219,7 @@ open class SwiftSoup {
 	* @return safe HTML (body fragment)
 	* @see Cleaner#clean(Document)
 	*/
-	public static func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist, _ outputSettings: OutputSettings)throws->String? {
+	public  func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist, _ outputSettings: OutputSettings)throws->String? {
 		let dirty: Document = try SwiftSoup.parseBodyFragment(bodyHtml, baseUri)
 		let cleaner: Cleaner = Cleaner(whitelist)
 		let clean: Document = try cleaner.clean(dirty)
@@ -241,10 +235,8 @@ open class SwiftSoup {
      @return true if no tags or attributes were removed; false otherwise
      @see #clean(String, org.jsoup.safety.Whitelist)
      */
-    public static func isValid(_ bodyHtml: String, _ whitelist: Whitelist)throws->Bool {
+    public  func isValid(_ bodyHtml: String, _ whitelist: Whitelist)throws->Bool {
         let dirty = try parseBodyFragment(bodyHtml, "")
         let cleaner  = Cleaner(whitelist)
         return try cleaner.isValid(dirty)
     }
-
-}
