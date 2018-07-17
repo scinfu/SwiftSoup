@@ -38,6 +38,20 @@ it, simply add the following line to your Cartfile:
 ```ruby
 github "scinfu/SwiftSoup"
 ```
+### Swift Package Manager
+SwiftSoup is also available through [Swift Package Manager](https://github.com/apple/swift-package-manager). 
+To install it, simply add the dependency to your Package.Swift file:
+
+```swift
+...
+dependencies: [
+    .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "1.5.10"),
+],
+targets: [
+    .target( name: "YourTarget", dependencies: ["SwiftSoup"]),
+]
+...
+```
 
 ## Try
 ### try simple online CSS Seletors site:
