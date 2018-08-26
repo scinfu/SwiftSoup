@@ -124,22 +124,22 @@ open class TextNode: Node {
      * @param baseUri Base uri
      * @return TextNode containing unencoded data (e.g. &lt;)
      */
-    open static func createFromEncoded(_ encodedText: String, _ baseUri: String)throws->TextNode {
+    public static func createFromEncoded(_ encodedText: String, _ baseUri: String)throws->TextNode {
         let text: String = try Entities.unescape(encodedText)
         return TextNode(text, baseUri)
     }
 
-    static open func normaliseWhitespace(_ text: String) -> String {
+    static public func normaliseWhitespace(_ text: String) -> String {
         let _text = StringUtil.normaliseWhitespace(text)
         return _text
     }
 
-    static open func stripLeadingWhitespace(_ text: String) -> String {
+    static public func stripLeadingWhitespace(_ text: String) -> String {
         return text.replaceFirst(of: "^\\s+", with: "")
         //return text.replaceFirst("^\\s+", "")
     }
 
-    static open func lastCharIsWhitespace(_ sb: StringBuilder) -> Bool {
+    static public func lastCharIsWhitespace(_ sb: StringBuilder) -> Bool {
         return sb.toString().last == " "
     }
 

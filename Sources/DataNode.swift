@@ -64,7 +64,7 @@ open class DataNode: Node {
      @param baseUri bass URI
      @return new DataNode
      */
-    open static func createFromEncoded(_ encodedData: String, _ baseUri: String)throws->DataNode {
+    public static func createFromEncoded(_ encodedData: String, _ baseUri: String)throws->DataNode {
         let data = try Entities.unescape(encodedData)
         return DataNode(data, baseUri)
     }

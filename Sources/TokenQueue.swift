@@ -314,7 +314,7 @@ open class TokenQueue {
      * @param in backslash escaped string
      * @return unescaped string
      */
-    open static func unescape(_ input: String) -> String {
+    public static func unescape(_ input: String) -> String {
         let out = StringBuilder()
         var last = empty
         for c in input {

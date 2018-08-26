@@ -69,11 +69,11 @@ open class Token {
 			return publicIdentifier.toString()
 		}
 
-		open func getSystemIdentifier() -> String {
+        public func getSystemIdentifier() -> String {
 			return systemIdentifier.toString()
 		}
 
-		open func isForceQuirks() -> Bool {
+        public func isForceQuirks() -> Bool {
 			return forceQuirks
 		}
 	}
@@ -244,7 +244,7 @@ open class Token {
 			return self
 		}
 
-		open override func toString()throws->String {
+        public override func toString()throws->String {
 			if (_attributes.size() > 0) {
 				return try "<" + (name()) + " " + (_attributes.toString()) + ">"
 			} else {
@@ -259,7 +259,7 @@ open class Token {
 			type = TokenType.EndTag
 		}
 
-		open override func toString()throws->String {
+        public override func toString()throws->String {
 			return "</" + (try name()) + ">"
 		}
 	}
@@ -284,7 +284,7 @@ open class Token {
 			return data.toString()
 		}
 
-		open override func toString()throws->String {
+        public override func toString()throws->String {
 			return "<!--" + getData() + "-->"
 		}
 	}
@@ -313,7 +313,7 @@ open class Token {
 			return data
 		}
 
-		open override func toString()throws->String {
+        public override func toString()throws->String {
 			try Validate.notNull(obj: data)
 			return getData()!
 		}

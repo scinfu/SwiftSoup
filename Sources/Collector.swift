@@ -23,7 +23,7 @@ open class Collector {
      @param root root of tree to descend
      @return list of matches; empty if none
      */
-    open static func collect (_ eval: Evaluator, _ root: Element)throws->Elements {
+    public static func collect (_ eval: Evaluator, _ root: Element)throws->Elements {
         let elements: Elements = Elements()
         try NodeTraversor(Accumulator(root, elements, eval)).traverse(root)
         return elements
@@ -42,7 +42,7 @@ private final class Accumulator: NodeVisitor {
         self.eval = eval
     }
 
-    open func head(_ node: Node, _ depth: Int) {
+    public func head(_ node: Node, _ depth: Int) {
         guard let el = node as? Element else {
             return
         }
@@ -53,7 +53,7 @@ private final class Accumulator: NodeVisitor {
         } catch {}
     }
 
-    open func tail(_ node: Node, _ depth: Int) {
+    public func tail(_ node: Node, _ depth: Int) {
         // void
     }
 }
