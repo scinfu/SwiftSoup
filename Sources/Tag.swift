@@ -58,7 +58,7 @@ open class Tag: Hashable {
      * @param settings used to control tag name sensitivity
      * @return The tag, either defined or new generic.
      */
-    open static func valueOf(_ tagName: String, _ settings: ParseSettings)throws->Tag {
+    public static func valueOf(_ tagName: String, _ settings: ParseSettings)throws->Tag {
         var tagName = tagName
         var tag: Tag? = Tag.tags[tagName]
 
@@ -86,7 +86,7 @@ open class Tag: Hashable {
      * @param tagName Name of tag, e.g. "p". <b>Case sensitive</b>.
      * @return The tag, either defined or new generic.
      */
-    open static func valueOf(_ tagName: String)throws->Tag {
+    public static func valueOf(_ tagName: String)throws->Tag {
         return try valueOf(tagName, ParseSettings.preserveCase)
     }
 
@@ -168,7 +168,7 @@ open class Tag: Hashable {
      * @param tagName name of tag
      * @return if known HTML tag
      */
-    open static func isKnownTag(_ tagName: String) -> Bool {
+    public static func isKnownTag(_ tagName: String) -> Bool {
         return Tag.tags[tagName] != nil
     }
 

@@ -175,7 +175,7 @@ public class Entities {
      * @param name the possible entity name (e.g. "lt" or "amp")
      * @return true if a known named entity
      */
-    open static func isNamedEntity(_ name: String ) -> Bool {
+    public static func isNamedEntity(_ name: String ) -> Bool {
         return (EscapeMode.extended.codepointForName(name) != empty)
     }
 
@@ -185,7 +185,7 @@ public class Entities {
      * @return true if a known named entity in the base set
      * @see #isNamedEntity(String)
      */
-    open static func isBaseNamedEntity(_ name: String) -> Bool {
+    public static func isBaseNamedEntity(_ name: String) -> Bool {
         return EscapeMode.base.codepointForName(name) != empty
     }
 
@@ -195,7 +195,7 @@ public class Entities {
      * @return the Character value of the named entity (e.g. '{@literal <}' or '{@literal &}')
      * @deprecated does not support characters outside the BMP or multiple character names
      */
-    open static func getCharacterByName(name: String) -> Character {
+    public static func getCharacterByName(name: String) -> Character {
         return Character.convertFromIntegerLiteral(value: EscapeMode.extended.codepointForName(name))
     }
 
@@ -204,7 +204,7 @@ public class Entities {
      * @param name entity (e.g. "lt" or "amp")
      * @return the string value of the character(s) represented by this entity, or "" if not defined
      */
-    open static func getByName(name: String) -> String {
+    public static func getByName(name: String) -> String {
         let val = multipoints[name]
         if (val != nil) {return val!}
         let codepoint = EscapeMode.extended.codepointForName(name)
@@ -214,7 +214,7 @@ public class Entities {
         return emptyName
     }
 
-    open static func codepointsForName(_ name: String, codepoints: inout [UnicodeScalar]) -> Int {
+    public static func codepointsForName(_ name: String, codepoints: inout [UnicodeScalar]) -> Int {
 
         if let val: String = multipoints[name] {
             codepoints[0] = val.unicodeScalar(0)
@@ -230,11 +230,11 @@ public class Entities {
         return 0
     }
 
-    open static func escape(_ string: String, _ encode: String.Encoding = .utf8 ) -> String {
+    public static func escape(_ string: String, _ encode: String.Encoding = .utf8 ) -> String {
         return Entities.escape(string, OutputSettings().charset(encode).escapeMode(Entities.EscapeMode.extended))
     }
 
-    open static func escape(_ string: String, _ out: OutputSettings) -> String {
+    public static func escape(_ string: String, _ out: OutputSettings) -> String {
         let accum = StringBuilder()//string.characters.count * 2
         escape(accum, string, out, false, false, false)
         //        try {
