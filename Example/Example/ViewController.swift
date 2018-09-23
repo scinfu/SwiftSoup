@@ -27,8 +27,8 @@ class ViewController: UIViewController {
 
         self.title = "SwiftSoup Example"
 
-        self.tableView.rowHeight = UITableViewAutomaticDimension
-        self.tableView.estimatedRowHeight = UITableViewAutomaticDimension
+        self.tableView.rowHeight = UITableView.automaticDimension
+        self.tableView.estimatedRowHeight = UITableView.automaticDimension
 
         urlTextField.text = "http://www.facebook.com"
         cssTextField.text = "div"
@@ -108,7 +108,7 @@ extension ViewController: UITableViewDataSource {
     public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         var cell = tableView.dequeueReusableCell(withIdentifier: "cell")
         if cell == nil {
-            cell = UITableViewCell.init(style: UITableViewCellStyle.subtitle, reuseIdentifier: "cell")
+            cell = UITableViewCell.init(style: UITableViewCell.CellStyle.subtitle, reuseIdentifier: "cell")
             cell?.textLabel?.numberOfLines = 2
             cell?.detailTextLabel?.numberOfLines = 6
 
@@ -152,8 +152,8 @@ extension ViewController: UITextFieldDelegate {
 
 extension UIAlertController {
     static public func showAlert(_ message: String, _ controller: UIViewController) {
-        let alert = UIAlertController(title: "Alert", message: message, preferredStyle: UIAlertControllerStyle.alert)
-        alert.addAction(UIAlertAction(title: "OK", style: UIAlertActionStyle.default, handler: nil))
+        let alert = UIAlertController(title: "Alert", message: message, preferredStyle: UIAlertController.Style.alert)
+        alert.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: nil))
         controller.present(alert, animated: true, completion: nil)
     }
 }

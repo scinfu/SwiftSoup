@@ -10,19 +10,11 @@ Pod::Spec.new do |s|
   s.name             = 'SwiftSoup'
   s.version          = '1.7.3'
   s.summary          = 'Swift HTML Parser / Reader, XML , with best of DOM, CSS, and jquery'
-
-# This description is used to generate tags and improve search results.
-#   * Think: What does it do? Why did you write it? What is the focus?
-#   * Try to keep it short, snappy and to the point.
-#   * Write the description between the DESC delimiters below.
-#   * Finally, don't worry about the indent, CocoaPods strips it!
-
   s.description      = <<-DESC
 SwiftSoup is a Swift library for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jquery-like methods.
                        DESC
 
   s.homepage         = 'https://github.com/scinfu/SwiftSoup'
-  # s.screenshots     = 'www.example.com/screenshots_1', 'www.example.com/screenshots_2'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.author           = { 'Nabil Chatbi' => 'scinfu@gmail.com' }
   s.source           = { :git => 'https://github.com/scinfu/SwiftSoup.git', :tag => s.version.to_s }
@@ -34,12 +26,8 @@ SwiftSoup is a Swift library for working with real-world HTML. It provides a ver
   s.tvos.deployment_target = "9.0"
 
   s.source_files = 'Sources/**/*.swift'
-  
+
   #s.resource_bundles = {
   #  'SwiftSoup' => ['Assets/*.properties']
   #}
-
-  # s.public_header_files = 'Pod/Classes/**/*.h'
-  # s.frameworks = 'UIKit', 'MapKit'
-  # s.dependency 'AFNetworking', '~> 2.3'
 end

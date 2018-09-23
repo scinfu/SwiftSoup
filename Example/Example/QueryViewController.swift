@@ -45,8 +45,8 @@ class QueryViewController: UIViewController {
         super.viewDidLoad()
         self.title = ""
 
-        self.tableView.rowHeight = UITableViewAutomaticDimension
-        self.tableView.estimatedRowHeight = UITableViewAutomaticDimension
+        self.tableView.rowHeight = UITableView.automaticDimension
+        self.tableView.estimatedRowHeight = UITableView.automaticDimension
     }
 
 }
