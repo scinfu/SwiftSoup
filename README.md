@@ -12,7 +12,7 @@
 [![License](https://img.shields.io/cocoapods/l/SwiftSoup.svg?style=flat)](http://cocoapods.org/pods/SwiftSoup)
 [![Twitter](https://img.shields.io/badge/twitter-@scinfu-blue.svg?style=flat)](http://twitter.com/scinfu)
 
-`SwiftSoup` is a pure Swift library, cross-platform(macOS, iOS, tvOS, watchOS and Linux!), for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jquery-like methods.
+`SwiftSoup` is a pure Swift library, cross-platform (macOS, iOS, tvOS, watchOS and Linux!), for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jQuery-like methods.
 `SwiftSoup` implements the WHATWG HTML5 specification, and parses HTML to the same DOM as modern browsers do.
 * Scrape and parse HTML from a URL, file, or string
 * Find and extract data, using DOM traversal or CSS selectors
@@ -54,10 +54,10 @@ targets: [
 ```
 
 ## Try
-### try simple online CSS Seletors site:
+### Try out the simple online CSS selectors site:
 [SwiftSoup Test Site](https://swiftsoup.herokuapp.com/)
 
-### try example project opening Terminal and type:
+### Try out the example project opening Terminal and type:
 ```shell
 pod try SwiftSoup
 ```
@@ -98,9 +98,9 @@ do {
 ### Problem
 After parsing a document, and finding some elements, you'll want to get at the data inside those elements.
 ### Solution
-- To get the value of an attribute, use `Node.attr(_ String key)` method
+- To get the value of an attribute, use the `Node.attr(_ String key)` method
 - For the text on an element (and its combined children), use `Element.text()`
-- For HTML, use `Element.html()`, or `Node.outerHtml()¡ as appropriate
+- For HTML, use `Element.html()`, or `Node.outerHtml()` as appropriate
 
 ```swift
 do {
@@ -137,7 +137,7 @@ All of these accessor methods have corresponding setter methods to change the da
 ### Problem
 You have HTML in a Swift String, and you want to parse that HTML to get at its contents, or to make sure it's well formed, or to modify it. The String may have come from user input, a file, or from the web.
 ### Solution
-Use the static `SwiftSoup.parse(_ html : String)` method, or `SwiftSoup.parse(_ html : String, : baseUri: String)`.
+Use the static `SwiftSoup.parse(_ html: String)` method, or `SwiftSoup.parse(_ html: String, _ baseUri: String)`.
 
 ```swift
 do {
@@ -152,11 +152,11 @@ do {
 }
 ```
 ### Description
-The `parse(_ html : String, : baseUri: String)` method parses the input HTML into a new `Document`. The base URI argument is used to resolve relative URLs into absolute URLs, and should be set to the URL where the document was fetched from. If that's not applicable, or if you know the HTML has a base element, you can use the `parse(_ html : String)` method.
+The `parse(_ html: String, _ baseUri: String)` method parses the input HTML into a new `Document`. The base URI argument is used to resolve relative URLs into absolute URLs, and should be set to the URL where the document was fetched from. If that's not applicable, or if you know the HTML has a base element, you can use the `parse(_ html: String)` method.
 
 As long as you pass in a non-null string, you're guaranteed to have a successful, sensible parse, with a Document containing (at least) a `head` and a `body` element.
 
-Once you have a `Document`, you can get get at the data using the appropriate methods in `Document` and its supers `Element` and `Node`.
+Once you have a `Document`, you can get at the data using the appropriate methods in `Document` and its supers `Element` and `Node`.
 
 
 
@@ -164,7 +164,7 @@ Once you have a `Document`, you can get get at the data using the appropriate me
 ### Problem
 You have a fragment of body HTML (e.g. `div` containing a couple of p tags; as opposed to a full HTML document) that you want to parse. Perhaps it was provided by a user submitting a comment, or editing the body of a page in a CMS.
 ### Solution
-Use the `SwiftSoup.parseBodyFragment(_ html : String)` method.
+Use the `SwiftSoup.parseBodyFragment(_ html: String)` method.
 
 ```swift
 do {
@@ -224,7 +224,7 @@ The cleaner is useful not only for avoiding XSS, but also in limiting the range 
 ### See also
 - See the [XSS cheat sheet](http://ha.ckers.org/xss.html) and filter evasion guide, as an example of how regular-expression filters don't work, and why a safe whitelist parser-based sanitizer is the correct approach.
 - See the `Cleaner` reference if you want to get a `Document` instead of a String return
-- See the `Whitelist reference for the different canned options, and to create a custom whitelist
+- See the `Whitelist` reference for the different canned options, and to create a custom whitelist
 - The [nofollow](https://en.wikipedia.org/wiki/Nofollow) link attribute
 
 
@@ -235,11 +235,11 @@ The cleaner is useful not only for avoiding XSS, but also in limiting the range 
 You have a parsed document that you would like to update attribute values on, before saving it out to disk, or sending it on as a HTTP response.
 
 ### Solution
-Use the attribute setter methods `Element.attr(_ key: String, _ value: String)`, and `Elements.attr(_ String: key, _ value: String)`.
+Use the attribute setter methods `Element.attr(_ key: String, _ value: String)`, and `Elements.attr(_ key: String, _ value: String)`.
 
 If you need to modify the class attribute of an element, use the `Element.addClass(_ className: String)` and `Element.removeClass(_ className: String)` methods.
 
-The `Elements collection has bulk attribue and class methods. For example, to add a `rel="nofollow" attribute to every `a` element inside a div:
+The `Elements` collection has bulk attribute and class methods. For example, to add a `rel="nofollow"` attribute to every `a` element inside a div:
 
 ```swift
 do {
@@ -251,7 +251,7 @@ do {
 }
 ```
 ### Description
-Like the other methods in `Element, the attr methods return the current `Element` (or `Elements` when working on a collection from a select). This allows convenient method chaining:
+Like the other methods in `Element`, the attr methods return the current `Element` (or `Elements` when working on a collection from a select). This allows convenient method chaining:
 
 ```swift
 do {
@@ -303,7 +303,7 @@ You can also use the `Element.prependElement(_ tag: String)` and `Element.append
 
 # Setting the text content of elements
 ### Problem
-You need to modify the text content of a HTML document.
+You need to modify the text content of an HTML document.
 # Solution
 Use the text setter methods of `Element`:
 
@@ -354,7 +354,7 @@ do {
 }
 ```
 ### Description
-Elements provide a range of DOM-like methods to find elements, and extract and manipulate their data. The DOM getters are contextual: called on a parent Document they find matching elements under the document; called on a child element they find elements under that child. In this way you can winnow in on the data you want.
+Elements provide a range of DOM-like methods to find elements, and extract and manipulate their data. The DOM getters are contextual: called on a parent Document they find matching elements under the document; called on a child element they find elements under that child. In this way you can window in on the data you want.
 ### Finding elements
 * `getElementById(_ id: String)`
 * `getElementsByTag(_ tag:String)`
@@ -392,7 +392,7 @@ Elements provide a range of DOM-like methods to find elements, and extract and m
 
 # Use selector syntax to find elements
 ### Problem
-You want to find or manipulate elements using a CSS or jquery-like selector syntax.
+You want to find or manipulate elements using a CSS or jQuery-like selector syntax.
 ### Solution
 Use the `Element.select(_ selector: String)` and `Elements.select(_ selector: String)` methods:
 
@@ -412,7 +412,7 @@ do {
 }
 ```
 ### Description
-SwifSoup elements support a [CSS](https://www.w3.org/TR/2009/PR-css3-selectors-20091215/) (or [jquery](http://jquery.com)) like selector syntax to find matching elements, that allows very powerful and robust queries.
+SwiftSoup elements support a [CSS](https://www.w3.org/TR/2009/PR-css3-selectors-20091215/) (or [jQuery](http://jquery.com)) like selector syntax to find matching elements, that allows very powerful and robust queries.
 
 The `select` method is available in a `Document`, `Element`, or in `Elements`. It is contextual, so you can filter by selecting from a specific element, or by chaining select calls.
 
