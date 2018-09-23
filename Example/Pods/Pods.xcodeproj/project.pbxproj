@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		01D2585C0356F60D92E168D1C7034874 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6604A7D69453B4569E4E4827FB9155A9 /* Foundation.framework */; };
 		04D571C75B292075D678B28C69805FE4 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30DB82CFA0F3E64CBAB500403B7769E /* Document.swift */; };
 		05B3792770799BD233FD45BCBDC2D7EE /* CharacterExt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D00198F422381A8A7DD374B00547E02 /* CharacterExt.swift */; };
 		097D22F42274922A5EACB67EA29FDD3F /* Pods-Example-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = 15D3FE98E9F2D34863BD3F3597A0485A /* Pods-Example-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -16,6 +15,7 @@
 		18B9A139BD6C5E66D16175A6D8461724 /* SwiftSoup-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = F1CF33364F381E41780FF5A8A1140D86 /* SwiftSoup-dummy.m */; };
 		1A519990E75E4DB744881FA7D8706D1C /* TokenQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F18C7FC2419456973E76C93F7F9A93D /* TokenQueue.swift */; };
 		254590B491B6A74F2DE78F59A1148D10 /* Connection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367BAE4DDBBE35865347A6616475E77F /* Connection.swift */; };
+		27192693D9C5CA86BCE26CA96744CBEC /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5A16F4CFC63FAC439D7A04994F579A03 /* Foundation.framework */; };
 		29A783DC0B0837C07F54DCCDDDEB162C /* DocumentType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E561FAB80A8C0E19709C93F81E348E9 /* DocumentType.swift */; };
 		2BFF7EF2CC31F9B9CB9A1BB2C9420CAB /* TextNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD5E68DBF128D1CE5F2423E3DB7DEF54 /* TextNode.swift */; };
 		2D594FC863FAEFDF324475289BE26504 /* Entities.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAD46BD0D99D6B4ADEF13D0950D0AF7 /* Entities.swift */; };
@@ -42,6 +42,7 @@
 		8BF1321F7653A656D60C57A3E58666F6 /* Selector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3276990E7D21264C639FD2CDB6B14E41 /* Selector.swift */; };
 		903E0E66FD879C958B45225DDC8C1378 /* CharacterReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95166CB8CD8BD2142667580BDFBABBFD /* CharacterReader.swift */; };
 		97F2C866878C71097AAA3C23F5014C47 /* UnicodeScalar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BBAA2743782956485DB9AF107FDF57D /* UnicodeScalar.swift */; };
+		9F4D6C8B5A4843B110DEAE3515550382 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5A16F4CFC63FAC439D7A04994F579A03 /* Foundation.framework */; };
 		9F7BA6092EE2579595D9D4CCBE542019 /* StringBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD07F28CCB74E1228FC97822C76FD57A /* StringBuilder.swift */; };
 		A2582314AC8785B5D77B923924936132 /* Pattern.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1FEBB5C18165F9C0648089DD43DD28 /* Pattern.swift */; };
 		A2D3EF5E3F4637F527676A457E8A13E5 /* String.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF37A2F792B23D96A64709AFE26A1891 /* String.swift */; };
@@ -55,7 +56,6 @@
 		B636BB87BFBF8CFC79E05A781F34C573 /* StreamReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3192DA0AA2A27E11DD73A39BB089AE49 /* StreamReader.swift */; };
 		B6728ACC67753E9F92376B4D782E9EF0 /* FormElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 384955A657C32B2467D065E106084289 /* FormElement.swift */; };
 		B68E78C97ADA35DF8CEB7C25E991ECF9 /* Collector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 763CAE58C083009786E0F7248F437DD3 /* Collector.swift */; };
-		C1B73ABE24595EF1216B732D49223339 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6604A7D69453B4569E4E4827FB9155A9 /* Foundation.framework */; };
 		C7BCFAE8DEDC85B79D61C719AA10483F /* Attributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7506B15C1E4D38000143613A73D3C /* Attributes.swift */; };
 		CB5223EB92ADFDBAE6EAC773A9D99861 /* TreeBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97C307DCB370229E58D680D8790F897 /* TreeBuilder.swift */; };
 		CB8D749057B9934B35EC97F6257700CC /* NodeVisitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B66180056367003D268B2DA14EB264A3 /* NodeVisitor.swift */; };
@@ -107,10 +107,10 @@
 		3F3EFEBDE6702DEFDFFF9D5C6DBC3773 /* Pods-Example-frameworks.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-Example-frameworks.sh"; sourceTree = "<group>"; };
 		401F736C249F61040FDF4931775E1689 /* SwiftSoup.podspec */ = {isa = PBXFileReference; explicitFileType = text.script.ruby; includeInIndex = 1; lastKnownFileType = text; path = SwiftSoup.podspec; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.ruby; };
 		496EF8DB8AF948D4BA5F82682A46A40F /* XmlDeclaration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = XmlDeclaration.swift; path = Sources/XmlDeclaration.swift; sourceTree = "<group>"; };
+		5A16F4CFC63FAC439D7A04994F579A03 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS11.3.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		5B81C04F8E84EAE60AE15C8695031A5F /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		5FE96BCEF11D43E684980C5F8DCB3BFF /* HtmlTreeBuilderState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HtmlTreeBuilderState.swift; path = Sources/HtmlTreeBuilderState.swift; sourceTree = "<group>"; };
 		65CA78269454B0B19CC5A33720274173 /* SwiftSoup.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SwiftSoup.swift; path = Sources/SwiftSoup.swift; sourceTree = "<group>"; };
-		6604A7D69453B4569E4E4827FB9155A9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.3.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		6692FFC1EE366CC3647DEFA82C076FC7 /* Attribute.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Attribute.swift; path = Sources/Attribute.swift; sourceTree = "<group>"; };
 		75B995A55E4197A8D3E60088049D7AF8 /* SerializationException.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SerializationException.swift; path = Sources/SerializationException.swift; sourceTree = "<group>"; };
 		763CAE58C083009786E0F7248F437DD3 /* Collector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Collector.swift; path = Sources/Collector.swift; sourceTree = "<group>"; };
@@ -168,7 +168,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				01D2585C0356F60D92E168D1C7034874 /* Foundation.framework in Frameworks */,
+				27192693D9C5CA86BCE26CA96744CBEC /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -176,7 +176,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C1B73ABE24595EF1216B732D49223339 /* Foundation.framework in Frameworks */,
+				9F4D6C8B5A4843B110DEAE3515550382 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -300,6 +300,14 @@
 			name = Pod;
 			sourceTree = "<group>";
 		};
+		5E0D919E635D23B70123790B8308F8EF /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				5A16F4CFC63FAC439D7A04994F579A03 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
 		6A4F6A14E3FB951290E4531728B7A461 /* Targets Support Files */ = {
 			isa = PBXGroup;
 			children = (
@@ -330,17 +338,9 @@
 		BC3CA7F9E30CC8F7E2DD044DD34432FC /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				D35AF013A5F0BAD4F32504907A52519E /* iOS */,
+				5E0D919E635D23B70123790B8308F8EF /* iOS */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		D35AF013A5F0BAD4F32504907A52519E /* iOS */ = {
-			isa = PBXGroup;
-			children = (
-				6604A7D69453B4569E4E4827FB9155A9 /* Foundation.framework */,
-			);
-			name = iOS;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
