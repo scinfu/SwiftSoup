@@ -23,7 +23,7 @@ import Foundation
  */
 open class Attributes: NSCopying {
 
-    open static var dataPrefix: String = "data-"
+    public static var dataPrefix: String = "data-"
 
     var attributes: OrderedDictionary<String, Attribute>  = OrderedDictionary<String, Attribute>()
     // linked hash map to preserve insertion order.
