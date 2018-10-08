@@ -45,7 +45,7 @@ To install it, simply add the dependency to your Package.Swift file:
 ```swift
 ...
 dependencies: [
-    .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "1.5.10"),
+    .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "1.7.4"),
 ],
 targets: [
     .target( name: "YourTarget", dependencies: ["SwiftSoup"]),
