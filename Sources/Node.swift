@@ -750,9 +750,15 @@ open class Node: Equatable, Hashable {
         }
 
         open func tail(_ node: Node, _ depth: Int)throws {
+            // When compiling a release optimized swift linux 4.2 version the "saves a void hit."
+            // causes a SIL error. Removing optimization on linux until a fix is found.
+            #if os(Linux)
+            try node.outerHtmlTail(accum, depth, out)
+            #else
             if (!(node.nodeName() == OuterHtmlVisitor.text)) { // saves a void hit.
                 try node.outerHtmlTail(accum, depth, out)
             }
+            #endif
         }
     }
 
