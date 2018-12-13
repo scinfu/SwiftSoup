@@ -30,6 +30,17 @@ class ElementsTest: XCTestCase {
 		try XCTAssertEqual("There", els.get(1).text())
 	}
 
+	func testRandomAccessCollection()throws {
+		let h: String = "<div><p>one</p><div class=headline><p>two</p><p>three</p></div><p>four</p></div>"
+		let doc: Document = try SwiftSoup.parse(h)
+		let els: Elements = try doc.select("p")
+		XCTAssertEqual(els.count, 4)
+		for i in (els.startIndex ..< els.endIndex).shuffled() {
+			let el = els[i]
+			XCTAssertEqual(el.tag().getName(), "p")
+		}
+	}
+
 	func testAttributes()throws {
 		let h = "<p title=foo><p title=bar><p class=foo><p class=bar>"
 		let doc: Document = try SwiftSoup.parse(h)
@@ -297,6 +308,7 @@ class ElementsTest: XCTestCase {
 		return [
             ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
             ("testFilter", testFilter),
+			("testRandomAccessCollection", testRandomAccessCollection),
 			("testAttributes", testAttributes),
 			("testHasAttr", testHasAttr),
 			("testHasAbsAttr", testHasAbsAttr),
