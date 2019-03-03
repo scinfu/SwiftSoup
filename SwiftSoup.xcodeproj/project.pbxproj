@@ -89,6 +89,13 @@
 		8CE4187A1DAA568700240B42 /* SwiftSoup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418571DAA568600240B42 /* SwiftSoup.swift */; };
 		8CEA29591DAC112B0064A341 /* CharacterReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CEA29581DAC112B0064A341 /* CharacterReader.swift */; };
 		8CEA295B1DAC23820064A341 /* String.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CEA295A1DAC23820064A341 /* String.swift */; };
+		BBFF4756222C9BD4001980DC /* ParserBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBFF4755222C9BD4001980DC /* ParserBenchmark.swift */; };
+		BBFF4764222C9C21001980DC /* Amazon.html in Resources */ = {isa = PBXBuildFile; fileRef = BBFF4759222C9BE2001980DC /* Amazon.html */; };
+		BBFF4765222C9C21001980DC /* GitHub.html in Resources */ = {isa = PBXBuildFile; fileRef = BBFF475A222C9BE2001980DC /* GitHub.html */; };
+		BBFF4766222C9C21001980DC /* Google.html in Resources */ = {isa = PBXBuildFile; fileRef = BBFF4757222C9BE1001980DC /* Google.html */; };
+		BBFF4767222C9C21001980DC /* Reuters.html in Resources */ = {isa = PBXBuildFile; fileRef = BBFF475B222C9BE2001980DC /* Reuters.html */; };
+		BBFF4768222C9C21001980DC /* Wikipedia.html in Resources */ = {isa = PBXBuildFile; fileRef = BBFF475C222C9BE2001980DC /* Wikipedia.html */; };
+		BBFF4769222C9C21001980DC /* Wirecutter.html in Resources */ = {isa = PBXBuildFile; fileRef = BBFF4758222C9BE1001980DC /* Wirecutter.html */; };
 		BD3B5B6A1FBED933001FDB3B /* OrderedDictionary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418531DAA568600240B42 /* OrderedDictionary.swift */; };
 		BD3B5B6B1FBED933001FDB3B /* Whitelist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC2FD8C1DB12382002CB469 /* Whitelist.swift */; };
 		BD3B5B6C1FBED933001FDB3B /* Tokeniser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C19C82E1DB7E5D200B8FC22 /* Tokeniser.swift */; };
@@ -359,6 +366,13 @@
 		8CE418571DAA568600240B42 /* SwiftSoup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SwiftSoup.swift; sourceTree = "<group>"; };
 		8CEA29581DAC112B0064A341 /* CharacterReader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CharacterReader.swift; sourceTree = "<group>"; };
 		8CEA295A1DAC23820064A341 /* String.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = String.swift; sourceTree = "<group>"; };
+		BBFF4755222C9BD4001980DC /* ParserBenchmark.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ParserBenchmark.swift; path = SwiftSoupTests/ParserBenchmark.swift; sourceTree = "<group>"; };
+		BBFF4757222C9BE1001980DC /* Google.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = Google.html; path = SwiftSoupTests/BenchmarkCorpus/Google.html; sourceTree = "<group>"; };
+		BBFF4758222C9BE1001980DC /* Wirecutter.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = Wirecutter.html; path = SwiftSoupTests/BenchmarkCorpus/Wirecutter.html; sourceTree = "<group>"; };
+		BBFF4759222C9BE2001980DC /* Amazon.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = Amazon.html; path = SwiftSoupTests/BenchmarkCorpus/Amazon.html; sourceTree = "<group>"; };
+		BBFF475A222C9BE2001980DC /* GitHub.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = GitHub.html; path = SwiftSoupTests/BenchmarkCorpus/GitHub.html; sourceTree = "<group>"; };
+		BBFF475B222C9BE2001980DC /* Reuters.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = Reuters.html; path = SwiftSoupTests/BenchmarkCorpus/Reuters.html; sourceTree = "<group>"; };
+		BBFF475C222C9BE2001980DC /* Wikipedia.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = Wikipedia.html; path = SwiftSoupTests/BenchmarkCorpus/Wikipedia.html; sourceTree = "<group>"; };
 		BD36975B20135EBB00D8FAC6 /* SwiftSoup.podspec */ = {isa = PBXFileReference; lastKnownFileType = text; path = SwiftSoup.podspec; sourceTree = "<group>"; };
 		BD3B5BA91FBED933001FDB3B /* SwiftSoup.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SwiftSoup.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD3B5BAA1FBED934001FDB3B /* InfoMac.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = InfoMac.plist; path = /Users/nabil/Documents/nabil/SwiftSoup/Sources/InfoMac.plist; sourceTree = "<absolute>"; };
@@ -601,6 +615,7 @@
 		8CF3E7391E09BE8500F505D2 /* parser */ = {
 			isa = PBXGroup;
 			children = (
+				BBFF4755222C9BD4001980DC /* ParserBenchmark.swift */,
 				8CC142171E092E89002F536D /* AttributeParseTest.swift */,
 				8CC1421B1E092E89002F536D /* CharacterReaderTest.swift */,
 				8CC142231E092E89002F536D /* HtmlParserTest.swift */,
@@ -608,6 +623,7 @@
 				8CC1422A1E092E89002F536D /* TagTest.swift */,
 				8CC1422D1E092E89002F536D /* TokenQueueTest.swift */,
 				8CC1422E1E092E89002F536D /* XmlTreeBuilderTest.swift */,
+				BBFF4763222C9BF2001980DC /* benchmark corpus */,
 			);
 			name = parser;
 			sourceTree = "<group>";
@@ -621,6 +637,19 @@
 				8CC142271E092E89002F536D /* SelectorTest.swift */,
 			);
 			name = select;
+			sourceTree = "<group>";
+		};
+		BBFF4763222C9BF2001980DC /* benchmark corpus */ = {
+			isa = PBXGroup;
+			children = (
+				BBFF4759222C9BE2001980DC /* Amazon.html */,
+				BBFF475A222C9BE2001980DC /* GitHub.html */,
+				BBFF4757222C9BE1001980DC /* Google.html */,
+				BBFF475B222C9BE2001980DC /* Reuters.html */,
+				BBFF475C222C9BE2001980DC /* Wikipedia.html */,
+				BBFF4758222C9BE1001980DC /* Wirecutter.html */,
+			);
+			name = "benchmark corpus";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -812,6 +841,12 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BBFF4766222C9C21001980DC /* Google.html in Resources */,
+				BBFF4767222C9C21001980DC /* Reuters.html in Resources */,
+				BBFF4769222C9C21001980DC /* Wirecutter.html in Resources */,
+				BBFF4764222C9C21001980DC /* Amazon.html in Resources */,
+				BBFF4768222C9C21001980DC /* Wikipedia.html in Resources */,
+				BBFF4765222C9C21001980DC /* GitHub.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -880,6 +915,7 @@
 				8CE418711DAA568700240B42 /* Parser.swift in Sources */,
 				8CE418701DAA568700240B42 /* XmlDeclaration.swift in Sources */,
 				8C19C8331DB7ECB700B8FC22 /* ParseErrorList.swift in Sources */,
+				BBFF4756222C9BD4001980DC /* ParserBenchmark.swift in Sources */,
 				8CE2D93F1DB2796C00C7BDE3 /* Cleaner.swift in Sources */,
 				8CE418611DAA568600240B42 /* HttpStatusException.swift in Sources */,
 				8CE418631DAA568600240B42 /* Attributes.swift in Sources */,
