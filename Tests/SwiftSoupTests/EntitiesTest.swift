@@ -50,15 +50,15 @@ class EntitiesTest: XCTestCase {
 
 	func testXhtml() {
 		//let text = "&amp; &gt; &lt; &quot;";
-		XCTAssertEqual(38, Entities.EscapeMode.xhtml.codepointForName("amp"))
-		XCTAssertEqual(62, Entities.EscapeMode.xhtml.codepointForName("gt"))
-		XCTAssertEqual(60, Entities.EscapeMode.xhtml.codepointForName("lt"))
-		XCTAssertEqual(34, Entities.EscapeMode.xhtml.codepointForName("quot"))
+		XCTAssertEqual(UnicodeScalar(38), Entities.EscapeMode.xhtml.codepointForName("amp"))
+		XCTAssertEqual(UnicodeScalar(62), Entities.EscapeMode.xhtml.codepointForName("gt"))
+		XCTAssertEqual(UnicodeScalar(60), Entities.EscapeMode.xhtml.codepointForName("lt"))
+		XCTAssertEqual(UnicodeScalar(34), Entities.EscapeMode.xhtml.codepointForName("quot"))
 
-		XCTAssertEqual("amp", Entities.EscapeMode.xhtml.nameForCodepoint(38))
-		XCTAssertEqual("gt", Entities.EscapeMode.xhtml.nameForCodepoint(62))
-		XCTAssertEqual("lt", Entities.EscapeMode.xhtml.nameForCodepoint(60))
-		XCTAssertEqual("quot", Entities.EscapeMode.xhtml.nameForCodepoint(34))
+		XCTAssertEqual("amp", Entities.EscapeMode.xhtml.nameForCodepoint(UnicodeScalar(38)!))
+		XCTAssertEqual("gt", Entities.EscapeMode.xhtml.nameForCodepoint(UnicodeScalar(62)!))
+		XCTAssertEqual("lt", Entities.EscapeMode.xhtml.nameForCodepoint(UnicodeScalar(60)!))
+		XCTAssertEqual("quot", Entities.EscapeMode.xhtml.nameForCodepoint(UnicodeScalar(34)!))
 	}
 
 	func testGetByName() {

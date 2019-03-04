@@ -96,6 +96,10 @@
 		BB57C2E5222CB0E3008933AA /* Wirecutter.html in Resources */ = {isa = PBXBuildFile; fileRef = BB57C2DF222CB0E2008933AA /* Wirecutter.html */; };
 		BB57C2E6222CB0E3008933AA /* GitHub.html in Resources */ = {isa = PBXBuildFile; fileRef = BB57C2E0222CB0E3008933AA /* GitHub.html */; };
 		BB57C2E7222CB0E3008933AA /* Amazon.html in Resources */ = {isa = PBXBuildFile; fileRef = BB57C2E1222CB0E3008933AA /* Amazon.html */; };
+		BB57C2EA222CCCB6008933AA /* BinarySearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB57C2E9222CCCB5008933AA /* BinarySearch.swift */; };
+		BB57C2EB222CCCC3008933AA /* BinarySearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB57C2E9222CCCB5008933AA /* BinarySearch.swift */; };
+		BB57C2EC222CCCC5008933AA /* BinarySearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB57C2E9222CCCB5008933AA /* BinarySearch.swift */; };
+		BB57C2ED222CCCC6008933AA /* BinarySearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB57C2E9222CCCB5008933AA /* BinarySearch.swift */; };
 		BD3B5B6B1FBED933001FDB3B /* Whitelist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC2FD8C1DB12382002CB469 /* Whitelist.swift */; };
 		BD3B5B6C1FBED933001FDB3B /* Tokeniser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C19C82E1DB7E5D200B8FC22 /* Tokeniser.swift */; };
 		BD3B5B6D1FBED933001FDB3B /* Pattern.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418541DAA568600240B42 /* Pattern.swift */; };
@@ -378,6 +382,7 @@
 		BB57C2DF222CB0E2008933AA /* Wirecutter.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = Wirecutter.html; sourceTree = "<group>"; };
 		BB57C2E0222CB0E3008933AA /* GitHub.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = GitHub.html; sourceTree = "<group>"; };
 		BB57C2E1222CB0E3008933AA /* Amazon.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = Amazon.html; sourceTree = "<group>"; };
+		BB57C2E9222CCCB5008933AA /* BinarySearch.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BinarySearch.swift; sourceTree = "<group>"; };
 		BD36975B20135EBB00D8FAC6 /* SwiftSoup.podspec */ = {isa = PBXFileReference; lastKnownFileType = text; path = SwiftSoup.podspec; sourceTree = "<group>"; };
 		BD3B5BA91FBED933001FDB3B /* SwiftSoup.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SwiftSoup.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD3B5BAA1FBED934001FDB3B /* InfoMac.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = InfoMac.plist; path = /Users/nabil/Documents/nabil/SwiftSoup/Sources/InfoMac.plist; sourceTree = "<absolute>"; };
@@ -447,6 +452,7 @@
 		8C7ED6731E00B0690032A27C /* shared */ = {
 			isa = PBXGroup;
 			children = (
+				BB57C2E9222CCCB5008933AA /* BinarySearch.swift */,
 				8CE418501DAA568600240B42 /* ArrayExt.swift */,
 				8CE418511DAA568600240B42 /* CharacterExt.swift */,
 				8CE418541DAA568600240B42 /* Pattern.swift */,
@@ -963,6 +969,7 @@
 				8CE4186D1DAA568700240B42 /* FormElement.swift in Sources */,
 				8C73DB4B1DDA605900233A68 /* UnicodeScalar.swift in Sources */,
 				8CE418601DAA568600240B42 /* Validate.swift in Sources */,
+				BB57C2EA222CCCB6008933AA /* BinarySearch.swift in Sources */,
 				8C3617C11DBAC2AE00E00CFE /* Selector.swift in Sources */,
 				8CE418711DAA568700240B42 /* Parser.swift in Sources */,
 				8CE418701DAA568700240B42 /* XmlDeclaration.swift in Sources */,
@@ -1064,6 +1071,7 @@
 				BD3B5B881FBED933001FDB3B /* FormElement.swift in Sources */,
 				BD3B5B891FBED933001FDB3B /* UnicodeScalar.swift in Sources */,
 				BD3B5B8A1FBED933001FDB3B /* Validate.swift in Sources */,
+				BB57C2EB222CCCC3008933AA /* BinarySearch.swift in Sources */,
 				BD3B5B8B1FBED933001FDB3B /* Selector.swift in Sources */,
 				BD3B5B8C1FBED933001FDB3B /* Parser.swift in Sources */,
 				BD3B5B8D1FBED933001FDB3B /* XmlDeclaration.swift in Sources */,
@@ -1126,6 +1134,7 @@
 				BD3B5BCB1FC063BD001FDB3B /* FormElement.swift in Sources */,
 				BD3B5BCC1FC063BD001FDB3B /* UnicodeScalar.swift in Sources */,
 				BD3B5BCD1FC063BD001FDB3B /* Validate.swift in Sources */,
+				BB57C2EC222CCCC5008933AA /* BinarySearch.swift in Sources */,
 				BD3B5BCE1FC063BD001FDB3B /* Selector.swift in Sources */,
 				BD3B5BCF1FC063BD001FDB3B /* Parser.swift in Sources */,
 				BD3B5BD01FC063BD001FDB3B /* XmlDeclaration.swift in Sources */,
@@ -1188,6 +1197,7 @@
 				BD3B5C0E1FC06423001FDB3B /* FormElement.swift in Sources */,
 				BD3B5C0F1FC06423001FDB3B /* UnicodeScalar.swift in Sources */,
 				BD3B5C101FC06423001FDB3B /* Validate.swift in Sources */,
+				BB57C2ED222CCCC6008933AA /* BinarySearch.swift in Sources */,
 				BD3B5C111FC06423001FDB3B /* Selector.swift in Sources */,
 				BD3B5C121FC06423001FDB3B /* Parser.swift in Sources */,
 				BD3B5C131FC06423001FDB3B /* XmlDeclaration.swift in Sources */,
