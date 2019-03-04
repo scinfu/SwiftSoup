@@ -87,7 +87,7 @@ extension String {
         // Avoid actually calling it if it's not needed.
         guard count > 0 else { return self }
         let (firstChar, lastChar) = (first!, last!)
-        if firstChar.isWhitespace || lastChar.isWhitespace || firstChar.isNewline || lastChar.isNewline {
+        if firstChar.isWhitespace || lastChar.isWhitespace || firstChar == "\n" || lastChar == "\n" {
             return trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return self
