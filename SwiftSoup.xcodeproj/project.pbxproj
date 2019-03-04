@@ -89,13 +89,14 @@
 		8CE4187A1DAA568700240B42 /* SwiftSoup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418571DAA568600240B42 /* SwiftSoup.swift */; };
 		8CEA29591DAC112B0064A341 /* CharacterReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CEA29581DAC112B0064A341 /* CharacterReader.swift */; };
 		8CEA295B1DAC23820064A341 /* String.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CEA295A1DAC23820064A341 /* String.swift */; };
-		BBFF4756222C9BD4001980DC /* ParserBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBFF4755222C9BD4001980DC /* ParserBenchmark.swift */; };
-		BBFF4764222C9C21001980DC /* Amazon.html in Resources */ = {isa = PBXBuildFile; fileRef = BBFF4759222C9BE2001980DC /* Amazon.html */; };
-		BBFF4765222C9C21001980DC /* GitHub.html in Resources */ = {isa = PBXBuildFile; fileRef = BBFF475A222C9BE2001980DC /* GitHub.html */; };
-		BBFF4766222C9C21001980DC /* Google.html in Resources */ = {isa = PBXBuildFile; fileRef = BBFF4757222C9BE1001980DC /* Google.html */; };
-		BBFF4767222C9C21001980DC /* Reuters.html in Resources */ = {isa = PBXBuildFile; fileRef = BBFF475B222C9BE2001980DC /* Reuters.html */; };
-		BBFF4768222C9C21001980DC /* Wikipedia.html in Resources */ = {isa = PBXBuildFile; fileRef = BBFF475C222C9BE2001980DC /* Wikipedia.html */; };
-		BBFF4769222C9C21001980DC /* Wirecutter.html in Resources */ = {isa = PBXBuildFile; fileRef = BBFF4758222C9BE1001980DC /* Wirecutter.html */; };
+		BB57C2D3222CAF8E008933AA /* SwiftSoup.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BD3B5BA91FBED933001FDB3B /* SwiftSoup.framework */; };
+		BB57C2DB222CB0C6008933AA /* ParserBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB57C2D9222CB0BE008933AA /* ParserBenchmark.swift */; };
+		BB57C2E2222CB0E3008933AA /* Google.html in Resources */ = {isa = PBXBuildFile; fileRef = BB57C2DC222CB0E2008933AA /* Google.html */; };
+		BB57C2E3222CB0E3008933AA /* Wikipedia.html in Resources */ = {isa = PBXBuildFile; fileRef = BB57C2DD222CB0E2008933AA /* Wikipedia.html */; };
+		BB57C2E4222CB0E3008933AA /* Reuters.html in Resources */ = {isa = PBXBuildFile; fileRef = BB57C2DE222CB0E2008933AA /* Reuters.html */; };
+		BB57C2E5222CB0E3008933AA /* Wirecutter.html in Resources */ = {isa = PBXBuildFile; fileRef = BB57C2DF222CB0E2008933AA /* Wirecutter.html */; };
+		BB57C2E6222CB0E3008933AA /* GitHub.html in Resources */ = {isa = PBXBuildFile; fileRef = BB57C2E0222CB0E3008933AA /* GitHub.html */; };
+		BB57C2E7222CB0E3008933AA /* Amazon.html in Resources */ = {isa = PBXBuildFile; fileRef = BB57C2E1222CB0E3008933AA /* Amazon.html */; };
 		BD3B5B6A1FBED933001FDB3B /* OrderedDictionary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE418531DAA568600240B42 /* OrderedDictionary.swift */; };
 		BD3B5B6B1FBED933001FDB3B /* Whitelist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC2FD8C1DB12382002CB469 /* Whitelist.swift */; };
 		BD3B5B6C1FBED933001FDB3B /* Tokeniser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C19C82E1DB7E5D200B8FC22 /* Tokeniser.swift */; };
@@ -277,6 +278,13 @@
 			remoteGlobalIDString = 8CE418151DAA54A900240B42;
 			remoteInfo = SwiftSoup;
 		};
+		BB57C2D4222CAF8E008933AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8CE4180D1DAA54A900240B42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BD3B5B681FBED933001FDB3B;
+			remoteInfo = "SwiftSoup-macOS";
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
@@ -366,13 +374,15 @@
 		8CE418571DAA568600240B42 /* SwiftSoup.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SwiftSoup.swift; sourceTree = "<group>"; };
 		8CEA29581DAC112B0064A341 /* CharacterReader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CharacterReader.swift; sourceTree = "<group>"; };
 		8CEA295A1DAC23820064A341 /* String.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = String.swift; sourceTree = "<group>"; };
-		BBFF4755222C9BD4001980DC /* ParserBenchmark.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ParserBenchmark.swift; path = SwiftSoupTests/ParserBenchmark.swift; sourceTree = "<group>"; };
-		BBFF4757222C9BE1001980DC /* Google.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = Google.html; path = SwiftSoupTests/BenchmarkCorpus/Google.html; sourceTree = "<group>"; };
-		BBFF4758222C9BE1001980DC /* Wirecutter.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = Wirecutter.html; path = SwiftSoupTests/BenchmarkCorpus/Wirecutter.html; sourceTree = "<group>"; };
-		BBFF4759222C9BE2001980DC /* Amazon.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = Amazon.html; path = SwiftSoupTests/BenchmarkCorpus/Amazon.html; sourceTree = "<group>"; };
-		BBFF475A222C9BE2001980DC /* GitHub.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = GitHub.html; path = SwiftSoupTests/BenchmarkCorpus/GitHub.html; sourceTree = "<group>"; };
-		BBFF475B222C9BE2001980DC /* Reuters.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = Reuters.html; path = SwiftSoupTests/BenchmarkCorpus/Reuters.html; sourceTree = "<group>"; };
-		BBFF475C222C9BE2001980DC /* Wikipedia.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = Wikipedia.html; path = SwiftSoupTests/BenchmarkCorpus/Wikipedia.html; sourceTree = "<group>"; };
+		BB57C2CE222CAF8E008933AA /* SwiftSoupTests-macOS.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "SwiftSoupTests-macOS.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BB57C2D2222CAF8E008933AA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		BB57C2D9222CB0BE008933AA /* ParserBenchmark.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ParserBenchmark.swift; sourceTree = "<group>"; };
+		BB57C2DC222CB0E2008933AA /* Google.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = Google.html; sourceTree = "<group>"; };
+		BB57C2DD222CB0E2008933AA /* Wikipedia.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = Wikipedia.html; sourceTree = "<group>"; };
+		BB57C2DE222CB0E2008933AA /* Reuters.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = Reuters.html; sourceTree = "<group>"; };
+		BB57C2DF222CB0E2008933AA /* Wirecutter.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = Wirecutter.html; sourceTree = "<group>"; };
+		BB57C2E0222CB0E3008933AA /* GitHub.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = GitHub.html; sourceTree = "<group>"; };
+		BB57C2E1222CB0E3008933AA /* Amazon.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = Amazon.html; sourceTree = "<group>"; };
 		BD36975B20135EBB00D8FAC6 /* SwiftSoup.podspec */ = {isa = PBXFileReference; lastKnownFileType = text; path = SwiftSoup.podspec; sourceTree = "<group>"; };
 		BD3B5BA91FBED933001FDB3B /* SwiftSoup.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SwiftSoup.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD3B5BAA1FBED934001FDB3B /* InfoMac.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = InfoMac.plist; path = /Users/nabil/Documents/nabil/SwiftSoup/Sources/InfoMac.plist; sourceTree = "<absolute>"; };
@@ -396,6 +406,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				8CE418201DAA54A900240B42 /* SwiftSoup.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BB57C2CB222CAF8E008933AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB57C2D3222CAF8E008933AA /* SwiftSoup.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -540,6 +558,7 @@
 				BD76883E206D8B6900B7F940 /* CHANGELOG.md */,
 				8CE418181DAA54A900240B42 /* Sources */,
 				8CE418231DAA54A900240B42 /* Tests */,
+				BB57C2CF222CAF8E008933AA /* Tests-macOS */,
 				8CE418171DAA54A900240B42 /* Products */,
 			);
 			indentWidth = 4;
@@ -554,6 +573,7 @@
 				BD3B5BA91FBED933001FDB3B /* SwiftSoup.framework */,
 				BD3B5BEC1FC063BD001FDB3B /* SwiftSoup.framework */,
 				BD3B5C2F1FC06423001FDB3B /* SwiftSoup.framework */,
+				BB57C2CE222CAF8E008933AA /* SwiftSoupTests-macOS.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -615,7 +635,6 @@
 		8CF3E7391E09BE8500F505D2 /* parser */ = {
 			isa = PBXGroup;
 			children = (
-				BBFF4755222C9BD4001980DC /* ParserBenchmark.swift */,
 				8CC142171E092E89002F536D /* AttributeParseTest.swift */,
 				8CC1421B1E092E89002F536D /* CharacterReaderTest.swift */,
 				8CC142231E092E89002F536D /* HtmlParserTest.swift */,
@@ -623,7 +642,6 @@
 				8CC1422A1E092E89002F536D /* TagTest.swift */,
 				8CC1422D1E092E89002F536D /* TokenQueueTest.swift */,
 				8CC1422E1E092E89002F536D /* XmlTreeBuilderTest.swift */,
-				BBFF4763222C9BF2001980DC /* benchmark corpus */,
 			);
 			name = parser;
 			sourceTree = "<group>";
@@ -639,17 +657,27 @@
 			name = select;
 			sourceTree = "<group>";
 		};
-		BBFF4763222C9BF2001980DC /* benchmark corpus */ = {
+		BB57C2CF222CAF8E008933AA /* Tests-macOS */ = {
 			isa = PBXGroup;
 			children = (
-				BBFF4759222C9BE2001980DC /* Amazon.html */,
-				BBFF475A222C9BE2001980DC /* GitHub.html */,
-				BBFF4757222C9BE1001980DC /* Google.html */,
-				BBFF475B222C9BE2001980DC /* Reuters.html */,
-				BBFF475C222C9BE2001980DC /* Wikipedia.html */,
-				BBFF4758222C9BE1001980DC /* Wirecutter.html */,
+				BB57C2D9222CB0BE008933AA /* ParserBenchmark.swift */,
+				BB57C2E8222CB0EE008933AA /* corpus */,
+				BB57C2D2222CAF8E008933AA /* Info.plist */,
 			);
-			name = "benchmark corpus";
+			path = "Tests-macOS";
+			sourceTree = "<group>";
+		};
+		BB57C2E8222CB0EE008933AA /* corpus */ = {
+			isa = PBXGroup;
+			children = (
+				BB57C2E1222CB0E3008933AA /* Amazon.html */,
+				BB57C2E0222CB0E3008933AA /* GitHub.html */,
+				BB57C2DC222CB0E2008933AA /* Google.html */,
+				BB57C2DE222CB0E2008933AA /* Reuters.html */,
+				BB57C2DD222CB0E2008933AA /* Wikipedia.html */,
+				BB57C2DF222CB0E2008933AA /* Wirecutter.html */,
+			);
+			path = corpus;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -726,6 +754,24 @@
 			productReference = 8CE4181F1DAA54A900240B42 /* SwiftSoupTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		BB57C2CD222CAF8E008933AA /* SwiftSoupTests-macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BB57C2D6222CAF8E008933AA /* Build configuration list for PBXNativeTarget "SwiftSoupTests-macOS" */;
+			buildPhases = (
+				BB57C2CA222CAF8E008933AA /* Sources */,
+				BB57C2CB222CAF8E008933AA /* Frameworks */,
+				BB57C2CC222CAF8E008933AA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BB57C2D5222CAF8E008933AA /* PBXTargetDependency */,
+			);
+			name = "SwiftSoupTests-macOS";
+			productName = "SwiftSoupTests-macOS";
+			productReference = BB57C2CE222CAF8E008933AA /* SwiftSoupTests-macOS.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		BD3B5B681FBED933001FDB3B /* SwiftSoup-macOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = BD3B5BA61FBED933001FDB3B /* Build configuration list for PBXNativeTarget "SwiftSoup-macOS" */;
@@ -786,7 +832,7 @@
 		8CE4180D1DAA54A900240B42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastSwiftUpdateCheck = 0800;
+				LastSwiftUpdateCheck = 1020;
 				LastUpgradeCheck = 0930;
 				ORGANIZATIONNAME = "Nabil Chatbi";
 				TargetAttributes = {
@@ -799,6 +845,11 @@
 						CreatedOnToolsVersion = 8.0;
 						LastSwiftMigration = 0900;
 						ProvisioningStyle = Manual;
+					};
+					BB57C2CD222CAF8E008933AA = {
+						CreatedOnToolsVersion = 10.2;
+						DevelopmentTeam = 5MC4PNHTX6;
+						ProvisioningStyle = Automatic;
 					};
 					BD3B5BAB1FC063BD001FDB3B = {
 						ProvisioningStyle = Manual;
@@ -825,6 +876,7 @@
 				BD3B5BAB1FC063BD001FDB3B /* SwiftSoup-tvOS */,
 				BD3B5BEE1FC06423001FDB3B /* SwiftSoup-watchOS */,
 				8CE4181E1DAA54A900240B42 /* SwiftSoupTests */,
+				BB57C2CD222CAF8E008933AA /* SwiftSoupTests-macOS */,
 			);
 		};
 /* End PBXProject section */
@@ -841,12 +893,19 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BBFF4766222C9C21001980DC /* Google.html in Resources */,
-				BBFF4767222C9C21001980DC /* Reuters.html in Resources */,
-				BBFF4769222C9C21001980DC /* Wirecutter.html in Resources */,
-				BBFF4764222C9C21001980DC /* Amazon.html in Resources */,
-				BBFF4768222C9C21001980DC /* Wikipedia.html in Resources */,
-				BBFF4765222C9C21001980DC /* GitHub.html in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BB57C2CC222CAF8E008933AA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB57C2E5222CB0E3008933AA /* Wirecutter.html in Resources */,
+				BB57C2E4222CB0E3008933AA /* Reuters.html in Resources */,
+				BB57C2E3222CB0E3008933AA /* Wikipedia.html in Resources */,
+				BB57C2E6222CB0E3008933AA /* GitHub.html in Resources */,
+				BB57C2E7222CB0E3008933AA /* Amazon.html in Resources */,
+				BB57C2E2222CB0E3008933AA /* Google.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -915,7 +974,6 @@
 				8CE418711DAA568700240B42 /* Parser.swift in Sources */,
 				8CE418701DAA568700240B42 /* XmlDeclaration.swift in Sources */,
 				8C19C8331DB7ECB700B8FC22 /* ParseErrorList.swift in Sources */,
-				BBFF4756222C9BD4001980DC /* ParserBenchmark.swift in Sources */,
 				8CE2D93F1DB2796C00C7BDE3 /* Cleaner.swift in Sources */,
 				8CE418611DAA568600240B42 /* HttpStatusException.swift in Sources */,
 				8CE418631DAA568600240B42 /* Attributes.swift in Sources */,
@@ -966,6 +1024,14 @@
 				8CC1423A1E092E89002F536D /* FormElementTest.swift in Sources */,
 				8CC142321E092E89002F536D /* BuildEntities.swift in Sources */,
 				8CC1423C1E092E89002F536D /* NodeTest.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BB57C2CA222CAF8E008933AA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB57C2DB222CB0C6008933AA /* ParserBenchmark.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1165,6 +1231,11 @@
 			isa = PBXTargetDependency;
 			target = 8CE418151DAA54A900240B42 /* SwiftSoup-iOS */;
 			targetProxy = 8CE418211DAA54A900240B42 /* PBXContainerItemProxy */;
+		};
+		BB57C2D5222CAF8E008933AA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BD3B5B681FBED933001FDB3B /* SwiftSoup-macOS */;
+			targetProxy = BB57C2D4222CAF8E008933AA /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1396,6 +1467,53 @@
 			};
 			name = Release;
 		};
+		BB57C2D7222CAF8E008933AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = 5MC4PNHTX6;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				INFOPLIST_FILE = "Tests-macOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.scinfu.SwiftSoupTests-macOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		BB57C2D8222CAF8E008933AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = 5MC4PNHTX6;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				INFOPLIST_FILE = "Tests-macOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.scinfu.SwiftSoupTests-macOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 		BD3B5BA71FBED933001FDB3B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1611,6 +1729,15 @@
 			buildConfigurations = (
 				8CE4182E1DAA54A900240B42 /* Debug */,
 				8CE4182F1DAA54A900240B42 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BB57C2D6222CAF8E008933AA /* Build configuration list for PBXNativeTarget "SwiftSoupTests-macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BB57C2D7222CAF8E008933AA /* Debug */,
+				BB57C2D8222CAF8E008933AA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
