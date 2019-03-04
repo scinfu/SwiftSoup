@@ -13,7 +13,7 @@ class ParserBenchmark: XCTestCase {
     
     enum Const {
         static var corpusHTMLData: [String] = []
-        static let repetitions = 1
+        static let repetitions = 5
     }
 
     override func setUp() {
