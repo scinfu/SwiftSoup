@@ -47,7 +47,7 @@ final class Tokeniser {
         }
 
         // if emit is pending, a non-character token was found: return any chars in buffer, and leave token for next read:
-        if (charsBuilder.length > 0) {
+        if !charsBuilder.isEmpty {
             let str: String = charsBuilder.toString()
             charsBuilder.clear()
             charsString = nil
@@ -88,7 +88,7 @@ final class Tokeniser {
         if (charsString == nil) {
             charsString = str
         } else {
-            if (charsBuilder.length == 0) { // switching to string builder as more than one emit before read
+            if charsBuilder.isEmpty { // switching to string builder as more than one emit before read
                 charsBuilder.append(charsString!)
             }
             charsBuilder.append(str)
