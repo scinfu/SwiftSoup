@@ -189,7 +189,7 @@ open class Elements: NSCopying {
 	open func text()throws->String {
 		let sb: StringBuilder = StringBuilder()
 		for element: Element in this {
-			if (sb.length != 0) {
+			if !sb.isEmpty {
 				sb.append(" ")
 			}
 			sb.append(try element.text())
@@ -216,7 +216,7 @@ open class Elements: NSCopying {
 	open func html()throws->String {
 		let sb: StringBuilder = StringBuilder()
 		for element: Element in this {
-			if (sb.length != 0) {
+			if !sb.isEmpty {
 				sb.append("\n")
 			}
 			sb.append(try element.html())
@@ -233,7 +233,7 @@ open class Elements: NSCopying {
 	open func outerHtml()throws->String {
 		let sb: StringBuilder = StringBuilder()
 		for element in this {
-			if (sb.length != 0) {
+			if !sb.isEmpty {
 				sb.append("\n")
 			}
 			sb.append(try element.outerHtml())

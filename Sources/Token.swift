@@ -116,7 +116,7 @@ open class Token {
 			if (_pendingAttributeName != nil) {
 				var attribute: Attribute
 				if (_hasPendingAttributeValue) {
-					attribute = try Attribute(key: _pendingAttributeName!, value: _pendingAttributeValue.length > 0 ? _pendingAttributeValue.toString() : _pendingAttributeValueS!)
+					attribute = try Attribute(key: _pendingAttributeName!, value: !_pendingAttributeValue.isEmpty ? _pendingAttributeValue.toString() : _pendingAttributeValueS!)
 				} else if (_hasEmptyAttributeValue) {
 					attribute = try Attribute(key: _pendingAttributeName!, value: "")
 				} else {
@@ -183,7 +183,7 @@ open class Token {
 
 		func appendAttributeValue(_ append: String) {
 			ensureAttributeValue()
-			if (_pendingAttributeValue.length == 0) {
+			if _pendingAttributeValue.isEmpty {
 				_pendingAttributeValueS = append
 			} else {
 				_pendingAttributeValue.append(append)
