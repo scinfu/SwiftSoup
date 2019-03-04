@@ -124,9 +124,6 @@ final class Tokeniser {
         selfClosingFlagAcknowledged = true
     }
 
-    private var codepointHolder: [UnicodeScalar]  = [UnicodeScalar(0)!] // holder to not have to keep creating arrays
-    private var multipointHolder: [UnicodeScalar] = [UnicodeScalar(0)!, UnicodeScalar(0)!]
-
     func consumeCharacterReference(_ additionalAllowedCharacter: UnicodeScalar?, _ inAttribute: Bool)throws->[UnicodeScalar]? {
         if (reader.isEmpty()) {
             return nil
@@ -138,7 +135,6 @@ final class Tokeniser {
             return nil
         }
 
-        var codeRef: [UnicodeScalar] = codepointHolder
         reader.markPos()
         if (reader.matchConsume("#")) { // numbered
             let isHexMode: Bool = reader.matchConsumeIgnoreCase("X")
@@ -160,13 +156,11 @@ final class Tokeniser {
 
             if (charval == -1 || (charval >= 0xD800 && charval <= 0xDFFF) || charval > 0x10FFFF) {
                 characterReferenceError("character outside of valid range")
-                codeRef[0] = Tokeniser.replacementChar
-                return codeRef
+                return [Tokeniser.replacementChar]
             } else {
                 // todo: implement number replacement table
                 // todo: check for extra illegal unicode points as parse errors
-                codeRef[0] = UnicodeScalar(charval)!
-                return codeRef
+                return [UnicodeScalar(charval)!]
             }
         } else { // named
             // get as many letters as possible, and look for matching entities.
@@ -190,16 +184,14 @@ final class Tokeniser {
             if (!reader.matchConsume(";")) {
                 characterReferenceError("missing semicolon") // missing semi
             }
-            let numChars: Int = Entities.codepointsForName(nameRef, codepoints: &multipointHolder)
-            if (numChars == 1) {
-                codeRef[0] = multipointHolder[0]
-                return codeRef
-            } else if (numChars == 2) {
-                return multipointHolder
-            } else {
-                try Validate.fail(msg: "Unexpected characters returned for \(nameRef) num: \(numChars)")
-                return multipointHolder
+            if let points = Entities.codepointsForName(nameRef) {
+                if points.count > 2 {
+                    try Validate.fail(msg: "Unexpected characters returned for \(nameRef) num: \(points.count)")
+                }
+                return points
             }
+            try Validate.fail(msg: "Entity name not found: \(nameRef)")
+            return []
         }
     }
 
