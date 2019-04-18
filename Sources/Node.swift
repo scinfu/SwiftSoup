@@ -778,10 +778,10 @@ open class Node: Equatable, Hashable {
 	///
 	/// Hash values are not guaranteed to be equal across different executions of
 	/// your program. Do not save hash values to use during a future execution.
-	public var hashValue: Int {
-		return description.hashValue ^ (baseUri?.hashValue ?? 31)
-	}
-
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(description)
+        hasher.combine(baseUri)
+    }
 }
 
 extension Node: CustomStringConvertible {

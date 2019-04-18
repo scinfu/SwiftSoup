@@ -440,12 +440,12 @@ public class Evaluator {
 
         open override func toString() -> String {
             if (a == 0) {
-                return ":\(getPseudoClass)(\(b))"
+                return ":\(getPseudoClass())(\(b))"
             }
             if (b == 0) {
-                return ":\(getPseudoClass)(\(a))"
+                return ":\(getPseudoClass())(\(a))"
             }
-            return ":\(getPseudoClass)(\(a)\(b))"
+            return ":\(getPseudoClass())(\(a)\(b))"
         }
 
         open func getPseudoClass() -> String {
