@@ -134,7 +134,7 @@ public class Entities {
 //                    return codeVals[nameKeys.index(of: s)!]
 //                }
 //            }
-            guard let index = nameKeys.index(of: name) else {
+            guard let index = nameKeys.firstIndex(of: name) else {
                 return empty
             }
             return codeVals[index]
@@ -146,7 +146,7 @@ public class Entities {
             var index = -1
             for s in codeKeys {
                 if s == codepoint {
-                    index = codeKeys.index(of: codepoint)!
+                    index = codeKeys.firstIndex(of: codepoint)!
                 }
             }
 
