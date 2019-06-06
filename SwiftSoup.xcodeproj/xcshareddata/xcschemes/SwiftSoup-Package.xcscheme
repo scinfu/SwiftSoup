@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "9999"
+   LastUpgradeVersion = "1020"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -32,7 +32,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "SwiftSoup::SwiftSoupTests"
+               BlueprintIdentifier = "8CE4181E1DAA54A900240B42"
                BuildableName = "SwiftSoupTests.xctest"
                BlueprintName = "SwiftSoupTests"
                ReferencedContainer = "container:SwiftSoup.xcodeproj">

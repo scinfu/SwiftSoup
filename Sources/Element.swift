@@ -1288,8 +1288,8 @@ open class Element: Node {
 		return super.copy(clone: clone, parent: parent)
 	}
 
-	override public var hashValue: Int {
-		return super.hashValue ^ _tag.hashValue
-	}
-
+    override public func hash(into hasher: inout Hasher) {
+        super.hash(into: &hasher)
+        hasher.combine(_tag)
+    }
 }

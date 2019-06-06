@@ -639,8 +639,8 @@ open class TypedValue {
 }
 
 extension TypedValue: Hashable {
-    public var hashValue: Int {
-        return value.hashValue
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(value)
     }
 }
 
