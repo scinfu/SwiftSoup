@@ -214,14 +214,9 @@ open class Elements: NSCopying {
 	* @see #outerHtml()
 	*/
 	open func html()throws->String {
-		let sb: StringBuilder = StringBuilder()
-		for element: Element in this {
-			if (sb.length != 0) {
-				sb.append("\n")
-			}
-			sb.append(try element.html())
-		}
-		return sb.toString()
+        var text = try this.reduce("") {result, name in "\(result)\(try name.html())\n"}
+        text.removeLast()
+        return text
 	}
 
 	/**

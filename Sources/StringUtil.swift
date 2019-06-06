@@ -19,7 +19,9 @@ open class StringUtil {
     }
 
     // memoised padding up to 10
-    fileprivate static var padding: [String] = ["", " ", "  ", "   ", "    ", "     ", "      ", "       ", "        ", "         ", "          "]
+    fileprivate static let padding: [String] = ["", " ", "  ", "   ", "    ", "     ", "      ", "       ", "        ", "         ", "          "]
+    private static let empty = ""
+    private static let space = " "
 
     /**
      * Join a collection of strings by a seperator
@@ -66,20 +68,15 @@ open class StringUtil {
      */
     public static func padding(_ width: Int) -> String {
 
-        if(width <= 0) {
-            return ""
+        if width <= 0 {
+            return empty
         }
 
-        if (width < padding.count) {
+        if width < padding.count {
             return padding[width]
         }
-
-        var out: [Character] = [Character]()
-
-        for _ in 0..<width {
-            out.append(" ")
-        }
-        return String(out)
+        
+        return String.init(repeating: space, count: width)
     }
 
     /**
@@ -231,7 +228,7 @@ open class StringUtil {
 
         if(base == nil || base?.scheme == nil) {
             let abs = URL(string: relUrl)
-			return abs != nil && abs?.scheme != nil ? abs!.absoluteURL.absoluteString : ""
+			return abs != nil && abs?.scheme != nil ? abs!.absoluteURL.absoluteString : empty
         } else {
             let url = resolve(base!, relUrl: relUrl)
             if(url != nil) {
@@ -244,7 +241,7 @@ open class StringUtil {
                 return ext
             }
 
-            return ""
+            return empty
         }
 
 //        try {
