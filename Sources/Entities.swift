@@ -31,9 +31,7 @@ public class Entities {
 
         // table of named references to their codepoints. sorted so we can binary search. built by BuildEntities.
         fileprivate var nameKeys: [String]
-        // limitation is the few references with multiple characters;
-        // those go into multipoints.
-        fileprivate var codeVals: [Int]
+        fileprivate var codeVals: [Int]  // limitation is the few references with multiple characters; those go into multipoints.
 
         // table of codepoints to named entities.
         fileprivate var codeKeys: [Int] // we don' support multicodepoints to single named value currently
@@ -62,7 +60,7 @@ public class Entities {
 
             let reader: CharacterReader = CharacterReader(string)
 
-            while !reader.isEmpty() {
+            while (!reader.isEmpty()) {
                 // NotNestedLessLess=10913,824;1887
 
                 let name: String = reader.consumeTo("=")
@@ -85,13 +83,13 @@ public class Entities {
                 codeKeys[index] = cp1
                 nameVals[index] = name
 
-                if cp2 != empty {
-                    var string = String()
-                    string.append(Character(UnicodeScalar(cp1)!))
-                    string.append(Character(UnicodeScalar(cp2)!))
-                    multipoints[name] = string
+                if (cp2 != empty) {
+                    var s = String()
+                    s.append(Character(UnicodeScalar(cp1)!))
+                    s.append(Character(UnicodeScalar(cp2)!))
+                    multipoints[name] = s
                 }
-                i += 1
+                i = i + 1
             }
         }
 
@@ -136,7 +134,7 @@ public class Entities {
 //                    return codeVals[nameKeys.index(of: s)!]
 //                }
 //            }
-            guard let index = nameKeys.index(of: name) else {
+            guard let index = nameKeys.firstIndex(of: name) else {
                 return empty
             }
             return codeVals[index]
@@ -144,14 +142,21 @@ public class Entities {
 
         public func nameForCodepoint(_ codepoint: Int ) -> String {
             //let ss = codeKeys.index(of: codepoint)
-            guard let  index = codeKeys.index(of: codepoint) else {
-                return emptyName
+
+            var index = -1
+            for s in codeKeys {
+                if s == codepoint {
+                    index = codeKeys.firstIndex(of: codepoint)!
+                }
             }
-            // the results are ordered so lower case versions of same codepoint come after uppercase,
-            // and we prefer to emit lower
-            // (and binary search for same item with multi results is undefined
-            return (index < nameVals.count-1 && codeKeys[index+1] == codepoint) ?
-                nameVals[index+1] : nameVals[index]
+
+            if (index >= 0) {
+                // the results are ordered so lower case versions of same codepoint come after uppercase, and we prefer to emit lower
+                // (and binary search for same item with multi results is undefined
+                return (index < nameVals.count-1 && codeKeys[index+1] == codepoint) ?
+                    nameVals[index+1] : nameVals[index]
+            }
+            return emptyName
         }
 
         private func size() -> Int {
@@ -160,8 +165,7 @@ public class Entities {
 
     }
 
-    // name -> multiple character references
-    private static var multipoints: [String: String]  = [:]
+    private static var multipoints: Dictionary<String, String>  = Dictionary<String, String>() // name -> multiple character references
 
     private init() {
     }
@@ -171,7 +175,7 @@ public class Entities {
      * @param name the possible entity name (e.g. "lt" or "amp")
      * @return true if a known named entity
      */
-    open static func isNamedEntity(_ name: String ) -> Bool {
+    public static func isNamedEntity(_ name: String ) -> Bool {
         return (EscapeMode.extended.codepointForName(name) != empty)
     }
 
@@ -181,7 +185,7 @@ public class Entities {
      * @return true if a known named entity in the base set
      * @see #isNamedEntity(String)
      */
-    open static func isBaseNamedEntity(_ name: String) -> Bool {
+    public static func isBaseNamedEntity(_ name: String) -> Bool {
         return EscapeMode.base.codepointForName(name) != empty
     }
 
@@ -191,7 +195,7 @@ public class Entities {
      * @return the Character value of the named entity (e.g. '{@literal <}' or '{@literal &}')
      * @deprecated does not support characters outside the BMP or multiple character names
      */
-    open static func getCharacterByName(name: String) -> Character {
+    public static func getCharacterByName(name: String) -> Character {
         return Character.convertFromIntegerLiteral(value: EscapeMode.extended.codepointForName(name))
     }
 
@@ -200,17 +204,17 @@ public class Entities {
      * @param name entity (e.g. "lt" or "amp")
      * @return the string value of the character(s) represented by this entity, or "" if not defined
      */
-    open static func getByName(name: String) -> String {
+    public static func getByName(name: String) -> String {
         let val = multipoints[name]
-        if val != nil {return val!}
+        if (val != nil) {return val!}
         let codepoint = EscapeMode.extended.codepointForName(name)
-        if codepoint != empty {
+        if (codepoint != empty) {
             return String(Character(UnicodeScalar(codepoint)!))
         }
         return emptyName
     }
 
-    open static func codepointsForName(_ name: String, codepoints: inout [UnicodeScalar]) -> Int {
+    public static func codepointsForName(_ name: String, codepoints: inout [UnicodeScalar]) -> Int {
 
         if let val: String = multipoints[name] {
             codepoints[0] = val.unicodeScalar(0)
@@ -219,18 +223,18 @@ public class Entities {
         }
 
         let codepoint = EscapeMode.extended.codepointForName(name)
-        if codepoint != empty {
+        if (codepoint != empty) {
             codepoints[0] = UnicodeScalar(codepoint)!
             return 1
         }
         return 0
     }
 
-    open static func escape(_ string: String, _ encode: String.Encoding = .utf8 ) -> String {
+    public static func escape(_ string: String, _ encode: String.Encoding = .utf8 ) -> String {
         return Entities.escape(string, OutputSettings().charset(encode).escapeMode(Entities.EscapeMode.extended))
     }
 
-    open static func escape(_ string: String, _ out: OutputSettings) -> String {
+    public static func escape(_ string: String, _ out: OutputSettings) -> String {
         let accum = StringBuilder()//string.characters.count * 2
         escape(accum, string, out, false, false, false)
         //        try {
@@ -250,12 +254,12 @@ public class Entities {
         //let length = UInt32(string.characters.count)
 
         var codePoint: UnicodeScalar
-        for char in string.unicodeScalars {
-            codePoint = char
+        for ch in string.unicodeScalars {
+            codePoint = ch
 
-            if normaliseWhite {
-                if codePoint.isWhitespace {
-                    if (stripLeadingWhite && !reachedNonWhite) || lastWasWhite {
+            if (normaliseWhite) {
+                if (codePoint.isWhitespace) {
+                    if ((stripLeadingWhite && !reachedNonWhite) || lastWasWhite) {
                         continue
                     }
                     accum.append(UnicodeScalar.Space)
@@ -267,41 +271,45 @@ public class Entities {
                 }
             }
 
-            // surrogate pairs, split implementation for efficiency on single char
-            // common case (saves creating strings, char[]):
-            if codePoint.value < Character.MIN_SUPPLEMENTARY_CODE_POINT {
-                //let c = codePoint
+            // surrogate pairs, split implementation for efficiency on single char common case (saves creating strings, char[]):
+            if (codePoint.value < Character.MIN_SUPPLEMENTARY_CODE_POINT) {
+                let c = codePoint
                 // html specific and required escapes:
-                switch codePoint {
+                switch (codePoint) {
                 case UnicodeScalar.Ampersand:
                     accum.append("&amp;")
+                    break
                 case UnicodeScalar(UInt32(0xA0))!:
-                    if escapeMode != EscapeMode.xhtml {
+                    if (escapeMode != EscapeMode.xhtml) {
                         accum.append("&nbsp;")
                     } else {
                         accum.append("&#xa0;")
                     }
+                    break
                 case UnicodeScalar.LessThan:
                     // escape when in character data or when in a xml attribue val; not needed in html attr val
-                    if !inAttribute || escapeMode == EscapeMode.xhtml {
+                    if (!inAttribute || escapeMode == EscapeMode.xhtml) {
                         accum.append("&lt;")
                     } else {
-                        accum.append(codePoint)
+                        accum.append(c)
                     }
+                    break
                 case UnicodeScalar.GreaterThan:
-                    if !inAttribute {
+                    if (!inAttribute) {
                         accum.append("&gt;")
                     } else {
-                        accum.append(codePoint)}
+                        accum.append(c)}
+                    break
                 case "\"":
-                    if inAttribute {
+                    if (inAttribute) {
                         accum.append("&quot;")
                     } else {
-                        accum.append(codePoint)
+                        accum.append(c)
                     }
+                    break
                 default:
-                    if (canEncode(codePoint, encoder)) {
-                        accum.append(codePoint)
+                    if (canEncode(c, encoder)) {
+                        accum.append(c)
                     } else {
                         appendEncoded(accum: accum, escapeMode: escapeMode, codePoint: codePoint)
                     }
@@ -353,17 +361,15 @@ public class Entities {
      * Alterslash: 3013, 28
      * Jsoup: 167, 2
      */
-    private static func canEncode(_ char: UnicodeScalar, _ fallback: String.Encoding) -> Bool {
+    private static func canEncode(_ c: UnicodeScalar, _ fallback: String.Encoding) -> Bool {
         // todo add more charset tests if impacted by Android's bad perf in canEncode
-        switch fallback {
+        switch (fallback) {
         case String.Encoding.ascii:
-            return char.value < 0x80
+            return c.value < 0x80
         case String.Encoding.utf8:
-            // real is:!(Character.isLowSurrogate(c) ||
-            // Character.isHighSurrogate(c)) - but already check above
-            return true
+            return true // real is:!(Character.isLowSurrogate(c) || Character.isHighSurrogate(c)) - but already check above
         default:
-            return fallback.canEncode(String(Character(char)))
+            return fallback.canEncode(String(Character(c)))
         }
     }
 

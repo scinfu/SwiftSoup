@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "8CE418151DAA54A900240B42"
+               BlueprintIdentifier = "SwiftSoup::SwiftSoup"
                BuildableName = "SwiftSoup.framework"
-               BlueprintName = "SwiftSoup-iOS"
+               BlueprintName = "SwiftSoup"
                ReferencedContainer = "container:SwiftSoup.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -39,15 +39,6 @@
             </BuildableReference>
          </TestableReference>
       </Testables>
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "8CE418151DAA54A900240B42"
-            BuildableName = "SwiftSoup.framework"
-            BlueprintName = "SwiftSoup-iOS"
-            ReferencedContainer = "container:SwiftSoup.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
       <AdditionalOptions>
       </AdditionalOptions>
    </TestAction>
@@ -64,9 +55,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "8CE418151DAA54A900240B42"
+            BlueprintIdentifier = "SwiftSoup::SwiftSoup"
             BuildableName = "SwiftSoup.framework"
-            BlueprintName = "SwiftSoup-iOS"
+            BlueprintName = "SwiftSoup"
             ReferencedContainer = "container:SwiftSoup.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -79,15 +70,6 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "8CE418151DAA54A900240B42"
-            BuildableName = "SwiftSoup.framework"
-            BlueprintName = "SwiftSoup-iOS"
-            ReferencedContainer = "container:SwiftSoup.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

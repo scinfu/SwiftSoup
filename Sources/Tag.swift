@@ -58,7 +58,7 @@ open class Tag: Hashable {
      * @param settings used to control tag name sensitivity
      * @return The tag, either defined or new generic.
      */
-    open static func valueOf(_ tagName: String, _ settings: ParseSettings)throws->Tag {
+    public static func valueOf(_ tagName: String, _ settings: ParseSettings)throws->Tag {
         var tagName = tagName
         var tag: Tag? = Tag.tags[tagName]
 
@@ -86,7 +86,7 @@ open class Tag: Hashable {
      * @param tagName Name of tag, e.g. "p". <b>Case sensitive</b>.
      * @return The tag, either defined or new generic.
      */
-    open static func valueOf(_ tagName: String)throws->Tag {
+    public static func valueOf(_ tagName: String)throws->Tag {
         return try valueOf(tagName, ParseSettings.preserveCase)
     }
 
@@ -168,7 +168,7 @@ open class Tag: Hashable {
      * @param tagName name of tag
      * @return if known HTML tag
      */
-    open static func isKnownTag(_ tagName: String) -> Bool {
+    public static func isKnownTag(_ tagName: String) -> Bool {
         return Tag.tags[tagName] != nil
     }
 
@@ -239,8 +239,17 @@ open class Tag: Hashable {
     ///
     /// Hash values are not guaranteed to be equal across different executions of
     /// your program. Do not save hash values to use during a future execution.
-    public var hashValue: Int {
-        return _tagName.hashValue ^ _isBlock.hashValue ^ _formatAsBlock.hashValue ^ _canContainBlock.hashValue ^ _canContainInline.hashValue ^ _empty.hashValue ^ _selfClosing.hashValue ^ _preserveWhitespace.hashValue ^ _formList.hashValue ^ _formSubmit.hashValue
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(_tagName)
+        hasher.combine(_isBlock)
+        hasher.combine(_formatAsBlock)
+        hasher.combine(_canContainBlock)
+        hasher.combine(_canContainInline)
+        hasher.combine(_empty)
+        hasher.combine(_selfClosing)
+        hasher.combine(_preserveWhitespace)
+        hasher.combine(_formList)
+        hasher.combine(_formSubmit)
     }
 
     open func toString() -> String {

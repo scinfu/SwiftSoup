@@ -34,7 +34,7 @@ open class Document: Element {
      @param baseUri baseUri of document
      @return document with html, head, and body elements.
      */
-    static open func createShell(_ baseUri: String) -> Document {
+    static public func createShell(_ baseUri: String) -> Document {
         let doc: Document = Document(baseUri)
         let html: Element = try! doc.appendElement("html")
         try! html.appendElement("head")

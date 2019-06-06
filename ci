@@ -66,6 +66,8 @@ then
         exit 1;
     fi
 
+    sudo gem install cocoapods --pre
+    sudo gem cleanup
     pod lib lint
     if [[ $? != 0 ]];
     then

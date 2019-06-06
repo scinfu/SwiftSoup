@@ -110,9 +110,8 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
         return valueForKey(key: key)
     }
 
-    // required var for the Hashable protocol
-    public var hashValue: Int {
-        return 0
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(_orderedKeys)
     }
 
     public func hashCode() -> Int {
@@ -158,7 +157,7 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
 
     @discardableResult
     public func removeValueForKey(key: Key) -> Value? {
-        if let index = _orderedKeys.index(of: key) {
+        if let index = _orderedKeys.firstIndex(of: key) {
             guard let currentValue = _keysToValues[key] else {
                 fatalError("Inconsistency error occured in OrderedDictionary")
             }
@@ -200,7 +199,7 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
     }
 
     public func indexForKey(key: Key) -> Index? {
-        return _orderedKeys.index(of: key)
+        return _orderedKeys.firstIndex(of: key)
     }
 
     public func elementAtIndex(index: Index) -> Element? {
@@ -233,7 +232,7 @@ public class OrderedDictionary<Key: Hashable, Value: Equatable>: MutableCollecti
         let adjustedIndex: Int
         let currentValue: Value?
 
-        if let currentIndex = _orderedKeys.index(of: key) {
+        if let currentIndex = _orderedKeys.firstIndex(of: key) {
             currentValue = _keysToValues[key]
             adjustedIndex = (currentIndex < index - 1) ? index - 1 : index
 

@@ -27,7 +27,7 @@ public struct Pattern {
          _ = try NSRegularExpression(pattern: self.pattern, options: [])
     }
 
-    func matcher(in text: String) -> Matcher {
+    public func matcher(in text: String) -> Matcher {
         do {
             let regex = try NSRegularExpression(pattern: self.pattern, options: [])
             let nsString = NSString(string: text)
