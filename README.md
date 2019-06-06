@@ -21,7 +21,7 @@
 * Output tidy HTML
 `SwiftSoup` is designed to deal with all varieties of HTML found in the wild; from pristine and validating, to invalid tag-soup; `SwiftSoup` will create a sensible parse tree.
 ## Swift
-Swift 5 ```2.0.0```
+Swift 5 ```>=2.0.0```
 
 Swift 4.2 ```1.7.4```
 
