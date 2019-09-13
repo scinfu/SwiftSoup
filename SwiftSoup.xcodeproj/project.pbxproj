@@ -771,21 +771,26 @@
 						LastSwiftMigration = 1020;
 						ProvisioningStyle = Manual;
 					};
+					BD3B5B681FBED933001FDB3B = {
+						LastSwiftMigration = 1100;
+					};
 					BD3B5BAB1FC063BD001FDB3B = {
+						LastSwiftMigration = 1100;
 						ProvisioningStyle = Manual;
 					};
 					BD3B5BEE1FC06423001FDB3B = {
+						LastSwiftMigration = 1100;
 						ProvisioningStyle = Manual;
 					};
 				};
 			};
 			buildConfigurationList = 8CE418101DAA54A900240B42 /* Build configuration list for PBXProject "SwiftSoup" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				English,
 				en,
+				Base,
 			);
 			mainGroup = 8CE4180C1DAA54A900240B42;
 			productRefGroup = 8CE418171DAA54A900240B42 /* Products */;
@@ -1385,7 +1390,7 @@
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
-				SWIFT_VERSION = 4.2;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -1412,7 +1417,7 @@
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
-				SWIFT_VERSION = 4.2;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
@@ -1444,7 +1449,7 @@
 				SUPPORTED_PLATFORMS = "appletvsimulator appletvos";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
-				SWIFT_VERSION = 4.2;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3";
 				TVOS_DEPLOYMENT_TARGET = 9.1;
 			};
@@ -1477,7 +1482,7 @@
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "appletvsimulator appletvos";
 				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
-				SWIFT_VERSION = 4.2;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3";
 				TVOS_DEPLOYMENT_TARGET = 9.1;
 			};
@@ -1511,7 +1516,7 @@
 				SUPPORTED_PLATFORMS = "watchsimulator watchos";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
-				SWIFT_VERSION = 4.2;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4";
 				WATCHOS_DEPLOYMENT_TARGET = 2.0;
 			};
@@ -1544,7 +1549,7 @@
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "watchsimulator watchos";
 				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
-				SWIFT_VERSION = 4.2;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4";
 				WATCHOS_DEPLOYMENT_TARGET = 2.0;
 			};
