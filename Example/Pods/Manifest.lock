@@ -1,16 +1,16 @@
 PODS:
-  - SwiftSoup (1.7.3)
+  - SwiftSoup (2.2.0)
 
 DEPENDENCIES:
-  - SwiftSoup (from `../`)
+  - SwiftSoup
 
-EXTERNAL SOURCES:
-  SwiftSoup:
-    :path: "../"
+SPEC REPOS:
+  https://github.com/cocoapods/specs.git:
+    - SwiftSoup
 
 SPEC CHECKSUMS:
-  SwiftSoup: db9969f21692c7e9493cff5557bc6dc346fc3c53
+  SwiftSoup: 230991361c5ba249d140161860a3864a28b63860
 
-PODFILE CHECKSUM: 7f785eadebd9585fd5b2837335a589d1ff714830
+PODFILE CHECKSUM: 9519153dbf3cb60d695ff68ca6d0781541b14868
 
-COCOAPODS: 1.5.3
+COCOAPODS: 1.7.5
