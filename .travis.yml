@@ -1,13 +1,64 @@
-os:
-  - linux
-  - osx
- # safelist
+# Travis CI
+
+# whitelist (branches that should be built)
 branches:
   only:
-  - master
-language: generic
-sudo: required
-dist: trusty
-osx_image: xcode10.3
+    - master
+    - develop
+
+# the matrix of builds should cover each combination of Swift version
+# and platform that is supported. The version of Swift used is specified
+# by .swift-version, unless SWIFT_SNAPSHOT is specified.
+matrix:
+  include:
+    # Continue to test one permutation on Trusty (14.04)
+    - os: linux
+      dist: trusty
+      sudo: required
+      env: SWIFT_SNAPSHOT=4.0.3 SWIFT_TEST_ARGS="-Xswiftc -DSKIP_UNIX_SOCKETS"
+    - os: linux
+      dist: xenial
+      sudo: required
+      services: docker
+      env: DOCKER_IMAGE=swift:4.1.3 SWIFT_SNAPSHOT=4.1.3
+    - os: linux
+      dist: xenial
+      sudo: required
+      services: docker
+      env: DOCKER_IMAGE=swift:4.2.4 SWIFT_SNAPSHOT=4.2.4 SWIFT_TEST_ARGS="--parallel"
+    - os: linux
+      dist: xenial
+      sudo: required
+      services: docker
+      env: DOCKER_IMAGE=swift:5.0.2-xenial SWIFT_TEST_ARGS="--parallel"
+    - os: linux
+      dist: xenial
+      sudo: required
+      services: docker
+      env: DOCKER_IMAGE=swift:5.0.2 SWIFT_SNAPSHOT=$SWIFT_DEVELOPMENT_SNAPSHOT SWIFT_TEST_ARGS="--parallel"
+    - os: osx
+      osx_image: xcode9.2
+      sudo: required
+      env: SWIFT_SNAPSHOT=4.0.3
+    - os: osx
+      osx_image: xcode9.4
+      sudo: required
+      env: SWIFT_SNAPSHOT=4.1.2
+    - os: osx
+      osx_image: xcode10.1
+      sudo: required
+      env: SWIFT_SNAPSHOT=4.2.1 SWIFT_TEST_ARGS="--parallel"
+    - os: osx
+      osx_image: xcode10.2
+      sudo: required
+      env: SWIFT_SNAPSHOT=5.0.1 SWIFT_TEST_ARGS="--parallel"
+    - os: osx
+      osx_image: xcode11
+      sudo: required
+      env: SWIFT_SNAPSHOT=$SWIFT_DEVELOPMENT_SNAPSHOT SWIFT_TEST_ARGS="--parallel"
+
+before_install:
+  - git clone https://github.com/IBM-Swift/Package-Builder.git
+
 script:
-  - ./ci
+  - ./Package-Builder/build-package.sh -projectDir $TRAVIS_BUILD_DIR
