@@ -1,5 +1,6 @@
 # Travis CI
 
+# https://swift.org/download/#releases
 # whitelist (branches that should be built)
 branches:
   only:
@@ -12,15 +13,6 @@ branches:
 matrix:
   include:
     # Continue to test one permutation on Trusty (14.04)
-    - os: linux
-      dist: trusty
-      sudo: required
-      env: SWIFT_SNAPSHOT=4.0.3 SWIFT_TEST_ARGS="-Xswiftc -DSKIP_UNIX_SOCKETS"
-    - os: linux
-      dist: xenial
-      sudo: required
-      services: docker
-      env: DOCKER_IMAGE=swift:4.1.3 SWIFT_SNAPSHOT=4.1.3
     - os: linux
       dist: xenial
       sudo: required
@@ -37,14 +29,6 @@ matrix:
       services: docker
       env: DOCKER_IMAGE=swift:5.0.2 SWIFT_SNAPSHOT=$SWIFT_DEVELOPMENT_SNAPSHOT SWIFT_TEST_ARGS="--parallel"
     - os: osx
-      osx_image: xcode9.2
-      sudo: required
-      env: SWIFT_SNAPSHOT=4.0.3
-    - os: osx
-      osx_image: xcode9.4
-      sudo: required
-      env: SWIFT_SNAPSHOT=4.1.2
-    - os: osx
       osx_image: xcode10.1
       sudo: required
       env: SWIFT_SNAPSHOT=4.2.1 SWIFT_TEST_ARGS="--parallel"
@@ -52,6 +36,10 @@ matrix:
       osx_image: xcode10.2
       sudo: required
       env: SWIFT_SNAPSHOT=5.0.1 SWIFT_TEST_ARGS="--parallel"
+    - os: osx
+      osx_image: xcode11
+      sudo: required
+      env: SWIFT_SNAPSHOT=5.1 SWIFT_TEST_ARGS="--parallel"
     - os: osx
       osx_image: xcode11
       sudo: required
