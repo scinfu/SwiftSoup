@@ -33,5 +33,6 @@ DerivedData/
 !*.xcworkspace/contents.xcworkspacedata
 /*.gcno
 
-
 # End of https://www.gitignore.io/api/xcode
+Pods
+Podfile.lock
