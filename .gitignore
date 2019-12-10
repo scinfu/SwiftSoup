@@ -1,2 +1,5 @@
 # OS X
 .DS_Store
+
+# Xcode user settings
+xcuserdata/
