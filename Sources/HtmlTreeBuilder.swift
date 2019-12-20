@@ -12,21 +12,27 @@ import Foundation
  * HTML Tree Builder; creates a DOM from Tokens.
  */
 class HtmlTreeBuilder: TreeBuilder {
-    // tag searches
-    public static let TagsSearchInScope: [String] =  ["applet", "caption", "html", "table", "td", "th", "marquee", "object"]
-    private static let TagSearchList: [String] = ["ol", "ul"]
-    private static let TagSearchButton: [String] = ["button"]
-    private static let TagSearchTableScope: [String] = ["html", "table"]
-    private static let TagSearchSelectScope: [String] = ["optgroup", "option"]
-    private static let TagSearchEndTags: [String] = ["dd", "dt", "li", "option", "optgroup", "p", "rp", "rt"]
-    private static let TagSearchSpecial: [String] = ["address", "applet", "area", "article", "aside", "base", "basefont", "bgsound",
-                                                     "blockquote", "body", "br", "button", "caption", "center", "col", "colgroup", "command", "dd",
-                                                     "details", "dir", "div", "dl", "dt", "embed", "fieldset", "figcaption", "figure", "footer", "form",
-                                                     "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html",
-                                                     "iframe", "img", "input", "isindex", "li", "link", "listing", "marquee", "menu", "meta", "nav",
-                                                     "noembed", "noframes", "noscript", "object", "ol", "p", "param", "plaintext", "pre", "script",
-                                                     "section", "select", "style", "summary", "table", "tbody", "td", "textarea", "tfoot", "th", "thead",
-                                                     "title", "tr", "ul", "wbr", "xmp"]
+    
+    private enum TagSets {
+        // tag searches
+        static let inScope =  ["applet", "caption", "html", "table", "td", "th", "marquee", "object"]
+        static let list = ["ol", "ul"]
+        static let button = ["button"]
+        static let tableScope = ["html", "table"]
+        static let selectScope = ["optgroup", "option"]
+        static let endTags = ["dd", "dt", "li", "option", "optgroup", "p", "rp", "rt"]
+        static let titleTextarea = ["title", "textarea"]
+        static let frames = ["iframe", "noembed", "noframes", "style", "xmp"]
+        
+        static let special: Set<String> = ["address", "applet", "area", "article", "aside", "base", "basefont", "bgsound",
+                              "blockquote", "body", "br", "button", "caption", "center", "col", "colgroup", "command", "dd",
+                              "details", "dir", "div", "dl", "dt", "embed", "fieldset", "figcaption", "figure", "footer", "form",
+                              "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html",
+                              "iframe", "img", "input", "isindex", "li", "link", "listing", "marquee", "menu", "meta", "nav",
+                              "noembed", "noframes", "noscript", "object", "ol", "p", "param", "plaintext", "pre", "script",
+                              "section", "select", "style", "summary", "table", "tbody", "td", "textarea", "tfoot", "th", "thead",
+                              "title", "tr", "ul", "wbr", "xmp"]
+    }
 
     private var _state: HtmlTreeBuilderState = HtmlTreeBuilderState.Initial // the current state
     private var _originalState: HtmlTreeBuilderState = HtmlTreeBuilderState.Initial // original / marked state
@@ -71,19 +77,19 @@ class HtmlTreeBuilder: TreeBuilder {
             }
 
             // initialise the tokeniser state:
-            let contextTag: String = context.tagName()
-            if (StringUtil.inString(contextTag, haystack: "title", "textarea")) {
-                tokeniser.transition(TokeniserState.Rcdata)
-            } else if (StringUtil.inString(contextTag, haystack: "iframe", "noembed", "noframes", "style", "xmp")) {
-                tokeniser.transition(TokeniserState.Rawtext)
-            } else if (contextTag=="script") {
-                tokeniser.transition(TokeniserState.ScriptData)
-            } else if (contextTag==("noscript")) {
-                tokeniser.transition(TokeniserState.Data) // if scripting enabled, rawtext
-            } else if (contextTag=="plaintext") {
-                tokeniser.transition(TokeniserState.Data)
-            } else {
-                tokeniser.transition(TokeniserState.Data) // default
+            switch context.tagName() {
+                case TagSets.titleTextarea:
+                    tokeniser.transition(TokeniserState.Rcdata)
+                case TagSets.frames:
+                    tokeniser.transition(TokeniserState.Rawtext)
+                case "script":
+                    tokeniser.transition(TokeniserState.ScriptData)
+                case "noscript":
+                    tokeniser.transition(TokeniserState.Data) // if scripting enabled, rawtext
+                case "plaintext":
+                    tokeniser.transition(TokeniserState.Data)
+                default:
+                    tokeniser.transition(TokeniserState.Data)
             }
 
             root = try Element(Tag.valueOf("html", settings), baseUri)
@@ -346,7 +352,7 @@ class HtmlTreeBuilder: TreeBuilder {
 		for pos in (0..<stack.count).reversed() {
 			let next: Element = stack[pos]
 			stack.remove(at: pos)
-			if (StringUtil.inString(next.nodeName(), elNames)) {
+            if elNames.contains(next.nodeName()) {
 				break
 			}
 		}
@@ -381,7 +387,8 @@ class HtmlTreeBuilder: TreeBuilder {
     private func clearStackToContext(_ nodeNames: [String]) {
         for pos in (0..<stack.count).reversed() {
             let next: Element = stack[pos]
-            if (StringUtil.inString(next.nodeName(), nodeNames) || next.nodeName()=="html") {
+            let nextName = next.nodeName()
+            if nodeNames.contains(nextName) || nextName == "html" {
                 break
             } else {
                 stack.remove(at: pos)
@@ -482,25 +489,21 @@ class HtmlTreeBuilder: TreeBuilder {
         }
     }
 
-    // todo: tidy up in specific scope methods
-    private var specificScopeTarget: [String?] = [nil]
-
-    private func inSpecificScope(_ targetName: String, _ baseTypes: [String], _ extraTypes: [String]?)throws->Bool {
-        specificScopeTarget[0] = targetName
-        return try inSpecificScope(specificScopeTarget, baseTypes, extraTypes)
+    private func inSpecificScope(_ targetName: String, _ baseTypes: [String], _ extraTypes: [String]? = nil)throws->Bool {
+        return try inSpecificScope([targetName], baseTypes, extraTypes)
     }
 
-    private func inSpecificScope(_ targetNames: [String?], _ baseTypes: [String], _ extraTypes: [String]?)throws->Bool {
+    private func inSpecificScope(_ targetNames: [String], _ baseTypes: [String], _ extraTypes: [String]? = nil)throws->Bool {
         for pos in (0..<stack.count).reversed() {
-            let el: Element = stack[pos]
-            let elName: String = el.nodeName()
-            if (StringUtil.inString(elName, targetNames)) {
+            let el = stack[pos]
+            let elName = el.nodeName()
+            if targetNames.contains(elName) {
                 return true
             }
-            if (StringUtil.inString(elName, baseTypes)) {
+            if baseTypes.contains(elName) {
                 return false
             }
-            if (extraTypes != nil && StringUtil.inString(elName, extraTypes!)) {
+            if let extraTypes = extraTypes, extraTypes.contains(elName) {
                 return false
             }
         }
@@ -509,39 +512,34 @@ class HtmlTreeBuilder: TreeBuilder {
     }
 
     func inScope(_ targetNames: [String])throws->Bool {
-        return try inSpecificScope(targetNames, HtmlTreeBuilder.TagsSearchInScope, nil)
+        return try inSpecificScope(targetNames, TagSets.inScope)
     }
 
-    func inScope(_ targetName: String)throws->Bool {
-        return try inScope(targetName, nil)
-    }
-
-    func inScope(_ targetName: String, _ extras: [String]?)throws->Bool {
-        return try inSpecificScope(targetName, HtmlTreeBuilder.TagsSearchInScope, extras)
+    func inScope(_ targetName: String, _ extras: [String]? = nil)throws->Bool {
+        return try inSpecificScope(targetName, TagSets.inScope, extras)
         // todo: in mathml namespace: mi, mo, mn, ms, mtext annotation-xml
         // todo: in svg namespace: forignOjbect, desc, title
     }
 
     func inListItemScope(_ targetName: String)throws->Bool {
-        return try inScope(targetName, HtmlTreeBuilder.TagSearchList)
+        return try inScope(targetName, TagSets.list)
     }
 
     func inButtonScope(_ targetName: String)throws->Bool {
-        return try inScope(targetName, HtmlTreeBuilder.TagSearchButton)
+        return try inScope(targetName, TagSets.button)
     }
 
     func inTableScope(_ targetName: String)throws->Bool {
-        return try inSpecificScope(targetName, HtmlTreeBuilder.TagSearchTableScope, nil)
+        return try inSpecificScope(targetName, TagSets.tableScope)
     }
 
     func inSelectScope(_ targetName: String)throws->Bool {
         for pos in (0..<stack.count).reversed() {
-            let el: Element = stack[pos]
-            let elName: String = el.nodeName()
-            if (elName.equals(targetName)) {
+            let elName = stack[pos].nodeName()
+            if elName == targetName {
                 return true
             }
-            if (!StringUtil.inString(elName, HtmlTreeBuilder.TagSearchSelectScope)) { // all elements except
+            if !TagSets.selectScope.contains(elName) {
                 return false
             }
         }
@@ -595,23 +593,28 @@ class HtmlTreeBuilder: TreeBuilder {
      process, then the UA must perform the above steps as if that element was not in the above list.
      */
 
-    func generateImpliedEndTags(_ excludeTag: String?) {
-
-        while ((excludeTag != nil && !currentElement()!.nodeName().equals(excludeTag!)) &&
-            StringUtil.inString(currentElement()!.nodeName(), HtmlTreeBuilder.TagSearchEndTags)) {
-                pop()
+    func generateImpliedEndTags(_ excludeTag: String? = nil) {
+        // Is this correct? I get the sense that something is supposed to happen here
+        // even if excludeTag == nil. But the original code doesn't seem to do that. -GS
+        //
+        // while ((excludeTag != nil && !currentElement()!.nodeName().equals(excludeTag!)) &&
+        //    StringUtil.inString(currentElement()!.nodeName(), HtmlTreeBuilder.TagSearchEndTags)) {
+        //        pop()
+        // }
+        guard let excludeTag = excludeTag else { return }
+        while true {
+            let nodeName = currentElement()!.nodeName()
+            guard nodeName != excludeTag else { return }
+            guard TagSets.endTags.contains(nodeName) else { return }
+            pop()
         }
-    }
-
-    func generateImpliedEndTags() {
-        generateImpliedEndTags(nil)
     }
 
     func isSpecial(_ el: Element) -> Bool {
         // todo: mathml's mi, mo, mn
         // todo: svg's foreigObject, desc, title
         let name: String = el.nodeName()
-        return StringUtil.inString(name, HtmlTreeBuilder.TagSearchSpecial)
+        return TagSets.special.contains(name)
     }
 
     func lastFormattingElement() -> Element? {
@@ -769,3 +772,10 @@ class HtmlTreeBuilder: TreeBuilder {
         }
     }
 }
+
+fileprivate func ~= (pattern: [String], value: String) -> Bool {
+    return pattern.contains(value)
+}
+
+
+
