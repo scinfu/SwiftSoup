@@ -586,22 +586,54 @@ extension Elements: Equatable {
 /**
 * Elements RandomAccessCollection
 */
-extension Elements: RandomAccessCollection {
-	public subscript(position: Int) -> Element {
-		return this[position]
-	}
+//extension Elements: RandomAccessCollection {
+//	public subscript(position: Int) -> Element {
+//		return this[position]
+//	}
+//
+//	public var startIndex: Int {
+//		return this.startIndex
+//	}
+//
+//	public var endIndex: Int {
+//		return this.endIndex
+//	}
+//
+//	/// The number of Element objects in the collection.
+//	/// Equivalent to `size()`
+//	public var count: Int {
+//		return this.count
+//	}
+//}
 
-	public var startIndex: Int {
-		return this.startIndex
-	}
+/**
+* Elements IteratorProtocol.
+*/
+public struct ElementsIterator: IteratorProtocol {
+    /// Elements reference
+    let elements: Elements
+    //current element index
+    var index = 0
 
-	public var endIndex: Int {
-		return this.endIndex
-	}
+    /// Initializer
+    init(_ countdown: Elements) {
+        self.elements = countdown
+    }
 
-	/// The number of Element objects in the collection.
-	/// Equivalent to `size()`
-	public var count: Int {
-		return this.count
-	}
+    /// Advances to the next element and returns it, or `nil` if no next element
+    mutating public func next() -> Element? {
+        let result = index < elements.size() ? elements.get(index) : nil
+        index += 1
+        return result
+    }
+}
+
+/**
+* Elements Extension Sequence.
+*/
+extension Elements: Sequence {
+    /// Returns an iterator over the elements of this sequence.
+    public func makeIterator() -> ElementsIterator {
+        return ElementsIterator(self)
+    }
 }
