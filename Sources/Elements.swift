@@ -586,25 +586,25 @@ extension Elements: Equatable {
 /**
 * Elements RandomAccessCollection
 */
-//extension Elements: RandomAccessCollection {
-//	public subscript(position: Int) -> Element {
-//		return this[position]
-//	}
-//
-//	public var startIndex: Int {
-//		return this.startIndex
-//	}
-//
-//	public var endIndex: Int {
-//		return this.endIndex
-//	}
-//
-//	/// The number of Element objects in the collection.
-//	/// Equivalent to `size()`
-//	public var count: Int {
-//		return this.count
-//	}
-//}
+extension Elements: RandomAccessCollection {
+	public subscript(position: Int) -> Element {
+		return this[position]
+	}
+
+	public var startIndex: Int {
+		return this.startIndex
+	}
+
+	public var endIndex: Int {
+		return this.endIndex
+	}
+
+	/// The number of Element objects in the collection.
+	/// Equivalent to `size()`
+	public var count: Int {
+		return this.count
+	}
+}
 
 /**
 * Elements IteratorProtocol.

@@ -23,16 +23,19 @@ class ParserBenchmark: XCTestCase {
     }
 
     func testParserPerformance() throws {
+        var count = 0
         measure {
             for htmlDoc in Const.corpusHTMLData {
                 for _ in 1...Const.repetitions {
                     do {
                         let _ = try SwiftSoup.parse(htmlDoc)
+                        count += 1
                     } catch {
                         XCTFail("Exception while parsing HTML")
                     }
                 }
             }
+            print("Did \(count) iterations")
         }
     }
 
