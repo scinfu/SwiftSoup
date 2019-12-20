@@ -53,10 +53,12 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("e", r.consume())
         XCTAssertTrue(r.isEmpty())
 
-        XCTAssertEqual(CharacterReader.EOF, r.consume())
-        r.unconsume()
-        XCTAssertTrue(r.isEmpty())
-        XCTAssertEqual(CharacterReader.EOF, r.current())
+        // Indexes beyond the end are not allowed in native indexing
+        //
+        // XCTAssertEqual(CharacterReader.EOF, r.consume())
+        // r.unconsume()
+        // XCTAssertTrue(r.isEmpty())
+        // XCTAssertEqual(CharacterReader.EOF, r.current())
     }
 
     func testMark() {
@@ -82,31 +84,31 @@ class CharacterReaderTest: XCTestCase {
         let input = "blah blah"
         let r = CharacterReader(input)
 
-        XCTAssertEqual(-1, r.nextIndexOf("x"))
-        XCTAssertEqual(3, r.nextIndexOf("h"))
+        XCTAssertEqual(nil, r.nextIndexOf("x"))
+        XCTAssertEqual(input.index(input.startIndex, offsetBy: 3), r.nextIndexOf("h"))
         let pull = r.consumeTo("h")
         XCTAssertEqual("bla", pull)
         XCTAssertEqual("h", r.consume())
-        XCTAssertEqual(2, r.nextIndexOf("l"))
+        XCTAssertEqual(input.index(input.startIndex, offsetBy: 6), r.nextIndexOf("l"))
         XCTAssertEqual(" blah", r.consumeToEnd())
-        XCTAssertEqual(-1, r.nextIndexOf("x"))
+        XCTAssertEqual(nil, r.nextIndexOf("x"))
     }
 
     func testNextIndexOfString() {
         let input = "One Two something Two Three Four"
         let r = CharacterReader(input)
 
-        XCTAssertEqual(-1, r.nextIndexOf("Foo"))
-        XCTAssertEqual(4, r.nextIndexOf("Two"))
+        XCTAssertEqual(nil, r.nextIndexOf("Foo"))
+        XCTAssertEqual(input.index(input.startIndex, offsetBy: 4), r.nextIndexOf("Two"))
         XCTAssertEqual("One Two ", r.consumeTo("something"))
-        XCTAssertEqual(10, r.nextIndexOf("Two"))
+        XCTAssertEqual(input.index(input.startIndex, offsetBy: 18), r.nextIndexOf("Two"))
         XCTAssertEqual("something Two Three Four", r.consumeToEnd())
-        XCTAssertEqual(-1, r.nextIndexOf("Two"))
+        XCTAssertEqual(nil, r.nextIndexOf("Two"))
     }
 
     func testNextIndexOfUnmatched() {
         let r = CharacterReader("<[[one]]")
-        XCTAssertEqual(-1, r.nextIndexOf("]]>"))
+        XCTAssertEqual(nil, r.nextIndexOf("]]>"))
     }
 
     func testConsumeToChar() {

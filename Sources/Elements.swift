@@ -189,7 +189,7 @@ open class Elements: NSCopying {
 	open func text()throws->String {
 		let sb: StringBuilder = StringBuilder()
 		for element: Element in this {
-			if (sb.length != 0) {
+			if !sb.isEmpty {
 				sb.append(" ")
 			}
 			sb.append(try element.text())
@@ -214,9 +214,14 @@ open class Elements: NSCopying {
 	* @see #outerHtml()
 	*/
 	open func html()throws->String {
-        var text = try this.reduce("") {result, name in "\(result)\(try name.html())\n"}
-        text.removeLast()
-        return text
+		let sb: StringBuilder = StringBuilder()
+		for element: Element in this {
+			if !sb.isEmpty {
+				sb.append("\n")
+			}
+			sb.append(try element.html())
+		}
+		return sb.toString()
 	}
 
 	/**
@@ -228,7 +233,7 @@ open class Elements: NSCopying {
 	open func outerHtml()throws->String {
 		let sb: StringBuilder = StringBuilder()
 		for element in this {
-			if (sb.length != 0) {
+			if !sb.isEmpty {
 				sb.append("\n")
 			}
 			sb.append(try element.outerHtml())
@@ -599,4 +604,36 @@ extension Elements: RandomAccessCollection {
 	public var count: Int {
 		return this.count
 	}
+}
+
+/**
+* Elements IteratorProtocol.
+*/
+public struct ElementsIterator: IteratorProtocol {
+    /// Elements reference
+    let elements: Elements
+    //current element index
+    var index = 0
+
+    /// Initializer
+    init(_ countdown: Elements) {
+        self.elements = countdown
+    }
+
+    /// Advances to the next element and returns it, or `nil` if no next element
+    mutating public func next() -> Element? {
+        let result = index < elements.size() ? elements.get(index) : nil
+        index += 1
+        return result
+    }
+}
+
+/**
+* Elements Extension Sequence.
+*/
+extension Elements: Sequence {
+    /// Returns an iterator over the elements of this sequence.
+    public func makeIterator() -> ElementsIterator {
+        return ElementsIterator(self)
+    }
 }
