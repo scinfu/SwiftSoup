@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'SwiftSoup'
-  s.version          = '2.2.1'
+  s.version          = '2.2.2'
   s.summary          = 'Swift HTML Parser / Reader, XML , with best of DOM, CSS, and jquery'
   s.description      = <<-DESC
 SwiftSoup is a Swift library for working with real-world HTML. It provides a very convenient API for extracting and manipulating data, using the best of DOM, CSS, and jquery-like methods.
@@ -26,6 +26,7 @@ SwiftSoup is a Swift library for working with real-world HTML. It provides a ver
   s.tvos.deployment_target = "9.0"
 
   s.source_files = 'Sources/**/*.swift'
+  s.swift_versions = ['4.0', '4.2', '5.0', '5.1']
 
   #s.resource_bundles = {
   #  'SwiftSoup' => ['Assets/*.properties']

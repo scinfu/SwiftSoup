@@ -78,10 +78,8 @@ public class StructuralEvaluator: Evaluator {
             var parent = element.parent()
             while (true) {
                 do {
-                    if parent != nil {
-                        if (try evaluator.matches(root, parent!)) {
-                            return true
-                        }
+                    if let p = parent, try evaluator.matches(root, p) {
+                        return true
                     }
                 } catch {}
 
