@@ -26,7 +26,7 @@ open class StringBuilder {
      :return: String
      */
     open func toString() -> String {
-        return buffer.reduce("", +)
+        return buffer.joined()
     }
 
     /**
