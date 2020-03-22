@@ -32,7 +32,7 @@ matrix:
       dist: xenial
       sudo: required
       services: docker
-      env: DOCKER_IMAGE=swift:nightly-5.2-xenial SWIFT_SNAPSHOT=5.2 SWIFT_TEST_ARGS="--parallel"
+      env: DOCKER_IMAGE=swiftlang/swift:nightly-5.2-xenial SWIFT_SNAPSHOT=5.2 SWIFT_TEST_ARGS="--parallel"
     - os: osx
       osx_image: xcode10.1
       sudo: required
