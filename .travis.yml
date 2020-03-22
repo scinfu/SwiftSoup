@@ -22,12 +22,12 @@ matrix:
       dist: xenial
       sudo: required
       services: docker
-      env: DOCKER_IMAGE=swift:5.0.2-xenial SWIFT_TEST_ARGS="--parallel"
+      env: DOCKER_IMAGE=swift:5.0.2-xenial SWIFT_SNAPSHOT=5.0.2 SWIFT_TEST_ARGS="--parallel"
     - os: linux
       dist: xenial
       sudo: required
       services: docker
-      env: DOCKER_IMAGE=swift:5.0.2 SWIFT_SNAPSHOT=$SWIFT_DEVELOPMENT_SNAPSHOT SWIFT_TEST_ARGS="--parallel"
+      env: DOCKER_IMAGE=swift:5.2 SWIFT_SNAPSHOT=5.2 SWIFT_TEST_ARGS="--parallel"
     - os: osx
       osx_image: xcode10.1
       sudo: required
