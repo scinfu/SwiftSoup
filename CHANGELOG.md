@@ -1,4 +1,5 @@
 # Change Log
+
 All notable changes to this project will be documented in this file.
 ## [1.7.4](https://github.com/scinfu/SwiftSoup/tree/1.7.4)
 * Removed Some warnings
