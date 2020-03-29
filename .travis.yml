@@ -28,6 +28,11 @@ matrix:
       sudo: required
       services: docker
       env: DOCKER_IMAGE=swift:5.1.5-xenial SWIFT_SNAPSHOT=5.1.5 SWIFT_TEST_ARGS="--parallel"
+    - os: linux
+      dist: xenial
+      sudo: required
+      services: docker
+      env: DOCKER_IMAGE=swift:5.2-xenial SWIFT_SNAPSHOT=5.2 SWIFT_TEST_ARGS="--parallel"
     - os: osx
       osx_image: xcode10.1
       sudo: required
@@ -40,6 +45,10 @@ matrix:
       osx_image: xcode11.3
       sudo: required
       env: SWIFT_SNAPSHOT=5.1.3 SWIFT_TEST_ARGS="--parallel"
+    - os: osx
+      osx_image: xcode11.4
+      sudo: required
+      env: SWIFT_SNAPSHOT=5.2 SWIFT_TEST_ARGS="--parallel"
 
 before_install:
   - git clone https://github.com/IBM-Swift/Package-Builder.git
