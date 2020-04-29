@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [2.3.2](https://github.com/scinfu/SwiftSoup/tree/2.3.2)
-* Deprecated Selector Class, use CssSelector
+* Renamed Selector Class to CssSelector
 
 ## [1.7.4](https://github.com/scinfu/SwiftSoup/tree/1.7.4)
 * Removed Some warnings
