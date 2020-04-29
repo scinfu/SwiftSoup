@@ -68,7 +68,7 @@ class ElementsTest: XCTestCase {
 	}
 
 	func testHasAbsAttr()throws {
-		let doc: Document = try SwiftSoup.parse("<a id=1 href='/foo'>One</a> <a id=2 href='https://jsoup.org'>Two</a>")
+		let doc: Document = try SwiftSoup.parse("<a id=1 href='/foo'>One</a> <a id=2 href='https://google.com'>Two</a>")
 		let one: Elements = try doc.select("#1")
 		let two: Elements = try doc.select("#2")
 		let both: Elements = try doc.select("a")
@@ -84,14 +84,14 @@ class ElementsTest: XCTestCase {
 	}
 
 	func testAbsAttr()throws {
-		let doc: Document = try SwiftSoup.parse("<a id=1 href='/foo'>One</a> <a id=2 href='https://jsoup.org'>Two</a>")
+		let doc: Document = try SwiftSoup.parse("<a id=1 href='/foo'>One</a> <a id=2 href='https://google.com'>Two</a>")
 		let one: Elements = try doc.select("#1")
 		let two: Elements = try doc.select("#2")
 		let both: Elements = try doc.select("a")
 
 		XCTAssertEqual("", try one.attr("abs:href"))
-		XCTAssertEqual("https://jsoup.org", try two.attr("abs:href"))
-		XCTAssertEqual("https://jsoup.org", try both.attr("abs:href"))
+		XCTAssertEqual("https://google.com", try two.attr("abs:href"))
+		XCTAssertEqual("https://google.com", try both.attr("abs:href"))
 	}
 
 	func testClasses()throws {
@@ -158,29 +158,29 @@ class ElementsTest: XCTestCase {
 	}
 
 	func testBefore()throws {
-		let doc: Document = try SwiftSoup.parse("<p>This <a>is</a> <a>jsoup</a>.</p>")
+		let doc: Document = try SwiftSoup.parse("<p>This <a>is</a> <a>SwiftSoup</a>.</p>")
 		try doc.select("a").before("<span>foo</span>")
-		XCTAssertEqual("<p>This <span>foo</span><a>is</a> <span>foo</span><a>jsoup</a>.</p>", try TextUtil.stripNewlines(doc.body()!.html()))
+		XCTAssertEqual("<p>This <span>foo</span><a>is</a> <span>foo</span><a>SwiftSoup</a>.</p>", try TextUtil.stripNewlines(doc.body()!.html()))
 	}
 
 	func testAfter()throws {
-		let doc: Document = try SwiftSoup.parse("<p>This <a>is</a> <a>jsoup</a>.</p>")
+		let doc: Document = try SwiftSoup.parse("<p>This <a>is</a> <a>SwiftSoup</a>.</p>")
 		try doc.select("a").after("<span>foo</span>")
-		XCTAssertEqual("<p>This <a>is</a><span>foo</span> <a>jsoup</a><span>foo</span>.</p>", try TextUtil.stripNewlines(doc.body()!.html()))
+		XCTAssertEqual("<p>This <a>is</a><span>foo</span> <a>SwiftSoup</a><span>foo</span>.</p>", try TextUtil.stripNewlines(doc.body()!.html()))
 	}
 
 	func testWrap()throws {
-		let h = "<p><b>This</b> is <b>jsoup</b></p>"
+		let h = "<p><b>This</b> is <b>SwiftSoup</b></p>"
 		let doc: Document = try SwiftSoup.parse(h)
 		try doc.select("b").wrap("<i></i>")
-		XCTAssertEqual("<p><i><b>This</b></i> is <i><b>jsoup</b></i></p>", try doc.body()?.html())
+		XCTAssertEqual("<p><i><b>This</b></i> is <i><b>SwiftSoup</b></i></p>", try doc.body()?.html())
 	}
 
 	func testWrapDiv()throws {
-		let h = "<p><b>This</b> is <b>jsoup</b>.</p> <p>How do you like it?</p>"
+		let h = "<p><b>This</b> is <b>SwiftSoup</b>.</p> <p>How do you like it?</p>"
 		let doc: Document = try SwiftSoup.parse(h)
 		try doc.select("p").wrap("<div></div>")
-		XCTAssertEqual("<div><p><b>This</b> is <b>jsoup</b>.</p></div> <div><p>How do you like it?</p></div>", try TextUtil.stripNewlines(doc.body()!.html()))
+		XCTAssertEqual("<div><p><b>This</b> is <b>SwiftSoup</b>.</p></div> <div><p>How do you like it?</p></div>", try TextUtil.stripNewlines(doc.body()!.html()))
 	}
 
 	func testUnwrap()throws {
@@ -213,11 +213,11 @@ class ElementsTest: XCTestCase {
 	}
 
 	func testRemove()throws {
-		let doc: Document = try SwiftSoup.parse("<div><p>Hello <b>there</b></p> jsoup <p>now!</p></div>")
+		let doc: Document = try SwiftSoup.parse("<div><p>Hello <b>there</b></p> SwiftSoup <p>now!</p></div>")
 		doc.outputSettings().prettyPrint(pretty: false)
 
 		try doc.select("p").remove()
-		XCTAssertEqual("<div> jsoup </div>", try doc.body()?.html())
+		XCTAssertEqual("<div> SwiftSoup </div>", try doc.body()?.html())
 	}
 
 	func testEq()throws {

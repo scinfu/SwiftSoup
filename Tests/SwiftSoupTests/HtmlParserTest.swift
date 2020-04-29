@@ -120,7 +120,7 @@ class HtmlParserTest: XCTestCase {
 	}
 
 	func testCreatesDocumentStructure()throws {
-		let html = "<meta name=keywords /><link rel=stylesheet /><title>jsoup</title><p>Hello world</p>"
+		let html = "<meta name=keywords /><link rel=stylesheet /><title>SwiftSoup</title><p>Hello world</p>"
 		let doc = try SwiftSoup.parse(html)
 		let head: Element = doc.head()!
 		let body: Element = doc.body()!
@@ -132,7 +132,7 @@ class HtmlParserTest: XCTestCase {
 
 		XCTAssertEqual("keywords", try head.getElementsByTag("meta").get(0).attr("name"))
 		XCTAssertEqual(0, try body.getElementsByTag("meta").size())
-		XCTAssertEqual("jsoup", try  doc.title())
+		XCTAssertEqual("SwiftSoup", try  doc.title())
 		XCTAssertEqual("Hello world", try body.text())
 		XCTAssertEqual("Hello world", try body.children().get(0).text())
 	}
@@ -202,7 +202,7 @@ class HtmlParserTest: XCTestCase {
 	}
 
 	func testDoesNotCreateImplicitLists()throws {
-		// old jsoup used to wrap this in <ul>, but that's not to spec
+		// old SwiftSoup used to wrap this in <ul>, but that's not to spec
 		let h: String = "<li>Point one<li>Point two"
 		let doc: Document = try SwiftSoup.parse(h)
 		let ol: Elements = try doc.select("ul") // should NOT have created a default ul.
@@ -223,7 +223,7 @@ class HtmlParserTest: XCTestCase {
 	}
 
 	func testDiscardsNakedTds()throws {
-		// jsoup used to make this into an implicit table; but browsers make it into a text run
+		// SwiftSoup used to make this into an implicit table; but browsers make it into a text run
 		let h: String = "<td>Hello<td><p>There<p>now"
 		let doc: Document = try SwiftSoup.parse(h)
 		XCTAssertEqual("Hello<p>There</p><p>now</p>", try TextUtil.stripNewlines(doc.body()!.html()))
@@ -365,7 +365,7 @@ class HtmlParserTest: XCTestCase {
 	}
 
 	func testHandlesUnclosedDefinitionLists()throws {
-		// jsoup used to create a <dl>, but that's not to spec
+		// SwiftSoup used to create a <dl>, but that's not to spec
 		let h: String = "<dt>Foo<dd>Bar<dt>Qux<dd>Zug"
 		let doc = try SwiftSoup.parse(h)
 		XCTAssertEqual(0, try doc.select("dl").size()) // no auto dl
@@ -448,7 +448,7 @@ class HtmlParserTest: XCTestCase {
 	}
 
 	func testHgroup()throws {
-		// jsoup used to not allow hroup in h{n}, but that's not in spec, and browsers are OK
+		// SwiftSoup used to not allow hroup in h{n}, but that's not in spec, and browsers are OK
 		let doc = try SwiftSoup.parse("<h1>Hello <h2>There <hgroup><h1>Another<h2>headline</hgroup> <hgroup><h1>More</h1><p>stuff</p></hgroup>")
 		XCTAssertEqual("<h1>Hello </h1><h2>There <hgroup><h1>Another</h1><h2>headline</h2></hgroup> <hgroup><h1>More</h1><p>stuff</p></hgroup></h2>", try TextUtil.stripNewlines(doc.body()!.html()))
 	}
@@ -472,7 +472,7 @@ class HtmlParserTest: XCTestCase {
 	}
 
 	func testNoImagesInNoScriptInHead()throws {
-		// jsoup used to allow, but against spec if parsing with noscript
+		// SwiftSoup used to allow, but against spec if parsing with noscript
 		let doc = try SwiftSoup.parse("<html><head><noscript><img src='foo'></noscript></head><body><p>Hello</p></body></html>")
 		XCTAssertEqual("<html><head><noscript>&lt;img src=\"foo\"&gt;</noscript></head><body><p>Hello</p></body></html>", try TextUtil.stripNewlines(doc.html()))
 	}

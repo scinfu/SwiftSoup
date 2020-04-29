@@ -21,7 +21,7 @@ open class Document: Element {
     /**
      Create a new, empty Document.
      @param baseUri base URI of document
-     @see org.jsoup.Jsoup#parse
+     @see SwiftSoup#parse
      @see #createShell
      */
     public init(_ baseUri: String) {

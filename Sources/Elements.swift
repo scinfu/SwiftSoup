@@ -339,9 +339,9 @@ open class Elements: NSCopying {
 
 	/**
 	Wrap the supplied HTML around each matched elements. For example, with HTML
-	{@code <p><b>This</b> is <b>Jsoup</b></p>},
+	{@code <p><b>This</b> is <b>SwiftSoup</b></p>},
 	<code>doc.select("b").wrap("&lt;i&gt;&lt;/i&gt;");</code>
-	becomes {@code <p><i><b>This</b></i> is <i><b>jsoup</b></i></p>}
+	becomes {@code <p><i><b>This</b></i> is <i><b>SwiftSoup</b></i></p>}
 	@param html HTML to wrap around each element, e.g. {@code <div class="head"></div>}. Can be arbitrarily deep.
 	@return this (for chaining)
 	@see Element#wrap
@@ -403,7 +403,7 @@ open class Elements: NSCopying {
 	* <code>doc.select("p").remove();</code><br>
 	* HTML = {@code <div> <img /></div>}
 	* <p>
-	* Note that this method should not be used to clean user-submitted HTML; rather, use {@link org.jsoup.safety.Cleaner} to clean HTML.
+	* Note that this method should not be used to clean user-submitted HTML; rather, use {@link Cleaner} to clean HTML.
 	* @return this, for chaining
 	* @see Element#empty()
 	* @see #empty()
@@ -420,15 +420,15 @@ open class Elements: NSCopying {
 
 	/**
 	* Find matching elements within this element list.
-	* @param query A {@link Selector} query
+	* @param query A {@link CssSelector} query
 	* @return the filtered list of elements, or an empty list if none match.
 	*/
 	open func select(_ query: String)throws->Elements {
-		return try Selector.select(query, this)
+		return try CssSelector.select(query, this)
 	}
 
 	/**
-	* Remove elements from this list that match the {@link Selector} query.
+	* Remove elements from this list that match the {@link CssSelector} query.
 	* <p>
 	* E.g. HTML: {@code <div class=logo>One</div> <div>Two</div>}<br>
 	* <code>Elements divs = doc.select("div").not(".logo");</code><br>
@@ -438,8 +438,8 @@ open class Elements: NSCopying {
 	* @return a new elements list that contains only the filtered results
 	*/
 	open func not(_ query: String)throws->Elements {
-		let out: Elements = try Selector.select(query, this)
-		return Selector.filterOut(this, out.this)
+		let out: Elements = try CssSelector.select(query, this)
+		return CssSelector.filterOut(this, out.this)
 	}
 
 	/**

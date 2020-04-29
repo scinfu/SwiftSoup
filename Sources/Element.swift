@@ -138,8 +138,8 @@ open class Element: Node {
      * Get this element's HTML5 custom data attributes. Each attribute in the element that has a key
      * starting with "data-" is included the dataset.
      * <p>
-     * E.g., the element {@code <div data-package="jsoup" data-language="Java" class="group">...} has the dataset
-     * {@code package=jsoup, language=java}.
+     * E.g., the element {@code <div data-package="SwiftSoup" data-language="Java" class="group">...} has the dataset
+     * {@code package=SwiftSoup, language=java}.
      * <p>
      * This map is a filtered view of the element's attribute map. Changes to one map (add, remove, update) are reflected
      * in the other map.
@@ -254,7 +254,7 @@ open class Element: Node {
     }
 
     /**
-     * Find elements that match the {@link Selector} CSS query, with this element as the starting context. Matched elements
+     * Find elements that match the {@link CssSelector} CSS query, with this element as the starting context. Matched elements
      * may include this element, or any of its children.
      * <p>
      * This method is generally more powerful to use than the DOM-type {@code getElementBy*} methods, because
@@ -265,21 +265,21 @@ open class Element: Node {
      * <li>{@code el.select("a[href*=example.com]")} - finds links pointing to example.com (loosely)
      * </ul>
      * <p>
-     * See the query syntax documentation in {@link org.jsoup.select.Selector}.
+     * See the query syntax documentation in {@link CssSelector}.
      * </p>
      *
-     * @param cssQuery a {@link Selector} CSS-like query
+     * @param cssQuery a {@link CssSelector} CSS-like query
      * @return elements that match the query (empty if none match)
-     * @see org.jsoup.select.Selector
-     * @throws Selector.SelectorParseException (unchecked) on an invalid CSS query.
+     * @see CssSelector
+     * @throws CssSelector.SelectorParseException (unchecked) on an invalid CSS query.
      */
     public func select(_ cssQuery: String)throws->Elements {
-        return try Selector.select(cssQuery, self)
+        return try CssSelector.select(cssQuery, self)
     }
 
     /**
-     * Check if this element matches the given {@link Selector} CSS query.
-     * @param cssQuery a {@link Selector} CSS query
+     * Check if this element matches the given {@link CssSelector} CSS query.
+     * @param cssQuery a {@link CssSelector} CSS query
      * @return if this element matches the query
      */
     public func iS(_ cssQuery: String)throws->Bool {
@@ -287,8 +287,8 @@ open class Element: Node {
     }
 
     /**
-     * Check if this element matches the given {@link Selector} CSS query.
-     * @param cssQuery a {@link Selector} CSS query
+     * Check if this element matches the given {@link CssSelector} CSS query.
+     * @param cssQuery a {@link CssSelector} CSS query
      * @return if this element matches the query
      */
     public func iS(_ evaluator: Evaluator)throws->Bool {
