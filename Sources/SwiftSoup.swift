@@ -233,7 +233,7 @@ import Foundation
      @param bodyHtml HTML to test
      @param whitelist whitelist to test against
      @return true if no tags or attributes were removed; false otherwise
-     @see #clean(String, org.jsoup.safety.Whitelist)
+     @see #clean(String, Whitelist)
      */
     public  func isValid(_ bodyHtml: String, _ whitelist: Whitelist)throws->Bool {
         let dirty = try parseBodyFragment(bodyHtml, "")

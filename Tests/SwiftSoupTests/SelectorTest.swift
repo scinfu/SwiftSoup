@@ -139,7 +139,7 @@ class SelectorTest: XCTestCase {
 	}
 
 	func testByAttributeStarting()throws {
-		let doc: Document = try SwiftSoup.parse("<div id=1 data-name=jsoup>Hello</div><p data-val=5 id=2>There</p><p id=3>No</p>")
+		let doc: Document = try SwiftSoup.parse("<div id=1 data-name=SwiftSoup>Hello</div><p data-val=5 id=2>There</p><p id=3>No</p>")
 		var withData: Elements = try doc.select("[^data-]")
 		XCTAssertEqual(2, withData.size())
 		XCTAssertEqual("1", withData.first()?.id())

@@ -1,5 +1,5 @@
 //
-//  Selector.swift
+//  CssSelector.swift
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 21/10/16.
@@ -11,7 +11,7 @@ import Foundation
 /**
  * CSS-like element selector, that finds elements matching a query.
  *
- * <h2>Selector syntax</h2>
+ * <h2>CssSelector syntax</h2>
  * <p>
  * A selector is a chain of simple selectors, separated by combinators. Selectors are <b>case insensitive</b> (including against
  * elements, attributes, and attribute values).
@@ -49,9 +49,9 @@ import Foundation
  * <tr><td><code>:eq(<em>n</em>)</code></td><td>elements whose sibling index is equal to <em>n</em></td><td><code>td:eq(0)</code> finds the first cell of each row</td></tr>
  * <tr><td><code>:has(<em>selector</em>)</code></td><td>elements that contains at least one element matching the <em>selector</em></td><td><code>div:has(p)</code> finds divs that contain p elements </td></tr>
  * <tr><td><code>:not(<em>selector</em>)</code></td><td>elements that do not match the <em>selector</em>. See also {@link Elements#not(String)}</td><td><code>div:not(.logo)</code> finds all divs that do not have the "logo" class.<p><code>div:not(:has(div))</code> finds divs that do not contain divs.</p></td></tr>
- * <tr><td><code>:contains(<em>text</em>)</code></td><td>elements that contains the specified text. The search is case insensitive. The text may appear in the found element, or any of its descendants.</td><td><code>p:contains(jsoup)</code> finds p elements containing the text "jsoup".</td></tr>
+ * <tr><td><code>:contains(<em>text</em>)</code></td><td>elements that contains the specified text. The search is case insensitive. The text may appear in the found element, or any of its descendants.</td><td><code>p:contains(SwiftSoup)</code> finds p elements containing the text "SwiftSoup".</td></tr>
  * <tr><td><code>:matches(<em>regex</em>)</code></td><td>elements whose text matches the specified regular expression. The text may appear in the found element, or any of its descendants.</td><td><code>td:matches(\\d+)</code> finds table cells containing digits. <code>div:matches((?i)login)</code> finds divs containing the text, case insensitively.</td></tr>
- * <tr><td><code>:containsOwn(<em>text</em>)</code></td><td>elements that directly contain the specified text. The search is case insensitive. The text must appear in the found element, not any of its descendants.</td><td><code>p:containsOwn(jsoup)</code> finds p elements with own text "jsoup".</td></tr>
+ * <tr><td><code>:containsOwn(<em>text</em>)</code></td><td>elements that directly contain the specified text. The search is case insensitive. The text must appear in the found element, not any of its descendants.</td><td><code>p:containsOwn(SwiftSoup)</code> finds p elements with own text "SwiftSoup".</td></tr>
  * <tr><td><code>:matchesOwn(<em>regex</em>)</code></td><td>elements whose own text matches the specified regular expression. The text must appear in the found element, not any of its descendants.</td><td><code>td:matchesOwn(\\d+)</code> finds table cells directly containing digits. <code>div:matchesOwn((?i)login)</code> finds divs containing the text, case insensitively.</td></tr>
  * <tr><td></td><td>The above may be combined in any order and with other selectors</td><td><code>.light:contains(name):eq(0)</code></td></tr>
  * <tr><td colspan="3"><h3>Structural pseudo selectors</h3></td></tr>
@@ -72,7 +72,10 @@ import Foundation
  *
  * @see Element#select(String)
  */
-open class Selector {
+@available(*, deprecated, renamed: "CssSelector")
+typealias Selector = CssSelector
+
+open class CssSelector {
     private let evaluator: Evaluator
     private let root: Element
 
@@ -96,10 +99,10 @@ open class Selector {
      * @param query CSS selector
      * @param root  root element to descend into
      * @return matching elements, empty if none
-     * @throws Selector.SelectorParseException (unchecked) on an invalid CSS query.
+     * @throws CssSelector.SelectorParseException (unchecked) on an invalid CSS query.
      */
     public static func select(_ query: String, _ root: Element)throws->Elements {
-        return try Selector(query, root).select()
+        return try CssSelector(query, root).select()
     }
 
     /**
@@ -110,7 +113,7 @@ open class Selector {
      * @return matching elements, empty if none
      */
     public static func select(_ evaluator: Evaluator, _ root: Element)throws->Elements {
-        return try Selector(evaluator, root).select()
+        return try CssSelector(evaluator, root).select()
     }
 
     /**

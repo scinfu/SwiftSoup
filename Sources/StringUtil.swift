@@ -9,7 +9,7 @@
 import Foundation
 
 /**
- * A minimal String utility class. Designed for internal jsoup use only.
+ * A minimal String utility class. Designed for internal SwiftSoup use only.
  */
 open class StringUtil {
     enum StringError: Error {

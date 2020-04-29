@@ -9,8 +9,8 @@
 import Foundation
 
 /**
-* Parses HTML into a {@link org.jsoup.nodes.Document}. Generally best to use one of the  more convenient parse methods
-* in {@link org.jsoup.Jsoup}.
+* Parses HTML into a {@link Document}. Generally best to use one of the  more convenient parse methods
+* in {@link SwiftSoup}.
 */
 public class Parser {
 	private static let DEFAULT_MAX_ERRORS: Int = 0 // by default, error tracking is disabled.

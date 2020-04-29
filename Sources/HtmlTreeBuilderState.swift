@@ -167,7 +167,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     return try HtmlTreeBuilderState.InBody.process(t, tb)
                 } else if TagSets.baseEtc.contains(name) {
                     let el: Element = try tb.insertEmpty(start)
-                    // jsoup special: update base the frist time it is seen
+                    // SwiftSoup special: update base the frist time it is seen
                     if (name.equals("base") && el.hasAttr("href")) {
                         try tb.maybeSetBaseUri(el)
                     }
@@ -179,7 +179,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 } else if name == "noframes" || name == "style" {
                     try HtmlTreeBuilderState.handleRawtext(start, tb)
                 } else if (name.equals("noscript")) {
-                    // else if noscript && scripting flag = true: rawtext (jsoup doesn't run script, to handle as noscript)
+                    // else if noscript && scripting flag = true: rawtext (SwiftSoup doesn't run script, to handle as noscript)
                     try tb.insert(start)
                     tb.transition(.InHeadNoscript)
                 } else if (name.equals("script")) {
