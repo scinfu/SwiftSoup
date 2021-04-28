@@ -1107,7 +1107,9 @@ open class Element: Node {
             if (classAttr.charAt(i).isWhitespace) {
                 if (inClass) {
                     // white space ends a class name, compare it with the requested one, ignore case
-                    if (i - start == wantLen && classAttr.regionMatches(true, start, className, 0, wantLen)) {
+                    if (i - start == wantLen && classAttr.regionMatches(ignoreCase: true, selfOffset: start,
+                                                                        other: className, otherOffset: 0,
+                                                                        targetLength: wantLen)) {
                         return true
                     }
                     inClass = false
@@ -1123,7 +1125,8 @@ open class Element: Node {
 
         // check the last entry
         if (inClass && len - start == wantLen) {
-            return classAttr.regionMatches(true, start, className, 0, wantLen)
+            return classAttr.regionMatches(ignoreCase: true, selfOffset: start,
+                                           other: className, otherOffset: 0, targetLength: wantLen)
         }
 
         return false

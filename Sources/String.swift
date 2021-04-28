@@ -120,14 +120,15 @@ extension String {
         return String.split(self, beginIndex, count)
     }
 
-    func regionMatches(_ ignoreCase: Bool, _ selfOffset: Int, _ other: String, _ otherOffset: Int, _ length: Int ) -> Bool {
+    func regionMatches(ignoreCase: Bool, selfOffset: Int,
+                       other: String, otherOffset: Int, targetLength: Int ) -> Bool {
         if ((otherOffset < 0) || (selfOffset < 0)
-            || (selfOffset > self.count - length)
-            || (otherOffset > other.count - length)) {
+            || (selfOffset > self.count - targetLength)
+            || (otherOffset > other.count - targetLength)) {
             return false
         }
 
-        for i in 0..<length {
+        for i in 0..<targetLength {
             let charSelf: Character = self[i+selfOffset]
             let charOther: Character = other[i+otherOffset]
             if(ignoreCase) {
