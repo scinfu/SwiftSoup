@@ -936,10 +936,14 @@ open class Element: Node {
         public func tail(_ node: Node, _ depth: Int) {
         }
     }
-    public func text()throws->String {
+    public func text(trim: Bool = true)throws->String {
         let accum: StringBuilder = StringBuilder()
         try NodeTraversor(textNodeVisitor(accum)).traverse(self)
-        return accum.toString().trim()
+        let text = accum.toString()
+        if trim {
+            return text.trim()
+        }
+        return text
     }
 
     /**
