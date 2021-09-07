@@ -186,13 +186,13 @@ open class Elements: NSCopying {
 	* @return string of all text: unescaped and no HTML.
 	* @see Element#text()
 	*/
-	open func text()throws->String {
+	open func text(trimAndNormaliseWhitespace: Bool = true)throws->String {
 		let sb: StringBuilder = StringBuilder()
 		for element: Element in this {
 			if !sb.isEmpty {
 				sb.append(" ")
 			}
-			sb.append(try element.text())
+            sb.append(try element.text(trimAndNormaliseWhitespace: trimAndNormaliseWhitespace))
 		}
 		return sb.toString()
 	}
