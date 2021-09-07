@@ -66,7 +66,8 @@ open class TokenQueue {
      * @return true if the next characters match.
      */
     open func matches(_ seq: String) -> Bool {
-        return queue.regionMatches(true, pos, seq, 0, seq.count)
+        return queue.regionMatches(ignoreCase: true, selfOffset: pos,
+                                   other: seq, otherOffset: 0, targetLength: seq.count)
     }
 
     /**
