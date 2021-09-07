@@ -918,12 +918,18 @@ open class Element: Node {
      */
     class textNodeVisitor: NodeVisitor {
         let accum: StringBuilder
-        init(_ accum: StringBuilder) {
+        let trimAndNormaliseWhitespace: Bool
+        init(_ accum: StringBuilder, trimAndNormaliseWhitespace: Bool) {
             self.accum = accum
+            self.trimAndNormaliseWhitespace = trimAndNormaliseWhitespace
         }
         public func head(_ node: Node, _ depth: Int) {
             if let textNode = (node as? TextNode) {
-                Element.appendNormalisedText(accum, textNode)
+                if trimAndNormaliseWhitespace {
+                    Element.appendNormalisedText(accum, textNode)
+                } else {
+                    accum.append(textNode.getWholeText())
+                }
             } else if let element = (node as? Element) {
                 if !accum.isEmpty &&
                     (element.isBlock() || element._tag.getName() == "br") &&
@@ -936,10 +942,14 @@ open class Element: Node {
         public func tail(_ node: Node, _ depth: Int) {
         }
     }
-    public func text()throws->String {
+    public func text(trimAndNormaliseWhitespace: Bool = true)throws->String {
         let accum: StringBuilder = StringBuilder()
-        try NodeTraversor(textNodeVisitor(accum)).traverse(self)
-        return accum.toString().trim()
+        try NodeTraversor(textNodeVisitor(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)).traverse(self)
+        let text = accum.toString()
+        if trimAndNormaliseWhitespace {
+            return text.trim()
+        }
+        return text
     }
 
     /**
