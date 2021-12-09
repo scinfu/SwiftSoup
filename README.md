@@ -551,7 +551,7 @@ Output:
 "?foo=bar<qux&lg=1"
 ```
 
-## Escape and Enescape
+## Escape and Unescape
 
 ```swift
 let text = "Hello &<> Å å π 新 there ¾ © »"
