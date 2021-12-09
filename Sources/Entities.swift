@@ -78,7 +78,13 @@ public class Entities {
                 entitiesByName.append(NamedCodepoint(scalar: UnicodeScalar(cp1)!, name: name))
 
                 if (cp2 != empty) {
+                    if !Thread.isMainThread {
+                        multipointsSemaphore.wait()
+                    }
                     multipoints[name] = [UnicodeScalar(cp1)!, UnicodeScalar(cp2)!]
+                    if !Thread.isMainThread {
+                        multipointsSemaphore.signal()
+                    }
                 }
             }
             // Entities should start in name order, but better safe than sorry...
@@ -112,6 +118,7 @@ public class Entities {
     }
 
     private static var multipoints: [String: [UnicodeScalar]] = [:] // name -> multiple character references
+    private static var multipointsSemaphore = DispatchSemaphore(value: 1)
 
     /**
      * Check if the input is a known named entity
@@ -145,9 +152,20 @@ public class Entities {
     }
 
     public static func codepointsForName(_ name: String) -> [UnicodeScalar]? {
+        if !Thread.isMainThread {
+            multipointsSemaphore.wait()
+        }
         if let scalars = multipoints[name] {
+            if !Thread.isMainThread {
+                multipointsSemaphore.signal()
+            }
             return scalars
-        } else if let scalar = EscapeMode.extended.codepointForName(name) {
+        }
+        if !Thread.isMainThread {
+            multipointsSemaphore.signal()
+        }
+        
+        if let scalar = EscapeMode.extended.codepointForName(name) {
             return [scalar]
         }
         return nil
