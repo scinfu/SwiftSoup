@@ -206,6 +206,24 @@ open class Elements: NSCopying {
 		}
 		return false
 	}
+    
+    /**
+     * Get the text content of each of the matched elements. If an element has no text, then it is not included in the
+     * result.
+     * @return A list of each matched element's text content.
+     * @see Element#text()
+     * @see Element#hasText()
+     * @see #text()
+     */
+    public func eachText()throws->Array<String> {
+        var texts: Array<String> = Array()
+        for el: Element in this {
+            if (el.hasText()){
+                texts.append(try el.text())
+            }
+        }
+        return texts;
+    }
 
 	/**
 	* Get the combined inner HTML of all matched elements.
