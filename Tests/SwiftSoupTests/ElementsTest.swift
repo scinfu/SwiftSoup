@@ -303,6 +303,24 @@ class ElementsTest: XCTestCase {
 		XCTAssertEqual(1, els.size())
 		try XCTAssertEqual("Check", els.text())
 	}
+    
+    func testEachText()throws {
+        let doc: Document = try SwiftSoup.parse("<div><p>1<p>2<p>3<p>4<p>5<p>6</div><div><p>7<p>8<p>9<p>10<p>11<p>12<p></p></div>")
+        let divText: Array<String> = try doc.select("div").eachText();
+        XCTAssertEqual(2, divText.count);
+        XCTAssertEqual("1 2 3 4 5 6", divText[0]);
+        XCTAssertEqual("7 8 9 10 11 12", divText[1]);
+        
+        let pText: Array<String> = try doc.select("p").eachText();
+        let ps: Elements = try doc.select("p");
+        XCTAssertEqual(13, ps.size());
+        XCTAssertEqual(12, pText.count); // not 13, as last doesn't have text
+        XCTAssertEqual("1", pText[0]);
+        XCTAssertEqual("2", pText[1]);
+        XCTAssertEqual("5", pText[4]);
+        XCTAssertEqual("7", pText[6]);
+        XCTAssertEqual("12", pText[11]);
+    }
 
 	static var allTests = {
 		return [
@@ -337,7 +355,8 @@ class ElementsTest: XCTestCase {
 			("testTagNameSet", testTagNameSet),
 			("testTraverse", testTraverse),
 			("testForms", testForms),
-			("testClassWithHyphen", testClassWithHyphen)
+			("testClassWithHyphen", testClassWithHyphen),
+            ("testEachText", testEachText)
 		]
 	}()
 }
