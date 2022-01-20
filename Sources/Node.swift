@@ -12,7 +12,7 @@ open class Node: Equatable, Hashable {
     private static let abs = "abs:"
     fileprivate static let empty = ""
     private static let EMPTY_NODES: Array<Node>  = Array<Node>()
-    weak var parentNode: Node?
+    unowned var parentNode: Node?
     var childNodes: Array <Node>
     var attributes: Attributes?
     var baseUri: String?
