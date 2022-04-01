@@ -8,8 +8,7 @@
 
 import Foundation
 
-@available(iOSApplicationExtension 10.0, *)
-@available(macOSApplicationExtension 10.12, *)
+@available(iOS 10.0, OSX 10.12, watchOS 3.0, tvOS 10.0, *)
 final class UnfairLock: NSLocking {
     
     private let unfairLock: UnsafeMutablePointer<os_unfair_lock> = {
