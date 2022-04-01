@@ -17,21 +17,12 @@ matrix:
       dist: xenial
       sudo: required
       services: docker
-      env: DOCKER_IMAGE=swift:4.2.4 SWIFT_SNAPSHOT=4.2.4 SWIFT_TEST_ARGS="--parallel"
-    - os: linux
-      dist: xenial
-      sudo: required
-      services: docker
       env: DOCKER_IMAGE=swift:5.0.3-xenial SWIFT_SNAPSHOT=5.0.3 SWIFT_TEST_ARGS="--parallel"
     - os: linux
       dist: xenial
       sudo: required
       services: docker
       env: DOCKER_IMAGE=swift:5.1.5-xenial SWIFT_SNAPSHOT=5.1.5 SWIFT_TEST_ARGS="--parallel"
-    - os: osx
-      osx_image: xcode10.1
-      sudo: required
-      env: SWIFT_SNAPSHOT=4.2.1 SWIFT_TEST_ARGS="--parallel"
     - os: osx
       osx_image: xcode10.2
       sudo: required

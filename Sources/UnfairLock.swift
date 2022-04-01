@@ -8,7 +8,8 @@
 
 import Foundation
 
-@available(iOS 10.0, OSX 10.12, watchOS 3.0, tvOS 10.0, *)
+#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+@available(iOS 10.0, macOS 10.12, watchOS 3.0, tvOS 10.0, *)
 final class UnfairLock: NSLocking {
     
     private let unfairLock: UnsafeMutablePointer<os_unfair_lock> = {
@@ -34,3 +35,4 @@ final class UnfairLock: NSLocking {
         os_unfair_lock_unlock(unfairLock)
     }
 }
+#endif
