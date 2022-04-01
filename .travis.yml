@@ -31,6 +31,10 @@ matrix:
       osx_image: xcode11.3
       sudo: required
       env: SWIFT_SNAPSHOT=5.1.3 SWIFT_TEST_ARGS="--parallel"
+    - os: osx
+      osx_image: xcode13.3
+      sudo: required
+      env: SWIFT_SNAPSHOT=$SWIFT_DEVELOPMENT_SNAPSHOT SWIFT_TEST_ARGS="--parallel"
 
 before_install:
   - git clone https://github.com/IBM-Swift/Package-Builder.git

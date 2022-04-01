@@ -401,6 +401,7 @@
 		BD3B5C2F1FC06423001FDB3B /* SwiftSoup.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SwiftSoup.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD3B5C301FC06424001FDB3B /* InfoWatchOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = InfoWatchOS.plist; path = /Users/nabil/Documents/nabil/SwiftSoup/Sources/InfoWatchOS.plist; sourceTree = "<absolute>"; };
 		BD76883E206D8B6900B7F940 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
+		BDCCDAA827F710000047B769 /* .travis.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = .travis.yml; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -566,6 +567,7 @@
 		8CE4180C1DAA54A900240B42 = {
 			isa = PBXGroup;
 			children = (
+				BDCCDAA827F710000047B769 /* .travis.yml */,
 				BD36975B20135EBB00D8FAC6 /* SwiftSoup.podspec */,
 				BD76883E206D8B6900B7F940 /* CHANGELOG.md */,
 				8CE418181DAA54A900240B42 /* Sources */,

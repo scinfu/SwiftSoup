@@ -28,7 +28,7 @@ final class UnfairLock: NSLocking {
     }
 
     func tryLock() -> Bool {
-        os_unfair_lock_trylock(unfairLock)
+        return os_unfair_lock_trylock(unfairLock)
     }
 
     func unlock() {
