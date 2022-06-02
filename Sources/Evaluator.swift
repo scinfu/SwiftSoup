@@ -12,7 +12,7 @@ import Foundation
  * Evaluates that an element matches the selector.
  */
 open class Evaluator {
-    init () {}
+    public init () {}
 
     /**
      * Test if the element meets the evaluator's requirements.
