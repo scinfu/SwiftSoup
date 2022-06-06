@@ -11,8 +11,8 @@ import Foundation
 /**
  * Evaluates that an element matches the selector.
  */
-public class Evaluator {
-    init () {}
+open class Evaluator {
+    public init () {}
 
     /**
      * Test if the element meets the evaluator's requirements.

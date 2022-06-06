@@ -23,7 +23,7 @@ public struct Pattern {
         return Pattern(s)
     }
 
-    func validate()throws {
+    public func validate()throws {
          _ = try NSRegularExpression(pattern: self.pattern, options: [])
     }
 
