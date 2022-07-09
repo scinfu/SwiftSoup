@@ -10,21 +10,17 @@ import Foundation
 
 final class Mutex: NSLocking {
     
-    private var mutex = pthread_mutex_t()
+    private var semaphore: DispatchSemaphore
 
     init() {
-        pthread_mutex_init(&mutex, nil)
-    }
-
-    deinit {
-        pthread_mutex_destroy(&mutex)
+        semaphore = DispatchSemaphore(value: 1)
     }
 
     func lock() {
-        pthread_mutex_lock(&mutex)
+        semaphore.wait()
     }
 
     func unlock() {
-        pthread_mutex_unlock(&mutex)
+        semaphore.signal()
     }
 }
