@@ -8,8 +8,30 @@
 
 import Foundation
 
+#if os(Windows)
+import WinSDK
+#endif
+
 final class Mutex: NSLocking {
-    
+#if os(Windows)
+    private var mutex = CRITICAL_SECTION()
+
+    init() {
+        InitializeCriticalSection(&mutex)
+    }
+
+    deinit {
+        DeleteCriticalSection(&mutex)
+    }
+
+    func lock() {
+        EnterCriticalSection(&mutex)
+    }
+
+    func unlock() {
+        LeaveCriticalSection(&mutex)
+    }
+#else
     private var mutex = pthread_mutex_t()
 
     init() {
@@ -27,4 +49,5 @@ final class Mutex: NSLocking {
     func unlock() {
         pthread_mutex_unlock(&mutex)
     }
+#endif
 }
