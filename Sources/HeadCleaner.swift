@@ -8,8 +8,12 @@
 import Foundation
 
 public enum HeadCleaner {
-    public static func clean(dirtyDocument: Document, cleanedDocument: Document) throws {
-        guard let dirtHead = dirtyDocument.head(), let cleanedHead = cleanedDocument.head() else { return }
+    /// Adds to the destination document a sanitized version from the dirt document's `<head>code</head>`.
+    /// - Parameters:
+    ///   - dirtyDocument: Source document containing the tag `<head>` to sanitize
+    ///   - destinationDocument: Document with a cleaned body.
+    public static func clean(dirtyDocument: Document, destinationDocument: Document) throws {
+        guard let dirtHead = dirtyDocument.head(), let cleanedHead = destinationDocument.head() else { return }
         try copySafeNodes(source: dirtHead, destination: cleanedHead)
     }
 
