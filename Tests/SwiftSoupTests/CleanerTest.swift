@@ -241,7 +241,7 @@ class CleanerTest: XCTestCase {
 
     func testCleanHeadAndBody() throws {
         let dirty = "<html><head><title>Hello</title><style>body {}</style></head><body><p>Hey!</p></body></html>"
-        let clean = "<html><head><title>Hello</title></head><body><p>Hey!</p></body></html>"
+        // let clean = "<html><head><title>Hello</title></head><body><p>Hey!</p></body></html>"
 
         let headWhitelist = try Whitelist.none()
             .addTags("title")
@@ -333,7 +333,9 @@ class CleanerTest: XCTestCase {
             ("testAddsTagOnAttributesIfNotSet", testAddsTagOnAttributesIfNotSet),
             ("testHandlesFramesets", testHandlesFramesets),
             ("testCleansInternationalText", testCleansInternationalText),
-            ("testScriptTagInWhiteList", testScriptTagInWhiteList)
+            ("testScriptTagInWhiteList", testScriptTagInWhiteList),
+            ("testCleanHeadAndBody", testCleanHeadAndBody)
+            
         ]
     }()
 
