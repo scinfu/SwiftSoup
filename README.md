@@ -446,7 +446,7 @@ Select returns a list of `Elements` (as `Elements`), which provides a range of m
 * `:lt(n)`: find elements whose sibling index (i.e. its position in the DOM tree relative to its parent) is less than n; e.g. `td:lt(3)`
 * `:gt(n)`: find elements whose sibling index is greater than n; e.g. `div p:gt(2)`
 * `:eq(n)`: find elements whose sibling index is equal to n; e.g. `form input:eq(1)`
-* `:has(seletor)`: find elements that contain elements matching the selector; e.g. `div:has(p)`
+* `:has(selector)`: find elements that contain elements matching the selector; e.g. `div:has(p)`
 * `:not(selector)`: find elements that do not match the selector; e.g. `div:not(.logo)`
 * `:contains(text)`: find elements that contain the given text. The search is case-insensitive; e.g. `p:contains(swiftsoup)`
 * `:containsOwn(text)`: find elements that directly contain the given text
