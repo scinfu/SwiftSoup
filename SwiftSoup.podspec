@@ -22,7 +22,7 @@ SwiftSoup is a Swift library for working with real-world HTML. It provides a ver
 
   s.ios.deployment_target = "11.0"
   s.osx.deployment_target = "10.13"
-  s.watchos.deployment_target = "2.0"
+  s.watchos.deployment_target = "4.0"
   s.tvos.deployment_target = "11.0"
 
   s.source_files = 'Sources/**/*.swift'
