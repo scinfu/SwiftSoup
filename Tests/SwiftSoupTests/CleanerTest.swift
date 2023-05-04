@@ -239,6 +239,24 @@ class CleanerTest: XCTestCase {
         XCTAssertEqual(0, cleanDoc?.body()?.childNodeSize())
     }
 
+    func testCleanHeadAndBody() throws {
+        let dirty = "<html><head><title>Hello</title><style>body {}</style></head><body><p>Hey!</p></body></html>"
+        let clean = "<html><head><title>Hello</title></head><body><p>Hey!</p></body></html>"
+
+        let headWhitelist = try Whitelist.none()
+            .addTags("title")
+
+        let dirtyDoc = try SwiftSoup.parse(dirty)
+        let cleanDoc = try Cleaner(headWhitelist: headWhitelist, bodyWhitelist: .relaxed()).clean(dirtyDoc)
+
+        let cleanHead = cleanDoc.head()
+        XCTAssertNotNil(cleanHead)
+        XCTAssertEqual(1, cleanHead?.childNodeSize())
+        let title = try cleanHead?.select("title").first()
+        XCTAssertNotNil(title)
+        XCTAssertEqual("title", title?.tagName())
+    }
+
     func testCleansInternationalText()throws {
         XCTAssertEqual("привет", try SwiftSoup.clean("привет", Whitelist.none()))
     }
