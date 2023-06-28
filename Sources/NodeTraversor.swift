@@ -34,15 +34,17 @@ class NodeTraversor {
                 depth+=1
             } else {
                 while (node!.nextSibling() == nil && depth > 0) {
+                    let parent = node!.getParentNode()
                     try visitor.tail(node!, depth)
-                    node = node!.getParentNode()
+                    node = parent
                     depth-=1
                 }
+                let nextSib = node!.nextSibling()
                 try visitor.tail(node!, depth)
                 if (node === root) {
                     break
                 }
-                node = node!.nextSibling()
+                node = nextSib
             }
         }
     }

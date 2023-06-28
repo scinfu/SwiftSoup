@@ -34,6 +34,31 @@ class NodeTraversorTest: XCTestCase {
         )
     }
 
+    func testTailCanRemoveNode() {
+        class TestVisitor: NodeVisitor {
+            func head(_ node: Node, _ depth: Int) throws {
+                // no-op
+            }
+
+            func tail(_ node: Node, _ depth: Int) throws {
+                if let elt = node as? Element {
+                    if elt.id() == "3" {
+                        try elt.remove()
+                    }
+                }
+            }
+        }
+
+        let html = "<p id=1>2</p><p id=3>4</p><p id=5>6</p>"
+        let doc = try! SwiftSoup.parse(html)
+
+        try! doc.body()!.traverse(TestVisitor())
+
+        let expectedHtml = "<p id=1>2</p><p id=5>6</p>"
+        let expectedDoc = try! SwiftSoup.parse(expectedHtml)
+        XCTAssertEqual(try! expectedDoc.body()!.html(), try! doc.body()!.html())
+    }
+
     private func assertNodeDescsMatch(_ descs: [NodeDesc], _ nodes: [Node], _ label: String) {
         XCTAssertEqual(nodes.count, descs.count, "\(label): nodes.count == descs.count")
         for i in 0..<nodes.count {
