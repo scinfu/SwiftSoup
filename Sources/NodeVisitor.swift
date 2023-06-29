@@ -18,7 +18,7 @@ import Foundation
  */
 public protocol NodeVisitor {
     /**
-     * Callback for when a node is first visited.
+     * Callback for when a node is first visited. {@code head} cannot safely call {@code node.remove()}.
      *
      * @param node the node being visited.
      * @param depth the depth of the node, relative to the root node. E.g., the root node has depth 0, and a child node
@@ -27,7 +27,7 @@ public protocol NodeVisitor {
     func head(_ node: Node, _ depth: Int)throws
 
     /**
-     * Callback for when a node is last visited, after all of its descendants have been visited.
+     * Callback for when a node is last visited, after all of its descendants have been visited. {@code tail} can safely call {@code node.remove()}.
      *
      * @param node the node being visited.
      * @param depth the depth of the node, relative to the root node. E.g., the root node has depth 0, and a child node

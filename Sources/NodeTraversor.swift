@@ -23,28 +23,29 @@ class NodeTraversor {
      * Start a depth-first traverse of the root and all of its descendants.
      * @param root the root node point to traverse.
      */
-    open func traverse(_ root: Node?)throws {
+    open func traverse(_ root: Node?) throws {
         var node: Node? = root
         var depth: Int = 0
 
         while (node != nil) {
-			try visitor.head(node!, depth)
-			if (node!.childNodeSize() > 0) {
-				node = node!.childNode(0)
-				depth+=1
-			} else {
-				while (node!.nextSibling() == nil && depth > 0) {
-					try visitor.tail(node!, depth)
-					node = node!.getParentNode()
-					depth-=1
-				}
-				try visitor.tail(node!, depth)
-				if (node === root) {
-					break
-				}
-				node = node!.nextSibling()
-			}
+            try visitor.head(node!, depth)
+            if (node!.childNodeSize() > 0) {
+                node = node!.childNode(0)
+                depth+=1
+            } else {
+                while (node!.nextSibling() == nil && depth > 0) {
+                    let parent = node!.getParentNode()
+                    try visitor.tail(node!, depth)
+                    node = parent
+                    depth-=1
+                }
+                let nextSib = node!.nextSibling()
+                try visitor.tail(node!, depth)
+                if (node === root) {
+                    break
+                }
+                node = nextSib
+            }
         }
     }
-
 }
