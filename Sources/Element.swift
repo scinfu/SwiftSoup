@@ -1301,6 +1301,14 @@ open class Element: Node {
 		return super.copy(clone: clone, parent: parent)
 	}
 
+    public static func ==(lhs: Element, rhs: Element) -> Bool {
+    	guard lhs as Node == rhs as Node else {
+            return false
+        }
+        
+        return lhs._tag == rhs._tag
+    }
+	
     override public func hash(into hasher: inout Hasher) {
         super.hash(into: &hasher)
         hasher.combine(_tag)
