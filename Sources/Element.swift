@@ -345,7 +345,12 @@ open class Element: Node {
     public func select(_ cssQuery: String)throws->Elements {
         return try CssSelector.select(cssQuery, self)
     }
-    
+
+    @available(iOS 13.0.0, *)
+    public func select(_ cssQuery: String) async throws -> Elements {
+        return try await CssSelector.select(cssQuery, self)
+    }
+
     /**
      Find elements that match the ``Evaluator`` with a ``CssSelector`` query, with this element as the starting context.
      Matched elements may include this element, or any of its children.

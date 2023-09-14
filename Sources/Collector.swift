@@ -28,6 +28,13 @@ open class Collector {
         return elements
     }
 
+    @available(iOS 13.0.0, *)
+    public static func collect (_ eval: Evaluator, _ root: Element) async throws -> Elements {
+        let elements: Elements = Elements()
+        try await NodeTraversor(Accumulator(root, elements, eval)).traverse(root)
+        return elements
+    }
+
 }
 
 private final class Accumulator: NodeVisitor {

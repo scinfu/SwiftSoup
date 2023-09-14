@@ -47,4 +47,32 @@ open class NodeTraversor {
             }
         }
     }
+
+    @available(iOS 13.0.0, *)
+    open func traverse(_ root: Node?) async throws {
+        var node: Node? = root
+        var depth: Int = 0
+
+        while node != nil && !Task.isCancelled {
+            try visitor.head(node!, depth)
+            if (node!.childNodeSize() > 0) {
+                node = node!.childNode(0)
+                depth+=1
+            } else {
+                while (node!.nextSibling() == nil && depth > 0 && !Task.isCancelled) {
+                    let parent = node!.getParentNode()
+                    try visitor.tail(node!, depth)
+                    node = parent
+                    depth-=1
+                }
+                let nextSib = node!.nextSibling()
+                try visitor.tail(node!, depth)
+                if (node === root) {
+                    break
+                }
+                node = nextSib
+            }
+        }
+    }
+
 }
