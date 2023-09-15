@@ -152,6 +152,12 @@ public class Parser {
         return try parseFragment(fragmentHtml.utf8Array, context, baseUri)
     }
 
+    @available(iOS 13.0.0, *)
+    public static func parseFragment(_ fragmentHtml: String, _ context: Element?, _ baseUri: String) async throws -> Array<Node> {
+        let treeBuilder = HtmlTreeBuilder()
+        return try await treeBuilder.parseFragment(fragmentHtml, context, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
+    }
+
 	/**
 	 Parse a fragment of XML into a list of nodes.
 	 
@@ -192,6 +198,24 @@ public class Parser {
 		}
 		return doc
 	}
+    
+    @available(iOS 13.0.0, *)
+    public static func parseBodyFragment(_ bodyHtml: String, _ baseUri: String) async throws -> Document {
+        let doc: Document = Document.createShell(baseUri)
+        if let body: Element = doc.body() {
+            let nodeList: Array<Node> = try await parseFragment(bodyHtml, body, baseUri)
+            //var nodes: [Node] = nodeList.toArray(Node[nodeList.size()]) // the node list gets modified when re-parented
+            if nodeList.count > 0 {
+                for i in 1..<nodeList.count {
+                    try nodeList[i].remove()
+                }
+            }
+            for node: Node in nodeList {
+                try body.appendChild(node)
+            }
+        }
+        return doc
+    }
 
 	/**
 	 Utility method to unescape HTML entities from a string

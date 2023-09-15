@@ -125,6 +125,62 @@ class HtmlTreeBuilder: TreeBuilder {
         }
     }
     
+    @available(iOS 13.0.0, *)
+    func parseFragment(_ inputFragment: String, _ context: Element?, _ baseUri: String, _ errors: ParseErrorList, _ settings: ParseSettings) async throws -> Array<Node> {
+        // context may be null
+        _state = HtmlTreeBuilderState.Initial
+        initialiseParse(inputFragment, baseUri, errors, settings)
+        contextElement = context
+        fragmentParsing = true
+        var root: Element? = nil
+
+        if let context = context {
+            if let d = context.ownerDocument() { // quirks setup:
+                doc.quirksMode(d.quirksMode())
+            }
+
+            // initialise the tokeniser state:
+            switch context.tagName() {
+                case TagSets.titleTextarea:
+                    tokeniser.transition(TokeniserState.Rcdata)
+                case TagSets.frames:
+                    tokeniser.transition(TokeniserState.Rawtext)
+                case "script":
+                    tokeniser.transition(TokeniserState.ScriptData)
+                case "noscript":
+                    tokeniser.transition(TokeniserState.Data) // if scripting enabled, rawtext
+                case "plaintext":
+                    tokeniser.transition(TokeniserState.Data)
+                default:
+                    tokeniser.transition(TokeniserState.Data)
+            }
+
+            root = try Element(Tag.valueOf("html", settings), baseUri)
+            try Validate.notNull(obj: root)
+            try doc.appendChild(root!)
+            stack.append(root!)
+            resetInsertionMode()
+
+            // setup form element to nearest form on context (up ancestor chain). ensures form controls are associated
+            // with form correctly
+            let contextChain: Elements = context.parents()
+            contextChain.add(0, context)
+            for parent: Element in contextChain.array() {
+                if let x = (parent as? FormElement) {
+                    formElement = x
+                    break
+                }
+            }
+        }
+
+        try await runParser()
+        if (context != nil && root != nil) {
+            return root!.getChildNodes()
+        } else {
+            return doc.getChildNodes()
+        }
+    }
+
     @discardableResult
     public override func process(_ token: Token)throws->Bool {
         currentToken = token

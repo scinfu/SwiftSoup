@@ -40,6 +40,18 @@ open class Cleaner {
         }
 		return clean
 	}
+    
+    @available(iOS 13.0.0, *)
+    public func clean(_ dirtyDocument: Document) async throws -> Document {
+        let clean = Document.createShell(dirtyDocument.getBaseUri())
+        if let headWhitelist, let dirtHead = dirtyDocument.head(), let cleanHead = clean.head() { // frameset documents won't have a head. the clean doc will have empty head.
+            try await copySafeNodes(dirtHead, cleanHead, whitelist: headWhitelist)
+        }
+        if let dirtBody = dirtyDocument.body(), let cleanBody = clean.body() { // frameset documents won't have a body. the clean doc will have empty body.
+            try await copySafeNodes(dirtBody, cleanBody, whitelist: bodyWhitelist)
+        }
+        return clean
+    }
 
     /// Determines if the input document is valid, against the whitelist. It is considered valid if all the tags and attributes
     /// in the input HTML are allowed by the whitelist.
@@ -61,6 +73,14 @@ open class Cleaner {
 		try NodeTraversor(cleaningVisitor).traverse(source)
 		return cleaningVisitor.numDiscarded
 	}
+    
+    @available(iOS 13.0.0, *)
+    @discardableResult
+    fileprivate func copySafeNodes(_ source: Element, _ dest: Element, whitelist: Whitelist) async throws -> Int {
+        let cleaningVisitor = Cleaner.CleaningVisitor(source, dest, whitelist)
+        try await NodeTraversor(cleaningVisitor).traverse(source)
+        return cleaningVisitor.numDiscarded
+    }
 }
 
 extension Cleaner {

@@ -180,6 +180,11 @@ import Foundation
 		return try Parser.parseBodyFragment(bodyHtml, baseUri)
 	}
 
+    @available(iOS 13.0.0, *)
+    public func parseBodyFragment(_ bodyHtml: String, _ baseUri: String) async throws -> Document {
+        return try await Parser.parseBodyFragment(bodyHtml, baseUri)
+    }
+
 	/**
 	 Parse a fragment of HTML, with the assumption that it forms the `body` of the HTML.
 	 
@@ -231,6 +236,14 @@ import Foundation
 		return try clean.body()?.html()
 	}
 
+    @available(iOS 13.0.0, *)
+    public func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist) async throws -> String? {
+        let dirty: Document = try await parseBodyFragment(bodyHtml, baseUri)
+        let cleaner: Cleaner = Cleaner(whitelist)
+        let clean: Document = try await cleaner.clean(dirty)
+        return try clean.body()?.html()
+    }
+
 	/**
 	 Get safe HTML from untrusted input HTML, by parsing input HTML and filtering it through a white-list of permitted
 	 tags and attributes.
@@ -243,6 +256,11 @@ import Foundation
 	public func clean(_ bodyHtml: String, _ whitelist: Whitelist) throws -> String? {
 		return try SwiftSoup.clean(bodyHtml, "", whitelist)
 	}
+
+    @available(iOS 13.0.0, *)
+    public func clean(_ bodyHtml: String, _ whitelist: Whitelist) async throws -> String? {
+        return try await SwiftSoup.clean(bodyHtml, "", whitelist)
+    }
 
 	/**
 	 Get safe HTML from untrusted input HTML, by parsing input HTML and filtering it through a white-list of
