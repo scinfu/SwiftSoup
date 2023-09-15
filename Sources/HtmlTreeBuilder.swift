@@ -61,7 +61,14 @@ class HtmlTreeBuilder: TreeBuilder {
         baseUriSetFromDoc = false
         return try super.parse(input, baseUri, errors, settings)
     }
-    
+
+    @available(iOS 13.0.0, *)
+    override func parse(_ input: String, _ baseUri: String, _ errors: ParseErrorList, _ settings: ParseSettings) async throws -> Document {
+        _state = HtmlTreeBuilderState.Initial
+        baseUriSetFromDoc = false
+        return try await super.parse(input, baseUri, errors, settings)
+    }
+
     func parseFragment(_ inputFragment: [UInt8], _ context: Element?, _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) throws -> Array<Node> {
         // context may be null
         _state = HtmlTreeBuilderState.Initial

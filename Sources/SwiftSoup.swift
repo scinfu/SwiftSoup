@@ -71,6 +71,11 @@ import Foundation
 		return try Parser.parse(html, "")
 	}
 
+    @available(iOS 13.0.0, *)
+    public func parse(_ html: String) async throws -> Document {
+        return try await Parser.parse(html, "")
+    }
+
     /**
 	 Parse Data into a Document. As no base URI is specified, absolute URL detection relies on the HTML including a
 	 `<base href>` tag.

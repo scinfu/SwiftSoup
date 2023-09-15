@@ -70,7 +70,14 @@ public class TreeBuilder {
         try runParser()
         return doc
     }
-    
+
+    @available(iOS 13.0.0, *)
+    func parse(_ input: String, _ baseUri: String, _ errors: ParseErrorList, _ settings: ParseSettings) async throws -> Document {
+        initialiseParse(input, baseUri, errors, settings)
+        try await runParser()
+        return doc
+    }
+
     public func runParser() throws {
         while (true) {
             let token: Token = try tokeniser.read()
@@ -82,7 +89,20 @@ public class TreeBuilder {
             }
         }
     }
-    
+
+    @available(iOS 13.0, *)
+    public func runParser() async throws {
+        while (true && !Task.isCancelled) {
+            let token: Token = try tokeniser.read()
+            try process(token)
+            token.reset()
+
+            if (token.type == Token.TokenType.EOF) {
+                break
+            }
+        }
+    }
+
     @discardableResult
     @inline(__always)
     public func process(_ token: Token)throws->Bool {preconditionFailure("This method must be overridden")}

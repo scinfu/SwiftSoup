@@ -127,6 +127,12 @@ public class Parser {
         return try parse([UInt8](data), baseUri.utf8Array)
     }
 
+    @available(iOS 13.0.0, *)
+    public static func parse(_ html: String, _ baseUri: String) async throws -> Document {
+        let treeBuilder: TreeBuilder = HtmlTreeBuilder()
+        return try await treeBuilder.parse(html, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
+    }
+
 	/**
 	 Parse a fragment of HTML into a list of nodes. The context element, if supplied, supplies parsing context.
 	 
