@@ -107,6 +107,46 @@ open class Node: Equatable, Hashable {
     public func nodeName() -> String {
         preconditionFailure("This method must be overridden")
     }
+
+    public func isNode(_ name: String) -> Bool {
+        return nodeName() == name
+    }
+
+    public func isEffectivelyFirst() -> Bool {
+        if siblingIndex == 0 {
+            return true
+        } else if siblingIndex == 1 {
+            let previousSibling = previousSibling()
+            guard let textNode = previousSibling as? TextNode else { return false }
+            return textNode.isBlank()
+        } else {
+            return false
+        }
+    }
+
+    /**
+     * Get an attribute's value by its key. <b>Case insensitive</b>
+     * <p>
+     * To get an absolute URL from an attribute that may be a relative URL, prefix the key with <code><b>abs</b></code>,
+     * which is a shortcut to the {@link #absUrl} method.
+     * </p>
+     * E.g.:
+     * <blockquote><code>String url = a.attr("abs:href");</code></blockquote>
+     *
+     * @param attributeKey The attribute key.
+     * @return The attribute, or empty string if not present (to avoid nulls).
+     * @see #attributes()
+     * @see #hasAttr(String)
+     * @see #absUrl(String)
+     */
+    open func attr(_ attributeKey: String)throws ->String {
+        let val: String = try attributes!.getIgnoreCase(key: attributeKey)
+        if (val.count > 0) {
+            return val
+        } else if (attributeKey.lowercased().startsWith(Node.abs)) {
+            return try absUrl(attributeKey.substring(Node.abs.count))
+        } else {return Node.empty}
+    }
     
     public func nodeNameUTF8() -> [UInt8] {
         preconditionFailure("This method must be overridden")

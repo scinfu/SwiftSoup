@@ -1523,10 +1523,22 @@ open class Element: Node {
         }
         return self
     }
-    
-    @inline(__always)
-    override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) throws {
-        if (out.prettyPrint() && (_tag.formatAsBlock() || (parent() != nil && parent()!.tag().formatAsBlock()) || out.outline())) {
+
+    private func isFormatAsBlock(_ out: OutputSettings) -> Bool {
+        return _tag.isBlock() || parent()?.tag().formatAsBlock() == true || out.outline()
+    }
+
+    private func isInlineable(_ out: OutputSettings) -> Bool {
+        guard _tag.isInline() else { return false }
+        return parent()?.isBlock() == true && !isEffectivelyFirst() && !out.outline() && !isNode("br")
+    }
+
+    private func shouldIndent(_ out: OutputSettings) -> Bool {
+        return out.prettyPrint() && isFormatAsBlock(out) && !isInlineable(out)
+    }
+
+    override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings)throws {
+        if shouldIndent(out) {
             if !accum.isEmpty {
                 indent(accum, depth, out)
             }
