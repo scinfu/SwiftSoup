@@ -349,6 +349,24 @@ class HtmlParserTest: XCTestCase {
 		let doc = try SwiftSoup.parse(h)
 		XCTAssertEqual("<div id=\"1\"></div><script src=\"/foo\"></script><div id=\"2\"><img><img></div><a id=\"3\"></a><i></i><foo /><foo>One</foo> <hr> hr text <hr> hr text two", try TextUtil.stripNewlines(doc.body()!.html()))
 	}
+    
+    func testHandlesKnownEmptyNoFrames() throws {
+        let h = "<html><head><noframes /><meta name=foo></head><body>One</body></html>";
+        let doc = try SwiftSoup.parse(h);
+        XCTAssertEqual("<html><head><noframes></noframes><meta name=\"foo\"></head><body>One</body></html>", try TextUtil.stripNewlines(doc.html()));
+    }
+    
+    func testHandlesKnownEmptyStyle() throws {
+        let h = "<html><head><style /><meta name=foo></head><body>One</body></html>";
+        let doc = try SwiftSoup.parse(h);
+        XCTAssertEqual("<html><head><style></style><meta name=\"foo\"></head><body>One</body></html>", try TextUtil.stripNewlines(doc.html()));
+    }
+
+    func testHandlesKnownEmptyTitle() throws {
+        let h = "<html><head><title /><meta name=foo></head><body>One</body></html>";
+        let doc = try SwiftSoup.parse(h);
+        XCTAssertEqual("<html><head><title></title><meta name=\"foo\"></head><body>One</body></html>", try TextUtil.stripNewlines(doc.html()));
+    }
 
 	func testHandlesSolidusAtAttributeEnd()throws {
 		// this test makes sure [<a href=/>link</a>] is parsed as [<a href="/">link</a>], not [<a href="" /><a>link</a>]
