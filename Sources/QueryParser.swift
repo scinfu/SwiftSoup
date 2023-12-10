@@ -247,8 +247,38 @@ public class QueryParser {
             b = 0
         } else if (mAB.matches.count > 0) {
 			mAB.find()
-            a = mAB.group(3) != nil ? Int(mAB.group(1)!.replaceFirst(of: "^\\+", with: ""))! : 1
-            b = mAB.group(4) != nil ? Int(mAB.group(4)!.replaceFirst(of: "^\\+", with: ""))! : 0
+            //
+            // PB - 1echo - BEGIN
+            //
+            // Original code would crash in certain situations because of the force unwrapping of the Ints created
+            // below. Instead, check if the resulting value can be converted to an Int and if not, throw an error.
+            //
+            // Example crashing URL: https://www.ign.com/articles/minus-one-proves-that-godzilla-is-the-most-versatile-character-in-film-history
+            //
+            // Original code:
+            //
+            // a = mAB.group(3) != nil ? Int(mAB.group(1)!.replaceFirst(of: "^\\+", with: ""))! : 1
+            // b = mAB.group(4) != nil ? Int(mAB.group(4)!.replaceFirst(of: "^\\+", with: ""))! : 0
+            //
+            if mAB.group(3) != nil {
+                if let aInt = Int(mAB.group(1)!.replaceFirst(of: "^\\+", with: "")) {
+                    a = aInt
+                } else {
+                    throw Exception.Error(type: ExceptionType.SelectorParseException, Message: "Could not parse nth-index '\(argS)': unexpected format - 1echo")
+                }
+            } else {
+                a = 1
+            }
+            if mAB.group(4) != nil {
+                if let bInt = Int(mAB.group(4)!.replaceFirst(of: "^\\+", with: "")) {
+                    b = bInt
+                } else {
+                    throw Exception.Error(type: ExceptionType.SelectorParseException, Message: "Could not parse nth-index '\(argS)': unexpected format - 1echo")
+                }
+            } else {
+                b = 0
+            }
+            // PB - 1echo - END
         } else if (mB.matches.count > 0) {
             a = 0
 			mB.find()
