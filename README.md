@@ -211,6 +211,46 @@ do {
 }
 ```
 
+If you supply a whole HTML document, with a `<head>` tag, the `clean(_: String, _: String, _: Whitelist)` method will just return the cleaned body HTML.
+You can clean both `<head>` and `<body>` by providing a `Whitelist` for each tags.
+
+```swift
+do {
+    let unsafe: String = """
+    <html>
+        <head>
+            <title>Hey</title>
+            <script>console.log('hi');</script>
+        </head>
+        <body>
+            <p>Hello, world!</p>
+        </body>
+    </html>
+    """
+
+    var headWhitelist: Whitelist = {
+        do {
+            let customWhitelist = Whitelist.none()
+            try customWhitelist
+                .addTags("meta", "style", "title")
+            return customWhitelist
+        } catch {
+            fatalError("Couldn't init head whitelist")
+        }
+    }()
+
+    let unsafeDocument: Document = try SwiftSoup.parse(unsafe)
+    let safe: String = try SwiftSoup.Cleaner(headWhitelist: headWhitelist, bodyWhitelist: .relaxed())
+                            .clean(unsafeDocument)
+                            .html()
+    // now: <html><head><title>Hey</title></head><body><p>Hello, world!</p></body></html>
+} catch Exception.Error(let type, let message) {
+    print(message)
+} catch {
+    print("error")
+}
+```
+
 ### Discussion
 A cross-site scripting attack against your site can really ruin your day, not to mention your users'. Many sites avoid XSS attacks by not allowing HTML in user submitted content: they enforce plain text only, or use an alternative markup syntax like wiki-text or Markdown. These are seldom optimal solutions for the user, as they lower expressiveness, and force the user to learn a new syntax.
 

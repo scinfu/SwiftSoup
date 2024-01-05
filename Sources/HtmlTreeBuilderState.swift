@@ -1530,17 +1530,17 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     }
 
     private static func handleRcData(_ startTag: Token.StartTag, _ tb: HtmlTreeBuilder)throws {
-        try tb.insert(startTag)
         tb.tokeniser.transition(TokeniserState.Rcdata)
         tb.markInsertionMode()
         tb.transition(.Text)
+        try tb.insert(startTag)
     }
 
     private static func handleRawtext(_ startTag: Token.StartTag, _ tb: HtmlTreeBuilder)throws {
-        try tb.insert(startTag)
         tb.tokeniser.transition(TokeniserState.Rawtext)
         tb.markInsertionMode()
         tb.transition(.Text)
+        try tb.insert(startTag)
     }
 
     // lists of tags to search through. A little harder to read here, but causes less GC than dynamic varargs.
