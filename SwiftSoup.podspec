@@ -31,4 +31,8 @@ SwiftSoup is a Swift library for working with real-world HTML. It provides a ver
   #s.resource_bundles = {
   #  'SwiftSoup' => ['Assets/*.properties']
   #}
+  s.ios.resource_bundles = {'SwiftSoup' => ['Sources/PrivacyInfo.xcprivacy']}
+  s.osx.resource_bundles = {'SwiftSoup' => ['Sources/PrivacyInfo.xcprivacy']}
+  s.watchos.resource_bundles = {'SwiftSoup' => ['Sources/PrivacyInfo.xcprivacy']}
+  s.tvos.resource_bundles = {'SwiftSoup' => ['Sources/PrivacyInfo.xcprivacy']}
 end
