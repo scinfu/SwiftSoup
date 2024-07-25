@@ -102,7 +102,6 @@ public class Entities {
             var matches: [String] = []
             while ix < entitiesByCodepoint.endIndex && entitiesByCodepoint[ix].scalar == codepoint {
                 matches.append(entitiesByCodepoint[ix].name)
-                ix = entitiesByCodepoint.index(after: ix)
                 entitiesByCodepoint.formIndex(after: &ix)
             }
             return matches.isEmpty ? nil : matches.sorted().last!
