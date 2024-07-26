@@ -15,10 +15,15 @@ protocol TokeniserStateProtocol {
 public class TokeniserStateVars {
 	public static let nullScalr: UnicodeScalar = "\u{0000}"
 
-    static let attributeSingleValueCharsSorted = ["'", UnicodeScalar.Ampersand, nullScalr].sorted()
-    static let attributeDoubleValueCharsSorted = ["\"", UnicodeScalar.Ampersand, nullScalr].sorted()
-    static let attributeNameCharsSorted = [UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", "=", ">", nullScalr, "\"", "'", UnicodeScalar.LessThan].sorted()
-    static let attributeValueUnquoted = [UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", UnicodeScalar.Ampersand, ">", nullScalr, "\"", "'", UnicodeScalar.LessThan, "=", "`"].sorted()
+    static let attributeSingleValueChars = Set(["'", UnicodeScalar.Ampersand, nullScalr])
+    static let attributeDoubleValueChars = Set(["\"", UnicodeScalar.Ampersand, nullScalr])
+    static let attributeNameChars = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", "=", ">", nullScalr, "\"", "'", UnicodeScalar.LessThan])
+    static let attributeValueUnquoted = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", UnicodeScalar.Ampersand, ">", nullScalr, "\"", "'", UnicodeScalar.LessThan, "=", "`"])
+    
+    static let dataDefaultStopChars: Set<UnicodeScalar> = [UnicodeScalar.Ampersand, UnicodeScalar.LessThan, TokeniserStateVars.nullScalr]
+    static let commentDefaultStopChars: Set<UnicodeScalar> = ["-", TokeniserStateVars.nullScalr]
+    static let readDataDefaultStopChars: Set<UnicodeScalar> = [UnicodeScalar.LessThan, TokeniserStateVars.nullScalr]
+
 
     static let replacementChar: UnicodeScalar = Tokeniser.replacementChar
     static let replacementStr: String = String(Tokeniser.replacementChar)
@@ -94,7 +99,7 @@ enum TokeniserState: TokeniserStateProtocol {
     case BogusDoctype
     case CdataSection
 
-    internal func read(_ t: Tokeniser, _ r: CharacterReader)throws {
+    internal func read(_ t: Tokeniser, _ r: CharacterReader) throws {
         switch self {
         case .Data:
             switch (r.current()) {
@@ -137,7 +142,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 try t.emit(Token.EOF())
                 break
             default:
-                let data = r.consumeToAny(UnicodeScalar.Ampersand, UnicodeScalar.LessThan, TokeniserStateVars.nullScalr)
+                let data = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
                 t.emit(data)
                 break
             }
@@ -417,7 +422,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.emit(TokeniserStateVars.replacementChar)
                 break
             default:
-                let data = r.consumeToAny("-", UnicodeScalar.LessThan, TokeniserStateVars.nullScalr)
+                let data = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
                 t.emit(data)
             }
             break
@@ -528,7 +533,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.transition(.Data)
                 break
             default:
-                let data = r.consumeToAny("-", UnicodeScalar.LessThan, TokeniserStateVars.nullScalr)
+                let data = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
                 t.emit(data)
             }
             break
@@ -633,7 +638,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeName:
-            let name = r.consumeToAnySorted(TokeniserStateVars.attributeNameCharsSorted)
+            let name = r.consumeToAnySorted(TokeniserStateVars.attributeNameChars)
             t.tagPending.appendAttributeName(name)
 
             let c = r.consume()
@@ -764,7 +769,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_doubleQuoted:
-            let value = r.consumeToAny(TokeniserStateVars.attributeDoubleValueCharsSorted)
+            let value = r.consumeToAny(TokeniserStateVars.attributeDoubleValueChars)
             if (value.count > 0) {
             t.tagPending.appendAttributeValue(value)
             } else {
@@ -798,7 +803,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_singleQuoted:
-            let value = r.consumeToAny(TokeniserStateVars.attributeSingleValueCharsSorted)
+            let value = r.consumeToAny(TokeniserStateVars.attributeSingleValueChars)
             if (value.count > 0) {
             t.tagPending.appendAttributeValue(value)
             } else {
@@ -1008,7 +1013,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.transition(.Data)
                 break
             default:
-                t.commentPending.data.append(r.consumeToAny("-", TokeniserStateVars.nullScalr))
+                t.commentPending.data.append(r.consumeToAny(TokeniserStateVars.commentDefaultStopChars))
             }
             break
         case .CommentEndDash:
@@ -1592,7 +1597,7 @@ enum TokeniserState: TokeniserStateProtocol {
             try t.emit(Token.EOF())
             break
         default:
-            let data = r.consumeToAny(UnicodeScalar.LessThan, TokeniserStateVars.nullScalr)
+            let data = r.consumeToAny(TokeniserStateVars.readDataDefaultStopChars)
             t.emit(data)
             break
         }

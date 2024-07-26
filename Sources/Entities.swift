@@ -51,7 +51,7 @@ public class Entities {
             return left.value != right.value
         }
 
-        private static let codeDelims: [UnicodeScalar]  = [",", ";"]
+        private static let codeDelims: Set<UnicodeScalar>  = Set([",", ";"])
         
         init(string: String, size: Int, id: Int) {
             
@@ -102,7 +102,7 @@ public class Entities {
             var matches: [String] = []
             while ix < entitiesByCodepoint.endIndex && entitiesByCodepoint[ix].scalar == codepoint {
                 matches.append(entitiesByCodepoint[ix].name)
-                ix = entitiesByCodepoint.index(after: ix)
+                entitiesByCodepoint.formIndex(after: &ix)
             }
             return matches.isEmpty ? nil : matches.sorted().last!
         }
