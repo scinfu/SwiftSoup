@@ -99,7 +99,7 @@ enum TokeniserState: TokeniserStateProtocol {
     case BogusDoctype
     case CdataSection
 
-    internal func read(_ t: Tokeniser, _ r: CharacterReader)throws {
+    internal func read(_ t: Tokeniser, _ r: CharacterReader) throws {
         switch self {
         case .Data:
             switch (r.current()) {

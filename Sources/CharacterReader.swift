@@ -65,12 +65,12 @@ public final class CharacterReader {
         pos = mark
     }
 
-    public func consumeAsString() -> String {
-        guard pos < input.endIndex else { return "" }
-        let str = String(input[pos])
-        input.formIndex(after: &pos)
-        return str
-    }
+//    public func consumeAsString() -> String {
+//        guard pos < input.endIndex else { return "" }
+//        let str = String(input[pos])
+//        input.formIndex(after: &pos)
+//        return str
+//    }
 
     /**
      * Locate the next occurrence of a Unicode scalar
@@ -134,18 +134,28 @@ public final class CharacterReader {
 //        return consumeToAny(Set(chars))
 //    }
     
+//    public func consumeToAny(_ chars: Set<UnicodeScalar>) -> String {
+//        let endIndex = input.endIndex
+//        let start = pos
+//        while pos < endIndex {
+//            if chars.contains(input[pos]) {
+//                break
+//            }
+//            input.formIndex(after: &pos)
+//        }
+//        return cacheString(start, pos)
+//    }
+    
     public func consumeToAny(_ chars: Set<UnicodeScalar>) -> String {
-        let endIndex = input.endIndex
         let start = pos
-        while pos < endIndex {
-            if chars.contains(input[pos]) {
-                break
-            }
-            input.formIndex(after: &pos)
+        if let nextIndex = input[pos...].firstIndex(where: { chars.contains($0) }) {
+            pos = nextIndex
+        } else {
+            pos = input.endIndex
         }
         return cacheString(start, pos)
     }
-
+    
 //    public func consumeToAnySorted(_ chars: UnicodeScalar...) -> String {
 //        return consumeToAny(chars)
 //    }
