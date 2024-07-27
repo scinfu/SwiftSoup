@@ -3,14 +3,14 @@ import Foundation
 public final class CharacterReader {
     private static let empty = ""
     public static let EOF: UnicodeScalar = "\u{FFFF}" // 65535
-    private let input: String
-    private var pos: String.Index
-    private var mark: String.Index
+    private let input: String.UTF8View
+    private var pos: String.UTF8View.Index
+    private var mark: String.UTF8View.Index
     
     public init(_ input: String) {
-        self.input = input
-        self.pos = input.startIndex
-        self.mark = input.startIndex
+        self.input = input.utf8
+        self.pos = self.input.startIndex
+        self.mark = self.input.startIndex
     }
     
     public func getPos() -> Int {
@@ -22,15 +22,14 @@ public final class CharacterReader {
     }
     
     public func current() -> UnicodeScalar {
-        return pos < input.endIndex ? input.unicodeScalars[pos] : CharacterReader.EOF
+        guard pos < input.endIndex else { return CharacterReader.EOF }
+        return UnicodeScalar(input[pos])
     }
     
     @discardableResult
     public func consume() -> UnicodeScalar {
-        guard pos < input.endIndex else {
-            return CharacterReader.EOF
-        }
-        let val = input.unicodeScalars[pos]
+        guard pos < input.endIndex else { return CharacterReader.EOF }
+        let val = UnicodeScalar(input[pos])
         input.formIndex(after: &pos)
         return val
     }
@@ -55,53 +54,53 @@ public final class CharacterReader {
     
     public func consumeAsString() -> String {
         guard pos < input.endIndex else { return "" }
-        let str = String(input[pos])
+        let scalar = UnicodeScalar(input[pos])
         input.formIndex(after: &pos)
-        return str
+        return String(scalar)
     }
     
     public func consumeToAny(_ chars: Set<UnicodeScalar>) -> String {
         let start = pos
         let utf8CharArrays = chars.map { Array($0.utf8) }
         
-        if let result = input.utf8.withContiguousStorageIfAvailable({ buffer -> String in
+        if let result = input.withContiguousStorageIfAvailable({ buffer -> String in
             var utf8Pos = buffer.startIndex
             while utf8Pos < buffer.endIndex {
                 let currentSlice = buffer[utf8Pos..<buffer.endIndex]
                 if utf8CharArrays.contains(where: { currentSlice.starts(with: $0) }) {
-                    pos = input.index(input.startIndex, offsetBy: utf8Pos)
-                    return String(input[start..<pos])
+                    let end = input.index(input.startIndex, offsetBy: utf8Pos - buffer.startIndex)
+                    pos = end
+                    let distance = buffer.distance(from: buffer.startIndex, to: utf8Pos)
+                    return String(decoding: buffer[..<distance], as: UTF8.self)
                 }
                 utf8Pos += 1
             }
             pos = input.endIndex
-            return String(input[start..<pos])
+            let distance = buffer.distance(from: buffer.startIndex, to: utf8Pos)
+            return String(decoding: buffer[..<distance], as: UTF8.self)
         }) {
             return result
         }
         
         while pos < input.endIndex {
-            if chars.contains(where: { input[pos].unicodeScalars.contains($0) }) {
+            let scalar = UnicodeScalar(input[pos])
+            if chars.contains(scalar) {
                 break
             }
             input.formIndex(after: &pos)
         }
-        return String(input[start..<pos])
+        return String(decoding: input[start..<pos], as: UTF8.self)
     }
-    
+
     public func consumeTo(_ c: UnicodeScalar) -> String {
-        guard let targetIx = nextIndexOf(c) else {
-            return consumeToEnd()
-        }
+        guard let targetIx = nextIndexOf(c) else { return consumeToEnd() }
         let consumed = cacheString(pos, targetIx)
         pos = targetIx
         return consumed
     }
     
     public func consumeTo(_ seq: String) -> String {
-        guard let targetIx = nextIndexOf(seq) else {
-            return consumeToEnd()
-        }
+        guard let targetIx = nextIndexOf(seq) else { return consumeToEnd() }
         let consumed = cacheString(pos, targetIx)
         pos = targetIx
         return consumed
@@ -115,10 +114,9 @@ public final class CharacterReader {
     
     public func consumeLetterSequence() -> String {
         let start = pos
-        let endIndex = input.endIndex
-        while pos < endIndex {
-            let c = input.unicodeScalars[pos]
-            if ((c >= "A" && c <= "Z") || (c >= "a" && c <= "z") || c.isMemberOfCharacterSet(.letters)) {
+        while pos < input.endIndex {
+            let scalar = UnicodeScalar(input[pos])
+            if CharacterSet.letters.contains(scalar) {
                 input.formIndex(after: &pos)
             } else {
                 break
@@ -129,18 +127,17 @@ public final class CharacterReader {
     
     public func consumeLetterThenDigitSequence() -> String {
         let start = pos
-        let endIndex = input.endIndex
-        while pos < endIndex {
-            let c = input.unicodeScalars[pos]
-            if ((c >= "A" && c <= "Z") || (c >= "a" && c <= "z") || c.isMemberOfCharacterSet(.letters)) {
+        while pos < input.endIndex {
+            let scalar = UnicodeScalar(input[pos])
+            if CharacterSet.letters.contains(scalar) {
                 input.formIndex(after: &pos)
             } else {
                 break
             }
         }
-        while pos < endIndex {
-            let c = input.unicodeScalars[pos]
-            if (c >= "0" && c <= "9") {
+        while pos < input.endIndex {
+            let scalar = UnicodeScalar(input[pos])
+            if CharacterSet.decimalDigits.contains(scalar) {
                 input.formIndex(after: &pos)
             } else {
                 break
@@ -151,10 +148,9 @@ public final class CharacterReader {
     
     public func consumeHexSequence() -> String {
         let start = pos
-        let endIndex = input.endIndex
-        while pos < endIndex {
-            let c = input.unicodeScalars[pos]
-            if ((c >= "0" && c <= "9") || (c >= "A" && c <= "F") || (c >= "a" && c <= "f")) {
+        while pos < input.endIndex {
+            let scalar = UnicodeScalar(input[pos])
+            if CharacterSet(charactersIn: "0123456789ABCDEFabcdef").contains(scalar) {
                 input.formIndex(after: &pos)
             } else {
                 break
@@ -165,10 +161,9 @@ public final class CharacterReader {
     
     public func consumeDigitSequence() -> String {
         let start = pos
-        let endIndex = input.endIndex
-        while pos < endIndex {
-            let c = input.unicodeScalars[pos]
-            if (c >= "0" && c <= "9") {
+        while pos < input.endIndex {
+            let scalar = UnicodeScalar(input[pos])
+            if CharacterSet.decimalDigits.contains(scalar) {
                 input.formIndex(after: &pos)
             } else {
                 break
@@ -178,22 +173,22 @@ public final class CharacterReader {
     }
     
     public func matches(_ c: UnicodeScalar) -> Bool {
-        return !isEmpty() && input.unicodeScalars[pos] == c
+        guard pos < input.endIndex else { return false }
+        return UnicodeScalar(input[pos]) == c
     }
     
     public func matches(_ seq: String, ignoreCase: Bool = false, consume: Bool = false) -> Bool {
         var current = pos
         let scalars = seq.unicodeScalars
-        let endIndex = input.endIndex
         for scalar in scalars {
-            guard current < endIndex else { return false }
-            let c = input.unicodeScalars[current]
+            guard current < input.endIndex else { return false }
+            let c = UnicodeScalar(input[current])
             if ignoreCase {
                 guard c.uppercase == scalar.uppercase else { return false }
             } else {
                 guard c == scalar else { return false }
             }
-            input.unicodeScalars.formIndex(after: &current)
+            input.formIndex(after: &current)
         }
         if consume {
             pos = current
@@ -211,7 +206,7 @@ public final class CharacterReader {
     
     public func matchesAny(_ seq: [UnicodeScalar]) -> Bool {
         guard pos < input.endIndex else { return false }
-        return seq.contains(input.unicodeScalars[pos])
+        return seq.contains(UnicodeScalar(input[pos]))
     }
     
     public func matchesAnySorted(_ seq: [UnicodeScalar]) -> Bool {
@@ -220,14 +215,12 @@ public final class CharacterReader {
     
     public func matchesLetter() -> Bool {
         guard pos < input.endIndex else { return false }
-        let c = input.unicodeScalars[pos]
-        return (c >= "A" && c <= "Z") || (c >= "a" && c <= "z") || c.isMemberOfCharacterSet(.letters)
+        return CharacterSet.letters.contains(UnicodeScalar(input[pos]))
     }
     
     public func matchesDigit() -> Bool {
         guard pos < input.endIndex else { return false }
-        let c = input.unicodeScalars[pos]
-        return c >= "0" && c <= "9"
+        return CharacterSet.decimalDigits.contains(UnicodeScalar(input[pos]))
     }
     
     @discardableResult
@@ -247,36 +240,43 @@ public final class CharacterReader {
     }
     
     public func toString() -> String {
-        return String(input[pos...])
+        return String(input[pos...]) ?? ""
     }
     
-    private func cacheString(_ start: String.Index, _ end: String.Index) -> String {
-        return String(input[start..<end])
+    private func cacheString(_ start: String.UTF8View.Index, _ end: String.UTF8View.Index) -> String {
+        return String(decoding: input[start..<end], as: UTF8.self)
     }
     
-    public func nextIndexOf(_ c: UnicodeScalar) -> String.Index? {
-        return input.unicodeScalars[pos...].firstIndex(of: c)
+    public func nextIndexOf(_ c: UnicodeScalar) -> String.UTF8View.Index? {
+        return input[pos...].firstIndex { UnicodeScalar($0) == c }
     }
     
-    public func nextIndexOf(_ seq: String) -> String.Index? {
+    public func nextIndexOf(_ seq: String) -> String.UTF8View.Index? {
         var start = pos
-        let targetScalars = seq.unicodeScalars
-        guard let firstChar = targetScalars.first else { return pos }
-        MATCH: while true {
-            guard let firstCharIx = input.unicodeScalars[start...].firstIndex(of: firstChar) else { return nil }
+        let targetUtf8 = seq.utf8
+        
+        while true {
+            guard let firstCharIx = input[start...].firstIndex(of: targetUtf8.first!) else { return nil }
+            
             var current = firstCharIx
-            for scalar in targetScalars.dropFirst() {
-                input.unicodeScalars.formIndex(after: &current)
+            var matched = true
+            for utf8Byte in targetUtf8 {
                 guard current < input.endIndex else { return nil }
-                if input.unicodeScalars[current] != scalar {
-                    start = input.index(after: firstCharIx)
-                    continue MATCH
+                if input[current] != utf8Byte {
+                    matched = false
+                    break
                 }
+                input.formIndex(after: &current)
             }
-            return firstCharIx
+            
+            if matched {
+                return firstCharIx
+            } else {
+                start = input.index(after: firstCharIx)
+            }
         }
     }
-    
+
     static let dataTerminators: Set<UnicodeScalar> = [.Ampersand, .LessThan, TokeniserStateVars.nullScalr]
     
     public func consumeData() -> String {

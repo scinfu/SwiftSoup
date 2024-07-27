@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "SwiftSoup",
-    platforms: [.macOS(.v11), .iOS(.v13), .watchOS(.v4)],
+    platforms: [.macOS(.v10_15), .iOS(.v11), .watchOS(.v4)],
     products: [
         .library(name: "SwiftSoup", targets: ["SwiftSoup"])
     ],
