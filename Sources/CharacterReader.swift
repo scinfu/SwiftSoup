@@ -61,37 +61,57 @@ public final class CharacterReader {
     
     public func consumeToAny(_ chars: Set<UnicodeScalar>) -> String {
         let start = pos
-        let utf8CharArrays = chars.map { Array($0.utf8) }
+//        let utf8CharArrays = chars.map { Array($0.utf8) }
         
-        if let result = input.withContiguousStorageIfAvailable({ buffer -> String in
-            var utf8Pos = buffer.startIndex
-            while utf8Pos < buffer.endIndex {
-                let currentSlice = buffer[utf8Pos..<buffer.endIndex]
-                if utf8CharArrays.contains(where: { currentSlice.starts(with: $0) }) {
-                    let end = input.index(input.startIndex, offsetBy: utf8Pos - buffer.startIndex)
-                    pos = end
-                    let distance = buffer.distance(from: buffer.startIndex, to: utf8Pos)
-                    return String(decoding: buffer[..<distance], as: UTF8.self)
-                }
-                utf8Pos += 1
-            }
-            pos = input.endIndex
-            let distance = buffer.distance(from: buffer.startIndex, to: utf8Pos)
-            return String(decoding: buffer[..<distance], as: UTF8.self)
-        }) {
-            return result
-        }
-        
+//        if let result = input.withContiguousStorageIfAvailable({ buffer -> String in
+////            var utf8Pos = buffer.startIndex
+//            let end = buffer.endIndex
+//            var utf8Pos = start
+////            while utf8Pos < buffer.endIndex {
+//            while utf8Pos < end {
+//                buffer[utf8Pos..<end]
+//                let currentSlice = buffer[utf8Pos..<end]
+//                if utf8CharArrays.contains(where: { currentSlice.starts(with: $0) }) {
+//                    let end = input.index(input.startIndex, offsetBy: utf8Pos - buffer.startIndex)
+//                    pos = end
+//                    let distance = buffer.distance(from: buffer.startIndex, to: utf8Pos)
+//                    return String(decoding: buffer[..<distance], as: UTF8.self)
+//                }
+//                utf8Pos += 1
+//            }
+//            pos = input.endIndex
+//            let distance = buffer.distance(from: buffer.startIndex, to: utf8Pos)
+//            return String(decoding: buffer[..<distance], as: UTF8.self)
+//        }) {
+//            return result
+//        }
+//        
+//        // Fallback
         while pos < input.endIndex {
-            let scalar = UnicodeScalar(input[pos])
-            if chars.contains(scalar) {
+            if let scalar = unicodeScalar(at: pos, in: input), chars.contains(scalar) {
                 break
             }
             input.formIndex(after: &pos)
         }
         return String(decoding: input[start..<pos], as: UTF8.self)
     }
-
+    
+    private func unicodeScalar(at index: String.UTF8View.Index, in utf8View: String.UTF8View) -> UnicodeScalar? {
+        var iterator = utf8View[index...].makeIterator()
+        var utf8Decoder = UTF8()
+        var unicodeScalar: UnicodeScalar?
+        let decodingState = utf8Decoder.decode(&iterator)
+        
+        switch decodingState {
+        case .scalarValue(let scalar):
+            unicodeScalar = scalar
+        case .emptyInput, .error:
+            break // Handle decoding errors if needed
+        }
+        
+        return unicodeScalar
+    }
+    
     public func consumeTo(_ c: UnicodeScalar) -> String {
         guard let targetIx = nextIndexOf(c) else { return consumeToEnd() }
         let consumed = cacheString(pos, targetIx)
