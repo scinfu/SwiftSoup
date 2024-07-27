@@ -139,13 +139,13 @@ class CharacterReaderTest: XCTestCase {
 
     func testConsumeToAny() {
         let r = CharacterReader("One &bar; qux")
-        XCTAssertEqual("One ", r.consumeToAny("&", ";"))
+        XCTAssertEqual("One ", r.consumeToAny(Set(["&", ";"])))
         XCTAssertTrue(r.matches("&"))
         XCTAssertTrue(r.matches("&bar;"))
         XCTAssertEqual("&", r.consume())
-        XCTAssertEqual("bar", r.consumeToAny("&", ";"))
+        XCTAssertEqual("bar", r.consumeToAny(Set(["&", ";"])))
         XCTAssertEqual(";", r.consume())
-        XCTAssertEqual(" qux", r.consumeToAny("&", ";"))
+        XCTAssertEqual(" qux", r.consumeToAny(Set(["&", ";"])))
     }
 
     func testConsumeLetterSequence() {
@@ -208,7 +208,7 @@ class CharacterReaderTest: XCTestCase {
         //let scan = [" ", "\n", "\t"]
         let r = CharacterReader("One\nTwo\tThree")
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
-        XCTAssertEqual("One", r.consumeToAny(" ", "\n", "\t"))
+        XCTAssertEqual("One", r.consumeToAny(Set([" ", "\n", "\t"])))
         XCTAssertTrue(r.matchesAny(" ", "\n", "\t"))
         XCTAssertEqual("\n", r.consume())
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))

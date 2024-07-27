@@ -238,7 +238,7 @@ class HtmlParserTest: XCTestCase {
 	func testHandlesWhatWgExpensesTableExample()throws {
 		// http://www.whatwg.org/specs/web-apps/current-work/multipage/tabular-data.html#examples-0
 		let doc = try SwiftSoup.parse("<table> <colgroup> <col> <colgroup> <col> <col> <col> <thead> <tr> <th> <th>2008 <th>2007 <th>2006 <tbody> <tr> <th scope=rowgroup> Research and development <td> $ 1,109 <td> $ 782 <td> $ 712 <tr> <th scope=row> Percentage of net sales <td> 3.4% <td> 3.3% <td> 3.7% <tbody> <tr> <th scope=rowgroup> Selling, general, and administrative <td> $ 3,761 <td> $ 2,963 <td> $ 2,433 <tr> <th scope=row> Percentage of net sales <td> 11.6% <td> 12.3% <td> 12.6% </table>")
-		XCTAssertEqual("<table> <colgroup> <col> </colgroup><colgroup> <col> <col> <col> </colgroup><thead> <tr> <th> </th><th>2008 </th><th>2007 </th><th>2006 </th></tr></thead><tbody> <tr> <th scope=\"rowgroup\"> Research and development </th><td> $ 1,109 </td><td> $ 782 </td><td> $ 712 </td></tr><tr> <th scope=\"row\"> Percentage of net sales </th><td> 3.4% </td><td> 3.3% </td><td> 3.7% </td></tr></tbody><tbody> <tr> <th scope=\"rowgroup\"> Selling, general, and administrative </th><td> $ 3,761 </td><td> $ 2,963 </td><td> $ 2,433 </td></tr><tr> <th scope=\"row\"> Percentage of net sales </th><td> 11.6% </td><td> 12.3% </td><td> 12.6% </td></tr></tbody></table>", try TextUtil.stripNewlines(doc.body()!.html()))
+		XCTAssertEqual("<table> <colgroup> <col /> </colgroup><colgroup> <col /> <col /> <col /> </colgroup><thead> <tr> <th> </th><th>2008 </th><th>2007 </th><th>2006 </th></tr></thead><tbody> <tr> <th scope=\"rowgroup\"> Research and development </th><td> $ 1,109 </td><td> $ 782 </td><td> $ 712 </td></tr><tr> <th scope=\"row\"> Percentage of net sales </th><td> 3.4% </td><td> 3.3% </td><td> 3.7% </td></tr></tbody><tbody> <tr> <th scope=\"rowgroup\"> Selling, general, and administrative </th><td> $ 3,761 </td><td> $ 2,963 </td><td> $ 2,433 </td></tr><tr> <th scope=\"row\"> Percentage of net sales </th><td> 11.6% </td><td> 12.3% </td><td> 12.6% </td></tr></tbody></table>", try TextUtil.stripNewlines(doc.body()!.html()))
 	}
 
 	func testHandlesTbodyTable()throws {
@@ -347,25 +347,25 @@ class HtmlParserTest: XCTestCase {
 		// if a known tag, allow self closing outside of spec, but force an end tag. unknown tags can be self closing.
 		let h = "<div id='1' /><script src='/foo' /><div id=2><img /><img></div><a id=3 /><i /><foo /><foo>One</foo> <hr /> hr text <hr> hr text two"
 		let doc = try SwiftSoup.parse(h)
-		XCTAssertEqual("<div id=\"1\"></div><script src=\"/foo\"></script><div id=\"2\"><img><img></div><a id=\"3\"></a><i></i><foo /><foo>One</foo> <hr> hr text <hr> hr text two", try TextUtil.stripNewlines(doc.body()!.html()))
+		XCTAssertEqual("<div id=\"1\"></div><script src=\"/foo\"></script><div id=\"2\"><img /><img /></div><a id=\"3\"></a><i></i><foo /><foo>One</foo> <hr /> hr text <hr /> hr text two", try TextUtil.stripNewlines(doc.body()!.html()))
 	}
     
     func testHandlesKnownEmptyNoFrames() throws {
         let h = "<html><head><noframes /><meta name=foo></head><body>One</body></html>";
         let doc = try SwiftSoup.parse(h);
-        XCTAssertEqual("<html><head><noframes></noframes><meta name=\"foo\"></head><body>One</body></html>", try TextUtil.stripNewlines(doc.html()));
+        XCTAssertEqual("<html><head><noframes></noframes><meta name=\"foo\" /></head><body>One</body></html>", try TextUtil.stripNewlines(doc.html()));
     }
     
     func testHandlesKnownEmptyStyle() throws {
         let h = "<html><head><style /><meta name=foo></head><body>One</body></html>";
         let doc = try SwiftSoup.parse(h);
-        XCTAssertEqual("<html><head><style></style><meta name=\"foo\"></head><body>One</body></html>", try TextUtil.stripNewlines(doc.html()));
+        XCTAssertEqual("<html><head><style></style><meta name=\"foo\" /></head><body>One</body></html>", try TextUtil.stripNewlines(doc.html()));
     }
 
     func testHandlesKnownEmptyTitle() throws {
         let h = "<html><head><title /><meta name=foo></head><body>One</body></html>";
         let doc = try SwiftSoup.parse(h);
-        XCTAssertEqual("<html><head><title></title><meta name=\"foo\"></head><body>One</body></html>", try TextUtil.stripNewlines(doc.html()));
+        XCTAssertEqual("<html><head><title></title><meta name=\"foo\" /></head><body>One</body></html>", try TextUtil.stripNewlines(doc.html()));
     }
 
 	func testHandlesSolidusAtAttributeEnd()throws {
@@ -405,7 +405,7 @@ class HtmlParserTest: XCTestCase {
 	func testHandlesFrames()throws {
 		let h = "<html><head><script></script><noscript></noscript></head><frameset><frame src=foo></frame><frame src=foo></frameset></html>"
 		let doc = try SwiftSoup.parse(h)
-		XCTAssertEqual("<html><head><script></script><noscript></noscript></head><frameset><frame src=\"foo\"><frame src=\"foo\"></frameset></html>",
+		XCTAssertEqual("<html><head><script></script><noscript></noscript></head><frameset><frame src=\"foo\" /><frame src=\"foo\" /></frameset></html>",
 		               try TextUtil.stripNewlines(doc.html()))
 		// no body auto vivification
 	}
@@ -413,7 +413,7 @@ class HtmlParserTest: XCTestCase {
 	func testIgnoresContentAfterFrameset()throws {
 		let h = "<html><head><title>One</title></head><frameset><frame /><frame /></frameset><table></table></html>"
 		let doc = try SwiftSoup.parse(h)
-		XCTAssertEqual("<html><head><title>One</title></head><frameset><frame><frame></frameset></html>", try TextUtil.stripNewlines(doc.html()))
+		XCTAssertEqual("<html><head><title>One</title></head><frameset><frame /><frame /></frameset></html>", try TextUtil.stripNewlines(doc.html()))
 		// no body, no table. No crash!
 	}
 
@@ -437,7 +437,7 @@ class HtmlParserTest: XCTestCase {
 	func testNormalisesDocument()throws {
 		let h = "<!doctype html>One<html>Two<head>Three<link></head>Four<body>Five </body>Six </html>Seven "
 		let doc = try SwiftSoup.parse(h)
-		XCTAssertEqual("<!doctype html><html><head></head><body>OneTwoThree<link>FourFive Six Seven </body></html>",
+		XCTAssertEqual("<!doctype html><html><head></head><body>OneTwoThree<link />FourFive Six Seven </body></html>",
 		               try TextUtil.stripNewlines(doc.html()))
 	}
 

@@ -95,11 +95,11 @@ class AttributeParseTest: XCTestCase {
 		XCTAssertEqual(html, try el.outerHtml())
 	}
 
-	func testdropsSlashFromAttributeName()throws {
+	func testretainsSlashFromAttributeName()throws {
 		let html: String = "<img /onerror='doMyJob'/>"
 		var doc: Document = try SwiftSoup.parse(html)
 		XCTAssertTrue(try doc.select("img[onerror]").size() != 0, "SelfClosingStartTag ignores last character")
-		XCTAssertEqual("<img onerror=\"doMyJob\">", try doc.body()!.html())
+		XCTAssertEqual("<img onerror=\"doMyJob\" />", try doc.body()!.html())
 
 		doc = try SwiftSoup.parse(html, "", Parser.xmlParser())
 		XCTAssertEqual("<img onerror=\"doMyJob\" />", try doc.html())
@@ -115,7 +115,7 @@ class AttributeParseTest: XCTestCase {
 			("teststrictAttributeUnescapes", teststrictAttributeUnescapes),
 			("testmoreAttributeUnescapes", testmoreAttributeUnescapes),
 			("testparsesBooleanAttributes", testparsesBooleanAttributes),
-			("testdropsSlashFromAttributeName", testdropsSlashFromAttributeName)
+			("testretainsSlashFromAttributeName", testretainsSlashFromAttributeName)
 		]
 	}()
 

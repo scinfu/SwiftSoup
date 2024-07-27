@@ -169,7 +169,7 @@ class DocumentTest: XCTestCase {
 			"<html>\n" +
 			" <head></head>\n" +
 			" <body>\n" +
-			"  <img async checked src=\"&amp;<>&quot;\">&lt;&gt;&amp;\"\n" +
+			"  <img async checked src=\"&amp;<>&quot;\" />&lt;&gt;&amp;\"\n" +
 			"  <foo />bar\n" +
 			" </body>\n" +
 			"</html>", try! doc.html())
@@ -242,7 +242,7 @@ class DocumentTest: XCTestCase {
 			print("")
 		}
 
-		let htmlCharsetUTF8: String = "<html>\n" + " <head>\n" + "  <meta charset=\"" + "UTF-8" + "\">\n" + " </head>\n" + " <body></body>\n" + "</html>"
+		let htmlCharsetUTF8: String = "<html>\n" + " <head>\n" + "  <meta charset=\"" + "UTF-8" + "\" />\n" + " </head>\n" + " <body></body>\n" + "</html>"
 		XCTAssertEqual(htmlCharsetUTF8, try! doc.outerHtml())
 
 		let selectedElement: Element = try! doc.select("meta[charset]").first()!
@@ -259,7 +259,7 @@ class DocumentTest: XCTestCase {
 
 		let htmlCharsetISO = "<html>\n" +
 			" <head>\n" +
-			"  <meta charset=\"" + String.Encoding.isoLatin2.displayName() + "\">\n" +
+			"  <meta charset=\"" + String.Encoding.isoLatin2.displayName() + "\" />\n" +
 			" </head>\n" +
 			" <body></body>\n" +
 		"</html>"
@@ -280,7 +280,7 @@ class DocumentTest: XCTestCase {
 
 		let htmlCharsetUTF8 = "<html>\n" +
 			" <head>\n" +
-			"  <meta charset=\"" + String.Encoding.utf8.displayName() + "\">\n" +
+			"  <meta charset=\"" + String.Encoding.utf8.displayName() + "\" />\n" +
 			" </head>\n" +
 			" <body></body>\n" +
 		"</html>"
@@ -303,8 +303,8 @@ class DocumentTest: XCTestCase {
 
 		let htmlCharset = "<html>\n" +
 			" <head>\n" +
-			"  <meta charset=\"dontTouch\">\n" +
-			"  <meta name=\"charset\" content=\"dontTouch\">\n" +
+			"  <meta charset=\"dontTouch\" />\n" +
+			"  <meta name=\"charset\" content=\"dontTouch\" />\n" +
 			" </head>\n" +
 			" <body></body>\n" +
 		"</html>"
@@ -335,7 +335,7 @@ class DocumentTest: XCTestCase {
 
 		let htmlCharsetUTF8 = "<html>\n" +
 			" <head>\n" +
-			"  <meta charset=\"" + String.Encoding.utf8.displayName() + "\">\n" +
+			"  <meta charset=\"" + String.Encoding.utf8.displayName() + "\" />\n" +
 			" </head>\n" +
 			" <body></body>\n" +
 		"</html>"
