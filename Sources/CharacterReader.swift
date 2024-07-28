@@ -62,7 +62,6 @@ public final class CharacterReader {
     public func consumeToAny(_ chars: Set<UnicodeScalar>) -> String {
         let start = pos
         
-        // Precompute UTF-8 code units for the target characters
         let utf8CodeUnits = Set(chars.flatMap { $0.utf8 })
         
         while pos < input.endIndex {
