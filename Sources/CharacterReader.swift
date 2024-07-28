@@ -61,38 +61,18 @@ public final class CharacterReader {
     
     public func consumeToAny(_ chars: Set<UnicodeScalar>) -> String {
         let start = pos
-//        let utf8CharArrays = chars.map { Array($0.utf8) }
         
-//        if let result = input.withContiguousStorageIfAvailable({ buffer -> String in
-////            var utf8Pos = buffer.startIndex
-//            let end = buffer.endIndex
-//            var utf8Pos = start
-////            while utf8Pos < buffer.endIndex {
-//            while utf8Pos < end {
-//                buffer[utf8Pos..<end]
-//                let currentSlice = buffer[utf8Pos..<end]
-//                if utf8CharArrays.contains(where: { currentSlice.starts(with: $0) }) {
-//                    let end = input.index(input.startIndex, offsetBy: utf8Pos - buffer.startIndex)
-//                    pos = end
-//                    let distance = buffer.distance(from: buffer.startIndex, to: utf8Pos)
-//                    return String(decoding: buffer[..<distance], as: UTF8.self)
-//                }
-//                utf8Pos += 1
-//            }
-//            pos = input.endIndex
-//            let distance = buffer.distance(from: buffer.startIndex, to: utf8Pos)
-//            return String(decoding: buffer[..<distance], as: UTF8.self)
-//        }) {
-//            return result
-//        }
-//        
-//        // Fallback
+        // Precompute UTF-8 code units for the target characters
+        let utf8CodeUnits = Set(chars.flatMap { $0.utf8 })
+        
         while pos < input.endIndex {
-            if let scalar = unicodeScalar(at: pos, in: input), chars.contains(scalar) {
+            let utf8Byte = input[pos]
+            if utf8CodeUnits.contains(utf8Byte) {
                 break
             }
             input.formIndex(after: &pos)
         }
+        
         return String(decoding: input[start..<pos], as: UTF8.self)
     }
     
