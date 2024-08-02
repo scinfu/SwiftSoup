@@ -287,7 +287,7 @@ class ElementTest: XCTestCase {
 
     func testOuterHtml()throws {
         let doc = try SwiftSoup.parse("<div title='Tags &amp;c.'><img src=foo.png><p><!-- comment -->Hello<p>there")
-        XCTAssertEqual("<html><head></head><body><div title=\"Tags &amp;c.\"><img src=\"foo.png\"><p><!-- comment -->Hello</p><p>there</p></div></body></html>",
+        XCTAssertEqual("<html><head></head><body><div title=\"Tags &amp;c.\"><img src=\"foo.png\" /><p><!-- comment -->Hello</p><p>there</p></div></body></html>",
                        try TextUtil.stripNewlines(doc.outerHtml()))
     }
 
@@ -582,10 +582,10 @@ class ElementTest: XCTestCase {
 	func testpParentlessToString()throws {
 		let doc: Document = try SwiftSoup.parse("<img src='foo'>")
 		let img: Element = try doc.select("img").first()!
-		XCTAssertEqual("<img src=\"foo\">", try img.outerHtml())
+		XCTAssertEqual("<img src=\"foo\" />", try img.outerHtml())
 
 		try img.remove() // lost its parent
-		XCTAssertEqual("<img src=\"foo\">", try img.outerHtml())
+		XCTAssertEqual("<img src=\"foo\" />", try img.outerHtml())
 	}
 
 	func testClone()throws {
