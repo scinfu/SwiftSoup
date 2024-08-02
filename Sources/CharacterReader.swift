@@ -59,14 +59,12 @@ public final class CharacterReader {
         return String(scalar)
     }
     
-    public func consumeToAny(_ chars: Set<UnicodeScalar>) -> String {
+    public func consumeToAny(_ chars: Set<Unicode.Scalar.UTF8View.Element>) -> String {
         let start = pos
-        
-        let utf8CodeUnits = Set(chars.flatMap { $0.utf8 })
         
         while pos < input.endIndex {
             let utf8Byte = input[pos]
-            if utf8CodeUnits.contains(utf8Byte) {
+            if chars.contains(utf8Byte) {
                 break
             }
             input.formIndex(after: &pos)
@@ -276,19 +274,19 @@ public final class CharacterReader {
         }
     }
 
-    static let dataTerminators: Set<UnicodeScalar> = [.Ampersand, .LessThan, TokeniserStateVars.nullScalr]
+    static let dataTerminators = Set([.Ampersand, .LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
     
     public func consumeData() -> String {
         return consumeToAny(CharacterReader.dataTerminators)
     }
     
-    static let tagNameTerminators: Set<UnicodeScalar> = [.BackslashT, .BackslashN, .BackslashR, .BackslashF, .Space, .Slash, .GreaterThan, TokeniserStateVars.nullScalr]
+    static let tagNameTerminators = Set([.BackslashT, .BackslashN, .BackslashR, .BackslashF, .Space, .Slash, .GreaterThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
     
     public func consumeTagName() -> String {
         return consumeToAny(CharacterReader.tagNameTerminators)
     }
     
-    public func consumeToAnySorted(_ chars: Set<UnicodeScalar>) -> String {
+    public func consumeToAnySorted(_ chars: Set<Unicode.Scalar.UTF8View.Element>) -> String {
         return consumeToAny(chars)
     }
 }
