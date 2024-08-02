@@ -21,6 +21,7 @@ public class TokeniserStateVars {
     static let attributeValueUnquoted = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", UnicodeScalar.Ampersand, ">", nullScalr, "\"", "'", UnicodeScalar.LessThan, "=", "`"].flatMap { $0.utf8 })
     
     static let dataDefaultStopChars = Set([UnicodeScalar.Ampersand, UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
+    static let scriptDataDefaultStopChars = Set(["-", UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
     static let commentDefaultStopChars = Set(["-", TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
     static let readDataDefaultStopChars = Set([UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
 
@@ -422,7 +423,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.emit(TokeniserStateVars.replacementChar)
                 break
             default:
-                let data = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
+                let data = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
                 t.emit(data)
             }
             break
@@ -533,7 +534,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.transition(.Data)
                 break
             default:
-                let data = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
+                let data = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
                 t.emit(data)
             }
             break

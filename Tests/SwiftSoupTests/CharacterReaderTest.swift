@@ -138,14 +138,14 @@ class CharacterReaderTest: XCTestCase {
     }
 
     func testConsumeToAny() {
-        let r = CharacterReader("One &bar; qux")
-        XCTAssertEqual("One ", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
+        let r = CharacterReader("One 二 &bar; qux 三")
+        XCTAssertEqual("One 二 ", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
         XCTAssertTrue(r.matches("&"))
         XCTAssertTrue(r.matches("&bar;"))
         XCTAssertEqual("&", r.consume())
         XCTAssertEqual("bar", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
         XCTAssertEqual(";", r.consume())
-        XCTAssertEqual(" qux", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
+        XCTAssertEqual(" qux 三", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
     }
 
     func testConsumeLetterSequence() {
@@ -252,6 +252,27 @@ class CharacterReaderTest: XCTestCase {
 //        XCTAssertTrue(r.rangeEquals(18, 5, "CHOKE"))
 //        XCTAssertFalse(r.rangeEquals(18, 5, "CHIKE"))
     }
+    
+    func testJavaScriptParsingHangRegression() throws {
+        let html = """
+            <!DOCTYPE html>
+            <script>
+            <!--//-->
+            &
+            </script>
+        """
+        _ = try SwiftSoup.parse(html)
+    }
+    
+    func testURLCrashRegression() throws {
+        let html = """
+            <!DOCTYPE html>
+            <body>
+                <a href="https://secure.imagemaker360.com/Viewer/95.asp?id=181293idxIDX&Referer=&referefull="></a>
+            </body>
+        """
+        _ = try SwiftSoup.parse(html)
+    }
 
 	static var allTests = {
 		return [
@@ -274,8 +295,10 @@ class CharacterReaderTest: XCTestCase {
 			("testContainsIgnoreCase", testContainsIgnoreCase),
 			("testMatchesAny", testMatchesAny),
 			("testCachesStrings", testCachesStrings),
-			("testRangeEquals", testRangeEquals)
-			]
+			("testRangeEquals", testRangeEquals),
+            ("testJavaScriptParsingHangRegression", testJavaScriptParsingHangRegression),
+            ("testURLCrashRegression", testURLCrashRegression),
+        ]
 	}()
 
 }
