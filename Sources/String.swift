@@ -215,4 +215,50 @@ extension String.Encoding {
             return self.description
         }
     }
+
+    /// Errors that are thrown when a ``String.Encoding`` fails to be represented as a MIME type.
+    public enum EncodingMIMETypeError: Error, LocalizedError {
+        /// There is no IANA equivalent of the provided string encoding.
+        case noIANAEquivalent(String.Encoding)
+
+        /// Returns a human-readable representation of this error.
+        public var errorDescription: String? {
+            switch self {
+            case .noIANAEquivalent(let encoding):
+                return String("There is no IANA equivalent for \(encoding)")
+            }
+        }
+    }
+
+    /// Returns the encoding as an equivalent IANA MIME name.
+    ///
+    /// - SeeAlso: https://www.iana.org/assignments/character-sets/character-sets.xhtml
+    /// - Throws: EncodingMIMETypeError if there is no IANA-compatible MIME name.
+    public func mimeName() throws -> String {
+        switch self {
+            case .ascii: return "US-ASCII"
+            case .nextstep: throw EncodingMIMETypeError.noIANAEquivalent(self)
+            case .japaneseEUC: return "EUC-JP"
+            case .utf8: return "UTF-8"
+            case .isoLatin1: return "csISOLatin1"
+            case .symbol: throw EncodingMIMETypeError.noIANAEquivalent(self)
+            case .nonLossyASCII: return "US-ASCII"
+            case .shiftJIS: return "Shift_JIS"
+            case .isoLatin2: return "csISOLatin2"
+            case .windowsCP1251: return "windows-1251"
+            case .windowsCP1252: return "windows-1252"
+            case .windowsCP1253: return "windows-1253"
+            case .windowsCP1254: return "windows-1254"
+            case .windowsCP1250: return "windows-1250"
+            case .iso2022JP: return "csISO2022JP"
+            case .macOSRoman: throw EncodingMIMETypeError.noIANAEquivalent(self)
+            case .utf16: return "UTF-16"
+            case .utf16BigEndian: return "UTF-16BE"
+            case .utf16LittleEndian: return "UTF-16LE"
+            case .utf32: return "UTF-32"
+            case .utf32BigEndian: return "UTF-32BE"
+            case .utf32LittleEndian: return "UTF-32LE"
+            default: throw EncodingMIMETypeError.noIANAEquivalent(self)
+        }
+    }
 }
