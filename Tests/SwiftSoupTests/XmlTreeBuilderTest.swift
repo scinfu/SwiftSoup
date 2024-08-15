@@ -83,7 +83,7 @@ class XmlTreeBuilderTest: XCTestCase {
 		// html will force "<br>one</br>" to logically "<br />One<br />".
         // XML should be stay "<br>one</br> -- don't recognise tag.
 		let htmlDoc = try SwiftSoup.parse("<br>one</br>")
-		XCTAssertEqual("<br>one\n<br>", try htmlDoc.body()?.html())
+		XCTAssertEqual("<br />one\n<br />", try htmlDoc.body()?.html())
 
 		let xmlDoc = try SwiftSoup.parse("<br>one</br>", "", Parser.xmlParser())
 		XCTAssertEqual("<br>one</br>", try xmlDoc.html())

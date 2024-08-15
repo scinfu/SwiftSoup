@@ -51,7 +51,7 @@ public class Entities {
             return left.value != right.value
         }
 
-        private static let codeDelims: Set<UnicodeScalar>  = Set([",", ";"])
+        private static let codeDelims = Set([",", ";"].flatMap { $0.utf8 })
         
         init(string: String, size: Int, id: Int) {
             

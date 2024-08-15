@@ -36,7 +36,7 @@ final class Tokeniser {
         self.errors = errors
     }
 
-    func read()throws->Token {
+    func read() throws -> Token {
         if (!selfClosingFlagAcknowledged) {
             error("Self closing flag not acknowledged")
             selfClosingFlagAcknowledged = true

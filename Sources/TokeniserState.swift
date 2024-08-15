@@ -15,14 +15,15 @@ protocol TokeniserStateProtocol {
 public class TokeniserStateVars {
 	public static let nullScalr: UnicodeScalar = "\u{0000}"
 
-    static let attributeSingleValueChars = Set(["'", UnicodeScalar.Ampersand, nullScalr])
-    static let attributeDoubleValueChars = Set(["\"", UnicodeScalar.Ampersand, nullScalr])
-    static let attributeNameChars = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", "=", ">", nullScalr, "\"", "'", UnicodeScalar.LessThan])
-    static let attributeValueUnquoted = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", UnicodeScalar.Ampersand, ">", nullScalr, "\"", "'", UnicodeScalar.LessThan, "=", "`"])
+    static let attributeSingleValueChars = Set(["'", UnicodeScalar.Ampersand, nullScalr].flatMap { $0.utf8 })
+    static let attributeDoubleValueChars = Set(["\"", UnicodeScalar.Ampersand, nullScalr].flatMap { $0.utf8 })
+    static let attributeNameChars = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", "=", ">", nullScalr, "\"", "'", UnicodeScalar.LessThan].flatMap { $0.utf8 })
+    static let attributeValueUnquoted = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", UnicodeScalar.Ampersand, ">", nullScalr, "\"", "'", UnicodeScalar.LessThan, "=", "`"].flatMap { $0.utf8 })
     
-    static let dataDefaultStopChars: Set<UnicodeScalar> = [UnicodeScalar.Ampersand, UnicodeScalar.LessThan, TokeniserStateVars.nullScalr]
-    static let commentDefaultStopChars: Set<UnicodeScalar> = ["-", TokeniserStateVars.nullScalr]
-    static let readDataDefaultStopChars: Set<UnicodeScalar> = [UnicodeScalar.LessThan, TokeniserStateVars.nullScalr]
+    static let dataDefaultStopChars = Set([UnicodeScalar.Ampersand, UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
+    static let scriptDataDefaultStopChars = Set(["-", UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
+    static let commentDefaultStopChars = Set(["-", TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
+    static let readDataDefaultStopChars = Set([UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
 
 
     static let replacementChar: UnicodeScalar = Tokeniser.replacementChar
@@ -422,7 +423,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.emit(TokeniserStateVars.replacementChar)
                 break
             default:
-                let data = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
+                let data = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
                 t.emit(data)
             }
             break
@@ -533,7 +534,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.transition(.Data)
                 break
             default:
-                let data = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
+                let data = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
                 t.emit(data)
             }
             break
