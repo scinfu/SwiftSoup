@@ -254,14 +254,38 @@ class CharacterReaderTest: XCTestCase {
     }
     
     func testJavaScriptParsingHangRegression() throws {
-        let html = """
-            <!DOCTYPE html>
-            <script>
-            <!--//-->
-            &
-            </script>
-        """
-        _ = try SwiftSoup.parse(html)
+        let expectation = XCTestExpectation(description: "SwiftSoup parse should complete")
+        
+        DispatchQueue.global().async {
+            do {
+                let html = """
+                    <!DOCTYPE html>
+                    <script>
+                    <!--//-->
+                    &
+                    </script>
+                """
+                _ = try SwiftSoup.parse(html)
+                expectation.fulfill() // Fulfill the expectation if parse completes
+            } catch {
+                XCTFail("Parsing failed with error: \(error)")
+                expectation.fulfill() // Fulfill the expectation to not block the waiter in case of error
+            }
+        }
+        
+        // Wait for the expectation with a timeout of 3 seconds
+        let result = XCTWaiter().wait(for: [expectation], timeout: 3.0)
+        
+        switch result {
+        case .completed:
+            // Parse completed within the timeout, the test passes
+            break
+        case .timedOut:
+            // Parse did not complete within the timeout, the test fails
+            XCTFail("Parsing took too long; hang detected")
+        default:
+            break
+        }
     }
     
     func testURLCrashRegression() throws {
