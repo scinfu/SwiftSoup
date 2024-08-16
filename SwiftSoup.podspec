@@ -12,10 +12,10 @@ SwiftSoup is a Swift library for working with real-world HTML. It provides a ver
   s.source           = { :git => 'https://github.com/scinfu/SwiftSoup.git', :tag => s.version.to_s }
   s.social_media_url = 'https://twitter.com/scinfu'
 
-  s.ios.deployment_target = '12.0'
-  s.osx.deployment_target = '10.13'
-  s.watchos.deployment_target = '4.0'
-  s.tvos.deployment_target = '12.0'
+  s.ios.deployment_target = '13.0'
+  s.osx.deployment_target = '10.15'
+  s.watchos.deployment_target = '6.0'
+  s.tvos.deployment_target = '13.0'
 
   s.source_files = 'Sources/**/*.swift'
   s.swift_versions = ['4.0', '4.2', '5.0', '5.1']
