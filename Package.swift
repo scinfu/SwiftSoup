@@ -11,7 +11,12 @@ let package = Package(
     targets: [
         .target(name: "SwiftSoup",
                 path: "Sources",
-                exclude: [],
+                exclude: [
+                    "Info.plist",
+                    "InfoMac.plist",
+                    "InfotvOS.plist",
+                    "InfoWatchOS.plist",
+                ],
                 resources: [.copy("PrivacyInfo.xcprivacy")]),
         .testTarget(name: "SwiftSoupTests", dependencies: ["SwiftSoup"])
     ]
