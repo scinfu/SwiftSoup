@@ -15,10 +15,6 @@
 		6710743227F580530048E7C1 /* Mutex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6710743027F580530048E7C1 /* Mutex.swift */; };
 		6710743327F580530048E7C1 /* Mutex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6710743027F580530048E7C1 /* Mutex.swift */; };
 		6710743427F580530048E7C1 /* Mutex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6710743027F580530048E7C1 /* Mutex.swift */; };
-		722E96332B7DF76400936F48 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 722E96322B7DF76400936F48 /* PrivacyInfo.xcprivacy */; };
-		722E96342B7DF76400936F48 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 722E96322B7DF76400936F48 /* PrivacyInfo.xcprivacy */; };
-		722E96352B7DF76400936F48 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 722E96322B7DF76400936F48 /* PrivacyInfo.xcprivacy */; };
-		722E96362B7DF76400936F48 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 722E96322B7DF76400936F48 /* PrivacyInfo.xcprivacy */; };
 		8C19C82F1DB7E5D200B8FC22 /* Tokeniser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C19C82E1DB7E5D200B8FC22 /* Tokeniser.swift */; };
 		8C19C8311DB7E8CD00B8FC22 /* ParseError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C19C8301DB7E8CD00B8FC22 /* ParseError.swift */; };
 		8C19C8331DB7ECB700B8FC22 /* ParseErrorList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C19C8321DB7ECB700B8FC22 /* ParseErrorList.swift */; };
@@ -302,7 +298,6 @@
 /* Begin PBXFileReference section */
 		6710742B27F57FA60048E7C1 /* UnfairLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnfairLock.swift; sourceTree = "<group>"; };
 		6710743027F580530048E7C1 /* Mutex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mutex.swift; sourceTree = "<group>"; };
-		722E96322B7DF76400936F48 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		8C19C82E1DB7E5D200B8FC22 /* Tokeniser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Tokeniser.swift; sourceTree = "<group>"; };
 		8C19C8301DB7E8CD00B8FC22 /* ParseError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ParseError.swift; sourceTree = "<group>"; };
 		8C19C8321DB7ECB700B8FC22 /* ParseErrorList.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ParseErrorList.swift; sourceTree = "<group>"; };
@@ -615,7 +610,6 @@
 				BD3B5BAA1FBED934001FDB3B /* InfoMac.plist */,
 				BD3B5BED1FC063BD001FDB3B /* InfotvOS.plist */,
 				BD3B5C301FC06424001FDB3B /* InfoWatchOS.plist */,
-				722E96322B7DF76400936F48 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -909,7 +903,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				722E96332B7DF76400936F48 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -937,7 +930,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				722E96342B7DF76400936F48 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -945,7 +937,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				722E96352B7DF76400936F48 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -953,7 +944,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				722E96362B7DF76400936F48 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
