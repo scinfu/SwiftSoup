@@ -101,6 +101,29 @@ open class TextNode: Node {
         }
         return tailNode
     }
+    
+    open func splitText(utf8Offset: Int) throws -> TextNode {
+        // Ensure UTF-8 offset is within valid bounds
+        try Validate.isTrue(val: utf8Offset >= 0, msg: "Split UTF-8 offset must not be negative")
+        try Validate.isTrue(val: utf8Offset < _text.utf8.count, msg: "Split UTF-8 offset must not exceed current text length in UTF-8 bytes")
+        
+        // Convert UTF-8 offset to extended grapheme cluster offset
+        let graphemeOffset = String(getWholeText().prefix(utf8Offset)).count
+        
+        // Validate grapheme cluster offset
+        try Validate.isTrue(val: graphemeOffset < _text.count, msg: "Split grapheme cluster offset must not exceed current text length")
+        
+        // Split text based on the converted grapheme cluster offset
+        let head: String = getWholeText().substring(0, graphemeOffset)
+        let tail: String = getWholeText().substring(graphemeOffset)
+        text(head)
+        
+        let tailNode: TextNode = TextNode(tail, self.getBaseUri())
+        if parent() != nil {
+            try parent()?.addChildren(siblingIndex + 1, tailNode)
+        }
+        return tailNode
+    }
 
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings)throws {
 		if (out.prettyPrint() &&
