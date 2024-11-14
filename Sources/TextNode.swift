@@ -154,7 +154,7 @@ open class TextNode: Node {
     }
 
     static public func lastCharIsWhitespace(_ sb: StringBuilder) -> Bool {
-        return sb.toString().last == " "
+        return sb.buffer.last == 0x20  // 0x20 is the UTF-8 code for a space character
     }
 
     // attribute fiddling. create on first access.
