@@ -93,6 +93,11 @@ open class Element: Node {
         return _tag.isBlock()
     }
 
+    /// Test if this element has child nodes.
+    open func isEmpty() -> Bool {
+        return childNodes.isEmpty
+    }
+    
     /**
      * Get the {@code id} attribute of this element.
      *
