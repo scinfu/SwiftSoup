@@ -17,6 +17,13 @@ public class Entities {
     private static let empty = -1
     private static let emptyName = ""
     private static let codepointRadix: Int = 36
+    
+    private static let ampEntityUTF8 = "&amp;".utf8
+    private static let nbspEntityUTF8 = "&nbsp;".utf8
+    private static let xa0EntityUTF8 = "&#xa0;".utf8
+    private static let ltEntityUTF8 = "&lt;".utf8
+    private static let gtEntityUTF8 = "&gt;".utf8
+    private static let quotEntityUTF8 = "&quot;".utf8
 
     public class EscapeMode: Equatable {
 
@@ -208,32 +215,32 @@ public class Entities {
                 // html specific and required escapes:
                 switch (codePoint) {
                 case UnicodeScalar.Ampersand:
-                    accum.append("&amp;")
+                    accum.append(ampEntityUTF8)
                     break
                 case UnicodeScalar(UInt32(0xA0))!:
                     if (escapeMode != EscapeMode.xhtml) {
-                        accum.append("&nbsp;")
+                        accum.append(nbspEntityUTF8)
                     } else {
-                        accum.append("&#xa0;")
+                        accum.append(xa0EntityUTF8)
                     }
                     break
                 case UnicodeScalar.LessThan:
                     // escape when in character data or when in a xml attribue val; not needed in html attr val
                     if (!inAttribute || escapeMode == EscapeMode.xhtml) {
-                        accum.append("&lt;")
+                        accum.append(ltEntityUTF8)
                     } else {
                         accum.append(c)
                     }
                     break
                 case UnicodeScalar.GreaterThan:
                     if (!inAttribute) {
-                        accum.append("&gt;")
+                        accum.append(gtEntityUTF8)
                     } else {
                         accum.append(c)}
                     break
                 case "\"":
                     if (inAttribute) {
-                        accum.append("&quot;")
+                        accum.append(quotEntityUTF8)
                     } else {
                         accum.append(c)
                     }
@@ -246,7 +253,7 @@ public class Entities {
                     }
                 }
             } else {
-                if (encoder.canEncode(String(codePoint))) // uses fallback encoder for simplicity
+                if (encoder.canEncode(codePoint)) // uses fallback encoder for simplicity
                 {
                     accum.append(String(codePoint))
                 } else {
@@ -294,13 +301,16 @@ public class Entities {
      */
     private static func canEncode(_ c: UnicodeScalar, _ fallback: String.Encoding) -> Bool {
         // todo add more charset tests if impacted by Android's bad perf in canEncode
-        switch (fallback) {
-        case String.Encoding.ascii:
+        switch fallback {
+        case .ascii:
             return c.value < 0x80
-        case String.Encoding.utf8:
-            return true // real is:!(Character.isLowSurrogate(c) || Character.isHighSurrogate(c)) - but already check above
+        case .utf8:
+            return c.value <= 0x10FFFF
+            //return true // real is:!(Character.isLowSurrogate(c) || Character.isHighSurrogate(c)) - but already check above (?)
+        case .utf16:
+            return c.value <= 0x10FFFF
         default:
-            return fallback.canEncode(String(Character(c)))
+            return fallback.canEncode(c)
         }
     }
 

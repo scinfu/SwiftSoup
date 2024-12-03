@@ -182,8 +182,18 @@ extension String {
 }
 
 extension String.Encoding {
-	func canEncode(_ string: String) -> Bool {
-		return  string.cString(using: self) != nil
+    func canEncode(_ c: UnicodeScalar) -> Bool {
+        switch self {
+        case .ascii:
+            return c.value < 0x80
+        case .utf8:
+            return c.value <= 0x10FFFF
+            //return true // real is:!(Character.isLowSurrogate(c) || Character.isHighSurrogate(c)) - but already check above (?)
+        case .utf16:
+            return c.value <= 0x10FFFF
+        default:
+            return String(Character(c)).cString(using: self) != nil
+        }
 	}
 
     public func displayName() -> String {
