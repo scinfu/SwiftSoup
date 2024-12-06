@@ -38,26 +38,26 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     case ForeignContent
     
     private enum TagSets {
-        static let outer = ["head", "body", "html", "br"]
-        static let outer2 = ["body", "html", "br"]
-        static let outer3 = ["body", "html"]
-        static let baseEtc = ["base", "basefont", "bgsound", "command", "link"]
-        static let baseEtc2 = ["basefont", "bgsound", "link", "meta", "noframes", "style"]
-        static let baseEtc3 = ["base", "basefont", "bgsound", "link", "meta", "noframes", "script", "style", "title"]
-        static let headNoscript = ["head", "noscript"]
-        static let table = ["table", "tbody", "tfoot", "thead", "tr"]
-        static let tableSections = ["tbody", "tfoot", "thead"]
-        static let tableMix = ["body", "caption", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr"]
-        static let tableMix2 = ["body", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr"]
-        static let tableMix3 = ["caption", "col", "colgroup", "tbody", "tfoot", "thead"]
-        static let tableMix4 = ["body", "caption", "col", "colgroup", "html", "td", "th", "tr"]
-        static let tableMix5 = ["caption", "col", "colgroup", "tbody", "tfoot", "thead", "tr"]
-        static let tableMix6 = ["body", "caption", "col", "colgroup", "html", "td", "th"]
-        static let tableMix7 = ["body", "caption", "col", "colgroup", "html"]
-        static let tableMix8 = ["caption", "table", "tbody", "tfoot", "thead", "tr", "td", "th"]
-        static let tableRowsAndCols = ["caption", "col", "colgroup", "tbody", "td", "tfoot", "th", "thead", "tr"]
-        static let thTd = ["th", "td"]
-        static let inputKeygenTextarea = ["input", "keygen", "textarea"]
+        static let outer: Set = ["head", "body", "html", "br"]
+        static let outer2: Set = ["body", "html", "br"]
+        static let outer3: Set = ["body", "html"]
+        static let baseEtc: Set = ["base", "basefont", "bgsound", "command", "link"]
+        static let baseEtc2: Set = ["basefont", "bgsound", "link", "meta", "noframes", "style"]
+        static let baseEtc3: Set = ["base", "basefont", "bgsound", "link", "meta", "noframes", "script", "style", "title"]
+        static let headNoscript: Set = ["head", "noscript"]
+        static let table: Set = ["table", "tbody", "tfoot", "thead", "tr"]
+        static let tableSections: Set = ["tbody", "tfoot", "thead"]
+        static let tableMix: Set = ["body", "caption", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr"]
+        static let tableMix2: Set = ["body", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr"]
+        static let tableMix3: Set = ["caption", "col", "colgroup", "tbody", "tfoot", "thead"]
+        static let tableMix4: Set = ["body", "caption", "col", "colgroup", "html", "td", "th", "tr"]
+        static let tableMix5: Set = ["caption", "col", "colgroup", "tbody", "tfoot", "thead", "tr"]
+        static let tableMix6: Set = ["body", "caption", "col", "colgroup", "html", "td", "th"]
+        static let tableMix7: Set = ["body", "caption", "col", "colgroup", "html"]
+        static let tableMix8: Set = ["caption", "table", "tbody", "tfoot", "thead", "tr", "td", "th"]
+        static let tableRowsAndCols: Set = ["caption", "col", "colgroup", "tbody", "td", "tfoot", "th", "thead", "tr"]
+        static let thTd: Set = ["th", "td"]
+        static let inputKeygenTextarea: Set = ["input", "keygen", "textarea"]
     }
 
     private static let nullString: String = "\u{0000}"
@@ -1546,27 +1546,27 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     // lists of tags to search through. A little harder to read here, but causes less GC than dynamic varargs.
     // was contributing around 10% of parse GC load.
     fileprivate final class Constants {
-        fileprivate static let InBodyStartToHead: [String] = ["base", "basefont", "bgsound", "command", "link", "meta", "noframes", "script", "style", "title"]
-        fileprivate static let InBodyStartPClosers: [String] = ["address", "article", "aside", "blockquote", "center", "details", "dir", "div", "dl",
+        fileprivate static let InBodyStartToHead: Set = ["base", "basefont", "bgsound", "command", "link", "meta", "noframes", "script", "style", "title"]
+        fileprivate static let InBodyStartPClosers: Set = ["address", "article", "aside", "blockquote", "center", "details", "dir", "div", "dl",
                                                                 "fieldset", "figcaption", "figure", "footer", "header", "hgroup", "menu", "nav", "ol",
                                                                 "p", "section", "summary", "ul"]
-        fileprivate static let Headings: [String] = ["h1", "h2", "h3", "h4", "h5", "h6"]
-        fileprivate static let InBodyStartPreListing: [String] = ["pre", "listing"]
-        fileprivate static let InBodyStartLiBreakers: [String] = ["address", "div", "p"]
-        fileprivate static let DdDt: [String] = ["dd", "dt"]
-        fileprivate static let Formatters: [String] = ["b", "big", "code", "em", "font", "i", "s", "small", "strike", "strong", "tt", "u"]
-        fileprivate static let InBodyStartApplets: [String] = ["applet", "marquee", "object"]
-        fileprivate static let InBodyStartEmptyFormatters: [String] = ["area", "br", "embed", "img", "keygen", "wbr"]
-        fileprivate static let InBodyStartMedia: [String] = ["param", "source", "track"]
-        fileprivate static let InBodyStartInputAttribs: [String] = ["name", "action", "prompt"]
-        fileprivate static let InBodyStartOptions: [String] = ["optgroup", "option"]
-        fileprivate static let InBodyStartRuby: [String] = ["rp", "rt"]
-        fileprivate static let InBodyStartDrop: [String] = ["caption", "col", "colgroup", "frame", "head", "tbody", "td", "tfoot", "th", "thead", "tr"]
-        fileprivate static let InBodyEndClosers: [String] = ["address", "article", "aside", "blockquote", "button", "center", "details", "dir", "div",
+        fileprivate static let Headings: Set = ["h1", "h2", "h3", "h4", "h5", "h6"]
+        fileprivate static let InBodyStartPreListing: Set = ["pre", "listing"]
+        fileprivate static let InBodyStartLiBreakers: Set = ["address", "div", "p"]
+        fileprivate static let DdDt: Set = ["dd", "dt"]
+        fileprivate static let Formatters: Set = ["b", "big", "code", "em", "font", "i", "s", "small", "strike", "strong", "tt", "u"]
+        fileprivate static let InBodyStartApplets: Set = ["applet", "marquee", "object"]
+        fileprivate static let InBodyStartEmptyFormatters: Set = ["area", "br", "embed", "img", "keygen", "wbr"]
+        fileprivate static let InBodyStartMedia: Set = ["param", "source", "track"]
+        fileprivate static let InBodyStartInputAttribs: Set = ["name", "action", "prompt"]
+        fileprivate static let InBodyStartOptions: Set = ["optgroup", "option"]
+        fileprivate static let InBodyStartRuby: Set = ["rp", "rt"]
+        fileprivate static let InBodyStartDrop: Set = ["caption", "col", "colgroup", "frame", "head", "tbody", "td", "tfoot", "th", "thead", "tr"]
+        fileprivate static let InBodyEndClosers: Set = ["address", "article", "aside", "blockquote", "button", "center", "details", "dir", "div",
                                                              "dl", "fieldset", "figcaption", "figure", "footer", "header", "hgroup", "listing", "menu",
                                                              "nav", "ol", "pre", "section", "summary", "ul"]
-        fileprivate static let InBodyEndAdoptionFormatters: [String] = ["a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong", "tt", "u"]
-        fileprivate static let InBodyEndTableFosters: [String] = ["table", "tbody", "tfoot", "thead", "tr"]
+        fileprivate static let InBodyEndAdoptionFormatters: Set = ["a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong", "tt", "u"]
+        fileprivate static let InBodyEndTableFosters: Set = ["table", "tbody", "tfoot", "thead", "tr"]
     }
 }
 
