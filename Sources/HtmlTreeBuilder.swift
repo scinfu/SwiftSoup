@@ -15,14 +15,14 @@ class HtmlTreeBuilder: TreeBuilder {
     
     private enum TagSets {
         // tag searches
-        static let inScope =  ["applet", "caption", "html", "table", "td", "th", "marquee", "object"]
-        static let list = ["ol", "ul"]
-        static let button = ["button"]
-        static let tableScope = ["html", "table"]
-        static let selectScope = ["optgroup", "option"]
-        static let endTags = ["dd", "dt", "li", "option", "optgroup", "p", "rp", "rt"]
-        static let titleTextarea = ["title", "textarea"]
-        static let frames = ["iframe", "noembed", "noframes", "style", "xmp"]
+        static let inScope: Set =  ["applet", "caption", "html", "table", "td", "th", "marquee", "object"]
+        static let list: Set = ["ol", "ul"]
+        static let button: Set = ["button"]
+        static let tableScope: Set = ["html", "table"]
+        static let selectScope: Set = ["optgroup", "option"]
+        static let endTags: Set = ["dd", "dt", "li", "option", "optgroup", "p", "rp", "rt"]
+        static let titleTextarea: Set = ["title", "textarea"]
+        static let frames: Set = ["iframe", "noembed", "noframes", "style", "xmp"]
         
         static let special: Set<String> = ["address", "applet", "area", "article", "aside", "base", "basefont", "bgsound",
                               "blockquote", "body", "br", "button", "caption", "center", "col", "colgroup", "command", "dd",
@@ -77,11 +77,10 @@ class HtmlTreeBuilder: TreeBuilder {
             }
 
             // initialise the tokeniser state:
-            switch context.tagName() {
-                case TagSets.titleTextarea:
-                    tokeniser.transition(TokeniserState.Rcdata)
-                case TagSets.frames:
-                    tokeniser.transition(TokeniserState.Rawtext)
+            if TagSets.titleTextarea.contains(context.tagName()) || TagSets.frames.contains(context.tagName()) {
+                tokeniser.transition(TokeniserState.Rcdata)
+            } else {
+                switch context.tagName() {
                 case "script":
                     tokeniser.transition(TokeniserState.ScriptData)
                 case "noscript":
@@ -90,6 +89,7 @@ class HtmlTreeBuilder: TreeBuilder {
                     tokeniser.transition(TokeniserState.Data)
                 default:
                     tokeniser.transition(TokeniserState.Data)
+                }
             }
 
             root = try Element(Tag.valueOf("html", settings), baseUri)
@@ -348,7 +348,18 @@ class HtmlTreeBuilder: TreeBuilder {
     func popStackToClose(_ elNames: String...) {
 		popStackToClose(elNames)
     }
-	func popStackToClose(_ elNames: [String]) {
+    
+    func popStackToClose(_ elNames: [String]) {
+        for pos in (0..<stack.count).reversed() {
+            let next: Element = stack[pos]
+            stack.remove(at: pos)
+            if elNames.contains(next.nodeName()) {
+                break
+            }
+        }
+    }
+    
+	func popStackToClose(_ elNames: Set<String>) {
 		for pos in (0..<stack.count).reversed() {
 			let next: Element = stack[pos]
 			stack.remove(at: pos)
@@ -489,11 +500,11 @@ class HtmlTreeBuilder: TreeBuilder {
         }
     }
 
-    private func inSpecificScope(_ targetName: String, _ baseTypes: [String], _ extraTypes: [String]? = nil)throws->Bool {
+    private func inSpecificScope(_ targetName: String, _ baseTypes: Set<String>, _ extraTypes: Set<String>? = nil)throws->Bool {
         return try inSpecificScope([targetName], baseTypes, extraTypes)
     }
 
-    private func inSpecificScope(_ targetNames: [String], _ baseTypes: [String], _ extraTypes: [String]? = nil)throws->Bool {
+    private func inSpecificScope(_ targetNames: Set<String>, _ baseTypes: Set<String>, _ extraTypes: Set<String>? = nil)throws->Bool {
         for pos in (0..<stack.count).reversed() {
             let el = stack[pos]
             let elName = el.nodeName()
@@ -511,29 +522,29 @@ class HtmlTreeBuilder: TreeBuilder {
         return false
     }
 
-    func inScope(_ targetNames: [String])throws->Bool {
+    func inScope(_ targetNames: Set<String>) throws -> Bool {
         return try inSpecificScope(targetNames, TagSets.inScope)
     }
 
-    func inScope(_ targetName: String, _ extras: [String]? = nil)throws->Bool {
+    func inScope(_ targetName: String, _ extras: Set<String>? = nil) throws -> Bool {
         return try inSpecificScope(targetName, TagSets.inScope, extras)
         // todo: in mathml namespace: mi, mo, mn, ms, mtext annotation-xml
         // todo: in svg namespace: forignOjbect, desc, title
     }
 
-    func inListItemScope(_ targetName: String)throws->Bool {
+    func inListItemScope(_ targetName: String) throws -> Bool {
         return try inScope(targetName, TagSets.list)
     }
 
-    func inButtonScope(_ targetName: String)throws->Bool {
+    func inButtonScope(_ targetName: String) throws -> Bool {
         return try inScope(targetName, TagSets.button)
     }
 
-    func inTableScope(_ targetName: String)throws->Bool {
+    func inTableScope(_ targetName: String) throws -> Bool {
         return try inSpecificScope(targetName, TagSets.tableScope)
     }
 
-    func inSelectScope(_ targetName: String)throws->Bool {
+    func inSelectScope(_ targetName: String) throws -> Bool {
         for pos in (0..<stack.count).reversed() {
             let elName = stack[pos].nodeName()
             if elName == targetName {
