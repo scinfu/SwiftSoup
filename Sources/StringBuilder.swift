@@ -86,7 +86,7 @@ open class StringBuilder {
     
     @discardableResult
     open func append(_ value: UnicodeScalar) -> StringBuilder {
-        append(value.description)
+        appendCodePoint(value)
         return self
     }
     

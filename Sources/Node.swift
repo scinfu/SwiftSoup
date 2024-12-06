@@ -529,8 +529,8 @@ open class Node: Equatable, Hashable {
     }
 
     private func reindexChildren(_ start: Int) {
-        for i in start..<childNodes.count {
-            childNodes[i].setSiblingIndex(i)
+        for (index, node) in childNodes[start...].enumerated() {
+            node.setSiblingIndex(start + index)
         }
     }
 
