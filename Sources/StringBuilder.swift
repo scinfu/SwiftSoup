@@ -87,7 +87,9 @@ open class StringBuilder {
     }
     
     open func appendCodePoints(_ chr: [UnicodeScalar]) {
-        append(String(String.UnicodeScalarView(chr)))
+        for chr in chr {
+            appendCodePoint(chr)
+        }
     }
     
     /**
