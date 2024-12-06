@@ -58,7 +58,7 @@ open class Tag: Hashable {
      * @param settings used to control tag name sensitivity
      * @return The tag, either defined or new generic.
      */
-    public static func valueOf(_ tagName: String, _ settings: ParseSettings)throws->Tag {
+    public static func valueOf(_ tagName: String, _ settings: ParseSettings) throws -> Tag {
         var tagName = tagName
         var tag: Tag? = Tag.tags[tagName]
 

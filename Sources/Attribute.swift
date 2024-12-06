@@ -12,7 +12,7 @@ open class Attribute {
     /// The element type of a dictionary: a tuple containing an individual
     /// key-value pair.
 
-    static let booleanAttributes: [String] = [
+    static let booleanAttributes: Set<String> = [
         "allowfullscreen", "async", "autofocus", "checked", "compact", "controls", "declare", "default", "defer",
         "disabled", "formnovalidate", "hidden", "inert", "ismap", "itemscope", "multiple", "muted", "nohref",
         "noresize", "noshade", "novalidate", "nowrap", "open", "readonly", "required", "reversed", "seamless",

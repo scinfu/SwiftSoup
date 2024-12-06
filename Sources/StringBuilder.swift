@@ -70,19 +70,25 @@ open class StringBuilder {
             buffer.append(UInt8(val))
         } else if val < 0x800 {
             // 2-byte sequence
-            buffer.append(UInt8(0xC0 | (val >> 6)))
-            buffer.append(UInt8(0x80 | (val & 0x3F)))
+            buffer.append(contentsOf: [
+                UInt8(0xC0 | (val >> 6)),
+                UInt8(0x80 | (val & 0x3F))
+            ])
         } else if val < 0x10000 {
             // 3-byte sequence
-            buffer.append(UInt8(0xE0 | (val >> 12)))
-            buffer.append(UInt8(0x80 | ((val >> 6) & 0x3F)))
-            buffer.append(UInt8(0x80 | (val & 0x3F)))
+            buffer.append(contentsOf: [
+                UInt8(0xE0 | (val >> 12)),
+                UInt8(0x80 | ((val >> 6) & 0x3F)),
+                UInt8(0x80 | (val & 0x3F))
+            ])
         } else {
             // 4-byte sequence
-            buffer.append(UInt8(0xF0 | (val >> 18)))
-            buffer.append(UInt8(0x80 | ((val >> 12) & 0x3F)))
-            buffer.append(UInt8(0x80 | ((val >> 6) & 0x3F)))
-            buffer.append(UInt8(0x80 | (val & 0x3F)))
+            buffer.append(contentsOf: [
+                UInt8(0xF0 | (val >> 18)),
+                UInt8(0x80 | ((val >> 12) & 0x3F)),
+                UInt8(0x80 | ((val >> 6) & 0x3F)),
+                UInt8(0x80 | (val & 0x3F))
+            ])
         }
     }
     

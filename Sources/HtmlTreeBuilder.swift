@@ -54,7 +54,7 @@ class HtmlTreeBuilder: TreeBuilder {
     }
 
     public override func defaultSettings() -> ParseSettings {
-        return ParseSettings.htmlDefault
+        return ParseSettings.preserveCase
     }
 
     override func parse(_ input: String, _ baseUri: String, _ errors: ParseErrorList, _ settings: ParseSettings)throws->Document {
@@ -186,7 +186,7 @@ class HtmlTreeBuilder: TreeBuilder {
     }
 
     @discardableResult
-    func insert(_ startTag: Token.StartTag)throws->Element {
+    func insert(_ startTag: Token.StartTag) throws -> Element {
         // handle empty unknown tags
         // when the spec expects an empty tag, will directly hit insertEmpty, so won't generate this fake end tag.
         if (startTag.isSelfClosing()) {

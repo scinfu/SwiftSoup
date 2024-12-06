@@ -148,7 +148,7 @@ import Foundation
 	
 	@see Document#body()
 	*/
-	public  func parseBodyFragment(_ bodyHtml: String)throws->Document {
+	public  func parseBodyFragment(_ bodyHtml: String) throws -> Document {
 		return try Parser.parseBodyFragment(bodyHtml, "")
 	}
 
