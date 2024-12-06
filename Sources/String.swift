@@ -85,7 +85,7 @@ extension String {
         // trimmingCharacters() in the stdlib is not very efficiently
         // implemented, perhaps because it always creates a new string.
         // Avoid actually calling it if it's not needed.
-        guard count > 0 else { return self }
+        guard !isEmpty else { return self }
         let (firstChar, lastChar) = (first!, last!)
         if firstChar.isWhitespace || lastChar.isWhitespace || firstChar == "\n" || lastChar == "\n" {
             return trimmingCharacters(in: .whitespacesAndNewlines)
@@ -94,7 +94,7 @@ extension String {
     }
 
     func equalsIgnoreCase(string: String?) -> Bool {
-        if let string = string {
+        if let string {
             return caseInsensitiveCompare(string) == .orderedSame
         }
         return false

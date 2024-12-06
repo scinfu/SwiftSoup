@@ -47,7 +47,7 @@ open class ParseSettings {
         return name
     }
 
-    open func normalizeAttributes(_ attributes: Attributes)throws ->Attributes {
+    open func normalizeAttributes(_ attributes: Attributes) throws -> Attributes {
         if (!preserveAttributeCase) {
             attributes.lowercaseAllKeys()
         }
