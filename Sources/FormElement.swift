@@ -22,7 +22,7 @@ public class FormElement: Element {
      * @param baseUri    the base URI
      * @param attributes initial attributes
      */
-    public override init(_ tag: Tag, _ baseUri: String, _ attributes: Attributes) {
+    public override init(_ tag: Tag, _ baseUri: [UInt8], _ attributes: Attributes) {
         super.init(tag, baseUri, attributes)
     }
 

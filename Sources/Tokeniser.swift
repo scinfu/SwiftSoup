@@ -18,7 +18,7 @@ final class Tokeniser {
     private var state: TokeniserState = TokeniserState.Data // current tokenisation state
     private var emitPending: Token?  // the token we are about to emit on next read
     private var isEmitPending: Bool = false
-    private var charsString: String? // characters pending an emit. Will fall to charsBuilder if more than one
+    private var charsString: [UInt8]? // characters pending an emit. Will fall to charsBuilder if more than one
     private let charsBuilder: StringBuilder = StringBuilder(1024) // buffers characters to output as one token, if more than one emit per read
     let dataBuffer: StringBuilder = StringBuilder(1024) // buffers data looking for </script>
 
@@ -28,8 +28,8 @@ final class Tokeniser {
     let charPending: Token.Char  = Token.Char()
     let doctypePending: Token.Doctype  = Token.Doctype() // doctype building up
     let commentPending: Token.Comment  = Token.Comment() // comment building up
-    private var lastStartTag: String?  // the last start tag emitted, to test appropriate end tag
-    private var selfClosingFlagAcknowledged: Bool  = true
+    private var lastStartTag: [UInt8]?  // the last start tag emitted, to test appropriate end tag
+    private var selfClosingFlagAcknowledged: Bool = true
 
     init(_ reader: CharacterReader, _ errors: ParseErrorList?) {
         self.reader = reader
@@ -48,7 +48,7 @@ final class Tokeniser {
 
         // if emit is pending, a non-character token was found: return any chars in buffer, and leave token for next read:
         if !charsBuilder.isEmpty {
-            let str: String = charsBuilder.toString()
+            let str = charsBuilder.buffer
             charsBuilder.clear()
             charsString = nil
             return charPending.data(str)
@@ -62,7 +62,7 @@ final class Tokeniser {
         }
     }
 
-    func emit(_ token: Token)throws {
+    func emit(_ token: Token) throws {
         try Validate.isFalse(val: isEmitPending, msg: "There is an unread token pending!")
 
         emitPending = token
@@ -82,7 +82,7 @@ final class Tokeniser {
         }
     }
 
-    func emit(_ str: String ) {
+    func emit(_ str: [UInt8]) {
         // buffer strings up until last string token found, to emit only one token for a run of character refs etc.
         // does not set isEmitPending; read checks that
         if (charsString == nil) {
@@ -94,17 +94,25 @@ final class Tokeniser {
             charsBuilder.append(str)
         }
     }
-
-    func emit(_ chars: [UnicodeScalar]) {
-		emit(String(chars.map {Character($0)}))
+    
+    func emit(_ str: String) {
+        emit(str.utf8Array)
     }
+
+//    func emit(_ chars: [UInt8]) {
+//		emit(String(chars.map {Character($0)}))
+//    }
 
     //    func emit(_ codepoints: [Int]) {
     //        emit(String(codepoints, 0, codepoints.length));
     //    }
 
     func emit(_ c: UnicodeScalar) {
-        emit(String(c))
+        emit(Array(c.utf8))
+    }
+    
+    func emit(_ c: [UnicodeScalar]) {
+        emit(c.flatMap { Array($0.utf8) })
     }
 
     func getState() -> TokeniserState {
@@ -124,7 +132,7 @@ final class Tokeniser {
         selfClosingFlagAcknowledged = true
     }
 
-    func consumeCharacterReference(_ additionalAllowedCharacter: UnicodeScalar?, _ inAttribute: Bool)throws->[UnicodeScalar]? {
+    func consumeCharacterReference(_ additionalAllowedCharacter: UnicodeScalar?, _ inAttribute: Bool) throws -> [UnicodeScalar]? {
         if (reader.isEmpty()) {
             return nil
         }
@@ -136,21 +144,21 @@ final class Tokeniser {
         }
 
         reader.markPos()
-        if (reader.matchConsume("#")) { // numbered
-            let isHexMode: Bool = reader.matchConsumeIgnoreCase("X")
-            let numRef: String = isHexMode ? reader.consumeHexSequence() : reader.consumeDigitSequence()
-            if (numRef.unicodeScalars.count == 0) { // didn't match anything
+        if (reader.matchConsume("#".utf8Array)) { // numbered
+            let isHexMode: Bool = reader.matchConsumeIgnoreCase("X".utf8Array)
+            let numRef: [UInt8] = isHexMode ? reader.consumeHexSequence() : reader.consumeDigitSequence()
+            if (numRef.isEmpty) { // didn't match anything
                 characterReferenceError("numeric reference with no numerals")
                 reader.rewindToMark()
                 return nil
             }
-            if (!reader.matchConsume(";")) {
+            if (!reader.matchConsume(";".utf8Array)) {
                 characterReferenceError("missing semicolon") // missing semi
             }
             var charval: Int  = -1
 
             let base: Int = isHexMode ? 16 : 10
-            if let num = Int(numRef, radix: base) {
+            if let num = numRef.toInt(radix: base) {
                 charval = num
             }
 
@@ -164,7 +172,7 @@ final class Tokeniser {
             }
         } else { // named
             // get as many letters as possible, and look for matching entities.
-            let nameRef: String = reader.consumeLetterThenDigitSequence()
+            let nameRef: [UInt8] = reader.consumeLetterThenDigitSequence()
             let looksLegit: Bool = reader.matches(";")
             // found if a base named entity without a ;, or an extended entity with the ;.
             let found: Bool = (Entities.isBaseNamedEntity(nameRef) || (Entities.isNamedEntity(nameRef) && looksLegit))
@@ -181,7 +189,7 @@ final class Tokeniser {
                 reader.rewindToMark()
                 return nil
             }
-            if (!reader.matchConsume(";")) {
+            if (!reader.matchConsume(";".utf8Array)) {
                 characterReferenceError("missing semicolon") // missing semi
             }
             if let points = Entities.codepointsForName(nameRef) {
@@ -201,7 +209,7 @@ final class Tokeniser {
         return tagPending
     }
 
-    func emitTagPending()throws {
+    func emitTagPending() throws {
         try tagPending.finaliseTag()
         try emit(tagPending)
     }
@@ -210,7 +218,7 @@ final class Tokeniser {
         commentPending.reset()
     }
 
-    func emitCommentPending()throws {
+    func emitCommentPending() throws {
         try emit(commentPending)
     }
 
@@ -218,7 +226,7 @@ final class Tokeniser {
         doctypePending.reset()
     }
 
-    func emitDoctypePending()throws {
+    func emitDoctypePending() throws {
         try emit(doctypePending)
     }
 
@@ -234,7 +242,7 @@ final class Tokeniser {
         return false
     }
 
-    func appropriateEndTagName() -> String? {
+    func appropriateEndTagName() -> [UInt8]? {
         if (lastStartTag == nil) {
             return nil
         }
@@ -277,14 +285,14 @@ final class Tokeniser {
      * @param inAttribute
      * @return unescaped string from reader
      */
-    func unescapeEntities(_ inAttribute: Bool)throws->String {
+    func unescapeEntities(_ inAttribute: Bool) throws -> [UInt8] {
         let builder: StringBuilder = StringBuilder()
         while (!reader.isEmpty()) {
             builder.append(reader.consumeTo(UnicodeScalar.Ampersand))
-            if (reader.matches(UnicodeScalar.Ampersand)) {
+            if reader.matches(UnicodeScalar.Ampersand) {
                 reader.consume()
                 if let c = try consumeCharacterReference(nil, inAttribute) {
-                    if (c.count==0) {
+                    if c.isEmpty {
                         builder.append(UnicodeScalar.Ampersand)
                     } else {
                         builder.appendCodePoint(c[0])
@@ -297,7 +305,6 @@ final class Tokeniser {
                 }
             }
         }
-        return builder.toString()
+        return builder.buffer
     }
-
 }

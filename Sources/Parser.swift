@@ -29,10 +29,14 @@ public class Parser {
 		_settings = treeBuilder.defaultSettings()
 	}
 
-	public func parseInput(_ html: String, _ baseUri: String)throws->Document {
+	public func parseInput(_ html: [UInt8], _ baseUri: [UInt8]) throws -> Document {
 		_errors = isTrackErrors() ? ParseErrorList.tracking(_maxErrors) : ParseErrorList.noTracking()
 		return try _treeBuilder.parse(html, baseUri, _errors, _settings)
 	}
+    
+    public func parseInput(_ html: String, _ baseUri: String) throws -> Document {
+        return try parseInput(html.utf8Array, baseUri.utf8Array)
+    }
 
 	// gets & sets
 	/**
@@ -100,10 +104,14 @@ public class Parser {
 	*
 	* @return parsed Document
 	*/
-	public static func parse(_ html: String, _ baseUri: String)throws->Document {
+	public static func parse(_ html: [UInt8], _ baseUri: [UInt8]) throws -> Document {
 		let treeBuilder: TreeBuilder = HtmlTreeBuilder()
 		return try treeBuilder.parse(html, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
 	}
+    
+    public static func parse(_ html: String, _ baseUri: String) throws -> Document {
+        return try parse(html.utf8Array, baseUri.utf8Array)
+    }
 
 	/**
 	* Parse a fragment of HTML into a list of nodes. The context element, if supplied, supplies parsing context.
@@ -115,10 +123,14 @@ public class Parser {
 	*
 	* @return list of nodes parsed from the input HTML. Note that the context element, if supplied, is not modified.
 	*/
-	public static func parseFragment(_ fragmentHtml: String, _ context: Element?, _ baseUri: String) throws -> Array<Node> {
+	public static func parseFragment(_ fragmentHtml: [UInt8], _ context: Element?, _ baseUri: [UInt8]) throws -> Array<Node> {
 		let treeBuilder = HtmlTreeBuilder()
 		return try treeBuilder.parseFragment(fragmentHtml, context, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
 	}
+    
+    public static func parseFragment(_ fragmentHtml: String, _ context: Element?, _ baseUri: [UInt8]) throws -> Array<Node> {
+        return try parseFragment(fragmentHtml.utf8Array, context, baseUri)
+    }
 
 	/**
 	* Parse a fragment of XML into a list of nodes.
@@ -127,10 +139,14 @@ public class Parser {
 	* @param baseUri base URI of document (i.e. original fetch location), for resolving relative URLs.
 	* @return list of nodes parsed from the input XML.
 	*/
-	public static func parseXmlFragment(_ fragmentXml: String, _ baseUri: String) throws -> Array<Node> {
+	public static func parseXmlFragment(_ fragmentXml: [UInt8], _ baseUri: [UInt8]) throws -> Array<Node> {
 		let treeBuilder: XmlTreeBuilder = XmlTreeBuilder()
 		return try treeBuilder.parseFragment(fragmentXml, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
 	}
+    
+    public static func parseXmlFragment(_ fragmentXml: String, _ baseUri: String) throws -> Array<Node> {
+        return try parseXmlFragment(fragmentXml.utf8Array, baseUri.utf8Array)
+    }
 
 	/**
 	* Parse a fragment of HTML into the {@code body} of a Document.
@@ -143,7 +159,7 @@ public class Parser {
 	public static func parseBodyFragment(_ bodyHtml: String, _ baseUri: String) throws -> Document {
 		let doc: Document = Document.createShell(baseUri)
 		if let body: Element = doc.body() {
-			let nodeList: Array<Node> = try parseFragment(bodyHtml, body, baseUri)
+            let nodeList: Array<Node> = try parseFragment(bodyHtml, body, baseUri.utf8Array)
 			//var nodes: [Node] = nodeList.toArray(Node[nodeList.size()]) // the node list gets modified when re-parented
             if nodeList.count > 0 {
                 for i in 1..<nodeList.count {
@@ -163,10 +179,14 @@ public class Parser {
 	* @param inAttribute if the string is to be escaped in strict mode (as attributes are)
 	* @return an unescaped string
 	*/
-	public static func unescapeEntities(_ string: String, _ inAttribute: Bool) throws -> String {
+	public static func unescapeEntities(_ string: [UInt8], _ inAttribute: Bool) throws -> [UInt8] {
 		let tokeniser: Tokeniser = Tokeniser(CharacterReader(string), ParseErrorList.noTracking())
 		return try tokeniser.unescapeEntities(inAttribute)
 	}
+    
+    public static func unescapeEntities(_ string: String, _ inAttribute: Bool) throws -> String {
+        return try String(decoding: unescapeEntities(string.utf8Array, inAttribute), as: UTF8.self)
+    }
 
 	/**
 	* @param bodyHtml HTML to parse
@@ -176,7 +196,7 @@ public class Parser {
 	* @deprecated Use {@link #parseBodyFragment} or {@link #parseFragment} instead.
 	*/
 	public static func parseBodyFragmentRelaxed(_ bodyHtml: String, _ baseUri: String) throws -> Document {
-		return try parse(bodyHtml, baseUri)
+        return try parse(bodyHtml.utf8Array, baseUri.utf8Array)
 	}
 
 	// builders

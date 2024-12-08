@@ -15,19 +15,19 @@ protocol TokeniserStateProtocol {
 public class TokeniserStateVars {
 	public static let nullScalr: UnicodeScalar = "\u{0000}"
 
-    static let attributeSingleValueChars = Set(["'", UnicodeScalar.Ampersand, nullScalr].flatMap { $0.utf8 })
-    static let attributeDoubleValueChars = Set(["\"", UnicodeScalar.Ampersand, nullScalr].flatMap { $0.utf8 })
-    static let attributeNameChars = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", "=", ">", nullScalr, "\"", "'", UnicodeScalar.LessThan].flatMap { $0.utf8 })
-    static let attributeValueUnquoted = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", UnicodeScalar.Ampersand, ">", nullScalr, "\"", "'", UnicodeScalar.LessThan, "=", "`"].flatMap { $0.utf8 })
+    static let attributeSingleValueChars = Set(["'", UnicodeScalar.Ampersand, nullScalr].map { Array($0.utf8) })
+    static let attributeDoubleValueChars = Set(["\"", UnicodeScalar.Ampersand, nullScalr].map { Array($0.utf8) })
+    static let attributeNameChars = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", "=", ">", nullScalr, "\"", "'", UnicodeScalar.LessThan].map { Array($0.utf8) })
+    static let attributeValueUnquoted = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", UnicodeScalar.Ampersand, ">", nullScalr, "\"", "'", UnicodeScalar.LessThan, "=", "`"].map { Array($0.utf8) })
     
-    static let dataDefaultStopChars = Set([UnicodeScalar.Ampersand, UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
-    static let scriptDataDefaultStopChars = Set(["-", UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
-    static let commentDefaultStopChars = Set(["-", TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
-    static let readDataDefaultStopChars = Set([UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].flatMap { $0.utf8 })
+    static let dataDefaultStopChars = Set([UnicodeScalar.Ampersand, UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].map { Array($0.utf8) })
+    static let scriptDataDefaultStopChars = Set(["-", UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].map { Array($0.utf8) })
+    static let commentDefaultStopChars = Set(["-", TokeniserStateVars.nullScalr].map { Array($0.utf8) })
+    static let readDataDefaultStopChars = Set([UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].map { Array($0.utf8) })
 
 
     static let replacementChar: UnicodeScalar = Tokeniser.replacementChar
-    static let replacementStr: String = String(Tokeniser.replacementChar)
+    static let replacementStr: [UInt8] = Array(Tokeniser.replacementChar.utf8)
     static let eof: UnicodeScalar = CharacterReader.EOF
 }
 
@@ -118,7 +118,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 try t.emit(Token.EOF())
                 break
             default:
-                let data: String = r.consumeData()
+                let data: [UInt8] = r.consumeData()
                 t.emit(data)
                 break
             }
@@ -257,7 +257,7 @@ enum TokeniserState: TokeniserStateProtocol {
             if (r.matches("/")) {
                 t.createTempBuffer()
                 t.advanceTransition(.RCDATAEndTagOpen)
-            } else if (r.matchesLetter() && t.appropriateEndTagName() != nil && !r.containsIgnoreCase("</" + t.appropriateEndTagName()!)) {
+            } else if (r.matchesLetter() && t.appropriateEndTagName() != nil && !r.containsIgnoreCase("</".utf8Array + t.appropriateEndTagName()!)) {
                 // diverge from spec: got a start tag, but there's no appropriate end tag (</title>), so rather than
                 // consuming to EOF break out here
                 t.tagPending = t.createTagPending(false).name(t.appropriateEndTagName()!)
@@ -930,12 +930,12 @@ enum TokeniserState: TokeniserStateProtocol {
             t.advanceTransition(.Data)
             break
         case .MarkupDeclarationOpen:
-            if (r.matchConsume("--")) {
+            if (r.matchConsume("--".utf8Array)) {
                 t.createCommentPending()
                 t.transition(.CommentStart)
-            } else if (r.matchConsumeIgnoreCase("DOCTYPE")) {
+            } else if (r.matchConsumeIgnoreCase("DOCTYPE".utf8Array)) {
                 t.transition(.Doctype)
-            } else if (r.matchConsume("[CDATA[")) {
+            } else if (r.matchConsume("[CDATA[".utf8Array)) {
                 // todo: should actually check current namepspace, and only non-html allows cdata. until namespace
                 // is implemented properly, keep handling as cdata
                 //} else if (!t.currentNodeInHtmlNS() && r.matchConsume("[CDATA[")) {
@@ -1535,9 +1535,9 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .CdataSection:
-            let data = r.consumeTo("]]>")
+            let data = r.consumeTo("]]>".utf8Array)
             t.emit(data)
-            r.matchConsume("]]>")
+            r.matchConsume("]]>".utf8Array)
             t.transition(.Data)
             break
         }

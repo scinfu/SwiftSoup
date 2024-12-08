@@ -397,7 +397,7 @@ open class TokenQueue {
             pos+=1
         }
 
-        return queue.substring(start, pos-start)
+        return queue.substring(start, pos - start)
     }
 
     /**

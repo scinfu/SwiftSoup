@@ -112,6 +112,12 @@ open class StringBuilder {
     }
     
     @discardableResult
+    open func append(_ value: [UInt8]) -> StringBuilder {
+        buffer.append(contentsOf: value)
+        return self
+    }
+
+    @discardableResult
     open func append(_ value: UnicodeScalar) -> StringBuilder {
         appendCodePoint(value)
         return self

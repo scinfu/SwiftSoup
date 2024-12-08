@@ -86,7 +86,7 @@ class CharacterReaderTest: XCTestCase {
 
         XCTAssertEqual(nil, r.nextIndexOf("x"))
         XCTAssertEqual(input.index(input.startIndex, offsetBy: 3), r.nextIndexOf("h"))
-        let pull = r.consumeTo("h")
+        let pull = String(decoding: r.consumeTo("h"), as: UTF8.self)
         XCTAssertEqual("bla", pull)
         XCTAssertEqual("h", r.consume())
         XCTAssertEqual(input.index(input.startIndex, offsetBy: 6), r.nextIndexOf("l"))
@@ -139,28 +139,28 @@ class CharacterReaderTest: XCTestCase {
 
     func testConsumeToAny() {
         let r = CharacterReader("One 二 &bar; qux 三")
-        XCTAssertEqual("One 二 ", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
+        XCTAssertEqual("One 二 ", r.consumeToAny(Set(["&", ";"])))
         XCTAssertTrue(r.matches("&"))
         XCTAssertTrue(r.matches("&bar;"))
         XCTAssertEqual("&", r.consume())
-        XCTAssertEqual("bar", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
-        XCTAssertEqual(";", r.consume())
-        XCTAssertEqual(" qux 三", r.consumeToAny(Set(["&", ";"].flatMap { $0.utf8 })))
+        XCTAssertEqual("bar", r.consumeToAny(Set(["&", ";"])))
+        XCTAssertEqual(";", String(decoding: Array(r.consume().utf8), as: UTF8.self))
+        XCTAssertEqual(" qux 三", r.consumeToAny(Set(["&", ";"])))
     }
 
     func testConsumeLetterSequence() {
         let r = CharacterReader("One &bar; qux")
-        XCTAssertEqual("One", r.consumeLetterSequence())
+        XCTAssertEqual("One", String(decoding: r.consumeLetterSequence(), as: UTF8.self))
         XCTAssertEqual(" &", r.consumeTo("bar;"))
-        XCTAssertEqual("bar", r.consumeLetterSequence())
-        XCTAssertEqual("; qux", r.consumeToEnd())
+        XCTAssertEqual("bar", String(decoding: r.consumeLetterSequence(), as: UTF8.self))
+       XCTAssertEqual("; qux", r.consumeToEnd())
     }
 
     func testConsumeLetterThenDigitSequence() {
         let r = CharacterReader("One12 Two &bar; qux")
-        XCTAssertEqual("One12", r.consumeLetterThenDigitSequence())
+        XCTAssertEqual("One12", String(decoding: r.consumeLetterThenDigitSequence(), as: UTF8.self))
         XCTAssertEqual(" ", r.consume())
-        XCTAssertEqual("Two", r.consumeLetterThenDigitSequence())
+        XCTAssertEqual("Two", String(decoding: r.consumeLetterThenDigitSequence(), as: UTF8.self))
         XCTAssertEqual(" &bar; qux", r.consumeToEnd())
     }
 
@@ -208,7 +208,7 @@ class CharacterReaderTest: XCTestCase {
         //let scan = [" ", "\n", "\t"]
         let r = CharacterReader("One\nTwo\tThree")
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
-        XCTAssertEqual("One", r.consumeToAny(Set([" ", "\n", "\t"].flatMap { $0.utf8 })))
+        XCTAssertEqual("One", r.consumeToAny(Set([" ", "\n", "\t"])))
         XCTAssertTrue(r.matchesAny(" ", "\n", "\t"))
         XCTAssertEqual("\n", r.consume())
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))

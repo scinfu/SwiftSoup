@@ -194,9 +194,9 @@ open class StringUtil {
      * @throws MalformedURLException if an error occurred generating the URL
      */
     //NOTE: Not sure it work
-    public static func resolve(_ base: URL, relUrl: String ) -> URL? {
+    public static func resolve(_ base: URL, relUrl: String) -> URL? {
         var base = base
-        if(base.pathComponents.count == 0 && base.absoluteString.last != "/" && !base.isFileURL) {
+        if (base.pathComponents.isEmpty && base.absoluteString.last != "/" && !base.isFileURL) {
             base = base.appendingPathComponent("/", isDirectory: false)
         }
         let u =  URL(string: relUrl, relativeTo: base)

@@ -10,17 +10,17 @@ import Foundation
 
 open class Tag: Hashable {
     // map of known tags
-    static var tags: Dictionary<String, Tag> = {
+    static var tags: Dictionary<[UInt8], Tag> = {
         do {
             return try Tag.initializeMaps()
         } catch {
             preconditionFailure("This method must be overridden")
         }
-        return Dictionary<String, Tag>()
+        return Dictionary<[UInt8], Tag>()
     }()
 
-    fileprivate var _tagName: String
-    fileprivate var _tagNameNormal: String
+    fileprivate var _tagName: [UInt8]
+    fileprivate var _tagNameNormal: [UInt8]
     fileprivate var _isBlock: Bool = true // block or inline
     fileprivate var _formatAsBlock: Bool = true // should be formatted as a block
     fileprivate var _canContainBlock: Bool = true // Can this tag hold block level tags?
@@ -31,9 +31,13 @@ open class Tag: Hashable {
     fileprivate var _formList: Bool = false // a control that appears in forms: input, textarea, output etc
     fileprivate var _formSubmit: Bool = false // a control that can be submitted in a form: input etc
 
-    public init(_ tagName: String) {
+    public init(_ tagName: [UInt8]) {
         self._tagName = tagName
         self._tagNameNormal = tagName.lowercased()
+    }
+    
+    public convenience init(_ tagName: String) {
+        self.init(tagName.utf8Array)
     }
 
     /**
@@ -42,9 +46,15 @@ open class Tag: Hashable {
      * @return the tag's name
      */
     open func getName() -> String {
-        return self._tagName
+        return String(decoding: self._tagName, as: UTF8.self)
     }
     open func getNameNormal() -> String {
+        return String(decoding: self._tagNameNormal, as: UTF8.self)
+    }
+    open func getNameUTF8() -> [UInt8] {
+        return self._tagName
+    }
+    open func getNameNormalUTF8() -> [UInt8] {
         return self._tagNameNormal
     }
 
@@ -59,6 +69,10 @@ open class Tag: Hashable {
      * @return The tag, either defined or new generic.
      */
     public static func valueOf(_ tagName: String, _ settings: ParseSettings) throws -> Tag {
+        return try valueOf(tagName.utf8Array, settings)
+    }
+    
+    public static func valueOf(_ tagName: [UInt8], _ settings: ParseSettings) throws -> Tag {
         var tagName = tagName
         var tag: Tag? = Tag.tags[tagName]
 
@@ -86,7 +100,11 @@ open class Tag: Hashable {
      * @param tagName Name of tag, e.g. "p". <b>Case sensitive</b>.
      * @return The tag, either defined or new generic.
      */
-    public static func valueOf(_ tagName: String)throws->Tag {
+    public static func valueOf(_ tagName: String) throws -> Tag {
+        return try valueOfUTF8(tagName.utf8Array)
+    }
+    
+    public static func valueOfUTF8(_ tagName: [UInt8]) throws -> Tag {
         return try valueOf(tagName, ParseSettings.preserveCase)
     }
 
@@ -168,7 +186,7 @@ open class Tag: Hashable {
      * @param tagName name of tag
      * @return if known HTML tag
      */
-    public static func isKnownTag(_ tagName: String) -> Bool {
+    public static func isKnownTag(_ tagName: [UInt8]) -> Bool {
         return Tag.tags[tagName] != nil
     }
 
@@ -253,49 +271,49 @@ open class Tag: Hashable {
     }
 
     open func toString() -> String {
-        return _tagName
+        return String(decoding: _tagName, as: UTF8.self)
     }
 
     // internal static initialisers:
     // prepped from http://www.w3.org/TR/REC-html40/sgml/dtd.html and other sources
-    private static let blockTags: [String] = [
+    private static let blockTags: [[UInt8]] = [
         "html", "head", "body", "frameset", "script", "noscript", "style", "meta", "link", "title", "frame",
         "noframes", "section", "nav", "aside", "hgroup", "header", "footer", "p", "h1", "h2", "h3", "h4", "h5", "h6",
         "ul", "ol", "pre", "div", "blockquote", "hr", "address", "figure", "figcaption", "form", "fieldset", "ins",
         "del", "s", "dl", "dt", "dd", "li", "table", "caption", "thead", "tfoot", "tbody", "colgroup", "col", "tr", "th",
         "td", "video", "audio", "canvas", "details", "menu", "plaintext", "template", "article", "main",
         "svg", "math"
-    ]
-    private static let inlineTags: [String] = [
+    ].map { $0.utf8Array }
+    private static let inlineTags: [[UInt8]] = [
         "object", "base", "font", "tt", "i", "b", "u", "big", "small", "em", "strong", "dfn", "code", "samp", "kbd",
         "var", "cite", "abbr", "time", "acronym", "mark", "ruby", "rt", "rp", "a", "img", "br", "wbr", "map", "q",
         "sub", "sup", "bdo", "iframe", "embed", "span", "input", "select", "textarea", "label", "button", "optgroup",
         "option", "legend", "datalist", "keygen", "output", "progress", "meter", "area", "param", "source", "track",
         "summary", "command", "device", "area", "basefont", "bgsound", "menuitem", "param", "source", "track",
         "data", "bdi"
-    ]
-    private static let emptyTags: [String] = [
+    ].map { $0.utf8Array }
+    private static let emptyTags: [[UInt8]] = [
         "meta", "link", "base", "frame", "img", "br", "wbr", "embed", "hr", "input", "keygen", "col", "command",
         "device", "area", "basefont", "bgsound", "menuitem", "param", "source", "track"
-    ]
-    private static let formatAsInlineTags: [String] = [
+    ].map { $0.utf8Array }
+    private static let formatAsInlineTags: [[UInt8]] = [
         "title", "a", "p", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "address", "li", "th", "td", "script", "style",
         "ins", "del", "s"
-    ]
-    private static let preserveWhitespaceTags: [String] = [
+    ].map { $0.utf8Array }
+    private static let preserveWhitespaceTags: [[UInt8]] = [
         "pre", "plaintext", "title", "textarea"
         // script is not here as it is a data node, which always preserve whitespace
-    ]
+    ].map { $0.utf8Array }
     // todo: I think we just need submit tags, and can scrub listed
-    private static let formListedTags: [String] = [
+    private static let formListedTags: [[UInt8]] = [
         "button", "fieldset", "input", "keygen", "object", "output", "select", "textarea"
-    ]
-    private static let formSubmitTags: [String] = [
+    ].map { $0.utf8Array }
+    private static let formSubmitTags: [[UInt8]] = [
         "input", "keygen", "object", "select", "textarea"
-    ]
+    ].map { $0.utf8Array }
 
-    static private func initializeMaps()throws->Dictionary<String, Tag> {
-        var dict = Dictionary<String, Tag>()
+    static private func initializeMaps() throws -> Dictionary<[UInt8], Tag> {
+        var dict = Dictionary<[UInt8], Tag>()
 
         // creates
         for tagName in blockTags {

@@ -12,14 +12,14 @@ import Foundation
  A data node, for contents of style, script tags etc, where contents should not show in text().
  */
 open class DataNode: Node {
-    private static let DATA_KEY: String  = "data"
+    private static let DATA_KEY  = "data".utf8Array
 
     /**
      Create a new DataNode.
      @param data data contents
      @param baseUri base URI
      */
-    public init(_ data: String, _ baseUri: String) {
+    public init(_ data: [UInt8], _ baseUri: [UInt8]) {
         super.init(baseUri)
         do {
             try attributes?.put(DataNode.DATA_KEY, data)
@@ -27,6 +27,10 @@ open class DataNode: Node {
 
     }
 
+    open override func nodeNameUTF8() -> [UInt8] {
+        return nodeName().utf8Array
+    }
+    
     open override func nodeName() -> String {
         return "#data"
     }
@@ -36,7 +40,11 @@ open class DataNode: Node {
      @return data
      */
     open func getWholeData() -> String {
-		return attributes!.get(key: DataNode.DATA_KEY)
+        return String(decoding: getWholeDataUTF8(), as: UTF8.self)
+    }
+    
+    open func getWholeDataUTF8() -> [UInt8] {
+        return attributes!.get(key: DataNode.DATA_KEY)
     }
 
     /**
@@ -47,7 +55,7 @@ open class DataNode: Node {
     @discardableResult
     open func setWholeData(_ data: String) -> DataNode {
         do {
-            try attributes?.put(DataNode.DATA_KEY, data)
+            try attributes?.put(DataNode.DATA_KEY, data.utf8Array)
         } catch {}
         return self
     }
@@ -64,9 +72,9 @@ open class DataNode: Node {
      @param baseUri bass URI
      @return new DataNode
      */
-    public static func createFromEncoded(_ encodedData: String, _ baseUri: String)throws->DataNode {
-        let data = try Entities.unescape(encodedData)
-        return DataNode(data, baseUri)
+    public static func createFromEncoded(_ encodedData: String, _ baseUri: String) throws -> DataNode {
+        let data = try Entities.unescape(encodedData.utf8Array)
+        return DataNode(data, baseUri.utf8Array)
     }
 
 	public override func copy(with zone: NSZone? = nil) -> Any {

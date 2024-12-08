@@ -81,7 +81,7 @@ extension Cleaner {
 
 		public func head(_ source: Node, _ depth: Int) throws {
 			if let sourceEl = source as? Element {
-				if whitelist.isSafeTag(sourceEl.tagName()) { // safe, clone and copy safe attrs
+				if whitelist.isSafeTag(sourceEl.tagNameUTF8()) { // safe, clone and copy safe attrs
 					let meta = try createSafeElement(sourceEl)
 					let destChild = meta.el
 					try destination?.appendChild(destChild)
@@ -92,11 +92,11 @@ extension Cleaner {
 					numDiscarded += 1
 				}
 			} else if let sourceText = source as? TextNode {
-				let destText = TextNode(sourceText.getWholeText(), source.getBaseUri())
-				try destination?.appendChild(destText)
+                let destText = TextNode(sourceText.getWholeTextUTF8(), source.getBaseUriUTF8())
+                try destination?.appendChild(destText)
 			} else if let sourceData = source as? DataNode {
-				if sourceData.parent() != nil && whitelist.isSafeTag(sourceData.parent()!.nodeName()) {
-					let destData =  DataNode(sourceData.getWholeData(), source.getBaseUri())
+				if sourceData.parent() != nil && whitelist.isSafeTag(sourceData.parent()!.nodeNameUTF8()) {
+					let destData =  DataNode(sourceData.getWholeDataUTF8(), source.getBaseUriUTF8())
 					try destination?.appendChild(destData)
                 } else {
                     numDiscarded += 1
@@ -108,7 +108,7 @@ extension Cleaner {
 
 		public func tail(_ source: Node, _ depth: Int) throws {
 			if let x = source as? Element {
-				if whitelist.isSafeTag(x.nodeName()) {
+				if whitelist.isSafeTag(x.nodeNameUTF8()) {
 					// would have descended, so pop destination stack
 					destination = destination?.parent()
 				}
@@ -132,7 +132,7 @@ extension Cleaner {
             let enforcedAttrs = try whitelist.getEnforcedAttributes(sourceTag)
             destAttrs.addAll(incoming: enforcedAttrs)
 
-            let dest = try Element(Tag.valueOf(sourceTag), sourceEl.getBaseUri(), destAttrs)
+            let dest = try Element(Tag.valueOfUTF8(sourceTag.utf8Array), sourceEl.getBaseUriUTF8(), destAttrs)
             return ElementMeta(dest, numDiscarded)
         }
 	}

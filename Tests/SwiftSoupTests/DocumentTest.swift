@@ -145,7 +145,7 @@ class DocumentTest: XCTestCase {
 	}
 
 	//todo:
-	//	func testLocation()throws {
+	//	func testLocation() throws {
 	//		File in = new ParseTest().getFile("/htmltests/yahoo-jp.html")
 	//		Document doc = Jsoup.parse(in, "UTF-8", "http://www.yahoo.co.jp/index.html");
 	//		String location = doc.location();
@@ -252,7 +252,7 @@ class DocumentTest: XCTestCase {
 
 	}
 
-	func testMetaCharsetUpdateIsoLatin2()throws {
+	func testMetaCharsetUpdateIsoLatin2() throws {
 		let doc: Document = createHtmlDocument("changeThis")
 		doc.updateMetaCharsetElement(true)
 		try doc.charset(String.Encoding.isoLatin2)
@@ -271,7 +271,7 @@ class DocumentTest: XCTestCase {
 		XCTAssertEqual(doc.charset(), doc.outputSettings().charset())
 	}
 
-	func testMetaCharsetUpdateNoCharset()throws {
+	func testMetaCharsetUpdateNoCharset() throws {
 		let docNoCharset: Document = Document.createShell("")
 		docNoCharset.updateMetaCharsetElement(true)
 		try docNoCharset.charset(String.Encoding.utf8)
@@ -287,7 +287,7 @@ class DocumentTest: XCTestCase {
 		try XCTAssertEqual(htmlCharsetUTF8, docNoCharset.outerHtml())
 	}
 
-	func testMetaCharsetUpdateDisabled()throws {
+	func testMetaCharsetUpdateDisabled() throws {
 		let docDisabled: Document = Document.createShell("")
 
 		let htmlNoCharset = "<html>\n" +
@@ -298,7 +298,7 @@ class DocumentTest: XCTestCase {
 		try XCTAssertNil(docDisabled.select("meta[charset]").first())
 	}
 
-	func testMetaCharsetUpdateDisabledNoChanges()throws {
+	func testMetaCharsetUpdateDisabledNoChanges() throws {
 		let doc: Document = createHtmlDocument("dontTouch")
 
 		let htmlCharset = "<html>\n" +
@@ -319,7 +319,7 @@ class DocumentTest: XCTestCase {
 		try XCTAssertEqual("dontTouch", selectedElement.attr("content"))
 	}
 
-	func testMetaCharsetUpdateEnabledAfterCharsetChange()throws {
+	func testMetaCharsetUpdateEnabledAfterCharsetChange() throws {
 		let doc: Document = createHtmlDocument("dontTouch")
 		try doc.charset(String.Encoding.utf8)
 
@@ -328,7 +328,7 @@ class DocumentTest: XCTestCase {
 		try XCTAssertTrue(doc.select("meta[name=charset]").isEmpty())
 	}
 
-	func testMetaCharsetUpdateCleanup()throws {
+	func testMetaCharsetUpdateCleanup() throws {
 		let doc: Document = createHtmlDocument("dontTouch")
 		doc.updateMetaCharsetElement(true)
 		try doc.charset(String.Encoding.utf8)
@@ -343,7 +343,7 @@ class DocumentTest: XCTestCase {
 		try XCTAssertEqual(htmlCharsetUTF8, doc.outerHtml())
 	}
 
-	func testMetaCharsetUpdateXmlUtf8()throws {
+	func testMetaCharsetUpdateXmlUtf8() throws {
 		let doc: Document = try createXmlDocument("1.0", "changeThis", true)
 		doc.updateMetaCharsetElement(true)
 		try doc.charset(String.Encoding.utf8)
@@ -360,7 +360,7 @@ class DocumentTest: XCTestCase {
 		XCTAssertEqual(doc.charset(), doc.outputSettings().charset())
 	}
 
-	func testMetaCharsetUpdateXmlIso2022JP()throws {
+	func testMetaCharsetUpdateXmlIso2022JP() throws {
 		let doc: Document = try createXmlDocument("1.0", "changeThis", true)
 		doc.updateMetaCharsetElement(true)
 		try doc.charset(String.Encoding.iso2022JP)
@@ -377,7 +377,7 @@ class DocumentTest: XCTestCase {
 		XCTAssertEqual(doc.charset(), doc.outputSettings().charset())
 	}
 
-	func testMetaCharsetUpdateXmlNoCharset()throws {
+	func testMetaCharsetUpdateXmlNoCharset() throws {
 		let doc: Document = try createXmlDocument("1.0", "none", false)
 		doc.updateMetaCharsetElement(true)
 		try doc.charset(String.Encoding.utf8)
@@ -392,7 +392,7 @@ class DocumentTest: XCTestCase {
 		try XCTAssertEqual(String.Encoding.utf8.displayName(), selectedNode.attr("encoding"))
 	}
 
-	func testMetaCharsetUpdateXmlDisabled()throws {
+	func testMetaCharsetUpdateXmlDisabled() throws {
 		let doc: Document = try createXmlDocument("none", "none", false)
 
 		let xmlNoCharset = "<root>\n" +
@@ -401,7 +401,7 @@ class DocumentTest: XCTestCase {
 		try XCTAssertEqual(xmlNoCharset, doc.outerHtml())
 	}
 
-	func testMetaCharsetUpdateXmlDisabledNoChanges()throws {
+	func testMetaCharsetUpdateXmlDisabledNoChanges() throws {
 		let doc: Document = try createXmlDocument("dontTouch", "dontTouch", true)
 
 		let xmlCharset = "<?xml version=\"dontTouch\" encoding=\"dontTouch\"?>\n" +
@@ -454,7 +454,7 @@ class DocumentTest: XCTestCase {
     }
 
 	//todo:
-//	func testShiftJisRoundtrip()throws {
+//	func testShiftJisRoundtrip() throws {
 //		let input =
 //			"<html>"
 //				+   "<head>"

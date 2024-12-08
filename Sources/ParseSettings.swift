@@ -31,20 +31,28 @@ open class ParseSettings {
         preserveAttributeCase = attribute
     }
 
-    open func normalizeTag(_ name: String) -> String {
+    open func normalizeTag(_ name: [UInt8]) -> [UInt8] {
         var name = name.trim()
         if (!preserveTagCase) {
             name = name.lowercased()
         }
         return name
     }
+    
+    open func normalizeTag(_ name: String) -> String {
+        return String(decoding: normalizeTag(name.utf8Array), as: UTF8.self)
+    }
 
-    open func normalizeAttribute(_ name: String) -> String {
+    open func normalizeAttribute(_ name: [UInt8]) -> [UInt8] {
         var name = name.trim()
         if (!preserveAttributeCase) {
             name = name.lowercased()
         }
         return name
+    }
+    
+    open func normalizeAttribute(_ name: String) -> String {
+        return String(decoding: normalizeAttribute(name.utf8Array), as: UTF8.self)
     }
 
     open func normalizeAttributes(_ attributes: Attributes) throws -> Attributes {
