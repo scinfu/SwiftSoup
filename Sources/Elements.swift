@@ -51,7 +51,7 @@ open class Elements: NSCopying {
 	or if the no elements have the attribute, returns empty string.
 	@see #hasAttr(String)
 	*/
-	open func attr(_ attributeKey: String)throws->String {
+	open func attr(_ attributeKey: String) throws -> String {
 		for element in this {
 			if (element.hasAttr(attributeKey)) {
 				return try element.attr(attributeKey)
@@ -92,7 +92,7 @@ open class Elements: NSCopying {
 	* @return this (for chaining)
 	*/
     @discardableResult
-	open func removeAttr(_ attributeKey: String)throws->Elements {
+	open func removeAttr(_ attributeKey: String) throws -> Elements {
 		for  element in this {
 			try element.removeAttr(attributeKey)
 		}
@@ -278,7 +278,7 @@ open class Elements: NSCopying {
 	* @see Element#tagName(String)
 	*/
     @discardableResult
-	open func tagName(_ tagName: String)throws->Elements {
+	open func tagName(_ tagName: String) throws -> Elements {
 		for element: Element in this {
 			try element.tagName(tagName)
 		}

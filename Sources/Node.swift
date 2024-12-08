@@ -9,13 +9,13 @@
 import Foundation
 
 open class Node: Equatable, Hashable {
-    private static let abs = "abs:"
-    fileprivate static let empty = ""
+    private static let abs = "abs:".utf8Array
+    fileprivate static let empty = "".utf8Array
     private static let EMPTY_NODES: Array<Node>  = Array<Node>()
     weak var parentNode: Node?
     var childNodes: Array <Node>
     var attributes: Attributes?
-    var baseUri: String?
+    var baseUri: [UInt8]?
 
 	/**
 	* Get the list index of this node in its node sibling list. I.e. if this is the first node
@@ -30,13 +30,13 @@ open class Node: Equatable, Hashable {
      @param baseUri base URI
      @param attributes attributes (not null, but may be empty)
      */
-    public init(_ baseUri: String, _ attributes: Attributes) {
+    public init(_ baseUri: [UInt8], _ attributes: Attributes) {
         self.childNodes = Node.EMPTY_NODES
         self.baseUri = baseUri.trim()
         self.attributes = attributes
     }
 
-    public init(_ baseUri: String) {
+    public init(_ baseUri: [UInt8]) {
         childNodes = Node.EMPTY_NODES
         self.baseUri = baseUri.trim()
         self.attributes = Attributes()
@@ -58,6 +58,10 @@ open class Node: Equatable, Hashable {
     public func nodeName() -> String {
         preconditionFailure("This method must be overridden")
     }
+    
+    public func nodeNameUTF8() -> [UInt8] {
+        preconditionFailure("This method must be overridden")
+    }
 
     /**
      * Get an attribute's value by its key. <b>Case insensitive</b>
@@ -74,13 +78,17 @@ open class Node: Equatable, Hashable {
      * @see #hasAttr(String)
      * @see #absUrl(String)
      */
-    open func attr(_ attributeKey: String)throws ->String {
-        let val: String = try attributes!.getIgnoreCase(key: attributeKey)
-        if (val.count > 0) {
+    open func attr(_ attributeKey: [UInt8]) throws -> [UInt8] {
+        let val: [UInt8] = try attributes!.getIgnoreCase(key: attributeKey)
+        if !val.isEmpty {
             return val
-        } else if (attributeKey.lowercased().startsWith(Node.abs)) {
+        } else if (attributeKey.lowercased().starts(with: Node.abs)) {
             return try absUrl(attributeKey.substring(Node.abs.count))
         } else {return Node.empty}
+    }
+    
+    open func attr(_ attributeKey: String) throws -> String {
+        return try String(decoding: attr(attributeKey.utf8Array), as: UTF8.self)
     }
 
     /**
@@ -98,8 +106,14 @@ open class Node: Equatable, Hashable {
      * @return this (for chaining)
      */
     @discardableResult
-    open func attr(_ attributeKey: String, _ attributeValue: String)throws->Node {
+    open func attr(_ attributeKey: [UInt8], _ attributeValue: [UInt8]) throws -> Node {
         try attributes?.put(attributeKey, attributeValue)
+        return self
+    }
+    
+    @discardableResult
+    open func attr(_ attributeKey: String, _ attributeValue: String) throws -> Node {
+        try attributes?.put(attributeKey.utf8Array, attributeValue.utf8Array)
         return self
     }
 
@@ -112,11 +126,11 @@ open class Node: Equatable, Hashable {
 		guard let attributes = attributes else {
 			return false
 		}
-        if (attributeKey.startsWith(Node.abs)) {
-            let key: String = attributeKey.substring(Node.abs.count)
+        if (attributeKey.starts(with: String(decoding: Node.abs, as: UTF8.self))) {
+            let key = attributeKey.substring(String(decoding: Node.abs, as: UTF8.self).count)
             do {
                 let abs = try absUrl(key)
-                if (attributes.hasKeyIgnoreCase(key: key) &&  !Node.empty.equals(abs)) {
+                if (attributes.hasKeyIgnoreCase(key: key) && "" != abs) {
                     return true
                 }
             } catch {
@@ -126,16 +140,21 @@ open class Node: Equatable, Hashable {
         }
         return attributes.hasKeyIgnoreCase(key: attributeKey)
     }
-
+    
     /**
      * Remove an attribute from this element.
      * @param attributeKey The attribute to remove.
      * @return this (for chaining)
      */
     @discardableResult
-    open func removeAttr(_ attributeKey: String)throws->Node {
+    open func removeAttr(_ attributeKey: [UInt8]) throws -> Node {
         try attributes?.removeIgnoreCase(key: attributeKey)
         return self
+    }
+    
+    @discardableResult
+    open func removeAttr(_ attributeKey: String) throws -> Node {
+        return try removeAttr(attributeKey.utf8Array)
     }
 
     /**
@@ -143,25 +162,33 @@ open class Node: Equatable, Hashable {
      @return base URI
      */
     open func getBaseUri() -> String {
-        return baseUri!
+        return String(decoding: getBaseUriUTF8(), as: UTF8.self)
+    }
+    
+    open func getBaseUriUTF8() -> [UInt8] {
+        return baseUri ?? []
     }
 
     /**
      Update the base URI of this node and all of its descendants.
      @param baseUri base URI to set
      */
-    open func setBaseUri(_ baseUri: String)throws {
+    open func setBaseUri(_ baseUri: String) throws {
+        try setBaseUri(baseUri.utf8Array)
+    }
+    
+    open func setBaseUri(_ baseUri: [UInt8]) throws {
         class nodeVisitor: NodeVisitor {
-            private let baseUri: String
-            init(_ baseUri: String) {
+            private let baseUri: [UInt8]
+            init(_ baseUri: [UInt8]) {
                 self.baseUri = baseUri
             }
 
-            func head(_ node: Node, _ depth: Int)throws {
+            func head(_ node: Node, _ depth: Int) throws {
                 node.baseUri = baseUri
             }
 
-            func tail(_ node: Node, _ depth: Int)throws {
+            func tail(_ node: Node, _ depth: Int) throws {
             }
         }
         try traverse(nodeVisitor(baseUri))
@@ -190,13 +217,18 @@ open class Node: Equatable, Hashable {
      * @see #attr
      * @see java.net.URL#URL(java.net.URL, String)
      */
-    open func absUrl(_ attributeKey: String)throws->String {
+    open func absUrl(_ attributeKey: String) throws -> String {
+        return try String(decoding: absUrl(attributeKey.utf8Array), as: UTF8.self)
+    }
+    
+    open func absUrl(_ attributeKey: [UInt8]) throws -> [UInt8] {
         try Validate.notEmpty(string: attributeKey)
 
-        if (!hasAttr(attributeKey)) {
+        let keyStr = String(decoding: attributeKey, as: UTF8.self)
+        if (!hasAttr(keyStr)) {
             return Node.empty // nothing to make absolute with
         } else {
-            return StringUtil.resolve(baseUri!, relUrl: try attr(attributeKey))
+            return StringUtil.resolve(String(decoding: baseUri!, as: UTF8.self), relUrl: try attr(keyStr)).utf8Array
         }
     }
 
@@ -276,7 +308,7 @@ open class Node: Equatable, Hashable {
     /**
      * Remove (delete) this node from the DOM tree. If this node has children, they are also removed.
      */
-    open func remove()throws {
+    open func remove() throws {
         try parentNode?.removeChild(self)
     }
 
@@ -287,7 +319,7 @@ open class Node: Equatable, Hashable {
      * @see #after(String)
      */
     @discardableResult
-    open func before(_ html: String)throws->Node {
+    open func before(_ html: String) throws -> Node {
         try addSiblingHtml(siblingIndex, html)
         return self
     }
@@ -299,7 +331,7 @@ open class Node: Equatable, Hashable {
      * @see #after(Node)
      */
     @discardableResult
-    open func before(_ node: Node)throws ->Node {
+    open func before(_ node: Node) throws -> Node {
         try Validate.notNull(obj: node)
         try Validate.notNull(obj: parentNode)
 
@@ -314,7 +346,7 @@ open class Node: Equatable, Hashable {
      * @see #before(String)
      */
     @discardableResult
-    open func after(_ html: String)throws ->Node {
+    open func after(_ html: String) throws -> Node {
         try addSiblingHtml(siblingIndex + 1, html)
         return self
     }
@@ -326,7 +358,7 @@ open class Node: Equatable, Hashable {
      * @see #before(Node)
      */
     @discardableResult
-    open func after(_ node: Node)throws->Node {
+    open func after(_ node: Node) throws -> Node {
         try Validate.notNull(obj: node)
         try Validate.notNull(obj: parentNode)
 
@@ -334,12 +366,12 @@ open class Node: Equatable, Hashable {
         return self
     }
 
-    private func addSiblingHtml(_ index: Int, _ html: String)throws {
+    private func addSiblingHtml(_ index: Int, _ html: String) throws {
         try Validate.notNull(obj: parentNode)
 
         let context: Element? = parent() as? Element
 
-        let nodes: Array<Node> = try Parser.parseFragment(html, context, getBaseUri())
+        let nodes: Array<Node> = try Parser.parseFragment(html, context, getBaseUriUTF8())
         try parentNode?.addChildren(index, nodes)
     }
 
@@ -350,7 +382,7 @@ open class Node: Equatable, Hashable {
      * @see #before(String)
      */
     @discardableResult
-    open func after(html: String)throws->Node {
+    open func after(html: String) throws -> Node {
         try addSiblingHtml(siblingIndex + 1, html)
         return self
     }
@@ -362,7 +394,7 @@ open class Node: Equatable, Hashable {
      * @see #before(Node)
      */
     @discardableResult
-    open func after(node: Node)throws->Node {
+    open func after(node: Node) throws -> Node {
         try Validate.notNull(obj: node)
         try Validate.notNull(obj: parentNode)
 
@@ -375,7 +407,7 @@ open class Node: Equatable, Hashable {
         try Validate.notNull(obj: parentNode)
 
         let context: Element? = parent() as? Element
-        let nodes: Array<Node> = try Parser.parseFragment(html, context, getBaseUri())
+        let nodes: Array<Node> = try Parser.parseFragment(html, context, getBaseUriUTF8())
         try parentNode?.addChildren(index, nodes)
     }
 
@@ -385,11 +417,11 @@ open class Node: Equatable, Hashable {
      @return this node, for chaining.
      */
     @discardableResult
-    open func wrap(_ html: String)throws->Node? {
-        try Validate.notEmpty(string: html)
+    open func wrap(_ html: String) throws -> Node? {
+        try Validate.notEmpty(string: html.utf8Array)
 
         let context: Element? = parent() as? Element
-        var wrapChildren: Array<Node> = try Parser.parseFragment(html, context, getBaseUri())
+        var wrapChildren: Array<Node> = try Parser.parseFragment(html, context, getBaseUriUTF8())
         let wrapNode: Node? = wrapChildren.count > 0 ? wrapChildren[0] : nil
         if (wrapNode == nil || !(((wrapNode as? Element) != nil))) { // nothing to wrap with; noop
             return nil
@@ -428,7 +460,7 @@ open class Node: Equatable, Hashable {
      * @see #wrap(String)
      */
     @discardableResult
-    open func unwrap()throws ->Node? {
+    open func unwrap() throws ->Node? {
         try Validate.notNull(obj: parentNode)
 
         let firstChild: Node? = childNodes.count > 0 ? childNodes[0] : nil
@@ -451,20 +483,20 @@ open class Node: Equatable, Hashable {
      * Replace this node in the DOM with the supplied node.
      * @param in the node that will will replace the existing node.
      */
-    public func replaceWith(_ input: Node)throws {
+    public func replaceWith(_ input: Node) throws {
         try Validate.notNull(obj: input)
         try Validate.notNull(obj: parentNode)
         try parentNode?.replaceChild(self, input)
     }
 
-    public func setParentNode(_ parentNode: Node)throws {
+    public func setParentNode(_ parentNode: Node) throws {
         if (self.parentNode != nil) {
         try self.parentNode?.removeChild(self)
         }
         self.parentNode = parentNode
     }
 
-    public func replaceChild(_ out: Node, _ input: Node)throws {
+    public func replaceChild(_ out: Node, _ input: Node) throws {
         try Validate.isTrue(val: out.parentNode === self)
         try Validate.notNull(obj: input)
         if (input.parentNode != nil) {
@@ -478,7 +510,7 @@ open class Node: Equatable, Hashable {
         out.parentNode = nil
     }
 
-    public func removeChild(_ out: Node)throws {
+    public func removeChild(_ out: Node) throws {
         try Validate.isTrue(val: out.parentNode === self)
         let index: Int = out.siblingIndex
         childNodes.remove(at: index)
@@ -486,12 +518,12 @@ open class Node: Equatable, Hashable {
         out.parentNode = nil
     }
 
-    public func addChildren(_ children: Node...)throws {
+    public func addChildren(_ children: Node...) throws {
         //most used. short circuit addChildren(int), which hits reindex children and array copy
         try addChildren(children)
     }
 
-    public func addChildren(_ children: [Node])throws {
+    public func addChildren(_ children: [Node]) throws {
         //most used. short circuit addChildren(int), which hits reindex children and array copy
         for child in children {
             try reparentChild(child)
@@ -501,11 +533,11 @@ open class Node: Equatable, Hashable {
         }
     }
 
-    public func addChildren(_ index: Int, _ children: Node...)throws {
+    public func addChildren(_ index: Int, _ children: Node...) throws {
         try addChildren(index, children)
     }
 
-    public func addChildren(_ index: Int, _ children: [Node])throws {
+    public func addChildren(_ index: Int, _ children: [Node]) throws {
         ensureChildNodes()
         for i in (0..<children.count).reversed() {
             let input: Node = children[i]
@@ -598,7 +630,7 @@ open class Node: Equatable, Hashable {
      * @return this node, for chaining
      */
     @discardableResult
-    open func traverse(_ nodeVisitor: NodeVisitor)throws->Node {
+    open func traverse(_ nodeVisitor: NodeVisitor) throws -> Node {
         let traversor: NodeTraversor = NodeTraversor(nodeVisitor)
         try traversor.traverse(self)
         return self
@@ -620,7 +652,7 @@ open class Node: Equatable, Hashable {
 
     // if this node has no document (or parent), retrieve the default output settings
     func getOutputSettings() -> OutputSettings {
-        return ownerDocument() != nil ? ownerDocument()!.outputSettings() : (Document(Node.empty)).outputSettings()
+        return ownerDocument() != nil ? ownerDocument()!.outputSettings() : (Document("")).outputSettings()
     }
 
     /**
@@ -737,7 +769,7 @@ open class Node: Equatable, Hashable {
     private class OuterHtmlVisitor: NodeVisitor {
         private var accum: StringBuilder
         private var out: OutputSettings
-        static private let  text = "#text"
+        static private let text = "#text".utf8Array
 
         init(_ accum: StringBuilder, _ out: OutputSettings) {
             self.accum = accum
@@ -755,7 +787,7 @@ open class Node: Equatable, Hashable {
             #if os(Linux)
             try node.outerHtmlTail(accum, depth, out)
             #else
-            if (!(node.nodeName() == OuterHtmlVisitor.text)) { // saves a void hit.
+            if (!(node.nodeNameUTF8() == OuterHtmlVisitor.text)) { // saves a void hit.
                 try node.outerHtmlTail(accum, depth, out)
             }
             #endif
@@ -791,7 +823,7 @@ extension Node: CustomStringConvertible {
 		} catch {
 
 		}
-		return Node.empty
+		return ""
 	}
 }
 

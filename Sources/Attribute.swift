@@ -12,20 +12,24 @@ open class Attribute {
     /// The element type of a dictionary: a tuple containing an individual
     /// key-value pair.
 
-    static let booleanAttributes: Set<String> = [
+    static let booleanAttributes: Set<[UInt8]> = Set([
         "allowfullscreen", "async", "autofocus", "checked", "compact", "controls", "declare", "default", "defer",
         "disabled", "formnovalidate", "hidden", "inert", "ismap", "itemscope", "multiple", "muted", "nohref",
         "noresize", "noshade", "novalidate", "nowrap", "open", "readonly", "required", "reversed", "seamless",
         "selected", "sortable", "truespeed", "typemustmatch"
-    ]
+    ].map { Array($0.utf8) })
 
-    var key: String
-    var value: String
+    var key: [UInt8]
+    var value: [UInt8]
 
-    public init(key: String, value: String) throws {
+    public init(key: [UInt8], value: [UInt8]) throws {
         try Validate.notEmpty(string: key)
         self.key = key.trim()
         self.value = value
+    }
+    
+    public convenience init(key: String, value: String) throws {
+        try self.init(key: key.utf8Array, value: value.utf8Array)
     }
 
     /**
@@ -33,6 +37,10 @@ open class Attribute {
      @return the attribute key
      */
     open func getKey() -> String {
+        return String(decoding: getKeyUTF8(), as: UTF8.self)
+    }
+    
+    open func getKeyUTF8() -> [UInt8] {
         return key
     }
 
@@ -40,9 +48,13 @@ open class Attribute {
      Set the attribute key; case is preserved.
      @param key the new key; must not be null
      */
-    open func setKey(key: String) throws {
+    open func setKey(key: [UInt8]) throws {
         try Validate.notEmpty(string: key)
         self.key = key.trim()
+    }
+    
+    open func setKey(key: String) throws {
+        try setKey(key: key.utf8Array)
     }
 
     /**
@@ -50,6 +62,10 @@ open class Attribute {
      @return the attribute value
      */
     open func getValue() -> String {
+        return String(decoding: getValueUTF8(), as: UTF8.self)
+    }
+    
+    open func getValueUTF8() -> [UInt8] {
         return value
     }
 
@@ -58,7 +74,7 @@ open class Attribute {
      @param value the new attribute value; must not be null
      */
     @discardableResult
-    open func setValue(value: String) -> String {
+    open func setValue(value: [UInt8]) -> [UInt8] {
         let old = self.value
         self.value = value
         return old
@@ -69,7 +85,7 @@ open class Attribute {
      @return HTML
      */
     public func html() -> String {
-        let accum =  StringBuilder()
+        let accum = StringBuilder()
 		html(accum: accum, out: (Document("")).outputSettings())
         return accum.toString()
     }
@@ -78,7 +94,7 @@ open class Attribute {
         accum.append(key)
         if (!shouldCollapseAttribute(out: out)) {
             accum.append("=\"")
-            Entities.escape(accum, value, out, true, false, false)
+            Entities.escape(accum, Array(value), out, true, false, false)
             accum.append("\"")
         }
     }
@@ -97,13 +113,13 @@ open class Attribute {
      * @param encodedValue HTML attribute encoded value
      * @return attribute
      */
-    public static func createFromEncoded(unencodedKey: String, encodedValue: String) throws ->Attribute {
+    public static func createFromEncoded(unencodedKey: [UInt8], encodedValue: [UInt8]) throws -> Attribute {
         let value = try Entities.unescape(string: encodedValue, strict: true)
         return try Attribute(key: unencodedKey, value: value)
     }
 
     public func isDataAttribute() -> Bool {
-        return key.startsWith(Attributes.dataPrefix) && key.count > Attributes.dataPrefix.count
+        return key.starts(with: Attributes.dataPrefix) && key.count > Attributes.dataPrefix.count
     }
 
     /**
@@ -113,7 +129,7 @@ open class Attribute {
      * @return  Returns whether collapsible or not
      */
     public final func shouldCollapseAttribute(out: OutputSettings) -> Bool {
-        return ("" == value  || value.equalsIgnoreCase(string: key))
+        return (Array("".utf8) == value  || value.equalsIgnoreCase(string: key))
             && out.syntax() == OutputSettings.Syntax.html
             && isBooleanAttribute()
     }
@@ -136,7 +152,7 @@ open class Attribute {
         } catch {
 
         }
-        return try! Attribute(key: "", value: "")
+        return try! Attribute(key: Array("".utf8), value: Array("".utf8))
     }
 }
 

@@ -8,8 +8,121 @@
 
 import Foundation
 
-extension String {
+extension Array: @retroactive Comparable where Element == UInt8 {
+    func hasPrefix(_ prefix: [UInt8]) -> Bool {
+        guard self.count >= prefix.count else { return false }
+        return zip(self, prefix).allSatisfy { $0 == $1 }
+    }
+    
+    func substring(_ beginPrefix: Int) -> [UInt8] {
+        return Array(self.dropFirst(beginPrefix))
+    }
+    
+    func caseInsensitiveCompare(_ other: [UInt8]) -> ComparisonResult {
+        for (byte1, byte2) in zip(self, other) {
+            let lower1 = (byte1 >= 65 && byte1 <= 90) ? byte1 + 32 : byte1
+            let lower2 = (byte2 >= 65 && byte2 <= 90) ? byte2 + 32 : byte2
+            if lower1 < lower2 { return .orderedAscending }
+            if lower1 > lower2 { return .orderedDescending }
+        }
+        return self.count < other.count ? .orderedAscending : (self.count > other.count ? .orderedDescending : .orderedSame)
+    }
+    
+    public static func < (lhs: [UInt8], rhs: [UInt8]) -> Bool {
+        for (byte1, byte2) in zip(lhs, rhs) {
+            if byte1 < byte2 {
+                return true
+            } else if byte1 > byte2 {
+                return false
+            }
+        }
+        return lhs.count < rhs.count
+    }
+    
+    func equals(_ string: String) -> Bool {
+        return self == string.utf8Array
+    }
+    
+    func equals(_ string: [UInt8]) -> Bool {
+        return self == string
+    }
 
+    func equalsIgnoreCase(string: [UInt8]?) -> Bool {
+        guard let string else { return false }
+        guard self.count == string.count else { return false }
+        
+        for (byte1, byte2) in zip(self, string) {
+            // Convert ASCII uppercase to lowercase by adding 32
+            let lowerByte1 = (byte1 >= 65 && byte1 <= 90) ? byte1 + 32 : byte1
+            let lowerByte2 = (byte2 >= 65 && byte2 <= 90) ? byte2 + 32 : byte2
+            if lowerByte1 != lowerByte2 {
+                return false
+            }
+        }
+        return true
+    }
+    
+    func unicodeScalars() -> [UnicodeScalar] {
+        var scalars: [UnicodeScalar] = []
+        var decoder = UTF8()
+        var iterator = makeIterator()
+        
+        while true {
+            switch decoder.decode(&iterator) {
+            case .scalarValue(let scalar):
+                scalars.append(scalar)
+            case .emptyInput:
+                return scalars
+            case .error:
+                // Skip invalid byte
+                _ = iterator.next()
+            }
+        }
+    }
+    
+    func lowercased() -> [UInt8] {
+        map { $0 >= 65 && $0 <= 90 ? $0 + 32 : $0 }
+    }
+    
+    func uppercased() -> [UInt8] {
+        map { $0 >= 97 && $0 <= 122 ? $0 - 32 : $0 }
+    }
+    
+    func trim() -> [UInt8] {
+        let whitespaces: Set<UInt8> = [9, 10, 13, 32] // '\t', '\n', '\r', ' ' (ASCII values)
+        
+        // Find the start index by skipping leading whitespace
+        var start = startIndex
+        while start < endIndex, whitespaces.contains(self[start]) {
+            formIndex(after: &start)
+        }
+        
+        // Find the end index by skipping trailing whitespace
+        var end = endIndex
+        while start < end, whitespaces.contains(self[index(before: end)]) {
+            formIndex(before: &end)
+        }
+        
+        return Array(self[start..<end])
+    }
+    
+    func toInt(radix: Int) -> Int? {
+        if let string = String(bytes: self, encoding: .utf8) {
+            return Int(string, radix: radix)
+        }
+        return nil
+    }
+}
+
+extension String {
+    var utf8Array: [UInt8] {
+        return Array(self.utf8)
+    }
+    
+    func equals(_ string: [UInt8]?) -> Bool {
+        return self.utf8Array == string
+    }
+    
 	subscript (i: Int) -> Character {
         return self[self.index(self.startIndex, offsetBy: i)]
     }

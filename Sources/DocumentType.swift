@@ -12,12 +12,12 @@ import Foundation
  * A {@code <!DOCTYPE>} node.
  */
 public class DocumentType: Node {
-    static let PUBLIC_KEY: String = "PUBLIC"
-    static let SYSTEM_KEY: String = "SYSTEM"
-    private static let NAME: String = "name"
-    private static let PUB_SYS_KEY: String = "pubSysKey"; // PUBLIC or SYSTEM
-    private static let PUBLIC_ID: String = "publicId"
-    private static let SYSTEM_ID: String = "systemId"
+    static let PUBLIC_KEY = "PUBLIC".utf8Array
+    static let SYSTEM_KEY = "SYSTEM".utf8Array
+    private static let NAME = "name".utf8Array
+    private static let PUB_SYS_KEY = "pubSysKey".utf8Array // PUBLIC or SYSTEM
+    private static let PUBLIC_ID = "publicId".utf8Array
+    private static let SYSTEM_ID = "systemId".utf8Array
     // todo: quirk mode from publicId and systemId
 
     /**
@@ -27,7 +27,11 @@ public class DocumentType: Node {
      * @param systemId the doctype's system ID
      * @param baseUri the doctype's base URI
      */
-    public init(_ name: String, _ publicId: String, _ systemId: String, _ baseUri: String) {
+    public convenience init(_ name: String, _ publicId: String, _ systemId: String, _ baseUri: String) {
+        self.init(name.utf8Array, publicId.utf8Array, systemId.utf8Array, baseUri.utf8Array)
+    }
+    
+    public init(_ name: [UInt8], _ publicId: [UInt8], _ systemId: [UInt8], _ baseUri: [UInt8]) {
         super.init(baseUri)
         do {
             try attr(DocumentType.NAME, name)
@@ -46,7 +50,7 @@ public class DocumentType: Node {
      * @param systemId the doctype's system ID
      * @param baseUri the doctype's base URI
      */
-    public init(_ name: String, _ pubSysKey: String?, _ publicId: String, _ systemId: String, _ baseUri: String) {
+    public init(_ name: [UInt8], _ pubSysKey: [UInt8]?, _ publicId: [UInt8], _ systemId: [UInt8], _ baseUri: [UInt8]) {
         super.init(baseUri)
         do {
             try attr(DocumentType.NAME, name)
@@ -58,6 +62,10 @@ public class DocumentType: Node {
         } catch {}
     }
 
+    public override func nodeNameUTF8() -> [UInt8] {
+        return nodeName().utf8Array
+    }
+    
     public override func nodeName() -> String {
         return "#doctype"
     }
@@ -100,9 +108,9 @@ public class DocumentType: Node {
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
     }
 
-    private func has(_ attribute: String) -> Bool {
+    private func has(_ attribute: [UInt8]) -> Bool {
         do {
-            return !StringUtil.isBlank(try attr(attribute))
+            return !StringUtil.isBlank(try String(decoding: attr(attribute), as: UTF8.self))
         } catch {return false}
     }
 

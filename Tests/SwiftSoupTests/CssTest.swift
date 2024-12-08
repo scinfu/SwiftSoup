@@ -54,47 +54,47 @@ class CssTest: XCTestCase {
         #endif
     }
 
-	func testFirstChild()throws {
+	func testFirstChild() throws {
 		try check(html.select("#pseudo :first-child"), "1")
 		try check(html.select("html:first-child"))
 	}
 
-	func testLastChild()throws {
+	func testLastChild() throws {
         try! check(html.select("#pseudo :last-child"), "10")
         try! check(html.select("html:last-child"))
 	}
 
-	func testNthChild_simple()throws {
+	func testNthChild_simple() throws {
 		for i in 1...10 {
 			try check(html.select("#pseudo :nth-child(\(i))"), "\(i)")
 		}
 	}
 
-	func testNthOfType_unknownTag()throws {
+	func testNthOfType_unknownTag() throws {
 		for i in 1...10 {
 			try check(html.select("#type svg:nth-of-type(\(i))"), "\(i)")
 		}
 	}
 
-	func testNthLastChild_simple()throws {
+	func testNthLastChild_simple() throws {
 		for i in 1...10 {
 			try check(html.select("#pseudo :nth-last-child(\(i))"), "\(11-i)")
 		}
 	}
 
-	func testNthOfType_simple()throws {
+	func testNthOfType_simple() throws {
 		for i in 1...10 {
 			try check(html.select("#type p:nth-of-type(\(i))"), "\(i)")
 		}
 	}
 
-	func testNthLastOfType_simple()throws {
+	func testNthLastOfType_simple() throws {
 		for i in 1...10 {
 			try check(html.select("#type :nth-last-of-type(\(i))"), "\(11-i)", "\(11-i)", "\(11-i)", "\(11-i)")
 		}
 	}
 
-	func testNthChild_advanced()throws {
+	func testNthChild_advanced() throws {
 		try check(html.select("#pseudo :nth-child(-5)"))
 		try check(html.select("#pseudo :nth-child(odd)"), "1", "3", "5", "7", "9")
 		try check(html.select("#pseudo :nth-child(2n-1)"), "1", "3", "5", "7", "9")
@@ -107,7 +107,7 @@ class CssTest: XCTestCase {
 		try check(html.select("#pseudo :nth-child(+5)"), "5")
 	}
 
-	func testNthOfType_advanced()throws {
+	func testNthOfType_advanced() throws {
 		try check(html.select("#type :nth-of-type(-5)"))
 		try check(html.select("#type p:nth-of-type(odd)"), "1", "3", "5", "7", "9")
 		try check(html.select("#type em:nth-of-type(2n-1)"), "1", "3", "5", "7", "9")
@@ -120,7 +120,7 @@ class CssTest: XCTestCase {
 		try check(html.select("#type :nth-of-type(+5)"), "5", "5", "5", "5")
 	}
 
-	func testNthLastChild_advanced()throws {
+	func testNthLastChild_advanced() throws {
 		try check(html.select("#pseudo :nth-last-child(-5)"))
 		try check(html.select("#pseudo :nth-last-child(odd)"), "2", "4", "6", "8", "10")
 		try check(html.select("#pseudo :nth-last-child(2n-1)"), "2", "4", "6", "8", "10")
@@ -134,7 +134,7 @@ class CssTest: XCTestCase {
 		try check(html.select("#pseudo :nth-last-child(+5)"), "6")
 	}
 
-	func testNthLastOfType_advanced()throws {
+	func testNthLastOfType_advanced() throws {
 		try check(html.select("#type :nth-last-of-type(-5)"))
 		try check(html.select("#type p:nth-last-of-type(odd)"), "2", "4", "6", "8", "10")
 		try check(html.select("#type em:nth-last-of-type(2n-1)"), "2", "4", "6", "8", "10")
@@ -148,15 +148,15 @@ class CssTest: XCTestCase {
 		try check(html.select("#type :nth-last-of-type(+5)"), "6", "6", "6", "6")
 	}
 
-	func testFirstOfType()throws {
+	func testFirstOfType() throws {
 		try check(html.select("div:not(#only) :first-of-type"), "1", "1", "1", "1", "1")
 	}
 
-	func testLastOfType()throws {
+	func testLastOfType() throws {
 		try check(html.select("div:not(#only) :last-of-type"), "10", "10", "10", "10", "10")
 	}
 
-	func testEmpty()throws {
+	func testEmpty() throws {
 		let sel: Elements = try html.select(":empty")
 		XCTAssertEqual(3, sel.size())
 		XCTAssertEqual("head", sel.get(0).tagName())
@@ -164,7 +164,7 @@ class CssTest: XCTestCase {
 		XCTAssertEqual("p", sel.get(2).tagName())
 	}
 
-	func testOnlyChild()throws {
+	func testOnlyChild() throws {
 		let sel: Elements = try html.select("span :only-child")
 		XCTAssertEqual(1, sel.size())
 		XCTAssertEqual("br", sel.get(0).tagName())
@@ -172,7 +172,7 @@ class CssTest: XCTestCase {
 		try check(html.select("#only :only-child"), "only")
 	}
 
-	func testOnlyOfType()throws {
+	func testOnlyOfType() throws {
 		let sel: Elements = try html.select(":only-of-type")
 		XCTAssertEqual(6, sel.size())
 		XCTAssertEqual("head", sel.get(0).tagName())
@@ -196,7 +196,7 @@ class CssTest: XCTestCase {
 		}
 	}
 
-	func testRoot()throws {
+	func testRoot() throws {
 		let sel: Elements = try html.select(":root")
 		XCTAssertEqual(1, sel.size())
 		XCTAssertNotNil(sel.get(0))

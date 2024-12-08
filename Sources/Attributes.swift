@@ -23,7 +23,7 @@ import Foundation
  */
 open class Attributes: NSCopying {
 
-    public static var dataPrefix: String = "data-"
+    public static var dataPrefix: [UInt8] = "data-".utf8Array
 
     // Stored by lowercased key, but key case is checked against the copy inside
     // the Attribute on retrieval.
@@ -38,10 +38,14 @@ open class Attributes: NSCopying {
      @see #hasKey(String)
      */
     open func get(key: String) -> String {
-        if let attr = attributes.first(where: { $0.getKey() == key }) {
-            return attr.getValue()
+        return String(decoding: get(key: key.utf8Array), as: UTF8.self)
+    }
+    
+    open func get(key: [UInt8]) -> [UInt8] {
+        if let attr = attributes.first(where: { $0.getKeyUTF8() == key }) {
+            return attr.getValueUTF8()
         }
-        return ""
+        return "".utf8Array
     }
 
     /**
@@ -49,12 +53,16 @@ open class Attributes: NSCopying {
      * @param key the attribute name
      * @return the first matching attribute value if set; or empty string if not set.
      */
-    open func getIgnoreCase(key: String )throws -> String {
+    open func getIgnoreCase(key: String) throws -> String {
+        return try String(decoding: getIgnoreCase(key: key.utf8Array), as: UTF8.self)
+    }
+    
+    open func getIgnoreCase(key: [UInt8]) throws -> [UInt8] {
         try Validate.notEmpty(string: key)
-        if let attr = attributes.first(where: { $0.getKey().caseInsensitiveCompare(key) == .orderedSame }) {
-            return attr.getValue()
+        if let attr = attributes.first(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame }) {
+            return attr.getValueUTF8()
         }
-        return ""
+        return "".utf8Array
     }
 
     /**
@@ -62,9 +70,13 @@ open class Attributes: NSCopying {
      @param key attribute key
      @param value attribute value
      */
-    open func put(_ key: String, _ value: String) throws {
+    open func put(_ key: [UInt8], _ value: [UInt8]) throws {
         let attr = try Attribute(key: key, value: value)
         put(attribute: attr)
+    }
+    
+    open func put(_ key: String, _ value: String) throws {
+        return try put(key.utf8Array, value.utf8Array)
     }
 
     /**
@@ -72,7 +84,7 @@ open class Attributes: NSCopying {
      @param key attribute key
      @param value attribute value
      */
-    open func put(_ key: String, _ value: Bool) throws {
+    open func put(_ key: [UInt8], _ value: Bool) throws {
         if (value) {
             try put(attribute: BooleanAttribute(key: key))
         } else {
@@ -97,9 +109,13 @@ open class Attributes: NSCopying {
      Remove an attribute by key. <b>Case sensitive.</b>
      @param key attribute key to remove
      */
-    open func remove(key: String)throws {
+    open func remove(key: String) throws {
+        try remove(key: key.utf8Array)
+    }
+    
+    open func remove(key: [UInt8]) throws {
         try Validate.notEmpty(string: key)
-        if let ix = attributes.firstIndex(where: { $0.getKey() == key }) {
+        if let ix = attributes.firstIndex(where: { $0.getKeyUTF8() == key }) {
             attributes.remove(at: ix)        }
     }
 
@@ -107,9 +123,9 @@ open class Attributes: NSCopying {
      Remove an attribute by key. <b>Case insensitive.</b>
      @param key attribute key to remove
      */
-    open func removeIgnoreCase(key: String ) throws {
+    open func removeIgnoreCase(key: [UInt8]) throws {
         try Validate.notEmpty(string: key)
-        if let ix = attributes.firstIndex(where: { $0.getKey().caseInsensitiveCompare(key) == .orderedSame}) {
+        if let ix = attributes.firstIndex(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame}) {
             attributes.remove(at: ix)
         }
     }
@@ -120,7 +136,11 @@ open class Attributes: NSCopying {
      @return true if key exists, false otherwise
      */
     open func hasKey(key: String) -> Bool {
-        return attributes.contains(where: { $0.getKey() == key })
+        return hasKey(key: key.utf8Array)
+    }
+    
+    open func hasKey(key: [UInt8]) -> Bool {
+        return attributes.contains(where: { $0.getKeyUTF8() == key })
     }
 
     /**
@@ -129,7 +149,11 @@ open class Attributes: NSCopying {
      @return true if key exists, false otherwise
      */
     open func hasKeyIgnoreCase(key: String) -> Bool {
-        return attributes.contains(where: { $0.getKey().caseInsensitiveCompare(key) == .orderedSame})
+        return hasKeyIgnoreCase(key: key.utf8Array)
+    }
+    
+    open func hasKeyIgnoreCase(key: [UInt8]) -> Bool {
+        return attributes.contains(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame})
     }
 
     /**
@@ -222,7 +246,7 @@ open class Attributes: NSCopying {
         return self.copy() as! Attributes
     }
 
-    fileprivate static func dataKey(key: String) -> String {
+    fileprivate static func dataKey(key: [UInt8]) -> [UInt8] {
         return dataPrefix + key
     }
 

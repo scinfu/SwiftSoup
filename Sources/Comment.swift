@@ -12,20 +12,24 @@ import Foundation
  A comment node.
  */
 public class Comment: Node {
-    private static let COMMENT_KEY: String = "comment"
+    private static let COMMENT_KEY: [UInt8] = "comment".utf8Array
 
     /**
      Create a new comment node.
      @param data The contents of the comment
      @param baseUri base URI
      */
-    public init(_ data: String, _ baseUri: String) {
+    public init(_ data: [UInt8], _ baseUri: [UInt8]) {
         super.init(baseUri)
         do {
             try attributes?.put(Comment.COMMENT_KEY, data)
         } catch {}
     }
 
+    public override func nodeNameUTF8() -> [UInt8] {
+        return nodeName().utf8Array
+    }
+    
     public override func nodeName() -> String {
         return "#comment"
     }
@@ -35,6 +39,10 @@ public class Comment: Node {
      @return comment content
      */
     public func getData() -> String {
+        return String(decoding: getDataUTF8(), as: UTF8.self)
+    }
+    
+    public func getDataUTF8() -> [UInt8] {
 		return attributes!.get(key: Comment.COMMENT_KEY)
     }
 

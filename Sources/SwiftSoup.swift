@@ -186,7 +186,7 @@ import Foundation
 	
 	@see Cleaner#clean(Document)
 	*/
-	public  func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist)throws->String? {
+	public  func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist) throws -> String? {
 		let dirty: Document = try parseBodyFragment(bodyHtml, baseUri)
 		let cleaner: Cleaner = Cleaner(whitelist)
 		let clean: Document = try cleaner.clean(dirty)
@@ -203,7 +203,7 @@ import Foundation
 	
 	@see Cleaner#clean(Document)
 	*/
-	public  func clean(_ bodyHtml: String, _ whitelist: Whitelist)throws->String? {
+	public  func clean(_ bodyHtml: String, _ whitelist: Whitelist) throws -> String? {
 		return try SwiftSoup.clean(bodyHtml, "", whitelist)
 	}
 

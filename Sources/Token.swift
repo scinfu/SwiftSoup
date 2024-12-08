@@ -31,13 +31,13 @@ open class Token {
 		sb.clear()
 	}
 
-	open func toString()throws->String {
+	open func toString() throws -> String {
 		return String(describing: Swift.type(of: self))
 	}
 
 	final class Doctype: Token {
 		let name: StringBuilder = StringBuilder()
-        var pubSysKey: String?
+        var pubSysKey: [UInt8]?
 		let publicIdentifier: StringBuilder = StringBuilder()
 		let systemIdentifier: StringBuilder = StringBuilder()
 		var forceQuirks: Bool  = false
@@ -57,20 +57,20 @@ open class Token {
 			return self
 		}
 
-		func getName() -> String {
-			return name.toString()
+		func getName() -> [UInt8] {
+            return name.buffer
 		}
 
-        func getPubSysKey() -> String? {
+        func getPubSysKey() -> [UInt8]? {
             return pubSysKey
         }
 
-		func getPublicIdentifier() -> String {
-			return publicIdentifier.toString()
+		func getPublicIdentifier() -> [UInt8] {
+            return publicIdentifier.buffer
 		}
 
-        public func getSystemIdentifier() -> String {
-			return systemIdentifier.toString()
+        public func getSystemIdentifier() -> [UInt8] {
+            return systemIdentifier.buffer
 		}
 
         public func isForceQuirks() -> Bool {
@@ -79,11 +79,11 @@ open class Token {
 	}
 
 	class Tag: Token {
-		public var _tagName: String?
-		public var _normalName: String? // lc version of tag name, for case insensitive tree build
-		private var _pendingAttributeName: String? // attribute names are generally caught in one hop, not accumulated
+		public var _tagName: [UInt8]?
+		public var _normalName: [UInt8]? // lc version of tag name, for case insensitive tree build
+		private var _pendingAttributeName: [UInt8]? // attribute names are generally caught in one hop, not accumulated
 		private let _pendingAttributeValue: StringBuilder = StringBuilder() // but values are accumulated, from e.g. & in hrefs
-		private var _pendingAttributeValueS: String? // try to get attr vals in one shot, vs Builder
+		private var _pendingAttributeValueS: [UInt8]? // try to get attr vals in one shot, vs Builder
 		private var _hasEmptyAttributeValue: Bool = false // distinguish boolean attribute from empty string value
 		private var _hasPendingAttributeValue: Bool = false
 		public var _selfClosing: Bool = false
@@ -108,7 +108,7 @@ open class Token {
 			return self
 		}
 
-		func newAttribute()throws {
+		func newAttribute() throws {
 			//            if (_attributes == nil){
 			//                _attributes = Attributes()
 			//            }
@@ -116,11 +116,14 @@ open class Token {
 			if (_pendingAttributeName != nil) {
 				var attribute: Attribute
 				if (_hasPendingAttributeValue) {
-					attribute = try Attribute(key: _pendingAttributeName!, value: !_pendingAttributeValue.isEmpty ? _pendingAttributeValue.toString() : _pendingAttributeValueS!)
+                    attribute = try Attribute(
+                        key: _pendingAttributeName!,
+                        value: !_pendingAttributeValue.isEmpty ? _pendingAttributeValue.buffer : _pendingAttributeValueS!
+                    )
 				} else if (_hasEmptyAttributeValue) {
-					attribute = try Attribute(key: _pendingAttributeName!, value: "")
+                    attribute = try Attribute(key: _pendingAttributeName!, value: [])
 				} else {
-					attribute = try  BooleanAttribute(key: _pendingAttributeName!)
+					attribute = try BooleanAttribute(key: _pendingAttributeName!)
 				}
 				_attributes.put(attribute: attribute)
 			}
@@ -131,7 +134,7 @@ open class Token {
 			_pendingAttributeValueS = nil
 		}
 
-		func finaliseTag()throws {
+		func finaliseTag() throws {
 			// finalises for emit
 			if (_pendingAttributeName != nil) {
 				// todo: check if attribute name exists; if so, drop and error
@@ -139,17 +142,17 @@ open class Token {
 			}
 		}
 
-		func name()throws->String { // preserves case, for input into Tag.valueOf (which may drop case)
-			try Validate.isFalse(val: _tagName == nil || _tagName!.unicodeScalars.count == 0)
+		func name() throws -> [UInt8] { // preserves case, for input into Tag.valueOf (which may drop case)
+            try Validate.isFalse(val: _tagName == nil || _tagName!.isEmpty)
 			return _tagName!
 		}
 
-		func normalName() -> String? { // loses case, used in tree building for working out where in tree it should go
+		func normalName() -> [UInt8]? { // loses case, used in tree building for working out where in tree it should go
 			return _normalName
 		}
 
 		@discardableResult
-		func name(_ name: String) -> Tag {
+		func name(_ name: [UInt8]) -> Tag {
 			_tagName = name
 			_normalName = name.lowercased()
 			return self
@@ -164,24 +167,24 @@ open class Token {
 		}
 
 		// these appenders are rarely hit in not null state-- caused by null chars.
-		func appendTagName(_ append: String) {
-			_tagName = _tagName == nil ? append : _tagName!.appending(append)
+		func appendTagName(_ append: [UInt8]) {
+			_tagName = _tagName == nil ? append : (_tagName! + append)
 			_normalName = _tagName?.lowercased()
 		}
 
 		func appendTagName(_ append: UnicodeScalar) {
-			appendTagName("\(append)")
+            appendTagName(Array(append.utf8))
 		}
 
-		func appendAttributeName(_ append: String) {
-			_pendingAttributeName = _pendingAttributeName == nil ? append : _pendingAttributeName?.appending(append)
+		func appendAttributeName(_ append: [UInt8]) {
+			_pendingAttributeName = _pendingAttributeName == nil ? append : (_pendingAttributeName ?? [] + append)
 		}
 
 		func appendAttributeName(_ append: UnicodeScalar) {
-			appendAttributeName("\(append)")
+            appendAttributeName(Array(append.utf8))
 		}
 
-		func appendAttributeValue(_ append: String) {
+		func appendAttributeValue(_ append: [UInt8]) {
 			ensureAttributeValue()
 			if _pendingAttributeValue.isEmpty {
 				_pendingAttributeValueS = append
@@ -237,18 +240,18 @@ open class Token {
 		}
 
 		@discardableResult
-		func nameAttr(_ name: String, _ attributes: Attributes) -> StartTag {
+		func nameAttr(_ name: [UInt8], _ attributes: Attributes) -> StartTag {
 			self._tagName = name
 			self._attributes = attributes
 			_normalName = _tagName?.lowercased()
 			return self
 		}
 
-        public override func toString()throws->String {
+        public override func toString() throws -> String {
 			if (_attributes.size() > 0) {
-				return try "<" + (name()) + " " + (_attributes.toString()) + ">"
+                return "<" + String(decoding: try name(), as: UTF8.self) + " " + (try _attributes.toString()) + ">"
 			} else {
-				return try "<" + name() + ">"
+                return "<" + String(decoding: try name(), as: UTF8.self) + ">"
 			}
 		}
 	}
@@ -259,8 +262,8 @@ open class Token {
 			type = TokenType.EndTag
 		}
 
-        public override func toString()throws->String {
-			return "</" + (try name()) + ">"
+        public override func toString() throws -> String {
+            return "</" + String(decoding: try name(), as: UTF8.self) + ">"
 		}
 	}
 
@@ -280,17 +283,17 @@ open class Token {
 			type = TokenType.Comment
 		}
 
-		func getData() -> String {
-			return data.toString()
+		func getData() -> [UInt8] {
+            return data.buffer
 		}
 
-        public override func toString()throws->String {
-			return "<!--" + getData() + "-->"
+        public override func toString() throws -> String {
+            return "<!--" + String(decoding: getData(), as: UTF8.self) + "-->"
 		}
 	}
 
 	final class Char: Token {
-		public var data: String?
+		public var data: [UInt8]?
 
 		override init() {
 			super.init()
@@ -304,18 +307,18 @@ open class Token {
 		}
 
 		@discardableResult
-		func data(_ data: String) -> Char {
+		func data(_ data: [UInt8]) -> Char {
 			self.data = data
 			return self
 		}
 
-		func getData() -> String? {
+		func getData() -> [UInt8]? {
 			return data
 		}
 
-        public override func toString()throws->String {
+        public override func toString() throws -> String {
 			try Validate.notNull(obj: data)
-			return getData()!
+            return String(decoding: getData()!, as: UTF8.self) ?? ""
 		}
 	}
 

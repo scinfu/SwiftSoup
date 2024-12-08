@@ -15,7 +15,7 @@ open class Document: Element {
 
     private var _outputSettings: OutputSettings  = OutputSettings()
     private var _quirksMode: Document.QuirksMode = QuirksMode.noQuirks
-    private let _location: String
+    private let _location: [UInt8]
     private var updateMetaCharset: Bool = false
 
     /**
@@ -24,9 +24,14 @@ open class Document: Element {
      @see SwiftSoup#parse
      @see #createShell
      */
+    public init(_ baseUri: [UInt8]) {
+        _location = baseUri
+        super.init(try! Tag.valueOf("#root".utf8Array, ParseSettings.htmlDefault), baseUri)
+    }
+    
     public init(_ baseUri: String) {
-        self._location = baseUri
-        super.init(try! Tag.valueOf("#root", ParseSettings.htmlDefault), baseUri)
+        _location = baseUri.utf8Array
+        super.init(try! Tag.valueOf("#root".utf8Array, ParseSettings.htmlDefault), _location)
     }
 
     /**
@@ -35,11 +40,15 @@ open class Document: Element {
      @return document with html, head, and body elements.
      */
     static public func createShell(_ baseUri: String) -> Document {
+        createShell(baseUri.utf8Array)
+    }
+    
+    static public func createShell(_ baseUri: [UInt8]) -> Document {
         let doc: Document = Document(baseUri)
         let html: Element = try! doc.appendElement("html")
         try! html.appendElement("head")
         try! html.appendElement("body")
-
+        
         return doc
     }
 
@@ -49,7 +58,7 @@ open class Document: Element {
      * @return location
      */
     public func location() -> String {
-    return _location
+        return String(decoding: _location, as: UTF8.self)
     }
 
     /**
@@ -57,7 +66,7 @@ open class Document: Element {
      @return {@code head}
      */
     public func head() -> Element? {
-        return findFirstElementByTagName("head", self)
+        return findFirstElementByTagName("head".utf8Array, self)
     }
 
     /**
@@ -65,7 +74,7 @@ open class Document: Element {
      @return {@code body}
      */
     public func body() -> Element? {
-        return findFirstElementByTagName("body", self)
+        return findFirstElementByTagName("body".utf8Array, self)
     }
 
     /**
@@ -97,8 +106,8 @@ open class Document: Element {
      @param tagName element tag name (e.g. {@code a})
      @return new element
      */
-    public func createElement(_ tagName: String)throws->Element {
-        return try Element(Tag.valueOf(tagName, ParseSettings.preserveCase), self.getBaseUri())
+    public func createElement(_ tagName: String) throws -> Element {
+        return try Element(Tag.valueOf(tagName.utf8Array, ParseSettings.preserveCase), self.getBaseUriUTF8())
     }
 
     /**
@@ -107,8 +116,8 @@ open class Document: Element {
      @return this document after normalisation
      */
     @discardableResult
-    public func normalise()throws->Document {
-        var htmlE: Element? = findFirstElementByTagName("html", self)
+    public func normalise() throws -> Document {
+        var htmlE: Element? = findFirstElementByTagName("html".utf8Array, self)
         if (htmlE == nil) {
             htmlE = try appendElement("html")
         }
@@ -149,7 +158,7 @@ open class Document: Element {
         for i in (0..<toMove.count).reversed() {
             let node: Node = toMove[i]
             try element.removeChild(node)
-            try body()?.prependChild(TextNode(" ", ""))
+            try body()?.prependChild(TextNode(" ".utf8Array, []))
             try body()?.prependChild(node)
         }
     }
@@ -179,8 +188,8 @@ open class Document: Element {
     }
 
     // fast method to get first by tag name, used for html, head, body finders
-    private func findFirstElementByTagName(_ tag: String, _ node: Node) -> Element? {
-        if (node.nodeName()==tag) {
+    private func findFirstElementByTagName(_ tag: [UInt8], _ node: Node) -> Element? {
+        if (node.nodeNameUTF8() == tag) {
             return node as? Element
         } else {
             for child: Node in node.childNodes {
@@ -208,8 +217,12 @@ open class Document: Element {
         return self
     }
 
-    open override func nodeName() -> String {
-    return "#document"
+    public override func nodeNameUTF8() -> [UInt8] {
+        return nodeName().utf8Array
+    }
+    
+    public override func nodeName() -> String {
+        return "#document"
     }
 
     /**
@@ -302,7 +315,7 @@ open class Document: Element {
      * <li><b>Xml:</b> <i>&lt;?xml version="1.0" encoding="CHARSET"&gt;</i></li>
      * </ul>
      */
-    private func ensureMetaCharsetElement()throws {
+    private func ensureMetaCharsetElement() throws {
         if (updateMetaCharset) {
             let syntax: OutputSettings.Syntax = outputSettings().syntax()
 
@@ -329,23 +342,23 @@ open class Document: Element {
                 if let decl = (node as? XmlDeclaration) {
 
                     if (decl.name()=="xml") {
-                        try decl.attr("encoding", charset().displayName())
+                        try decl.attr("encoding".utf8Array, charset().displayName().utf8Array)
 
-                        _ = try  decl.attr("version")
-                        try decl.attr("version", "1.0")
+                        _ = try  decl.attr("version".utf8Array)
+                        try decl.attr("version".utf8Array, "1.0".utf8Array)
                     } else {
                         try Validate.notNull(obj: baseUri)
-                        let decl = XmlDeclaration("xml", baseUri!, false)
-                        try decl.attr("version", "1.0")
-                        try decl.attr("encoding", charset().displayName())
+                        let decl = XmlDeclaration("xml".utf8Array, baseUri!, false)
+                        try decl.attr("version".utf8Array, "1.0".utf8Array)
+                        try decl.attr("encoding".utf8Array, charset().displayName().utf8Array)
 
                         try prependChild(decl)
                     }
                 } else {
                     try Validate.notNull(obj: baseUri)
-                    let decl = XmlDeclaration("xml", baseUri!, false)
-                    try decl.attr("version", "1.0")
-                    try decl.attr("encoding", charset().displayName())
+                    let decl = XmlDeclaration("xml".utf8Array, baseUri!, false)
+                    try decl.attr("version".utf8Array, "1.0".utf8Array)
+                    try decl.attr("encoding".utf8Array, charset().displayName().utf8Array)
 
                     try prependChild(decl)
                 }

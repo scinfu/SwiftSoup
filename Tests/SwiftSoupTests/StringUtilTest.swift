@@ -94,7 +94,7 @@ class StringUtilTest: XCTestCase {
         XCTAssertEqual("hello there", StringUtil.normaliseWhitespace("hello\nthere"))
     }
 
-    func testNormaliseWhiteSpaceHandlesHighSurrogates()throws {
+    func testNormaliseWhiteSpaceHandlesHighSurrogates() throws {
         let test71540chars = "\\u{d869}\\u{deb2}\\u{304b}\\u{309a}  1"
         let test71540charsExpectedSingleWhitespace = "\\u{d869}\\u{deb2}\\u{304b}\\u{309a} 1"
 

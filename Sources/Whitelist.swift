@@ -193,7 +193,7 @@ public class Whitelist {
      @return this (for chaining)
      */
     @discardableResult
-    open func addTags(_ tags: String...)throws ->Whitelist {
+    open func addTags(_ tags: String...) throws -> Whitelist {
         for tagName in tags {
             try Validate.notEmpty(string: tagName)
             tagNames.insert(TagName.valueOf(tagName))
@@ -208,7 +208,7 @@ public class Whitelist {
      @return this (for chaining)
      */
     @discardableResult
-    open func removeTags(_ tags: String...)throws ->Whitelist {
+    open func removeTags(_ tags: String...) throws -> Whitelist {
         try Validate.notNull(obj: tags)
 
         for tag in tags {
@@ -504,7 +504,7 @@ public class Whitelist {
      * @param tag test tag
      * @return true if allowed
      */
-    public func isSafeTag(_ tag: String) -> Bool {
+    public func isSafeTag(_ tag: [UInt8]) -> Bool {
         return tagNames.contains(TagName.valueOf(tag))
     }
 
@@ -534,12 +534,12 @@ public class Whitelist {
         return try !(tagName == ":all") && isSafeAttribute(":all", el, attr)
     }
 
-    private func testValidProtocol(_ el: Element, _ attr: Attribute, _ protocols: Set<Protocol>)throws->Bool {
+    private func testValidProtocol(_ el: Element, _ attr: Attribute, _ protocols: Set<Protocol>) throws -> Bool {
         // try to resolve relative urls to abs, and optionally update the attribute so output html has abs.
         // rels without a baseuri get removed
-        var value: String = try el.absUrl(attr.getKey())
-        if (value.count == 0) {
-            value = attr.getValue()
+        var value: [UInt8] = try el.absUrl(attr.getKeyUTF8())
+        if value.isEmpty {
+            value = attr.getValueUTF8()
         }// if it could not be made abs, run as-is to allow custom unknown protocols
         if (!preserveRelativeLinks) {
             attr.setValue(value: value)
@@ -548,7 +548,7 @@ public class Whitelist {
         for  ptl in protocols {
             var prot: String = ptl.toString()
 
-            if (prot=="#") { // allows anchor links
+            if (prot == "#") { // allows anchor links
                 if (isValidAnchor(value)) {
                     return true
                 } else {
@@ -558,7 +558,7 @@ public class Whitelist {
 
             prot += ":"
 
-            if (value.lowercased().hasPrefix(prot)) {
+            if (value.lowercased().hasPrefix(prot.utf8Array)) {
                 return true
             }
 
@@ -567,8 +567,8 @@ public class Whitelist {
         return false
     }
 
-    private func isValidAnchor(_ value: String) -> Bool {
-        return value.startsWith("#") && !(Pattern(".*\\s.*").matcher(in: value).count > 0)
+    private func isValidAnchor(_ value: [UInt8]) -> Bool {
+        return value.starts(with: "#".utf8Array) && Pattern(".*\\s.*").matcher(in: String(decoding: value, as: UTF8.self)).count == 0
     }
 
     public func getEnforcedAttributes(_ tagName: String)throws->Attributes {
@@ -590,8 +590,16 @@ open class TagName: TypedValue {
     override init(_ value: String) {
         super.init(value)
     }
+    
+    init(_ value: [UInt8]) {
+        super.init(String(decoding: value.lowercased(), as: UTF8.self))
+    }
 
     static func valueOf(_ value: String) -> TagName {
+        return TagName(value)
+    }
+    
+    static func valueOf(_ value: [UInt8]) -> TagName {
         return TagName(value)
     }
 }
@@ -603,6 +611,10 @@ open class  AttributeKey: TypedValue {
 
     static func valueOf(_ value: String) -> AttributeKey {
         return AttributeKey(value)
+    }
+    
+    static func valueOf(_ value: [UInt8]) -> AttributeKey {
+        return AttributeKey(String(decoding: value, as: UTF8.self))
     }
 }
 

@@ -24,17 +24,21 @@ public class XmlTreeBuilder: TreeBuilder {
         return ParseSettings.preserveCase
     }
 
-    public func parse(_ input: String, _ baseUri: String)throws->Document {
+    public func parse(_ input: [UInt8], _ baseUri: [UInt8]) throws -> Document {
         return try parse(input, baseUri, ParseErrorList.noTracking(), ParseSettings.preserveCase)
     }
+    
+    public func parse(_ input: String, _ baseUri: String) throws -> Document {
+        return try parse(input.utf8Array, baseUri.utf8Array, ParseErrorList.noTracking(), ParseSettings.preserveCase)
+    }
 
-    override public func initialiseParse(_ input: String, _ baseUri: String, _ errors: ParseErrorList, _ settings: ParseSettings) {
+    override public func initialiseParse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
 		super.initialiseParse(input, baseUri, errors, settings)
         stack.append(doc) // place the document onto the stack. differs from HtmlTreeBuilder (not on stack)
         doc.outputSettings().syntax(syntax: OutputSettings.Syntax.xml)
     }
 
-    override public func process(_ token: Token)throws->Bool {
+    override public func process(_ token: Token) throws -> Bool {
         // start tag, end tag, doctype, comment, character, eof
         switch (token.type) {
         case .StartTag:
@@ -89,9 +93,9 @@ public class XmlTreeBuilder: TreeBuilder {
             // so we do a bit of a hack and parse the data as an element to pull the attributes out
             let data: String = comment.getData()
             if (data.count > 1 && (data.startsWith("!") || data.startsWith("?"))) {
-                let doc: Document = try SwiftSoup.parse("<" + data.substring(1, data.count - 2) + ">", baseUri, Parser.xmlParser())
+                let doc: Document = try SwiftSoup.parse("<" + data.substring(1, data.count - 2) + ">", String(decoding: baseUri, as: UTF8.self), Parser.xmlParser())
                 let el: Element = doc.child(0)
-                insert = XmlDeclaration(settings.normalizeTag(el.tagName()), comment.getBaseUri(), data.startsWith("!"))
+                insert = XmlDeclaration(settings.normalizeTag(el.tagNameUTF8()), comment.getBaseUriUTF8(), data.startsWith("!"))
                 insert.getAttributes()?.addAll(incoming: el.getAttributes())
             }
         }
@@ -104,7 +108,13 @@ public class XmlTreeBuilder: TreeBuilder {
     }
 
     func insert(_ d: Token.Doctype)throws {
-        let doctypeNode = DocumentType(settings.normalizeTag(d.getName()), d.getPubSysKey(), d.getPublicIdentifier(), d.getSystemIdentifier(), baseUri)
+        let doctypeNode = DocumentType(
+            settings.normalizeTag(d.getName()),
+            d.getPubSysKey(),
+            d.getPublicIdentifier(),
+            d.getSystemIdentifier(),
+            baseUri
+        )
         try insertNode(doctypeNode)
     }
 
@@ -114,13 +124,13 @@ public class XmlTreeBuilder: TreeBuilder {
      *
      * @param endTag
      */
-    private func popStackToClose(_ endTag: Token.EndTag)throws {
-        let elName: String = try endTag.name()
+    private func popStackToClose(_ endTag: Token.EndTag) throws {
+        let elName: [UInt8] = try endTag.name()
         var firstFound: Element? = nil
 
         for pos in (0..<stack.count).reversed() {
             let next: Element = stack[pos]
-            if (next.nodeName().equals(elName)) {
+            if (next.nodeNameUTF8() == elName) {
                 firstFound = next
                 break
             }
@@ -138,7 +148,7 @@ public class XmlTreeBuilder: TreeBuilder {
         }
     }
 
-    func parseFragment(_ inputFragment: String, _ baseUri: String, _ errors: ParseErrorList, _ settings: ParseSettings)throws->Array<Node> {
+    func parseFragment(_ inputFragment: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) throws -> Array<Node> {
 		initialiseParse(inputFragment, baseUri, errors, settings)
         try runParser()
         return doc.getChildNodes()

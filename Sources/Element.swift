@@ -11,10 +11,10 @@ import Foundation
 open class Element: Node {
 	var _tag: Tag
 
-    private static let classString = "class"
-    private static let emptyString = ""
-    private static let idString = "id"
-    private static let rootString = "#root"
+    private static let classString = "class".utf8Array
+    private static let emptyString = "".utf8Array
+    private static let idString = "id".utf8Array
+    private static let rootString = "#root".utf8Array
 
     //private static let classSplit : Pattern = Pattern("\\s+")
 	private static let classSplit = "\\s+"
@@ -28,7 +28,11 @@ open class Element: Node {
      * @see #appendChild(Node)
      * @see #appendElement(String)
      */
-    public init(_ tag: Tag, _ baseUri: String, _ attributes: Attributes) {
+    public convenience init(_ tag: Tag, _ baseUri: String, _ attributes: Attributes) {
+        self.init(tag, baseUri.utf8Array, attributes)
+    }
+    
+    public init(_ tag: Tag, _ baseUri: [UInt8], _ attributes: Attributes) {
         self._tag = tag
         super.init(baseUri, attributes)
     }
@@ -40,12 +44,20 @@ open class Element: Node {
      *            string, but not null.
      * @see Tag#valueOf(String, ParseSettings)
      */
-    public init(_ tag: Tag, _ baseUri: String) {
+    public convenience init(_ tag: Tag, _ baseUri: String) {
+        self.init(tag, baseUri.utf8Array)
+    }
+    
+    public init(_ tag: Tag, _ baseUri: [UInt8]) {
         self._tag = tag
         super.init(baseUri, Attributes())
     }
 
-    open override func nodeName() -> String {
+    public override func nodeNameUTF8() -> [UInt8] {
+        return _tag.getNameUTF8()
+    }
+    
+    public override func nodeName() -> String {
         return _tag.getName()
     }
     /**
@@ -53,6 +65,12 @@ open class Element: Node {
      *
      * @return the tag name
      */
+    open func tagNameUTF8() -> [UInt8] {
+        return _tag.getNameUTF8()
+    }
+    open func tagNameNormalUTF8() -> [UInt8] {
+        return _tag.getNameNormalUTF8()
+    }
     open func tagName() -> String {
         return _tag.getName()
     }
@@ -68,10 +86,15 @@ open class Element: Node {
      * @return this element, for chaining
      */
     @discardableResult
-    public func tagName(_ tagName: String)throws->Element {
+    public func tagName(_ tagName: [UInt8]) throws -> Element {
         try Validate.notEmpty(string: tagName, msg: "Tag name must not be empty.")
         _tag = try Tag.valueOf(tagName, ParseSettings.preserveCase) // preserve the requested tag case
         return self
+    }
+    
+    @discardableResult
+    public func tagName(_ tagName: String) throws -> Element {
+        return try self.tagName(tagName.utf8Array)
     }
 
     /**
@@ -104,11 +127,11 @@ open class Element: Node {
      * @return The id attribute, if present, or an empty string if not.
      */
     open func id() -> String {
-        guard let attributes = attributes else {return Element.emptyString}
+        guard let attributes = attributes else { return "" }
         do {
-            return try attributes.getIgnoreCase(key: Element.idString)
+            return try String(decoding: attributes.getIgnoreCase(key: Element.idString), as: UTF8.self)
         } catch {}
-        return Element.emptyString
+        return ""
     }
 
     /**
@@ -118,8 +141,13 @@ open class Element: Node {
      * @return this element
      */
     @discardableResult
-    open override func attr(_ attributeKey: String, _ attributeValue: String)throws->Element {
+    open override func attr(_ attributeKey: [UInt8], _ attributeValue: [UInt8]) throws -> Element {
         try super.attr(attributeKey, attributeValue)
+        return self
+    }
+    
+    open override func attr(_ attributeKey: String, _ attributeValue: String) throws -> Element {
+        try super.attr(attributeKey.utf8Array, attributeValue.utf8Array)
         return self
     }
 
@@ -134,8 +162,13 @@ open class Element: Node {
      * @return this element
      */
     @discardableResult
-    open func attr(_ attributeKey: String, _ attributeValue: Bool)throws->Element {
+    open func attr(_ attributeKey: [UInt8], _ attributeValue: Bool) throws -> Element {
         try attributes?.put(attributeKey, attributeValue)
+        return self
+    }
+    
+    open func attr(_ attributeKey: String, _ attributeValue: Bool) throws -> Element {
+        try attributes?.put(attributeKey.utf8Array, attributeValue)
         return self
     }
 
@@ -152,7 +185,7 @@ open class Element: Node {
      * You can find elements that have data attributes using the {@code [^data-]} attribute key prefix selector.
      * @return a map of {@code key=value} custom data attributes.
      */
-    open func dataset()->Dictionary<String, String> {
+    open func dataset() -> Dictionary<String, String> {
         return attributes!.dataset()
     }
 
@@ -172,7 +205,7 @@ open class Element: Node {
 
     private static func accumulateParents(_ el: Element, _ parents: Elements) {
         let parent: Element? = el.parent()
-        if (parent != nil && !(parent!.tagName() == Element.rootString)) {
+        if (parent != nil && !(parent!.tagNameUTF8() == Element.rootString)) {
             parents.add(parent!)
             accumulateParents(parent!, parents)
         }
@@ -360,8 +393,8 @@ open class Element: Node {
      *  {@code parent.appendElement("h1").attr("id", "header").text("Welcome")}
      */
     @discardableResult
-    public func appendElement(_ tagName: String)throws->Element {
-        let child: Element = Element(try Tag.valueOf(tagName), getBaseUri())
+    public func appendElement(_ tagName: String) throws -> Element {
+        let child: Element = Element(try Tag.valueOfUTF8(tagName.utf8Array), getBaseUriUTF8())
         try appendChild(child)
         return child
     }
@@ -374,8 +407,8 @@ open class Element: Node {
      *  {@code parent.prependElement("h1").attr("id", "header").text("Welcome")}
      */
     @discardableResult
-    public func prependElement(_ tagName: String)throws->Element {
-        let child: Element = Element(try Tag.valueOf(tagName), getBaseUri())
+    public func prependElement(_ tagName: String) throws -> Element {
+        let child: Element = Element(try Tag.valueOfUTF8(tagName.utf8Array), getBaseUriUTF8())
         try prependChild(child)
         return child
     }
@@ -387,8 +420,8 @@ open class Element: Node {
      * @return this element
      */
     @discardableResult
-    public func appendText(_ text: String)throws->Element {
-        let node: TextNode = TextNode(text, getBaseUri())
+    public func appendText(_ text: String) throws -> Element {
+        let node: TextNode = TextNode(text.utf8Array, getBaseUriUTF8())
         try appendChild(node)
         return self
     }
@@ -400,8 +433,8 @@ open class Element: Node {
      * @return this element
      */
     @discardableResult
-    public func prependText(_ text: String)throws->Element {
-        let node: TextNode = TextNode(text, getBaseUri())
+    public func prependText(_ text: String) throws -> Element {
+        let node: TextNode = TextNode(text.utf8Array, getBaseUriUTF8())
         try prependChild(node)
         return self
     }
@@ -413,8 +446,8 @@ open class Element: Node {
      * @see #html(String)
      */
     @discardableResult
-    public func append(_ html: String)throws->Element {
-        let nodes: Array<Node> = try Parser.parseFragment(html, self, getBaseUri())
+    public func append(_ html: String) throws -> Element {
+        let nodes: Array<Node> = try Parser.parseFragment(html.utf8Array, self, getBaseUriUTF8())
         try addChildren(nodes)
         return self
     }
@@ -427,7 +460,7 @@ open class Element: Node {
      */
     @discardableResult
     public func prepend(_ html: String)throws->Element {
-        let nodes: Array<Node> = try Parser.parseFragment(html, self, getBaseUri())
+        let nodes: Array<Node> = try Parser.parseFragment(html.utf8Array, self, getBaseUriUTF8())
         try addChildren(0, nodes)
         return self
     }
@@ -463,7 +496,7 @@ open class Element: Node {
      * @see #before(String)
      */
     @discardableResult
-    open override func after(_ html: String)throws->Element {
+    open override func after(_ html: String) throws -> Element {
         return try super.after(html) as! Element
     }
 
@@ -473,7 +506,7 @@ open class Element: Node {
      * @return this element, for chaining
      * @see #before(Node)
      */
-    open override func after(_ node: Node)throws->Element {
+    open override func after(_ node: Node) throws -> Element {
         return try super.after(node) as! Element
     }
 
@@ -647,8 +680,8 @@ open class Element: Node {
      * @param tagName The tag name to search for (case insensitively).
      * @return a matching unmodifiable list of elements. Will be empty if this element and none of its children match.
      */
-    public func getElementsByTag(_ tagName: String)throws->Elements {
-        try Validate.notEmpty(string: tagName)
+    public func getElementsByTag(_ tagName: String) throws -> Elements {
+        try Validate.notEmpty(string: tagName.utf8Array)
         let tagName = tagName.lowercased().trim()
 
         return try Collector.collect(Evaluator.Tag(tagName), self)
@@ -664,7 +697,7 @@ open class Element: Node {
      * @return The first matching element by ID, starting with this element, or null if none found.
      */
     public func getElementById(_ id: String)throws->Element? {
-        try Validate.notEmpty(string: id)
+        try Validate.notEmpty(string: id.utf8Array)
 
         let elements: Elements = try Collector.collect(Evaluator.Id(id), self)
         if (elements.array().count > 0) {
@@ -686,7 +719,7 @@ open class Element: Node {
      * @see #classNames()
      */
     public func getElementsByClass(_ className: String)throws->Elements {
-        try Validate.notEmpty(string: className)
+        try Validate.notEmpty(string: className.utf8Array)
 
         return try Collector.collect(Evaluator.Class(className), self)
     }
@@ -697,8 +730,8 @@ open class Element: Node {
      * @param key name of the attribute, e.g. {@code href}
      * @return elements that have this attribute, empty if none
      */
-    public func getElementsByAttribute(_ key: String)throws->Elements {
-        try Validate.notEmpty(string: key)
+    public func getElementsByAttribute(_ key: String) throws -> Elements {
+        try Validate.notEmpty(string: key.utf8Array)
         let key = key.trim()
 
         return try Collector.collect(Evaluator.Attribute(key), self)
@@ -710,11 +743,11 @@ open class Element: Node {
      * @param keyPrefix name prefix of the attribute e.g. {@code data-}
      * @return elements that have attribute names that start with with the prefix, empty if none.
      */
-    public func getElementsByAttributeStarting(_ keyPrefix: String)throws->Elements {
-        try Validate.notEmpty(string: keyPrefix)
+    public func getElementsByAttributeStarting(_ keyPrefix: String) throws -> Elements {
+        try Validate.notEmpty(string: keyPrefix.utf8Array)
         let keyPrefix = keyPrefix.trim()
 
-        return try Collector.collect(Evaluator.AttributeStarting(keyPrefix), self)
+        return try Collector.collect(Evaluator.AttributeStarting(keyPrefix.utf8Array), self)
     }
 
     /**
@@ -1014,9 +1047,9 @@ open class Element: Node {
      * @return this element
      */
     @discardableResult
-    public func text(_ text: String)throws->Element {
+    public func text(_ text: String) throws -> Element {
         empty()
-        let textNode: TextNode = TextNode(text, baseUri)
+        let textNode: TextNode = TextNode(text.utf8Array, baseUri)
         try appendChild(textNode)
         return self
     }
@@ -1065,8 +1098,8 @@ open class Element: Node {
      * separated. (E.g. on <code>&lt;div class="header gray"&gt;</code> returns, "<code>header gray</code>")
      * @return The literal class attribute, or <b>empty string</b> if no class attribute set.
      */
-    public func className()throws->String {
-        return try attr(Element.classString).trim()
+    public func className() throws -> String {
+        return try String(decoding: attr(Element.classString).trim(), as: UTF8.self)
     }
 
     /**
@@ -1075,11 +1108,11 @@ open class Element: Node {
      * the backing {@code class} attribute; use the {@link #classNames(java.util.Set)} method to persist them.
      * @return set of classnames, empty if no class attribute
      */
-	public func classNames()throws->OrderedSet<String> {
-		let fitted = try className().replaceAll(of: Element.classSplit, with: " ", options: .caseInsensitive)
+	public func classNames() throws -> OrderedSet<String> {
+        let fitted = try className().replaceAll(of: Element.classSplit, with: " ", options: .caseInsensitive)
 		let names: [String] = fitted.components(separatedBy: " ")
 		let classNames: OrderedSet<String> = OrderedSet(sequence: names)
-		classNames.remove(Element.emptyString) // if classNames() was empty, would include an empty class
+		classNames.remove("") // if classNames() was empty, would include an empty class
 		return classNames
 	}
 
@@ -1089,8 +1122,8 @@ open class Element: Node {
      @return this element, for chaining
      */
     @discardableResult
-    public func classNames(_ classNames: OrderedSet<String>)throws->Element {
-        try attributes?.put(Element.classString, StringUtil.join(classNames, sep: " "))
+    public func classNames(_ classNames: OrderedSet<String>) throws -> Element {
+        try attributes?.put(Element.classString, StringUtil.join(classNames, sep: " ").utf8Array)
         return self
     }
 
@@ -1101,14 +1134,14 @@ open class Element: Node {
      */
     // performance sensitive
     public func hasClass(_ className: String) -> Bool {
-        let classAtt: String? = attributes?.get(key: Element.classString)
+        let classAtt: [UInt8]? = attributes?.get(key: Element.classString)
         let len: Int = (classAtt != nil) ? classAtt!.count : 0
         let wantLen: Int = className.count
 
         if (len == 0 || len < wantLen) {
             return false
         }
-        let classAttr = classAtt!
+        let classAttr = String(decoding: classAtt!, as: UTF8.self)
 
         // if both lengths are equal, only need compare the className with the attribute
         if (len == wantLen) {
@@ -1194,8 +1227,8 @@ open class Element: Node {
      * Get the value of a form element (input, textarea, etc).
      * @return the value of the form element, or empty string if not set.
      */
-    public func val()throws->String {
-        if (tagName()=="textarea") {
+    public func val() throws -> String {
+        if (tagName() == "textarea") {
             return try text()
         } else {
             return try attr("value")
@@ -1208,7 +1241,7 @@ open class Element: Node {
      * @return this element (for chaining)
      */
     @discardableResult
-    public func val(_ value: String)throws->Element {
+    public func val(_ value: String) throws -> Element {
         if (tagName() == "textarea") {
             try text(value)
         } else {

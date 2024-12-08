@@ -38,29 +38,29 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     case ForeignContent
     
     private enum TagSets {
-        static let outer: Set = ["head", "body", "html", "br"]
-        static let outer2: Set = ["body", "html", "br"]
-        static let outer3: Set = ["body", "html"]
-        static let baseEtc: Set = ["base", "basefont", "bgsound", "command", "link"]
-        static let baseEtc2: Set = ["basefont", "bgsound", "link", "meta", "noframes", "style"]
-        static let baseEtc3: Set = ["base", "basefont", "bgsound", "link", "meta", "noframes", "script", "style", "title"]
-        static let headNoscript: Set = ["head", "noscript"]
-        static let table: Set = ["table", "tbody", "tfoot", "thead", "tr"]
-        static let tableSections: Set = ["tbody", "tfoot", "thead"]
-        static let tableMix: Set = ["body", "caption", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr"]
-        static let tableMix2: Set = ["body", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr"]
-        static let tableMix3: Set = ["caption", "col", "colgroup", "tbody", "tfoot", "thead"]
-        static let tableMix4: Set = ["body", "caption", "col", "colgroup", "html", "td", "th", "tr"]
-        static let tableMix5: Set = ["caption", "col", "colgroup", "tbody", "tfoot", "thead", "tr"]
-        static let tableMix6: Set = ["body", "caption", "col", "colgroup", "html", "td", "th"]
-        static let tableMix7: Set = ["body", "caption", "col", "colgroup", "html"]
-        static let tableMix8: Set = ["caption", "table", "tbody", "tfoot", "thead", "tr", "td", "th"]
-        static let tableRowsAndCols: Set = ["caption", "col", "colgroup", "tbody", "td", "tfoot", "th", "thead", "tr"]
-        static let thTd: Set = ["th", "td"]
-        static let inputKeygenTextarea: Set = ["input", "keygen", "textarea"]
+        static let outer = Set(["head", "body", "html", "br"].map { $0.utf8Array })
+        static let outer2 = Set(["body", "html", "br"].map { $0.utf8Array })
+        static let outer3 = Set(["body", "html"].map { $0.utf8Array })
+        static let baseEtc = Set(["base", "basefont", "bgsound", "command", "link"].map { $0.utf8Array })
+        static let baseEtc2 = Set(["basefont", "bgsound", "link", "meta", "noframes", "style"].map { $0.utf8Array })
+        static let baseEtc3 = Set(["base", "basefont", "bgsound", "link", "meta", "noframes", "script", "style", "title"].map { $0.utf8Array })
+        static let headNoscript = Set(["head", "noscript"].map { $0.utf8Array })
+        static let table = Set(["table", "tbody", "tfoot", "thead", "tr"].map { $0.utf8Array })
+        static let tableSections = Set(["tbody", "tfoot", "thead"].map { $0.utf8Array })
+        static let tableMix = Set(["body", "caption", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr"].map { $0.utf8Array })
+        static let tableMix2 = Set(["body", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr"].map { $0.utf8Array })
+        static let tableMix3 = Set(["caption", "col", "colgroup", "tbody", "tfoot", "thead"].map { $0.utf8Array })
+        static let tableMix4 = Set(["body", "caption", "col", "colgroup", "html", "td", "th", "tr"].map { $0.utf8Array })
+        static let tableMix5 = Set(["caption", "col", "colgroup", "tbody", "tfoot", "thead", "tr"].map { $0.utf8Array })
+        static let tableMix6 = Set(["body", "caption", "col", "colgroup", "html", "td", "th"].map { $0.utf8Array })
+        static let tableMix7 = Set(["body", "caption", "col", "colgroup", "html"].map { $0.utf8Array })
+        static let tableMix8 = Set(["caption", "table", "tbody", "tfoot", "thead", "tr", "td", "th"].map { $0.utf8Array })
+        static let tableRowsAndCols = Set(["caption", "col", "colgroup", "tbody", "td", "tfoot", "th", "thead", "tr"].map { $0.utf8Array })
+        static let thTd = Set(["th", "td"].map { $0.utf8Array })
+        static let inputKeygenTextarea = Set(["input", "keygen", "textarea"].map { $0.utf8Array })
     }
 
-    private static let nullString: String = "\u{0000}"
+    private static let nullString: [UInt8] = "\u{0000}".utf8Array
 
     public func equals(_ s: HtmlTreeBuilderState) -> Bool {
         return self.hashValue == s.hashValue
@@ -94,7 +94,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         case .BeforeHtml:
 
             func anythingElse(_ t: Token, _ tb: HtmlTreeBuilder)throws->Bool {
-                try tb.insertStartTag("html")
+                try tb.insertStartTag("html".utf8Array)
                 tb.transition(.BeforeHead)
                 return try tb.process(t)
             }
@@ -106,7 +106,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 try tb.insert(t.asComment())
             } else if (HtmlTreeBuilderState.isWhitespace(t)) {
                 return true // ignore whitespace
-            } else if t.startTagNormalName() == "html" {
+            } else if t.startTagNormalName() == "html".utf8Array {
                 try tb.insert(t.asStartTag())
                 tb.transition(.BeforeHead)
             } else if let nName = t.endTagNormalName(), TagSets.outer.contains(nName) {
@@ -126,26 +126,26 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             } else if (t.isDoctype()) {
                 tb.error(self)
                 return false
-            } else if t.startTagNormalName() == "html" {
+            } else if t.startTagNormalName() == "html".utf8Array {
                 return try HtmlTreeBuilderState.InBody.process(t, tb) // does not transition
-            } else if t.startTagNormalName() == "head" {
+            } else if t.startTagNormalName() == "head".utf8Array {
                 let head: Element = try tb.insert(t.asStartTag())
                 tb.setHeadElement(head)
                 tb.transition(.InHead)
             } else if let nName = t.endTagNormalName(), TagSets.outer.contains(nName) {
-                try tb.processStartTag("head")
+                try tb.processStartTag("head".utf8Array)
                 return try tb.process(t)
             } else if (t.isEndTag()) {
                 tb.error(self)
                 return false
             } else {
-                try tb.processStartTag("head")
+                try tb.processStartTag("head".utf8Array)
                 return try tb.process(t)
             }
             return true
         case .InHead:
             func anythingElse(_ t: Token, _ tb: TreeBuilder)throws->Bool {
-                try tb.processEndTag("head")
+                try tb.processEndTag("head".utf8Array)
                 return try tb.process(t)
             }
 
@@ -162,34 +162,34 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 return false
             case .StartTag:
                 let start: Token.StartTag = t.asStartTag()
-                let name: String = start.normalName()!
-                if (name.equals("html")) {
+                let name = start.normalName()!
+                if (name == "html".utf8Array) {
                     return try HtmlTreeBuilderState.InBody.process(t, tb)
                 } else if TagSets.baseEtc.contains(name) {
                     let el: Element = try tb.insertEmpty(start)
                     // SwiftSoup special: update base the frist time it is seen
-                    if (name.equals("base") && el.hasAttr("href")) {
+                    if (name == "base".utf8Array && el.hasAttr("href")) {
                         try tb.maybeSetBaseUri(el)
                     }
-                } else if (name.equals("meta")) {
+                } else if name == "meta".utf8Array {
                     let _: Element = try tb.insertEmpty(start)
                     // todo: charset switches
-                } else if (name.equals("title")) {
+                } else if name == "title".utf8Array {
                     try HtmlTreeBuilderState.handleRcData(start, tb)
-                } else if name == "noframes" || name == "style" {
+                } else if name == "noframes".utf8Array || name == "style".utf8Array {
                     try HtmlTreeBuilderState.handleRawtext(start, tb)
-                } else if (name.equals("noscript")) {
+                } else if name == "noscript".utf8Array {
                     // else if noscript && scripting flag = true: rawtext (SwiftSoup doesn't run script, to handle as noscript)
                     try tb.insert(start)
                     tb.transition(.InHeadNoscript)
-                } else if (name.equals("script")) {
+                } else if name == "script".utf8Array {
                     // skips some script rules as won't execute them
 
                     tb.tokeniser.transition(TokeniserState.ScriptData)
                     tb.markInsertionMode()
                     tb.transition(.Text)
                     try tb.insert(start)
-                } else if (name.equals("head")) {
+                } else if name == "head".utf8Array {
                     tb.error(self)
                     return false
                 } else {
@@ -199,7 +199,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             case .EndTag:
                 let end: Token.EndTag = t.asEndTag()
                 let name = end.normalName()
-                if (name?.equals("head"))! {
+                if name! == "head".utf8Array {
                     tb.pop()
                     tb.transition(.AfterHead)
                 } else if let name = name, TagSets.outer2.contains(name) {
@@ -216,19 +216,19 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         case .InHeadNoscript:
             func anythingElse(_ t: Token, _ tb: HtmlTreeBuilder)throws->Bool {
                 tb.error(self)
-                try tb.insert(Token.Char().data(t.toString()))
+                try tb.insert(Token.Char().data(t.toString().utf8Array))
                 return true
             }
             if (t.isDoctype()) {
                 tb.error(self)
-            } else if t.startTagNormalName() == "html" {
+            } else if t.startTagNormalName() == "html".utf8Array {
                 return try tb.process(t, .InBody)
-            } else if t.endTagNormalName() == "noscript" {
+            } else if t.endTagNormalName() == "noscript".utf8Array {
                 tb.pop()
                 tb.transition(.InHead)
             } else if HtmlTreeBuilderState.isWhitespace(t) || t.isComment() || (t.isStartTag() && TagSets.baseEtc2.contains(t.asStartTag().normalName()!)) {
                 return try tb.process(t, .InHead)
-            } else if t.endTagNormalName() == "br" {
+            } else if t.endTagNormalName() == "br".utf8Array {
                 return try anythingElse(t, tb)
             } else if (t.isStartTag() && TagSets.headNoscript.contains(t.asStartTag().normalName()!)) || t.isEndTag() {
                 tb.error(self)
@@ -240,7 +240,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         case .AfterHead:
             @discardableResult
             func anythingElse(_ t: Token, _ tb: HtmlTreeBuilder)throws->Bool {
-                try tb.processStartTag("body")
+                try tb.processStartTag("body".utf8Array)
                 tb.framesetOk(true)
                 return try tb.process(t)
             }
@@ -253,14 +253,14 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 tb.error(self)
             } else if (t.isStartTag()) {
                 let startTag: Token.StartTag = t.asStartTag()
-                let name: String = startTag.normalName()!
-                if (name.equals("html")) {
+                let name = startTag.normalName()!
+                if name == "html".utf8Array {
                     return try tb.process(t, .InBody)
-                } else if (name.equals("body")) {
+                } else if name == "body".utf8Array {
                     try tb.insert(startTag)
                     tb.framesetOk(false)
                     tb.transition(.InBody)
-                } else if (name.equals("frameset")) {
+                } else if name == "frameset".utf8Array {
                     try tb.insert(startTag)
                     tb.transition(.InFrameset)
                 } else if TagSets.baseEtc3.contains(name) {
@@ -269,7 +269,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     tb.push(head)
                     try tb.process(t, .InHead)
                     tb.removeFromStack(head)
-                } else if (name.equals("head")) {
+                } else if name == "head".utf8Array {
                     tb.error(self)
                     return false
                 } else {
@@ -288,13 +288,13 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             return true
         case .InBody:
             func anyOtherEndTag(_ t: Token, _ tb: HtmlTreeBuilder) -> Bool {
-                let name: String? = t.asEndTag().normalName()
+                let name = t.asEndTag().normalName()
                 let stack: Array<Element> = tb.getStack()
                 for pos in (0..<stack.count).reversed() {
                     let node: Element = stack[pos]
-                    if (name != nil && node.nodeName().equals(name!)) {
+                    if (name != nil && node.nodeNameUTF8() == name!) {
                         tb.generateImpliedEndTags(name)
-                        if (!name!.equals((tb.currentElement()?.nodeName())!)) {
+                        if (name! != (tb.currentElement()?.nodeNameUTF8())!) {
                             tb.error(self)
                         }
                         tb.popStackToClose(name!)
@@ -312,7 +312,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             switch (t.type) {
             case Token.TokenType.Char:
                 let c: Token.Char = t.asCharacter()
-                if (c.getData() != nil && c.getData()!.equals(HtmlTreeBuilderState.nullString)) {
+                if (c.getData() != nil && c.getData()! == HtmlTreeBuilderState.nullString) {
                     // todo confirm that check
                     tb.error(self)
                     return false
@@ -333,14 +333,14 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 return false
             case Token.TokenType.StartTag:
                 let startTag: Token.StartTag = t.asStartTag()
-                if let name: String = startTag.normalName() {
-                    if (name.equals("a")) {
-                        if (tb.getActiveFormattingElement("a") != nil) {
+                if let name = startTag.normalName() {
+                    if name == "a".utf8Array {
+                        if (tb.getActiveFormattingElement("a".utf8Array) != nil) {
                             tb.error(self)
-                            try tb.processEndTag("a")
+                            try tb.processEndTag("a".utf8Array)
 
                             // still on stack?
-                            let remainingA: Element? = tb.getFromStack("a")
+                            let remainingA: Element? = tb.getFromStack("a".utf8Array)
                             if (remainingA != nil) {
                                 tb.removeFromActiveFormattingElements(remainingA)
                                 tb.removeFromStack(remainingA!)
@@ -354,32 +354,32 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         try tb.insertEmpty(startTag)
                         tb.framesetOk(false)
                     } else if Constants.InBodyStartPClosers.contains(name) {
-                        if (try tb.inButtonScope("p")) {
-                            try tb.processEndTag("p")
+                        if (try tb.inButtonScope("p".utf8Array)) {
+                            try tb.processEndTag("p".utf8Array)
                         }
                         try tb.insert(startTag)
-                    } else if (name.equals("span")) {
+                    } else if name == "span".utf8Array {
                         // same as final else, but short circuits lots of checks
                         try tb.reconstructFormattingElements()
                         try tb.insert(startTag)
-                    } else if (name.equals("li")) {
+                    } else if name == "li".utf8Array {
                         tb.framesetOk(false)
                         let stack: Array<Element> = tb.getStack()
                         for i in (0..<stack.count).reversed() {
                             let el: Element = stack[i]
-                            if (el.nodeName().equals("li")) {
-                                try tb.processEndTag("li")
+                            if el.nodeNameUTF8() == "li".utf8Array {
+                                try tb.processEndTag("li".utf8Array)
                                 break
                             }
-                            if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeName())) {
+                            if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
                                 break
                             }
                         }
-                        if (try tb.inButtonScope("p")) {
-                            try tb.processEndTag("p")
+                        if (try tb.inButtonScope("p".utf8Array)) {
+                            try tb.processEndTag("p".utf8Array)
                         }
                         try tb.insert(startTag)
-                    } else if (name.equals("html")) {
+                    } else if name == "html".utf8Array {
                         tb.error(self)
                         // merge attributes onto real html
                         let html: Element = tb.getStack()[0]
@@ -390,10 +390,10 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         }
                     } else if Constants.InBodyStartToHead.contains(name) {
                         return try tb.process(t, .InHead)
-                    } else if (name.equals("body")) {
+                    } else if name == "body".utf8Array {
                         tb.error(self)
                         let stack: Array<Element> = tb.getStack()
-                        if (stack.count == 1 || (stack.count > 2 && !stack[1].nodeName().equals("body"))) {
+                        if stack.count == 1 || (stack.count > 2 && stack[1].nodeName() != "body") {
                             // only in fragment case
                             return false // ignore
                         } else {
@@ -405,10 +405,10 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 }
                             }
                         }
-                    } else if (name.equals("frameset")) {
+                    } else if name == "frameset".utf8Array {
                         tb.error(self)
                         var stack: Array<Element> = tb.getStack()
-                        if (stack.count == 1 || (stack.count > 2 && !stack[1].nodeName().equals("body"))) {
+                        if (stack.count == 1 || (stack.count > 2 && stack[1].nodeName() != "body")) {
                             // only in fragment case
                             return false // ignore
                         } else if (!tb.framesetOk()) {
@@ -426,22 +426,22 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             tb.transition(.InFrameset)
                         }
                     } else if Constants.Headings.contains(name) {
-                        if (try tb.inButtonScope("p")) {
-                            try tb.processEndTag("p")
+                        if (try tb.inButtonScope("p".utf8Array)) {
+                            try tb.processEndTag("p".utf8Array)
                         }
-                        if (tb.currentElement() != nil && Constants.Headings.contains(tb.currentElement()!.nodeName())) {
+                        if (tb.currentElement() != nil && Constants.Headings.contains(tb.currentElement()!.nodeNameUTF8())) {
                             tb.error(self)
                             tb.pop()
                         }
                         try tb.insert(startTag)
                     } else if Constants.InBodyStartPreListing.contains(name) {
-                        if (try tb.inButtonScope("p")) {
-                            try tb.processEndTag("p")
+                        if (try tb.inButtonScope("p".utf8Array)) {
+                            try tb.processEndTag("p".utf8Array)
                         }
                         try tb.insert(startTag)
                         // todo: ignore LF if next token
                         tb.framesetOk(false)
-                    } else if (name.equals("form")) {
+                    } else if name == "form".utf8Array {
                         if (tb.getFormElement() != nil) {
                             tb.error(self)
                             return false
@@ -455,11 +455,11 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         let stack: Array<Element> = tb.getStack()
                         for i in (1..<stack.count).reversed() {
                             let el: Element = stack[i]
-                            if Constants.DdDt.contains(el.nodeName()) {
-                                try tb.processEndTag(el.nodeName())
+                            if Constants.DdDt.contains(el.nodeNameUTF8()) {
+                                try tb.processEndTag(el.nodeNameUTF8())
                                 break
                             }
-                            if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeName())) {
+                            if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
                                 break
                             }
                         }
@@ -525,7 +525,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         tb.framesetOk(false)
                     } else if (name.equals("image")) {
                         if (tb.getFromStack("svg") == nil) {
-                            return try tb.process(startTag.name("img")) // change <image> to <img>, unless in svg
+                            return try tb.process(startTag.name("img".utf8Array)) // change <image> to <img>, unless in svg
                         } else {
                             try tb.insert(startTag)
                         }
@@ -538,24 +538,24 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
                         tb.tokeniser.acknowledgeSelfClosingFlag()
                         try tb.processStartTag("form")
-                        if (startTag._attributes.hasKey(key: "action")) {
+                        if (startTag._attributes.hasKey(key: "action".utf8Array)) {
                             if let form: Element = tb.getFormElement() {
-                                try form.attr("action", startTag._attributes.get(key: "action"))
+                                try form.attr("action".utf8Array, startTag._attributes.get(key: "action".utf8Array))
                             }
                         }
                         try tb.processStartTag("hr")
                         try tb.processStartTag("label")
                         // hope you like english.
-                        let prompt: String = startTag._attributes.hasKey(key: "prompt") ?
-                            startTag._attributes.get(key: "prompt") :
-                        "self is a searchable index. Enter search keywords: "
+                        let prompt: [UInt8] = startTag._attributes.hasKey(key: "prompt".utf8Array) ?
+                        startTag._attributes.get(key: "prompt".utf8Array) :
+                        "self is a searchable index. Enter search keywords: ".utf8Array
 
                         try tb.process(Token.Char().data(prompt))
 
                         // input
                         let inputAttribs: Attributes = Attributes()
                         for attr: Attribute in startTag._attributes {
-                            if (!Constants.InBodyStartInputAttribs.contains(attr.getKey())) {
+                            if (!Constants.InBodyStartInputAttribs.contains(attr.getKeyUTF8())) {
                                 inputAttribs.put(attribute: attr)
                             }
                         }
@@ -596,7 +596,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             tb.transition(.InSelect)
                         }
                     } else if Constants.InBodyStartOptions.contains(name) {
-                        if (tb.currentElement() != nil && tb.currentElement()!.nodeName().equals("option")) {
+                        if (tb.currentElement() != nil && tb.currentElement()!.nodeNameUTF8().equals("option")) {
                             try tb.processEndTag("option")
                         }
                         try tb.reconstructFormattingElements()
@@ -604,9 +604,9 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     } else if Constants.InBodyStartRuby.contains(name) {
                         if (try tb.inScope("ruby")) {
                             tb.generateImpliedEndTags()
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeName().equals("ruby")) {
+                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals("ruby")) {
                                 tb.error(self)
-                                tb.popStackToBefore("ruby") // i.e. close up to but not include name
+                                tb.popStackToBefore("ruby".utf8Array) // i.e. close up to but not include name
                             }
                             try tb.insert(startTag)
                         }
@@ -646,7 +646,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 tb.error(self)
                                 tb.removeFromActiveFormattingElements(formatEl!)
                                 return true
-                            } else if (try !tb.inScope(formatEl!.nodeName())) {
+                            } else if (try !tb.inScope(formatEl!.nodeNameUTF8())) {
                                 tb.error(self)
                                 return false
                             } else if (tb.currentElement() != formatEl!) {
@@ -672,7 +672,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 }
                             }
                             if (furthestBlock == nil) {
-                                tb.popStackToClose(formatEl!.nodeName())
+                                tb.popStackToClose(formatEl!.nodeNameUTF8())
                                 tb.removeFromActiveFormattingElements(formatEl)
                                 return true
                             }
@@ -693,7 +693,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                     break
                                 }
 
-                                let replacement: Element = try Element(Tag.valueOf(node!.nodeName(), ParseSettings.preserveCase), tb.getBaseUri())
+                                let replacement: Element = try Element(Tag.valueOf(node!.nodeNameUTF8(), ParseSettings.preserveCase), tb.getBaseUri())
                                 // case will follow the original node (so honours ParseSettings)
                                 try tb.replaceActiveFormattingElement(node!, replacement)
                                 try tb.replaceOnStack(node!, replacement)
@@ -711,7 +711,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 lastNode = node
                             }
 
-                            if Constants.InBodyEndTableFosters.contains(commonAncestor!.nodeName()) {
+                            if Constants.InBodyEndTableFosters.contains(commonAncestor!.nodeNameUTF8()) {
                                 if (lastNode!.parent() != nil) {
                                     try lastNode!.remove()
                                 }
@@ -742,7 +742,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             return false
                         } else {
                             tb.generateImpliedEndTags()
-                            if (!tb.currentElement()!.nodeName().equals(name)) {
+                            if (!tb.currentElement()!.nodeNameUTF8().equals(name)) {
                                 tb.error(self)
                             }
                             tb.popStackToClose(name)
@@ -756,7 +756,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             return false
                         } else {
                             tb.generateImpliedEndTags(name)
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeName().equals(name)) {
+                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
                                 tb.error(self)
                             }
                             tb.popStackToClose(name)
@@ -782,7 +782,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             return false
                         } else {
                             tb.generateImpliedEndTags()
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeName().equals(name)) {
+                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
                                 tb.error(self)
                             }
                             // remove currentForm from stack. will shift anything under up.
@@ -795,7 +795,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             return try tb.process(endTag)
                         } else {
                             tb.generateImpliedEndTags(name)
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeName().equals(name)) {
+                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
                                 tb.error(self)
                             }
                             tb.popStackToClose(name)
@@ -806,7 +806,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             return false
                         } else {
                             tb.generateImpliedEndTags(name)
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeName().equals(name)) {
+                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
                                 tb.error(self)
                             }
                             tb.popStackToClose(name)
@@ -817,7 +817,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             return false
                         } else {
                             tb.generateImpliedEndTags(name)
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeName().equals(name)) {
+                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
                                 tb.error(self)
                             }
                             tb.popStackToClose(Constants.Headings)
@@ -832,7 +832,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 return false
                             }
                             tb.generateImpliedEndTags()
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeName().equals(name)) {
+                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
                                 tb.error(self)
                             }
                             tb.popStackToClose(name)
@@ -875,7 +875,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             func anythingElse(_ t: Token, _ tb: HtmlTreeBuilder)throws->Bool {
                 tb.error(self)
                 var processed: Bool
-                if let cur = tb.currentElement(), TagSets.table.contains(cur.nodeName()) {
+                if let cur = tb.currentElement(), TagSets.table.contains(cur.nodeNameUTF8()) {
                     tb.setFosterInserts(true)
                     processed = try tb.process(t, .InBody)
                     tb.setFosterInserts(false)
@@ -898,7 +898,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 return false
             } else if (t.isStartTag()) {
                 let startTag: Token.StartTag = t.asStartTag()
-                if let name: String = startTag.normalName() {
+                if let name = startTag.normalName() {
                     if (name.equals("caption")) {
                         tb.clearStackToTableContext()
                         tb.insertMarkerToFormattingElements()
@@ -915,7 +915,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         tb.clearStackToTableContext()
                         try tb.insert(startTag)
                         tb.transition(.InTableBody)
-                    } else if ["td", "th", "tr"].contains(name) {
+                    } else if ["td".utf8Array, "th".utf8Array, "tr".utf8Array].contains(name) {
                         try tb.processStartTag("tbody")
                         return try tb.process(t)
                     } else if (name.equals("table")) {
@@ -923,10 +923,10 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         let processed: Bool = try tb.processEndTag("table")
                         if (processed) // only ignored if in fragment
                         {return try tb.process(t)}
-                    } else if ["style", "script"].contains(name) {
+                    } else if ["style".utf8Array, "script".utf8Array].contains(name) {
                         return try tb.process(t, .InHead)
                     } else if (name.equals("input")) {
-                        if (!startTag._attributes.get(key: "type").equalsIgnoreCase(string: "hidden")) {
+                        if (!startTag._attributes.get(key: "type".utf8Array).equalsIgnoreCase(string: "hidden".utf8Array)) {
                             return try anythingElse(t, tb)
                         } else {
                             try tb.insertEmpty(startTag)
@@ -945,13 +945,13 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 return true // todo: check if should return processed http://www.whatwg.org/specs/web-apps/current-work/multipage/tree-construction.html#parsing-main-intable
             } else if (t.isEndTag()) {
                 let endTag: Token.EndTag = t.asEndTag()
-                if let name: String = endTag.normalName() {
+                if let name = endTag.normalName() {
                     if (name.equals("table")) {
                         if (try !tb.inTableScope(name)) {
                             tb.error(self)
                             return false
                         } else {
-                            tb.popStackToClose("table")
+                            tb.popStackToClose("table".utf8Array)
                         }
                         tb.resetInsertionMode()
                     } else if TagSets.tableMix.contains(name) {
@@ -965,7 +965,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 }
                 return true // todo: as above todo
             } else if (t.isEOF()) {
-                if (tb.currentElement() != nil && tb.currentElement()!.nodeName().equals("html")) {
+                if (tb.currentElement() != nil && tb.currentElement()!.nodeNameUTF8().equals("html")) {
                     tb.error(self)
                 }
                 return true // stops parsing
@@ -987,11 +987,11 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             default:
                 // todo - don't really like the way these table character data lists are built
                 if (tb.getPendingTableCharacters().count > 0) {
-                    for character: String in tb.getPendingTableCharacters() {
+                    for character in tb.getPendingTableCharacters() {
                         if (!HtmlTreeBuilderState.isWhitespace(character)) {
                             // InTable anything else section:
                             tb.error(self)
-                            if tb.currentElement() != nil && TagSets.table.contains(tb.currentElement()!.nodeName()) {
+                            if tb.currentElement() != nil && TagSets.table.contains(tb.currentElement()!.nodeNameUTF8()) {
                                 tb.setFosterInserts(true)
                                 try tb.process(Token.Char().data(character), .InBody)
                                 tb.setFosterInserts(false)
@@ -1009,18 +1009,18 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             }
             return true
         case .InCaption:
-            if t.endTagNormalName() == "caption" {
+            if t.endTagNormalName() == "caption".utf8Array {
                 let endTag: Token.EndTag = t.asEndTag()
-                let name: String? = endTag.normalName()
+                let name = endTag.normalName()
                 if (try name != nil && !tb.inTableScope(name!)) {
                     tb.error(self)
                     return false
                 } else {
                     tb.generateImpliedEndTags()
-                    if (!tb.currentElement()!.nodeName().equals("caption")) {
+                    if (!tb.currentElement()!.nodeNameUTF8().equals("caption")) {
                         tb.error(self)
                     }
-                    tb.popStackToClose("caption")
+                    tb.popStackToClose("caption".utf8Array)
                     tb.clearFormattingElementsToLastMarker()
                     tb.transition(.InTable)
                 }
@@ -1067,10 +1067,10 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 break
             case .StartTag:
                 let startTag: Token.StartTag = t.asStartTag()
-                let name: String? = startTag.normalName()
-                if ("html".equals(name)) {
+                let name = startTag.normalName()
+                if "html".utf8Array == name {
                     return try tb.process(t, .InBody)
-                } else if ("col".equals(name)) {
+                } else if "col".utf8Array == name {
                     try tb.insertEmpty(startTag)
                 } else {
                     return try anythingElse(t, tb)
@@ -1079,8 +1079,8 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             case .EndTag:
                 let endTag: Token.EndTag = t.asEndTag()
                 let name = endTag.normalName()
-                if ("colgroup".equals(name)) {
-                    if ("html".equals(tb.currentElement()?.nodeName())) { // frag case
+                if "colgroup".utf8Array == name {
+                    if "html".utf8Array == tb.currentElement()?.nodeNameUTF8() { // frag case
                         tb.error(self)
                         return false
                     } else {
@@ -1092,7 +1092,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 }
                 break
             case .EOF:
-                if ("html".equals(tb.currentElement()?.nodeName())) {
+                if "html".utf8Array == tb.currentElement()?.nodeNameUTF8() {
                     return true // stop parsing; frag case
                 } else {
                     return try anythingElse(t, tb)
@@ -1110,7 +1110,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     return false
                 }
                 tb.clearStackToTableBodyContext()
-                try tb.processEndTag(tb.currentElement()!.nodeName()) // tbody, tfoot, thead
+                try tb.processEndTag(tb.currentElement()!.nodeNameUTF8()) // tbody, tfoot, thead
                 return try tb.process(t)
             }
 
@@ -1121,8 +1121,8 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             switch (t.type) {
             case .StartTag:
                 let startTag: Token.StartTag = t.asStartTag()
-                let name: String? = startTag.normalName()
-                if ("tr".equals(name)) {
+                let name = startTag.normalName()
+                if "tr".utf8Array == name {
                     tb.clearStackToTableBodyContext()
                     try tb.insert(startTag)
                     tb.transition(.InRow)
@@ -1148,7 +1148,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         tb.pop()
                         tb.transition(.InTable)
                     }
-                } else if ("table".equals(name)) {
+                } else if "table".utf8Array == name {
                     return try exitTableBody(t, tb)
                 } else if let name = name, TagSets.tableMix4.contains(name) {
                     tb.error(self)
@@ -1177,7 +1177,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
             if (t.isStartTag()) {
                 let startTag: Token.StartTag = t.asStartTag()
-                let name: String? = startTag.normalName()
+                let name = startTag.normalName()
 
                 if let name = name, TagSets.thTd.contains(name) {
                     tb.clearStackToTableRowContext()
@@ -1191,9 +1191,9 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 }
             } else if (t.isEndTag()) {
                 let endTag: Token.EndTag = t.asEndTag()
-                let name: String? = endTag.normalName()
+                let name = endTag.normalName()
 
-                if ("tr".equals(name)) {
+                if "tr".utf8Array == name {
                     if (try !tb.inTableScope(name!)) {
                         tb.error(self) // frag
                         return false
@@ -1201,9 +1201,9 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     tb.clearStackToTableRowContext()
                     tb.pop() // tr
                     tb.transition(.InTableBody)
-                } else if ("table".equals(name)) {
+                } else if "table".utf8Array == name {
                     return try handleMissingTr(t, tb)
-                } else if let name = name, TagSets.tableSections.contains(name) {
+                } else if let name, TagSets.tableSections.contains(name) {
                     if (try !tb.inTableScope(name)) {
                         tb.error(self)
                         return false
@@ -1235,7 +1235,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
             if (t.isEndTag()) {
                 let endTag: Token.EndTag = t.asEndTag()
-                let name: String? = endTag.normalName()
+                let name = endTag.normalName()
 
                 if let name = name, TagSets.thTd.contains(name) {
                     if (try !tb.inTableScope(name)) {
@@ -1244,7 +1244,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         return false
                     }
                     tb.generateImpliedEndTags()
-                    if (!name.equals(tb.currentElement()?.nodeName())) {
+                    if name != tb.currentElement()?.nodeNameUTF8() {
                         tb.error(self)
                     }
                     tb.popStackToClose(name)
@@ -1275,7 +1275,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             }
             return true
         case .InSelect:
-
             func anythingElse(_ t: Token, _ tb: HtmlTreeBuilder) -> Bool {
                 tb.error(self)
                 return false
@@ -1284,7 +1283,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             switch (t.type) {
             case .Char:
                 let c: Token.Char = t.asCharacter()
-                if (HtmlTreeBuilderState.nullString.equals(c.getData())) {
+                if HtmlTreeBuilderState.nullString == c.getData() {
                     tb.error(self)
                     return false
                 } else {
@@ -1299,16 +1298,16 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 return false
             case .StartTag:
                 let start: Token.StartTag = t.asStartTag()
-                let name: String? = start.normalName()
+                let name = start.normalName()
                 if ("html".equals(name)) {
                     return try tb.process(start, .InBody)
                 } else if ("option".equals(name)) {
                     try tb.processEndTag("option")
                     try tb.insert(start)
                 } else if ("optgroup".equals(name)) {
-                    if ("option".equals(tb.currentElement()?.nodeName())) {
+                    if ("option".equals(tb.currentElement()?.nodeNameUTF8())) {
                         try tb.processEndTag("option")
-                    } else if ("optgroup".equals(tb.currentElement()?.nodeName())) {
+                    } else if ("optgroup".equals(tb.currentElement()?.nodeNameUTF8())) {
                         try tb.processEndTag("optgroup")
                     }
                     try tb.insert(start)
@@ -1317,7 +1316,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     return try tb.processEndTag("select")
                 } else if let name = name, TagSets.inputKeygenTextarea.contains(name) {
                     tb.error(self)
-                    if (try !tb.inSelectScope("select")) {
+                    if (try !tb.inSelectScope("select".utf8Array)) {
                         return false // frag
                     }
                     try tb.processEndTag("select")
@@ -1332,16 +1331,16 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 let end: Token.EndTag = t.asEndTag()
                 let name = end.normalName()
                 if ("optgroup".equals(name)) {
-                    if ("option".equals(tb.currentElement()?.nodeName()) && tb.currentElement() != nil && tb.aboveOnStack(tb.currentElement()!) != nil && "optgroup".equals(tb.aboveOnStack(tb.currentElement()!)?.nodeName())) {
+                    if ("option".equals(tb.currentElement()?.nodeNameUTF8()) && tb.currentElement() != nil && tb.aboveOnStack(tb.currentElement()!) != nil && "optgroup".equals(tb.aboveOnStack(tb.currentElement()!)?.nodeNameUTF8())) {
                         try tb.processEndTag("option")
                     }
-                    if ("optgroup".equals(tb.currentElement()?.nodeName())) {
+                    if ("optgroup".equals(tb.currentElement()?.nodeNameUTF8())) {
                         tb.pop()
                     } else {
                         tb.error(self)
                     }
                 } else if ("option".equals(name)) {
-                    if ("option".equals(tb.currentElement()?.nodeName())) {
+                    if ("option".equals(tb.currentElement()?.nodeNameUTF8())) {
                         tb.pop()
                     } else {
                         tb.error(self)
@@ -1359,7 +1358,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 }
                 break
             case .EOF:
-                if (!"html".equals(tb.currentElement()?.nodeName())) {
+                if (!"html".equals(tb.currentElement()?.nodeNameUTF8())) {
                     tb.error(self)
                 }
                 break
@@ -1391,9 +1390,9 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             } else if (t.isDoctype()) {
                 tb.error(self)
                 return false
-            } else if t.startTagNormalName() == "html" {
+            } else if t.startTagNormalName() == "html".utf8Array {
                 return try tb.process(t, .InBody)
-            } else if t.endTagNormalName() == "html" {
+            } else if t.endTagNormalName() == "html".utf8Array {
                 if (tb.isFragmentParsing()) {
                     tb.error(self)
                     return false
@@ -1409,7 +1408,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             }
             return true
         case .InFrameset:
-
                 if (HtmlTreeBuilderState.isWhitespace(t)) {
                     try tb.insert(t.asCharacter())
                 } else if (t.isComment()) {
@@ -1419,7 +1417,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     return false
                 } else if (t.isStartTag()) {
                     let start: Token.StartTag = t.asStartTag()
-                    let name: String? = start.normalName()
+                    let name = start.normalName()
                     if ("html".equals(name)) {
                         return try tb.process(start, .InBody)
                     } else if ("frameset".equals(name)) {
@@ -1432,18 +1430,18 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         tb.error(self)
                         return false
                     }
-                } else if t.endTagNormalName() == "frameset" {
-                    if ("html".equals(tb.currentElement()?.nodeName())) { // frag
+                } else if t.endTagNormalName() == "frameset".utf8Array {
+                    if ("html".equals(tb.currentElement()?.nodeNameUTF8())) { // frag
                         tb.error(self)
                         return false
                     } else {
                         tb.pop()
-                        if (!tb.isFragmentParsing() && !"frameset".equals(tb.currentElement()?.nodeName())) {
+                        if (!tb.isFragmentParsing() && !"frameset".equals(tb.currentElement()?.nodeNameUTF8())) {
                             tb.transition(.AfterFrameset)
                         }
                     }
                 } else if (t.isEOF()) {
-                    if (!"html".equals(tb.currentElement()?.nodeName())) {
+                    if (!"html".equals(tb.currentElement()?.nodeNameUTF8())) {
                         tb.error(self)
                         return true
                     }
@@ -1453,7 +1451,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 }
                 return true
         case .AfterFrameset:
-
                 if (HtmlTreeBuilderState.isWhitespace(t)) {
                     try tb.insert(t.asCharacter())
                 } else if (t.isComment()) {
@@ -1461,11 +1458,11 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 } else if (t.isDoctype()) {
                     tb.error(self)
                     return false
-                } else if t.startTagNormalName() == "html" {
+                } else if t.startTagNormalName() == "html".utf8Array {
                     return try tb.process(t, .InBody)
-                } else if t.endTagNormalName() == "html" {
+                } else if t.endTagNormalName() == "html".utf8Array {
                     tb.transition(.AfterAfterFrameset)
-                } else if t.startTagNormalName() == "noframes" {
+                } else if t.startTagNormalName() == "noframes".utf8Array {
                     return try tb.process(t, .InHead)
                 } else if (t.isEOF()) {
                     // cool your heels, we're complete
@@ -1475,7 +1472,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 }
                 return true
         case .AfterAfterBody:
-
                 if (t.isComment()) {
                     try tb.insert(t.asComment())
                 } else if (t.isDoctype() || HtmlTreeBuilderState.isWhitespace(t) || (t.isStartTag() && "html".equals(t.asStartTag().normalName()))) {
@@ -1489,14 +1485,13 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 }
                 return true
         case .AfterAfterFrameset:
-
                 if (t.isComment()) {
                     try tb.insert(t.asComment())
-                } else if (t.isDoctype() || HtmlTreeBuilderState.isWhitespace(t) || (t.startTagNormalName() == "html")) {
+                } else if (t.isDoctype() || HtmlTreeBuilderState.isWhitespace(t) || (t.startTagNormalName() == "html".utf8Array)) {
                     return try tb.process(t, .InBody)
                 } else if (t.isEOF()) {
                     // nice work chuck
-                } else if t.startTagNormalName() == "noframes" {
+                } else if t.startTagNormalName() == "noframes".utf8Array {
                     return try tb.process(t, .InHead)
                 } else {
                     tb.error(self)
@@ -1512,16 +1507,17 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
     private static func isWhitespace(_ t: Token) -> Bool {
         if (t.isCharacter()) {
-            let data: String? = t.asCharacter().getData()
+            let data = t.asCharacter().getData()
             return isWhitespace(data)
         }
         return false
     }
 
-    private static func isWhitespace(_ data: String?) -> Bool {
+    private static func isWhitespace(_ data: [UInt8]?) -> Bool {
         // todo: self checks more than spec - UnicodeScalar.BackslashT, "\n", "\f", "\r", " "
-        if let data = data {
-            for c in data {
+        if let data {
+            let dataString = String(decoding: data, as: UTF8.self)
+            for c in dataString {
                 if (!StringUtil.isWhitespace(c)) {
                     return false}
             }
@@ -1546,38 +1542,38 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     // lists of tags to search through. A little harder to read here, but causes less GC than dynamic varargs.
     // was contributing around 10% of parse GC load.
     fileprivate final class Constants {
-        fileprivate static let InBodyStartToHead: Set = ["base", "basefont", "bgsound", "command", "link", "meta", "noframes", "script", "style", "title"]
-        fileprivate static let InBodyStartPClosers: Set = ["address", "article", "aside", "blockquote", "center", "details", "dir", "div", "dl",
+        fileprivate static let InBodyStartToHead: Set = Set(["base", "basefont", "bgsound", "command", "link", "meta", "noframes", "script", "style", "title"].map { $0.utf8Array })
+        fileprivate static let InBodyStartPClosers: Set = Set(["address", "article", "aside", "blockquote", "center", "details", "dir", "div", "dl",
                                                                 "fieldset", "figcaption", "figure", "footer", "header", "hgroup", "menu", "nav", "ol",
-                                                                "p", "section", "summary", "ul"]
-        fileprivate static let Headings: Set = ["h1", "h2", "h3", "h4", "h5", "h6"]
-        fileprivate static let InBodyStartPreListing: Set = ["pre", "listing"]
-        fileprivate static let InBodyStartLiBreakers: Set = ["address", "div", "p"]
-        fileprivate static let DdDt: Set = ["dd", "dt"]
-        fileprivate static let Formatters: Set = ["b", "big", "code", "em", "font", "i", "s", "small", "strike", "strong", "tt", "u"]
-        fileprivate static let InBodyStartApplets: Set = ["applet", "marquee", "object"]
-        fileprivate static let InBodyStartEmptyFormatters: Set = ["area", "br", "embed", "img", "keygen", "wbr"]
-        fileprivate static let InBodyStartMedia: Set = ["param", "source", "track"]
-        fileprivate static let InBodyStartInputAttribs: Set = ["name", "action", "prompt"]
-        fileprivate static let InBodyStartOptions: Set = ["optgroup", "option"]
-        fileprivate static let InBodyStartRuby: Set = ["rp", "rt"]
-        fileprivate static let InBodyStartDrop: Set = ["caption", "col", "colgroup", "frame", "head", "tbody", "td", "tfoot", "th", "thead", "tr"]
-        fileprivate static let InBodyEndClosers: Set = ["address", "article", "aside", "blockquote", "button", "center", "details", "dir", "div",
+                                                                "p", "section", "summary", "ul"].map { $0.utf8Array })
+        fileprivate static let Headings: Set = Set(["h1", "h2", "h3", "h4", "h5", "h6"].map { $0.utf8Array })
+        fileprivate static let InBodyStartPreListing: Set = Set(["pre", "listing"].map { $0.utf8Array })
+        fileprivate static let InBodyStartLiBreakers: Set = Set(["address", "div", "p"].map { $0.utf8Array })
+        fileprivate static let DdDt: Set = Set(["dd", "dt"].map { $0.utf8Array })
+        fileprivate static let Formatters: Set = Set(["b", "big", "code", "em", "font", "i", "s", "small", "strike", "strong", "tt", "u"].map { $0.utf8Array })
+        fileprivate static let InBodyStartApplets: Set = Set(["applet", "marquee", "object"].map { $0.utf8Array })
+        fileprivate static let InBodyStartEmptyFormatters: Set = Set(["area", "br", "embed", "img", "keygen", "wbr"].map { $0.utf8Array })
+        fileprivate static let InBodyStartMedia: Set = Set(["param", "source", "track"].map { $0.utf8Array })
+        fileprivate static let InBodyStartInputAttribs: Set = Set(["name", "action", "prompt"].map { $0.utf8Array })
+        fileprivate static let InBodyStartOptions: Set = Set(["optgroup", "option"].map { $0.utf8Array })
+        fileprivate static let InBodyStartRuby: Set = Set(["rp", "rt"].map { $0.utf8Array })
+        fileprivate static let InBodyStartDrop: Set = Set(["caption", "col", "colgroup", "frame", "head", "tbody", "td", "tfoot", "th", "thead", "tr"].map { $0.utf8Array })
+        fileprivate static let InBodyEndClosers: Set = Set(["address", "article", "aside", "blockquote", "button", "center", "details", "dir", "div",
                                                              "dl", "fieldset", "figcaption", "figure", "footer", "header", "hgroup", "listing", "menu",
-                                                             "nav", "ol", "pre", "section", "summary", "ul"]
-        fileprivate static let InBodyEndAdoptionFormatters: Set = ["a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong", "tt", "u"]
-        fileprivate static let InBodyEndTableFosters: Set = ["table", "tbody", "tfoot", "thead", "tr"]
+                                                             "nav", "ol", "pre", "section", "summary", "ul"].map { $0.utf8Array })
+        fileprivate static let InBodyEndAdoptionFormatters: Set = Set(["a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong", "tt", "u"].map { $0.utf8Array })
+        fileprivate static let InBodyEndTableFosters: Set = Set(["table", "tbody", "tfoot", "thead", "tr"].map { $0.utf8Array })
     }
 }
 
 fileprivate extension Token {
     
-    func endTagNormalName() -> String? {
+    func endTagNormalName() -> [UInt8]? {
         guard isEndTag() else { return nil }
         return asEndTag().normalName()
     }
     
-    func startTagNormalName() -> String? {
+    func startTagNormalName() -> [UInt8]? {
         guard isStartTag() else { return nil }
         return asStartTag().normalName()
     }

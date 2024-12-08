@@ -20,7 +20,7 @@ class SelectorTest: XCTestCase {
         #endif
     }
 
-	func testByTag()throws {
+	func testByTag() throws {
 		// should be case insensitive
 		let els: Elements = try SwiftSoup.parse("<div id=1><div id=2><p>Hello</p></div></div><DIV id=3>").select("DIV")
 		XCTAssertEqual(3, els.size())
@@ -32,7 +32,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(0, none.size())
 	}
 
-	func testById()throws {
+	func testById() throws {
 		let els: Elements = try SwiftSoup.parse("<div><p id=foo>Hello</p><p id=foo>Foo two!</p></div>").select("#foo")
 		XCTAssertEqual(2, els.size())
 		XCTAssertEqual("Hello", try els.get(0).text())
@@ -42,7 +42,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(0, none.size())
 	}
 
-	func testByClass()throws {
+	func testByClass() throws {
 		let els: Elements = try SwiftSoup.parse("<p id=0 class='ONE two'><p id=1 class='one'><p id=2 class='two'>").select("P.One")
 		XCTAssertEqual(2, els.size())
 		XCTAssertEqual("0", els.get(0).id())
@@ -55,7 +55,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(1, els2.size())
 	}
 
-	func testByAttribute()throws {
+	func testByAttribute() throws {
 		let h: String = "<div Title=Foo /><div Title=Bar /><div Style=Qux /><div title=Bam /><div title=SLAM />" +
 		"<div data-name='with spaces'/>"
 		let doc: Document = try SwiftSoup.parse(h)
@@ -96,7 +96,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("SLAM", try contains.last()?.attr("title"))
 	}
 
-	func testNamespacedTag()throws {
+	func testNamespacedTag() throws {
 		let doc: Document = try SwiftSoup.parse("<div><abc:def id=1>Hello</abc:def></div> <abc:def class=bold id=2>There</abc:def>")
 		let byTag: Elements = try doc.select("abc|def")
 		XCTAssertEqual(2, byTag.size())
@@ -117,7 +117,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("2", byContains.last()?.id())
 	}
 
-	func testWildcardNamespacedTag()throws {
+	func testWildcardNamespacedTag() throws {
 		let doc: Document = try SwiftSoup.parse("<div><abc:def id=1>Hello</abc:def></div> <abc:def class=bold id=2>There</abc:def>")
 		let byTag: Elements = try doc.select("*|def")
 		XCTAssertEqual(2, byTag.size())
@@ -138,7 +138,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("2", byContains.last()?.id())
 	}
 
-	func testByAttributeStarting()throws {
+	func testByAttributeStarting() throws {
 		let doc: Document = try SwiftSoup.parse("<div id=1 data-name=SwiftSoup>Hello</div><p data-val=5 id=2>There</p><p id=3>No</p>")
 		var withData: Elements = try doc.select("[^data-]")
 		XCTAssertEqual(2, withData.size())
@@ -150,7 +150,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("2", withData.first()?.id())
 	}
 
-	func testByAttributeRegex()throws {
+	func testByAttributeRegex() throws {
 		let doc: Document = try SwiftSoup.parse("<p><img src=foo.png id=1><img src=bar.jpg id=2><img src=qux.JPEG id=3><img src=old.gif><img></p>")
 		let imgs: Elements = try doc.select("img[src~=(?i)\\.(png|jpe?g)]")
 		XCTAssertEqual(3, imgs.size())
@@ -159,7 +159,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("3", imgs.get(2).id())
 	}
 
-	func testByAttributeRegexCharacterClass()throws {
+	func testByAttributeRegexCharacterClass() throws {
 		let doc: Document = try SwiftSoup.parse("<p><img src=foo.png id=1><img src=bar.jpg id=2><img src=qux.JPEG id=3><img src=old.gif id=4></p>")
 		let imgs: Elements = try doc.select("img[src~=[o]]")
 		XCTAssertEqual(2, imgs.size())
@@ -167,14 +167,14 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("4", imgs.get(1).id())
 	}
 
-	func testByAttributeRegexCombined()throws {
+	func testByAttributeRegexCombined() throws {
 		let doc: Document = try SwiftSoup.parse("<div><table class=x><td>Hello</td></table></div>")
 		let els: Elements = try doc.select("div table[class~=x|y]")
 		XCTAssertEqual(1, els.size())
 		try XCTAssertEqual("Hello", els.text())
 	}
 
-	func testCombinedWithContains()throws {
+	func testCombinedWithContains() throws {
 		let doc: Document = try SwiftSoup.parse("<p id=1>One</p><p>Two +</p><p>Three +</p>")
 		let els: Elements = try doc.select("p#1 + :contains(+)")
 		XCTAssertEqual(1, els.size())
@@ -182,7 +182,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("p", els.first()?.tagName())
 	}
 
-	func testAllElements()throws {
+	func testAllElements() throws {
 		let h: String = "<div><p>Hello</p><p><b>there</b></p></div>"
 		let doc: Document = try SwiftSoup.parse(h)
 		let allDoc: Elements = try doc.select("*")
@@ -192,14 +192,14 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("p", allUnderDiv.first()?.tagName())
 	}
 
-	func testAllWithClass()throws {
+	func testAllWithClass() throws {
 		let h: String = "<p class=first>One<p class=first>Two<p>Three"
 		let doc: Document = try SwiftSoup.parse(h)
 		let ps: Elements = try doc.select("*.first")
 		XCTAssertEqual(2, ps.size())
 	}
 
-	func testGroupOr()throws {
+	func testGroupOr() throws {
 		let h: String = "<div title=foo /><div title=bar /><div /><p></p><img /><span title=qux>"
 		let doc: Document = try SwiftSoup.parse(h)
 		let els: Elements = try doc.select("p,div,[title]")
@@ -216,7 +216,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("span", els.get(4).tagName())
 	}
 
-	func testGroupOrAttribute()throws {
+	func testGroupOrAttribute() throws {
 		let h: String = "<div id=1 /><div id=2 /><div title=foo /><div title=bar />"
 		let els: Elements = try SwiftSoup.parse(h).select("[id],[title=foo]")
 
@@ -226,7 +226,7 @@ class SelectorTest: XCTestCase {
 		try XCTAssertEqual("foo", els.get(2).attr("title"))
 	}
 
-	func testDescendant()throws {
+	func testDescendant() throws {
 		let h: String = "<div class=head><p class=first>Hello</p><p>There</p></div><p>None</p>"
 		let doc: Document = try SwiftSoup.parse(h)
 		let root: Element = try doc.getElementsByClass("HEAD").first()!
@@ -247,7 +247,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(0, aboveRoot.size())
 	}
 
-	func testAnd()throws {
+	func testAnd() throws {
 		let h: String = "<div id=1 class='foo bar' title=bar name=qux><p class=foo title=bar>Hello</p></div"
 		let doc: Document = try SwiftSoup.parse(h)
 
@@ -268,7 +268,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("p", p2.first()?.tagName())
 	}
 
-	func testDeeperDescendant()throws {
+	func testDeeperDescendant() throws {
 		let h: String = "<div class=head><p><span class=first>Hello</div><div class=head><p class=first><span>Another</span><p>Again</div>"
 		let doc: Document = try SwiftSoup.parse(h)
 		let root: Element = try doc.getElementsByClass("head").first()!
@@ -282,7 +282,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(0, aboveRoot.size())
 	}
 
-	func testParentChildElement()throws {
+	func testParentChildElement() throws {
 		let h: String = "<div id=1><div id=2><div id = 3></div></div></div><div id=4></div>"
 		let doc: Document = try SwiftSoup.parse(h)
 
@@ -296,7 +296,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("2", div2.get(0).id())
 	}
 
-	func testParentWithClassChild()throws {
+	func testParentWithClassChild() throws {
 		let h: String = "<h1 class=foo><a href=1 /></h1><h1 class=foo><a href=2 class=bar /></h1><h1><a href=3 /></h1>"
 		let doc: Document = try SwiftSoup.parse(h)
 
@@ -312,7 +312,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(1, barAs.size())
 	}
 
-	func testParentChildStar()throws {
+	func testParentChildStar() throws {
 		let h: String = "<div id=1><p>Hello<p><b>there</b></p></div><div id=2><span>Hi</span></div>"
 		let doc: Document = try SwiftSoup.parse(h)
 		let divChilds: Elements = try doc.select("div > *")
@@ -322,7 +322,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("span", divChilds.get(2).tagName())
 	}
 
-	func testMultiChildDescent()throws {
+	func testMultiChildDescent() throws {
 		let h: String = "<div id=foo><h1 class=bar><a href=http://example.com/>One</a></h1></div>"
 		let doc: Document = try SwiftSoup.parse(h)
 		let els: Elements = try doc.select("div#foo > h1.bar > a[href*=example]")
@@ -330,7 +330,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("a", els.first()?.tagName())
 	}
 
-	func testCaseInsensitive()throws {
+	func testCaseInsensitive() throws {
 		let h: String = "<dIv tItle=bAr><div>" // mixed case so a simple toLowerCase() on value doesn't catch
 		let doc: Document = try SwiftSoup.parse(h)
 
@@ -340,7 +340,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(0, try doc.select("DIV[TITLE=BARBARELLA").size())
 	}
 
-	func testAdjacentSiblings()throws {
+	func testAdjacentSiblings() throws {
 		let h: String = "<ol><li>One<li>Two<li>Three</ol>"
 		let doc: Document = try SwiftSoup.parse(h)
 		let sibs: Elements = try doc.select("li + li")
@@ -349,7 +349,7 @@ class SelectorTest: XCTestCase {
 		try XCTAssertEqual("Three", sibs.get(1).text())
 	}
 
-	func testAdjacentSiblingsWithId()throws {
+	func testAdjacentSiblingsWithId() throws {
 		let h: String = "<ol><li id=1>One<li id=2>Two<li id=3>Three</ol>"
 		let doc: Document = try SwiftSoup.parse(h)
 		let sibs: Elements = try doc.select("li#1 + li#2")
@@ -357,14 +357,14 @@ class SelectorTest: XCTestCase {
 		try XCTAssertEqual("Two", sibs.get(0).text())
 	}
 
-	func testNotAdjacent()throws {
+	func testNotAdjacent() throws {
 		let h: String = "<ol><li id=1>One<li id=2>Two<li id=3>Three</ol>"
 		let doc: Document = try SwiftSoup.parse(h)
 		let sibs: Elements = try doc.select("li#1 + li#3")
 		XCTAssertEqual(0, sibs.size())
 	}
 
-	func testMixCombinator()throws {
+	func testMixCombinator() throws {
 		let h: String = "<div class=foo><ol><li>One<li>Two<li>Three</ol></div>"
 		let doc: Document = try SwiftSoup.parse(h)
 		let sibs: Elements = try doc.select("body > div.foo li + li")
@@ -374,7 +374,7 @@ class SelectorTest: XCTestCase {
 		try XCTAssertEqual("Three", sibs.get(1).text())
 	}
 
-	func testMixCombinatorGroup()throws {
+	func testMixCombinatorGroup() throws {
 		let h: String = "<div class=foo><ol><li>One<li>Two<li>Three</ol></div>"
 		let doc: Document = try SwiftSoup.parse(h)
 		let els: Elements = try doc.select(".foo > ol, ol > li + li")
@@ -385,7 +385,7 @@ class SelectorTest: XCTestCase {
 		try XCTAssertEqual("Three", els.get(2).text())
 	}
 
-	func testGeneralSiblings()throws {
+	func testGeneralSiblings() throws {
 		let h: String = "<ol><li id=1>One<li id=2>Two<li id=3>Three</ol>"
 		let doc: Document = try SwiftSoup.parse(h)
 		let els: Elements = try doc.select("#1 ~ #3")
@@ -394,7 +394,7 @@ class SelectorTest: XCTestCase {
 	}
 
 	// for http://github.com/jhy/jsoup/issues#issue/10
-	func testCharactersInIdAndClass()throws {
+	func testCharactersInIdAndClass() throws {
 		// using CSS spec for identifiers (id and class): a-z0-9, -, _. NOT . (which is OK in html spec, but not css)
 		let h: String = "<div><p id='a1-foo_bar'>One</p><p class='b2-qux_bif'>Two</p></div>"
 		let doc: Document = try SwiftSoup.parse(h)
@@ -411,7 +411,7 @@ class SelectorTest: XCTestCase {
 	}
 
 	// for http://github.com/jhy/jsoup/issues#issue/13
-	func testSupportsLeadingCombinator()throws {
+	func testSupportsLeadingCombinator() throws {
 		var h: String = "<div><p><span>One</span><span>Two</span></p></div>"
 		var doc: Document = try SwiftSoup.parse(h)
 
@@ -427,7 +427,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("2", div.id())
 	}
 
-	func testPseudoLessThan()throws {
+	func testPseudoLessThan() throws {
 		let doc: Document = try SwiftSoup.parse("<div><p>One</p><p>Two</p><p>Three</>p></div><div><p>Four</p>")
 		let ps: Elements = try doc.select("div p:lt(2)")
 		XCTAssertEqual(3, ps.size())
@@ -436,7 +436,7 @@ class SelectorTest: XCTestCase {
 		try XCTAssertEqual("Four", ps.get(2).text())
 	}
 
-	func testPseudoGreaterThan()throws {
+	func testPseudoGreaterThan() throws {
 		let doc: Document = try SwiftSoup.parse("<div><p>One</p><p>Two</p><p>Three</p></div><div><p>Four</p>")
 		let ps: Elements = try doc.select("div p:gt(0)")
 		XCTAssertEqual(2, ps.size())
@@ -444,7 +444,7 @@ class SelectorTest: XCTestCase {
 		try XCTAssertEqual("Three", ps.get(1).text())
 	}
 
-	func testPseudoEquals()throws {
+	func testPseudoEquals() throws {
 		let doc: Document = try SwiftSoup.parse("<div><p>One</p><p>Two</p><p>Three</>p></div><div><p>Four</p>")
 		let ps: Elements = try doc.select("div p:eq(0)")
 		XCTAssertEqual(2, ps.size())
@@ -457,21 +457,21 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("p", ps2.get(0).tagName())
 	}
 
-	func testPseudoBetween()throws {
+	func testPseudoBetween() throws {
 		let doc: Document = try SwiftSoup.parse("<div><p>One</p><p>Two</p><p>Three</>p></div><div><p>Four</p>")
 		let ps: Elements = try doc.select("div p:gt(0):lt(2)")
 		XCTAssertEqual(1, ps.size())
 		try XCTAssertEqual("Two", ps.get(0).text())
 	}
 
-	func testPseudoCombined()throws {
+	func testPseudoCombined() throws {
 		let doc: Document = try SwiftSoup.parse("<div class='foo'><p>One</p><p>Two</p></div><div><p>Three</p><p>Four</p></div>")
 		let ps: Elements = try doc.select("div.foo p:gt(0)")
 		XCTAssertEqual(1, ps.size())
 		try XCTAssertEqual("Two", ps.get(0).text())
 	}
 
-	func testPseudoHas()throws {
+	func testPseudoHas() throws {
 		let doc: Document = try SwiftSoup.parse("<div id=0><p><span>Hello</span></p></div> <div id=1><span class=foo>There</span></div> <div id=2><p>Not</p></div>")
 
 		let divs1: Elements = try doc.select("div:has(span)")
@@ -496,7 +496,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("2", els1.get(2).id())
 	}
 
-	func testNestedHas()throws {
+	func testNestedHas() throws {
 		let doc: Document = try SwiftSoup.parse("<div><p><span>One</span></p></div> <div><p>Two</p></div>")
 		var divs: Elements = try doc.select("div:has(p:has(span))")
 		XCTAssertEqual(1, divs.size())
@@ -515,7 +515,7 @@ class SelectorTest: XCTestCase {
 		try XCTAssertEqual("Two", divs.first()?.text())
 	}
 
-	func testPseudoContains()throws {
+	func testPseudoContains() throws {
 		let doc: Document = try SwiftSoup.parse("<div><p>The Rain.</p> <p class=light>The <i>rain</i>.</p> <p>Rain, the.</p></div>")
 
 		let ps1: Elements = try doc.select("p:contains(Rain)")
@@ -538,7 +538,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(8, ps5.size()) // html, body, div,...
 	}
 
-	func testPsuedoContainsWithParentheses()throws {
+	func testPsuedoContainsWithParentheses() throws {
 		let doc: Document = try SwiftSoup.parse("<div><p id=1>This (is good)</p><p id=2>This is bad)</p>")
 
 		let ps1: Elements = try doc.select("p:contains(this (is good))")
@@ -550,7 +550,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("2", ps2.first()?.id())
 	}
 
-	func testContainsOwn()throws {
+	func testContainsOwn() throws {
 		let doc: Document = try SwiftSoup.parse("<p id=1>Hello <b>there</b> now</p>")
 		let ps: Elements = try doc.select("p:containsOwn(Hello now)")
 		XCTAssertEqual(1, ps.size())
@@ -559,7 +559,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(0, try doc.select("p:containsOwn(there)").size())
 	}
 
-	func testMatches()throws {
+	func testMatches() throws {
 		let doc: Document = try SwiftSoup.parse("<p id=1>The <i>Rain</i></p> <p id=2>There are 99 bottles.</p> <p id=3>Harder (this)</p> <p id=4>Rain</p>")
 
 		let p1: Elements = try doc.select("p:matches(The rain)") // no match, case sensitive
@@ -586,7 +586,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("1", p7.first()?.id())
 	}
 
-	func testMatchesOwn()throws {
+	func testMatchesOwn() throws {
 		let doc: Document = try SwiftSoup.parse("<p id=1>Hello <b>there</b> now</p>")
 
 		let p1: Elements = try doc.select("p:matchesOwn((?i)hello now)")
@@ -596,7 +596,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(0, try doc.select("p:matchesOwn(there)").size())
 	}
 
-	func testRelaxedTags()throws {
+	func testRelaxedTags() throws {
 		let doc: Document = try SwiftSoup.parse("<abc_def id=1>Hello</abc_def> <abc-def id=2>There</abc-def>")
 
 		let el1: Elements = try doc.select("abc_def")
@@ -608,7 +608,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("2", el2.first()?.id())
 	}
 
-	func testNotParas()throws {
+	func testNotParas() throws {
 		let doc: Document = try SwiftSoup.parse("<p id=1>One</p> <p>Two</p> <p><span>Three</span></p>")
 
 		let el1: Elements = try doc.select("p:not([id=1])")
@@ -622,7 +622,7 @@ class SelectorTest: XCTestCase {
 		try XCTAssertEqual("Two", el2.last()?.text())
 	}
 
-	func testNotAll()throws {
+	func testNotAll() throws {
 		let doc: Document = try SwiftSoup.parse("<p>Two</p> <p><span>Three</span></p>")
 
 		let el1: Elements = try doc.body()!.select(":not(p)") // should just be the span
@@ -631,7 +631,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("span", el1.last()?.tagName())
 	}
 
-	func testNotClass()throws {
+	func testNotClass() throws {
 		let doc: Document = try SwiftSoup.parse("<div class=left>One</div><div class=right id=1><p>Two</p></div>")
 
 		let el1: Elements = try doc.select("div:not(.left)")
@@ -639,7 +639,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("1", el1.first()?.id())
 	}
 
-	func testHandlesCommasInSelector()throws {
+	func testHandlesCommasInSelector() throws {
 		let doc: Document = try SwiftSoup.parse("<p name='1,2'>One</p><div>Two</div><ol><li>123</li><li>Text</li></ol>")
 
 		let ps: Elements = try doc.select("[name=1,2]")
@@ -652,7 +652,7 @@ class SelectorTest: XCTestCase {
 		try XCTAssertEqual("123", containers.get(1).text())
 	}
 
-	func testSelectSupplementaryCharacter()throws {
+	func testSelectSupplementaryCharacter() throws {
 		#if !os(Linux)
 			let s = String(Character(UnicodeScalar(135361)!))
 			let doc: Document = try SwiftSoup.parse("<div k" + s + "='" + s + "'>^" + s + "$/div>")
@@ -661,7 +661,7 @@ class SelectorTest: XCTestCase {
 		#endif
 	}
 
-	func testSelectClassWithSpace()throws {
+	func testSelectClassWithSpace() throws {
 		 let html: String = "<div class=\"value\">class without space</div>\n"
 			+ "<div class=\"value \">class with space</div>"
 
@@ -681,7 +681,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(0, found.size())
 	}
 
-	func testSelectSameElements()throws {
+	func testSelectSameElements() throws {
 		let html: String = "<div>one</div><div>one</div>"
 
 		let doc: Document = try SwiftSoup.parse(html)
@@ -692,7 +692,7 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(2, subSelect.size())
 	}
 
-	func testAttributeWithBrackets()throws {
+	func testAttributeWithBrackets() throws {
 		let html: String = "<div data='End]'>One</div> <div data='[Another)]]'>Two</div>"
 		let doc: Document = try SwiftSoup.parse(html)
 		try _ = doc.select("div[data='End]'")

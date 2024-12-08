@@ -134,16 +134,16 @@ open class Evaluator {
      * Evaluator for attribute name prefix matching
      */
     public final class AttributeStarting: Evaluator {
-        private let keyPrefix: String
+        private let keyPrefix: [UInt8]
 
-        public init(_ keyPrefix: String)throws {
+        public init(_ keyPrefix: [UInt8]) throws {
             try Validate.notEmpty(string: keyPrefix)
             self.keyPrefix = keyPrefix.lowercased()
         }
 
-        public override func matches(_ root: Element, _ element: Element)throws->Bool {
+        public override func matches(_ root: Element, _ element: Element) throws -> Bool {
             if let values = element.getAttributes() {
-                for attribute in values where attribute.getKey().lowercased().hasPrefix(keyPrefix) {
+                for attribute in values where attribute.getKeyUTF8().lowercased().hasPrefix(keyPrefix) {
                     return true
                 }
             }
@@ -151,7 +151,7 @@ open class Evaluator {
         }
 
         public override func toString() -> String {
-            return "[^\(keyPrefix)]"
+            return "[^\(String(decoding: keyPrefix, as: UTF8.self))]"
         }
 
     }
