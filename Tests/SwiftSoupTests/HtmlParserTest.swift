@@ -47,13 +47,15 @@ class HtmlParserTest: XCTestCase {
 	func testParsesQuiteRoughAttributes() throws {
 		let html: String = "<p =a>One<a <p>Something</p>Else"
 		// this gets a <p> with attr '=a' and an <a tag with an attribue named '<p'; and then auto-recreated
-		var doc: Document = try SwiftSoup.parse(html)
+		let doc: Document = try SwiftSoup.parse(html)
 		XCTAssertEqual("<p =a>One<a <p>Something</a></p>\n" +
 			"<a <p>Else</a>", try doc.body()!.html())
-
-		doc = try SwiftSoup.parse("<p .....>")
-		XCTAssertEqual("<p .....></p>", try doc.body()!.html())
 	}
+    
+    func testParsesQuiteRoughAttributes2() throws {
+        let doc = try SwiftSoup.parse("<p .....>")
+        XCTAssertEqual("<p .....></p>", try doc.body()!.html())
+    }
 
 	func testParsesComments() throws {
 		let html = "<html><head></head><body><img src=foo><!-- <table><tr><td></table> --><p>Hello</p></body></html>"
@@ -618,6 +620,7 @@ class HtmlParserTest: XCTestCase {
             ("testParsesSimpleDocument", testParsesSimpleDocument),
 			("testParsesRoughAttributes", testParsesRoughAttributes),
 			("testParsesQuiteRoughAttributes", testParsesQuiteRoughAttributes),
+            ("testParsesQuiteRoughAttributes2", testParsesQuiteRoughAttributes2),
 			("testParsesComments", testParsesComments),
 			("testParsesUnterminatedComments", testParsesUnterminatedComments),
 			("testDropsUnterminatedTag", testDropsUnterminatedTag),

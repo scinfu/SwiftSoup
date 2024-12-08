@@ -181,6 +181,11 @@ open class TextNode: Node {
         ensureAttributes()
         return try super.attr(attributeKey)
     }
+    
+    open override func attr(_ attributeKey: String) throws -> String {
+        ensureAttributes()
+        return try super.attr(attributeKey)
+    }
 
     open override func getAttributes() -> Attributes {
         ensureAttributes()
@@ -191,13 +196,23 @@ open class TextNode: Node {
         ensureAttributes()
         return try super.attr(attributeKey, attributeValue)
     }
+    
+    open override func attr(_ attributeKey: String, _ attributeValue: String) throws -> Node {
+        ensureAttributes()
+        return try super.attr(attributeKey, attributeValue)
+    }
 
     open override func hasAttr(_ attributeKey: String) -> Bool {
         ensureAttributes()
         return super.hasAttr(attributeKey)
     }
 
-    open override func removeAttr(_ attributeKey: [UInt8])throws->Node {
+    open override func removeAttr(_ attributeKey: [UInt8]) throws -> Node {
+        ensureAttributes()
+        return try super.removeAttr(attributeKey)
+    }
+    
+    open override func removeAttr(_ attributeKey: String) throws -> Node {
         ensureAttributes()
         return try super.removeAttr(attributeKey)
     }
