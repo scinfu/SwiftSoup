@@ -177,7 +177,7 @@ open class Token {
 		}
 
 		func appendAttributeName(_ append: [UInt8]) {
-			_pendingAttributeName = _pendingAttributeName == nil ? append : (_pendingAttributeName ?? [] + append)
+			_pendingAttributeName = _pendingAttributeName == nil ? append : ((_pendingAttributeName ?? []) + append)
 		}
 
 		func appendAttributeName(_ append: UnicodeScalar) {
