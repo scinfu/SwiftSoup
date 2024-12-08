@@ -61,7 +61,6 @@ public class Entities {
         private static let codeDelims = Set<[UInt8]>([",", ";"].map { $0.utf8Array })
         
         init(string: [UInt8], size: Int, id: Int) {
-            
             value = id
             let reader: CharacterReader = CharacterReader(string)
             
@@ -312,7 +311,7 @@ public class Entities {
      * @return unescaped string
      */
     public static func unescape(string: String, strict: Bool) throws -> String {
-        return try String(decoding: unescape(string.utf8Array), as: UTF8.self)
+        return try String(decoding: unescape(string: string.utf8Array, strict: strict), as: UTF8.self)
     }
     
     public static func unescape(string: [UInt8], strict: Bool) throws -> [UInt8] {
