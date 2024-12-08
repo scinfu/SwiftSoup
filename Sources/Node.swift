@@ -113,7 +113,7 @@ open class Node: Equatable, Hashable {
     
     @discardableResult
     open func attr(_ attributeKey: String, _ attributeValue: String) throws -> Node {
-        try attributes?.put(attributeKey.utf8Array, attributeValue.utf8Array)
+        try attributes?.put(attributeKey, attributeValue)
         return self
     }
 
