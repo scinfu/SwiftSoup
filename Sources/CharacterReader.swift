@@ -92,17 +92,30 @@ public final class CharacterReader {
     public func consumeToAny(_ chars: Set<[UInt8]>) -> [UInt8] {
         let start = pos
         
-        while pos < input.count {
-            var matched = false
-            for char in chars {
-                if input[pos..<min(pos + char.count, input.count)].elementsEqual(char) {
-                    matched = true
-                    break
-                }
+        var singleByteChars = Set<UInt8>()
+        var multiByteChars = [[UInt8]]()
+        for char in chars {
+            if char.count == 1 {
+                singleByteChars.insert(char[0])
+            } else {
+                multiByteChars.append(char)
             }
-            if matched {
+        }
+        
+        let inputCount = input.count
+        while pos < inputCount {
+            let byte = input[pos]
+            
+            if singleByteChars.contains(byte) {
                 break
             }
+            
+            for char in multiByteChars {
+                if pos + char.count <= inputCount, input[pos..<(pos + char.count)] == ArraySlice(char) {
+                    return Array(input[start..<pos])
+                }
+            }
+            
             pos += 1
         }
         
