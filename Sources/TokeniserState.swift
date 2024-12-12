@@ -15,15 +15,15 @@ protocol TokeniserStateProtocol {
 public class TokeniserStateVars {
 	public static let nullScalr: UnicodeScalar = "\u{0000}"
 
-    static let attributeSingleValueChars = Set(["'", UnicodeScalar.Ampersand, nullScalr].map { Array($0.utf8) })
-    static let attributeDoubleValueChars = Set(["\"", UnicodeScalar.Ampersand, nullScalr].map { Array($0.utf8) })
-    static let attributeNameChars = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", "=", ">", nullScalr, "\"", "'", UnicodeScalar.LessThan].map { Array($0.utf8) })
-    static let attributeValueUnquoted = Set([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", UnicodeScalar.Ampersand, ">", nullScalr, "\"", "'", UnicodeScalar.LessThan, "=", "`"].map { Array($0.utf8) })
+    static let attributeSingleValueChars = ParsingStrings(["'", UnicodeScalar.Ampersand, nullScalr])
+    static let attributeDoubleValueChars = ParsingStrings(["\"", UnicodeScalar.Ampersand, nullScalr])
+    static let attributeNameChars = ParsingStrings([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", "=", ">", nullScalr, "\"", "'", UnicodeScalar.LessThan])
+    static let attributeValueUnquoted = ParsingStrings([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", UnicodeScalar.Ampersand, ">", nullScalr, "\"", "'", UnicodeScalar.LessThan, "=", "`"])
     
-    static let dataDefaultStopChars = Set([UnicodeScalar.Ampersand, UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].map { Array($0.utf8) })
-    static let scriptDataDefaultStopChars = Set(["-", UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].map { Array($0.utf8) })
-    static let commentDefaultStopChars = Set(["-", TokeniserStateVars.nullScalr].map { Array($0.utf8) })
-    static let readDataDefaultStopChars = Set([UnicodeScalar.LessThan, TokeniserStateVars.nullScalr].map { Array($0.utf8) })
+    static let dataDefaultStopChars = ParsingStrings([UnicodeScalar.Ampersand, UnicodeScalar.LessThan, TokeniserStateVars.nullScalr])
+    static let scriptDataDefaultStopChars = ParsingStrings(["-", UnicodeScalar.LessThan, TokeniserStateVars.nullScalr])
+    static let commentDefaultStopChars = ParsingStrings(["-", TokeniserStateVars.nullScalr])
+    static let readDataDefaultStopChars = ParsingStrings([UnicodeScalar.LessThan, TokeniserStateVars.nullScalr])
 
 
     static let replacementChar: UnicodeScalar = Tokeniser.replacementChar
@@ -143,7 +143,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 try t.emit(Token.EOF())
                 break
             default:
-                let data = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
+                let data: [UInt8] = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
                 t.emit(data)
                 break
             }
@@ -423,7 +423,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.emit(TokeniserStateVars.replacementChar)
                 break
             default:
-                let data = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
+                let data: [UInt8] = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
                 t.emit(data)
             }
             break
@@ -534,7 +534,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.transition(.Data)
                 break
             default:
-                let data = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
+                let data: [UInt8] = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
                 t.emit(data)
             }
             break
@@ -639,7 +639,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeName:
-            let name = r.consumeToAnySorted(TokeniserStateVars.attributeNameChars)
+            let name: [UInt8] = r.consumeToAny(TokeniserStateVars.attributeNameChars)
             t.tagPending.appendAttributeName(name)
 
             let c = r.consume()
@@ -770,7 +770,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_doubleQuoted:
-            let value = r.consumeToAny(TokeniserStateVars.attributeDoubleValueChars)
+            let value: [UInt8] = r.consumeToAny(TokeniserStateVars.attributeDoubleValueChars)
             if (value.count > 0) {
             t.tagPending.appendAttributeValue(value)
             } else {
@@ -804,7 +804,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_singleQuoted:
-            let value = r.consumeToAny(TokeniserStateVars.attributeSingleValueChars)
+            let value: [UInt8] = r.consumeToAny(TokeniserStateVars.attributeSingleValueChars)
             if (value.count > 0) {
             t.tagPending.appendAttributeValue(value)
             } else {
@@ -838,9 +838,9 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_unquoted:
-            let value = r.consumeToAnySorted(TokeniserStateVars.attributeValueUnquoted)
+            let value: [UInt8] = r.consumeToAny(TokeniserStateVars.attributeValueUnquoted)
             if (value.count > 0) {
-            t.tagPending.appendAttributeValue(value)
+                t.tagPending.appendAttributeValue(value)
             }
 
             let c = r.consume()
@@ -1014,7 +1014,8 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.transition(.Data)
                 break
             default:
-                t.commentPending.data.append(r.consumeToAny(TokeniserStateVars.commentDefaultStopChars))
+                let value: [UInt8] = r.consumeToAny(TokeniserStateVars.commentDefaultStopChars)
+                t.commentPending.data.append(value)
             }
             break
         case .CommentEndDash:
@@ -1598,7 +1599,7 @@ enum TokeniserState: TokeniserStateProtocol {
             try t.emit(Token.EOF())
             break
         default:
-            let data = r.consumeToAny(TokeniserStateVars.readDataDefaultStopChars)
+            let data: [UInt8] = r.consumeToAny(TokeniserStateVars.readDataDefaultStopChars)
             t.emit(data)
             break
         }
