@@ -21,8 +21,8 @@ final class Tokeniser {
     private var charsString: [UInt8]? // characters pending an emit. Will fall to charsBuilder if more than one
     private let charsBuilder: StringBuilder = StringBuilder(1024) // buffers characters to output as one token, if more than one emit per read
     let dataBuffer: StringBuilder = StringBuilder(1024) // buffers data looking for </script>
-
-    var tagPending: Token.Tag = Token.Tag()  // tag we are building up
+    
+    var tagPending: Token.Tag = Token.Tag() // tag we are building up
     let startPending: Token.StartTag  = Token.StartTag()
     let endPending: Token.EndTag  = Token.EndTag()
     let charPending: Token.Char  = Token.Char()
@@ -139,7 +139,7 @@ final class Tokeniser {
         if (additionalAllowedCharacter != nil && additionalAllowedCharacter == reader.current()) {
             return nil
         }
-        if (reader.matchesAnySorted(Tokeniser.notCharRefCharsSorted)) {
+        if (reader.matchesAny(Tokeniser.notCharRefCharsSorted)) {
             return nil
         }
 

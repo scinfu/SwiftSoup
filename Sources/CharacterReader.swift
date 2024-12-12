@@ -85,34 +85,27 @@ public final class CharacterReader {
         }
     }
     
-    public func consumeToAny(_ chars: Set<String>) -> String {
-        return String(decoding: consumeToAny(Set(chars.map { $0.utf8Array })), as: UTF8.self)
+    public func consumeToAny(_ chars: ParsingStrings) -> String {
+        return String(decoding: consumeToAny(chars), as: UTF8.self)
     }
     
-    public func consumeToAny(_ chars: Set<[UInt8]>) -> [UInt8] {
+    public func consumeToAny(_ chars: ParsingStrings) -> [UInt8] {
         let start = pos
-        
-        var singleByteChars = Set<UInt8>()
-        var multiByteChars = [[UInt8]]()
-        for char in chars {
-            if char.count == 1 {
-                singleByteChars.insert(char[0])
-            } else {
-                multiByteChars.append(char)
-            }
-        }
-        
         let inputCount = input.count
+        
         while pos < inputCount {
             let byte = input[pos]
             
-            if singleByteChars.contains(byte) {
+            // Check single-byte characters using the lookup array
+            if chars.singleByteLookup[Int(byte)] {
                 break
             }
             
-            for char in multiByteChars {
-                if pos + char.count <= inputCount, input[pos..<(pos + char.count)] == ArraySlice(char) {
-                    return Array(input[start..<pos])
+            // Check multi-byte characters
+            for (index, char) in chars.multiByteChars.enumerated() {
+                let charLength = chars.multiByteCharLengths[index]
+                if pos + charLength <= inputCount && input[pos..<(pos + charLength)].elementsEqual(char) {
+                    return Array(input[0..<pos])
                 }
             }
             
@@ -333,10 +326,6 @@ public final class CharacterReader {
         }
     }
     
-    public func matchesAnySorted(_ seq: [UnicodeScalar]) -> Bool {
-        return matchesAny(seq)
-    }
-    
     public func matchesLetter() -> Bool {
         guard pos < input.endIndex else { return false }
         
@@ -457,20 +446,16 @@ public final class CharacterReader {
         }
     }
 
-    static let dataTerminators = Set<[UInt8]>([.Ampersand, .LessThan, TokeniserStateVars.nullScalr].map { Array($0.utf8) })
+    static let dataTerminators = ParsingStrings([.Ampersand, .LessThan, TokeniserStateVars.nullScalr])
     
     public func consumeData() -> [UInt8] {
         return consumeToAny(CharacterReader.dataTerminators)
     }
     
-    static let tagNameTerminators = Set<[UInt8]>([.BackslashT, .BackslashN, .BackslashR, .BackslashF, .Space, .Slash, .GreaterThan, TokeniserStateVars.nullScalr].map { Array($0.utf8) })
+    static let tagNameTerminators = ParsingStrings([.BackslashT, .BackslashN, .BackslashR, .BackslashF, .Space, .Slash, .GreaterThan, TokeniserStateVars.nullScalr])
     
     public func consumeTagName() -> [UInt8] {
         return consumeToAny(CharacterReader.tagNameTerminators)
-    }
-    
-    public func consumeToAnySorted(_ chars: Set<[UInt8]>) -> [UInt8] {
-        return consumeToAny(chars)
     }
 }
 

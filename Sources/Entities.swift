@@ -57,8 +57,8 @@ public class Entities {
         static func != (left: EscapeMode, right: EscapeMode) -> Bool {
             return left.value != right.value
         }
-
-        private static let codeDelims = Set<[UInt8]>([",", ";"].map { $0.utf8Array })
+        
+        private static let codeDelims = ParsingStrings([",", ";"])
         
         init(string: [UInt8], size: Int, id: Int) {
             value = id
@@ -72,7 +72,7 @@ public class Entities {
                 let codeDelim: UnicodeScalar = reader.current()
                 reader.advance()
                 let cp2: Int
-                if (codeDelim == ",") {
+                if codeDelim == "," {
                     cp2 = reader.consumeTo(";".utf8Array).toInt(radix: codepointRadix) ?? 0
                     reader.advance()
                 } else {
@@ -83,7 +83,7 @@ public class Entities {
 
                 entitiesByName.append(NamedCodepoint(scalar: UnicodeScalar(cp1)!, name: name))
 
-                if (cp2 != empty) {
+                if cp2 != empty {
                     multipointsLock.lock()
                     multipoints[name] = [UnicodeScalar(cp1)!, UnicodeScalar(cp2)!]
                     multipointsLock.unlock()
@@ -234,7 +234,7 @@ public class Entities {
             }
 
             // surrogate pairs, split implementation for efficiency on single char common case (saves creating strings, char[]):
-            if (codePoint.value < Character.MIN_SUPPLEMENTARY_CODE_POINT) {
+            if codePoint.value < Character.MIN_SUPPLEMENTARY_CODE_POINT {
                 let c = codePoint
                 // html specific and required escapes:
                 switch (codePoint) {
