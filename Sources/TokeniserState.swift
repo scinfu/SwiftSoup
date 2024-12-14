@@ -118,7 +118,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 try t.emit(Token.EOF())
                 break
             default:
-                let data: [UInt8] = r.consumeData()
+                let data: ArraySlice<UInt8> = r.consumeData()
                 t.emit(data)
                 break
             }
@@ -143,7 +143,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 try t.emit(Token.EOF())
                 break
             default:
-                let data: [UInt8] = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
+                let data: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.dataDefaultStopChars)
                 t.emit(data)
                 break
             }
@@ -217,7 +217,7 @@ enum TokeniserState: TokeniserStateProtocol {
             // from < or </ in data, will have start or end tag pending
             // previous TagOpen state did NOT consume, will have a letter char in current
             //String tagName = r.consumeToAnySorted(tagCharsSorted).toLowerCase()
-            let tagName = r.consumeTagName()
+            let tagName: ArraySlice<UInt8> = r.consumeTagName()
             t.tagPending.appendTagName(tagName)
 
             switch (r.consume()) {
@@ -423,7 +423,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.emit(TokeniserStateVars.replacementChar)
                 break
             default:
-                let data: [UInt8] = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
+                let data: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
                 t.emit(data)
             }
             break
@@ -534,7 +534,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.transition(.Data)
                 break
             default:
-                let data: [UInt8] = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
+                let data: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.scriptDataDefaultStopChars)
                 t.emit(data)
             }
             break
@@ -639,7 +639,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeName:
-            let name: [UInt8] = r.consumeToAny(TokeniserStateVars.attributeNameChars)
+            let name: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.attributeNameChars)
             t.tagPending.appendAttributeName(name)
 
             let c = r.consume()
@@ -770,7 +770,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_doubleQuoted:
-            let value: [UInt8] = r.consumeToAny(TokeniserStateVars.attributeDoubleValueChars)
+            let value: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.attributeDoubleValueChars)
             if (value.count > 0) {
             t.tagPending.appendAttributeValue(value)
             } else {
@@ -804,7 +804,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_singleQuoted:
-            let value: [UInt8] = r.consumeToAny(TokeniserStateVars.attributeSingleValueChars)
+            let value: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.attributeSingleValueChars)
             if (value.count > 0) {
             t.tagPending.appendAttributeValue(value)
             } else {
@@ -838,7 +838,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_unquoted:
-            let value: [UInt8] = r.consumeToAny(TokeniserStateVars.attributeValueUnquoted)
+            let value: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.attributeValueUnquoted)
             if (value.count > 0) {
                 t.tagPending.appendAttributeValue(value)
             }
@@ -1014,7 +1014,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.transition(.Data)
                 break
             default:
-                let value: [UInt8] = r.consumeToAny(TokeniserStateVars.commentDefaultStopChars)
+                let value: ArraySlice<UInt8>  = r.consumeToAny(TokeniserStateVars.commentDefaultStopChars)
                 t.commentPending.data.append(value)
             }
             break
@@ -1551,7 +1551,7 @@ enum TokeniserState: TokeniserStateProtocol {
      */
     private static func handleDataEndTag(_ t: Tokeniser, _ r: CharacterReader, _ elseTransition: TokeniserState)throws {
         if (r.matchesLetter()) {
-            let name = r.consumeLetterSequence()
+            let name: ArraySlice<UInt8> = r.consumeLetterSequence()
             t.tagPending.appendTagName(name)
             t.dataBuffer.append(name)
             return
@@ -1599,7 +1599,7 @@ enum TokeniserState: TokeniserStateProtocol {
             try t.emit(Token.EOF())
             break
         default:
-            let data: [UInt8] = r.consumeToAny(TokeniserStateVars.readDataDefaultStopChars)
+            let data: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.readDataDefaultStopChars)
             t.emit(data)
             break
         }

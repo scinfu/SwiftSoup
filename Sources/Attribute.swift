@@ -129,13 +129,13 @@ open class Attribute {
      * @return  Returns whether collapsible or not
      */
     public final func shouldCollapseAttribute(out: OutputSettings) -> Bool {
-        return (Array("".utf8) == value  || value.equalsIgnoreCase(string: key))
+        return ("".utf8Array == value  || value.equalsIgnoreCase(string: key))
             && out.syntax() == OutputSettings.Syntax.html
             && isBooleanAttribute()
     }
 
     public func isBooleanAttribute() -> Bool {
-        return Attribute.booleanAttributes.contains(key.lowercased())
+        return Attribute.booleanAttributes.contains(key.lowercased()[...])
     }
 
     public func hashCode() -> Int {
