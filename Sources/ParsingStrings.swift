@@ -32,7 +32,7 @@ public struct ParsingStrings: Hashable, Equatable {
     let multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)]
     let multiByteSet: Set<ArraySlice<UInt8>>
     let multiByteByteLookupsCount: Int
-    let singleByteSet: Set<UInt8> // New: Explicit set for single-byte characters
+    let singleByteSet: Set<UInt8> // Precomputed set for single-byte lookups
     private let precomputedHash: Int
     
     public init(_ strings: [String]) {
@@ -44,25 +44,25 @@ public struct ParsingStrings: Hashable, Equatable {
         multiByteCharLengths = strings.map { $0.count }
         let maxLen = multiByteCharLengths.max() ?? 0
         
-        var singleByteSet = Set<UInt8>() // New: Initialize single-byte set
-        var multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)] = Array(repeating: (0, 0, 0, 0), count: maxLen)
+        var multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)] = Array(repeating: (0,0,0,0), count: maxLen)
+        var singleByteSet = Set<UInt8>() // Initialize single-byte set
         
         for char in multiByteChars {
             if char.count == 1 {
-                singleByteSet.insert(char[0]) // Add single-byte character to set
-            } else {
-                for (i, byte) in char.enumerated() {
-                    var mask = multiByteByteLookups[i]
-                    setBit(in: &mask, forByte: byte)
-                    multiByteByteLookups[i] = mask
-                }
+                // Add single-byte characters directly to the set
+                singleByteSet.insert(char[0])
+            }
+            for (i, byte) in char.enumerated() {
+                var mask = multiByteByteLookups[i]
+                setBit(in: &mask, forByte: byte)
+                multiByteByteLookups[i] = mask
             }
         }
-        
         self.multiByteByteLookups = multiByteByteLookups
-        self.multiByteByteLookupsCount = multiByteByteLookups.count
+        multiByteByteLookupsCount = multiByteByteLookups.count
+        
         self.singleByteSet = singleByteSet
-        self.multiByteSet = Set(multiByteChars.map { ArraySlice($0) })
+        multiByteSet = Set(multiByteChars.map { ArraySlice($0) })
         self.precomputedHash = Self.computeHash(
             multiByteChars: multiByteChars,
             multiByteByteLookups: multiByteByteLookups
@@ -113,7 +113,7 @@ public struct ParsingStrings: Hashable, Equatable {
     }
     
     public func contains(_ byte: UInt8) -> Bool {
-        // Fast path: Check if byte exists in single-byte set
+        // Directly check the precomputed single-byte set
         return singleByteSet.contains(byte)
     }
 }

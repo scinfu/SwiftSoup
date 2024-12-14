@@ -18,12 +18,12 @@ public class Entities {
     private static let emptyName = ""
     private static let codepointRadix: Int = 36
     
-    private static let ampEntityUTF8 = "&amp;".utf8
-    private static let nbspEntityUTF8 = "&nbsp;".utf8
-    private static let xa0EntityUTF8 = "&#xa0;".utf8
-    private static let ltEntityUTF8 = "&lt;".utf8
-    private static let gtEntityUTF8 = "&gt;".utf8
-    private static let quotEntityUTF8 = "&quot;".utf8
+    private static let ampEntityUTF8 = "&amp;".utf8Array
+    private static let nbspEntityUTF8 = "&nbsp;".utf8Array
+    private static let xa0EntityUTF8 = "&#xa0;".utf8Array
+    private static let ltEntityUTF8 = "&lt;".utf8Array
+    private static let gtEntityUTF8 = "&gt;".utf8Array
+    private static let quotEntityUTF8 = "&quot;".utf8Array
 
     public class EscapeMode: Equatable {
 
@@ -367,7 +367,7 @@ public class Entities {
         }
     }
      */
-
+    
     private static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, byte: UInt8) {
         if let name = escapeMode.nameForCodepoint(byte) {
             // Append '&' as [UInt8]
@@ -377,7 +377,7 @@ public class Entities {
         } else {
             // Append "&#x" and ";" as [UInt8]
             accum.append([0x26, 0x23, 0x78]) // '&#x'
-            accum.append(String.toHexString(n: Int(byte)).utf8)
+            accum.append(String.toHexString(n: Int(byte)))
             accum.append([0x3B]) // ';'
         }
     }

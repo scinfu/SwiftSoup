@@ -47,11 +47,13 @@ open class StringBuilder {
      
      :return: reference to this StringBuilder instance
      */
-    open func append(_ string: String) {
+    @discardableResult
+    open func append(_ string: String) -> StringBuilder{
         buffer.append(contentsOf: string.utf8)
+        return self
     }
     
-    open func appendCodePoint(_ chr: Character) {
+    open func append(_ chr: Character) {
         append(String(chr))
     }
     
@@ -105,9 +107,15 @@ open class StringBuilder {
      
      :return: reference to this StringBuilder instance
      */
+//    @discardableResult
+//    open func append<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
+//        append(value.description)
+//        return self
+//    }
+    
     @discardableResult
-    open func append<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
-        append(value.description)
+    open func append(_ value: ArraySlice<UInt8>) -> StringBuilder {
+        buffer.append(contentsOf: value)
         return self
     }
     
