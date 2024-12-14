@@ -8,6 +8,25 @@
 
 import Foundation
 
+extension UInt8 {
+    /// Checks if the byte represents a whitespace character:
+    /// Space (0x20), Tab (0x09), Newline (0x0A), Carriage Return (0x0D),
+    /// Form Feed (0x0C), or Vertical Tab (0x0B).
+    var isWhitespace: Bool {
+        switch self {
+        case 0x20, // Space
+            0x09, // Tab (\t)
+            0x0A, // Newline (\n)
+            0x0D, // Carriage Return (\r)
+            0x0C, // Form Feed (\f)
+            0x0B: // Vertical Tab (\v)
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 extension Array: @retroactive Comparable where Element == UInt8 {
     func lowercased() -> [UInt8] {
         map { $0 >= 65 && $0 <= 90 ? $0 + 32 : $0 }

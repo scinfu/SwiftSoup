@@ -121,6 +121,16 @@ public class Entities {
             }
             return matches.isEmpty ? nil : String(decoding: matches.sorted().last!, as: UTF8.self)
         }
+        
+        public func nameForCodepoint(_ codepoint: UInt8) -> [UInt8]? {
+            var ix = entitiesByCodepoint.binarySearch { $0.scalar.value < UInt32(codepoint) }
+            var matches: [ArraySlice<UInt8>] = []
+            while ix < entitiesByCodepoint.endIndex && entitiesByCodepoint[ix].scalar.value == UInt32(codepoint) {
+                matches.append(entitiesByCodepoint[ix].name)
+                entitiesByCodepoint.formIndex(after: &ix)
+            }
+            return matches.isEmpty ? nil : Array(matches.sorted().last ?? [])
+        }
 
         private func size() -> Int {
             return entitiesByName.count
@@ -205,6 +215,71 @@ public class Entities {
     ) {
     }
     
+    static func escape(
+        _ accum: StringBuilder,
+        _ string: [UInt8],
+        _ out: OutputSettings,
+        _ inAttribute: Bool,
+        _ normaliseWhite: Bool,
+        _ stripLeadingWhite: Bool
+    ) {
+        var lastWasWhite = false
+        var reachedNonWhite = false
+        let escapeMode: EscapeMode = out.escapeMode()
+        let encoder: String.Encoding = out.encoder()
+        
+        for byte in string {
+            if normaliseWhite {
+                if byte.isWhitespace {
+                    if (stripLeadingWhite && !reachedNonWhite) || lastWasWhite {
+                        continue
+                    }
+                    accum.append([0x20]) // Append a space (0x20) directly as [UInt8]
+                    lastWasWhite = true
+                    continue
+                } else {
+                    lastWasWhite = false
+                    reachedNonWhite = true
+                }
+            }
+            
+            switch byte {
+            case 0x26: // '&'
+                accum.append(ampEntityUTF8)
+            case 0xA0: // Non-breaking space
+                if escapeMode != .xhtml {
+                    accum.append(nbspEntityUTF8)
+                } else {
+                    accum.append(xa0EntityUTF8)
+                }
+            case 0x3C: // '<'
+                if !inAttribute || escapeMode == .xhtml {
+                    accum.append(ltEntityUTF8)
+                } else {
+                    accum.append([byte])
+                }
+            case 0x3E: // '>'
+                if !inAttribute {
+                    accum.append(gtEntityUTF8)
+                } else {
+                    accum.append([byte])
+                }
+            case 0x22: // '"'
+                if inAttribute {
+                    accum.append(quotEntityUTF8)
+                } else {
+                    accum.append([byte])
+                }
+            default:
+                if canEncode(byte: byte, encoder: encoder) {
+                    accum.append([byte]) // Directly append the byte as [UInt8]
+                } else {
+                    appendEncoded(accum: accum, escapeMode: escapeMode, byte: byte)
+                }
+            }
+        }
+    }
+    /*
     // this method is ugly, and does a lot. but other breakups cause rescanning and stringbuilder generations
     static func escape(
         _ accum: StringBuilder,
@@ -291,7 +366,22 @@ public class Entities {
             }
         }
     }
+     */
 
+    private static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, byte: UInt8) {
+        if let name = escapeMode.nameForCodepoint(byte) {
+            // Append '&' as [UInt8]
+            accum.append([0x26]) // '&'
+            accum.append(name)
+            accum.append([0x3B]) // ';'
+        } else {
+            // Append "&#x" and ";" as [UInt8]
+            accum.append([0x26, 0x23, 0x78]) // '&#x'
+            accum.append(String.toHexString(n: Int(byte)).utf8)
+            accum.append([0x3B]) // ';'
+        }
+    }
+    
     private static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, codePoint: UnicodeScalar) {
         if let name = escapeMode.nameForCodepoint(codePoint) {
             // ok for identity check
@@ -348,6 +438,20 @@ public class Entities {
             return c.value <= 0x10FFFF
         default:
             return fallback.canEncode(c)
+        }
+    }
+    
+    private static func canEncode(byte: UInt8, encoder: String.Encoding) -> Bool {
+        switch encoder {
+        case .ascii:
+            return byte < 0x80
+        case .utf8:
+            return true // Any UInt8 is valid UTF-8
+        case .utf16, .unicode:
+            return true // UTF-16 can encode all valid UInt8 values
+        default:
+            // Fallback: Try encoding to test
+            return String(bytes: [byte], encoding: encoder) != nil
         }
     }
 
