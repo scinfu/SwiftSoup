@@ -83,7 +83,7 @@ open class Token {
 		public var _normalName: [UInt8]? // lc version of tag name, for case insensitive tree build
 		private var _pendingAttributeName: [UInt8]? // attribute names are generally caught in one hop, not accumulated
 		private let _pendingAttributeValue: StringBuilder = StringBuilder() // but values are accumulated, from e.g. & in hrefs
-		private var _pendingAttributeValueS: [UInt8]? // try to get attr vals in one shot, vs Builder
+		private var _pendingAttributeValueS: ArraySlice<UInt8>? // try to get attr vals in one shot, vs Builder
 		private var _hasEmptyAttributeValue: Bool = false // distinguish boolean attribute from empty string value
 		private var _hasPendingAttributeValue: Bool = false
 		public var _selfClosing: Bool = false
@@ -118,7 +118,7 @@ open class Token {
 				if (_hasPendingAttributeValue) {
                     attribute = try Attribute(
                         key: _pendingAttributeName!,
-                        value: !_pendingAttributeValue.isEmpty ? _pendingAttributeValue.buffer : _pendingAttributeValueS!
+                        value: !_pendingAttributeValue.isEmpty ? _pendingAttributeValue.buffer : Array(_pendingAttributeValueS!)
                     )
 				} else if (_hasEmptyAttributeValue) {
                     attribute = try Attribute(key: _pendingAttributeName!, value: [])
@@ -166,25 +166,34 @@ open class Token {
 			return _attributes
 		}
 
+        // these appenders are rarely hit in not null state-- caused by null chars.
+        func appendTagName(_ append: [UInt8]) {
+            appendTagName(append[...])
+        }
+        
 		// these appenders are rarely hit in not null state-- caused by null chars.
-		func appendTagName(_ append: [UInt8]) {
-			_tagName = _tagName == nil ? append : (_tagName! + append)
+		func appendTagName(_ append: ArraySlice<UInt8>) {
+			_tagName = _tagName == nil ? Array(append) : (_tagName! + Array(append))
 			_normalName = _tagName?.lowercased()
 		}
 
 		func appendTagName(_ append: UnicodeScalar) {
-            appendTagName(Array(append.utf8))
+            appendTagName(ArraySlice(append.utf8))
 		}
 
-		func appendAttributeName(_ append: [UInt8]) {
-			_pendingAttributeName = _pendingAttributeName == nil ? append : ((_pendingAttributeName ?? []) + append)
+        func appendAttributeName(_ append: [UInt8]) {
+            appendAttributeName(append[...])
+        }
+        
+		func appendAttributeName(_ append: ArraySlice<UInt8>) {
+			_pendingAttributeName = _pendingAttributeName == nil ? Array(append) : ((_pendingAttributeName ?? []) + Array(append))
 		}
 
 		func appendAttributeName(_ append: UnicodeScalar) {
             appendAttributeName(Array(append.utf8))
 		}
 
-		func appendAttributeValue(_ append: [UInt8]) {
+		func appendAttributeValue(_ append: ArraySlice<UInt8>) {
 			ensureAttributeValue()
 			if _pendingAttributeValue.isEmpty {
 				_pendingAttributeValueS = append

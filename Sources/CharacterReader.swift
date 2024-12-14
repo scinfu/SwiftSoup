@@ -6,11 +6,13 @@ public final class CharacterReader {
     private let input: [UInt8]
     private var pos: [UInt8].Index
     private var mark: [UInt8].Index
+    private let end: [UInt8].Index
     
     public init(_ input: [UInt8]) {
         self.input = input
         self.pos = self.input.startIndex
         self.mark = self.input.startIndex
+        self.end = self.input.endIndex
     }
     
     public convenience init(_ input: String) {
@@ -40,7 +42,7 @@ public final class CharacterReader {
     
     @discardableResult
     public func consume() -> UnicodeScalar {
-        guard pos < input.endIndex else { return CharacterReader.EOF }
+        guard pos < end else { return CharacterReader.EOF }
         
         var utf8Decoder = UTF8()
         var iterator = input[pos...].makeIterator()
@@ -89,31 +91,42 @@ public final class CharacterReader {
         return String(decoding: consumeToAny(chars), as: UTF8.self)
     }
     
-    public func consumeToAny(_ chars: ParsingStrings) -> [UInt8] {
+    public func consumeToAny(_ chars: ParsingStrings) -> ArraySlice<UInt8> {
         let start = pos
-        let inputCount = input.count
         
-        while pos < inputCount {
-            let byte = input[pos]
-            
-            // Check single-byte characters using the lookup array
-            if chars.singleByteLookup[Int(byte)] {
+        while pos < end {
+            let utf8Byte = input[pos]
+            if chars.contains(utf8Byte) {
                 break
             }
-            
-            // Check multi-byte characters
-            for (index, char) in chars.multiByteChars.enumerated() {
-                let charLength = chars.multiByteCharLengths[index]
-                if pos + charLength <= inputCount && input[pos..<(pos + charLength)].elementsEqual(char) {
-                    return Array(input[0..<pos])
-                }
-            }
-            
-            pos += 1
+            input.formIndex(after: &pos)
         }
         
-        return Array(input[start..<pos])
+        return input[start..<pos]
     }
+//    public func consumeToAny(_ chars: ParsingStrings) -> ArraySlice<UInt8> {
+//        let start = pos
+//        
+//        while pos < end { // Use precomputed `end`
+//            var length = 1
+//            
+//            while true {
+//                let sliceEnd = pos + length
+//                if sliceEnd > end || length > chars.multiByteByteLookupsCount { break }
+//                
+//                let slice = input[pos..<sliceEnd]
+//                if chars.contains(slice) {
+//                    return input[start..<pos]
+//                }
+//                
+//                length &+= 1
+//            }
+//            
+//            pos &+= 1
+//        }
+//        
+//        return input[start..<pos]
+//    }
     
     private func unicodeScalar(at index: String.UTF8View.Index, in utf8View: String.UTF8View) -> UnicodeScalar? {
         var iterator = utf8View[index...].makeIterator()
@@ -131,7 +144,7 @@ public final class CharacterReader {
         return unicodeScalar
     }
     
-    public func consumeTo(_ c: UnicodeScalar) -> [UInt8] {
+    public func consumeTo(_ c: UnicodeScalar) -> ArraySlice<UInt8> {
         guard let targetIx = nextIndexOf(c) else { return consumeToEndUTF8() }
         
         // Convert `String.UTF8View.Index` (targetIx) to `[UInt8].Index` for `input`
@@ -149,7 +162,7 @@ public final class CharacterReader {
         return String(decoding: consumeTo(seq.utf8Array), as: UTF8.self)
     }
     
-    public func consumeTo(_ seq: [UInt8]) -> [UInt8] {
+    public func consumeTo(_ seq: [UInt8]) -> ArraySlice<UInt8> {
         guard let targetIx = nextIndexOf(seq) else { return consumeToEndUTF8() }
         let consumed = cacheString(pos, targetIx)
         pos = targetIx
@@ -160,13 +173,13 @@ public final class CharacterReader {
         return String(decoding: consumeToEndUTF8(), as: UTF8.self)
     }
     
-    public func consumeToEndUTF8() -> [UInt8] {
+    public func consumeToEndUTF8() -> ArraySlice<UInt8> {
         let consumed = cacheString(pos, input.endIndex)
         pos = input.endIndex
         return consumed
     }
     
-    public func consumeLetterSequence() -> [UInt8] {
+    public func consumeLetterSequence() -> ArraySlice<UInt8> {
         let start = pos
         var utf8Decoder = UTF8()
         
@@ -186,7 +199,7 @@ public final class CharacterReader {
         return cacheString(start, pos)
     }
     
-    public func consumeLetterThenDigitSequence() -> [UInt8] {
+    public func consumeLetterThenDigitSequence() -> ArraySlice<UInt8> {
         let start = pos
         var utf8Decoder = UTF8()
         
@@ -223,7 +236,7 @@ public final class CharacterReader {
         return cacheString(start, pos)
     }
     
-    public func consumeHexSequence() -> [UInt8] {
+    public func consumeHexSequence() -> ArraySlice<UInt8> {
         let start = pos
         var utf8Decoder = UTF8()
         
@@ -243,7 +256,7 @@ public final class CharacterReader {
         return cacheString(start, pos)
     }
     
-    public func consumeDigitSequence() -> [UInt8] {
+    public func consumeDigitSequence() -> ArraySlice<UInt8> {
         let start = pos
         var utf8Decoder = UTF8()
         
@@ -388,8 +401,8 @@ public final class CharacterReader {
      * Originally intended as a caching mechanism for strings, but caching doesn't
      * seem to improve performance. Now just a stub.
      */
-    private func cacheString(_ start: [UInt8].Index, _ end: [UInt8].Index) -> [UInt8] {
-        return Array(input[start..<end])
+    private func cacheString(_ start: [UInt8].Index, _ end: [UInt8].Index) -> ArraySlice<UInt8> {
+        return input[start..<end]
     }
     
     public func nextIndexOf(_ c: UnicodeScalar) -> String.UTF8View.Index? {
@@ -448,13 +461,13 @@ public final class CharacterReader {
 
     static let dataTerminators = ParsingStrings([.Ampersand, .LessThan, TokeniserStateVars.nullScalr])
     
-    public func consumeData() -> [UInt8] {
+    public func consumeData() -> ArraySlice<UInt8> {
         return consumeToAny(CharacterReader.dataTerminators)
     }
     
     static let tagNameTerminators = ParsingStrings([.BackslashT, .BackslashN, .BackslashR, .BackslashF, .Space, .Slash, .GreaterThan, TokeniserStateVars.nullScalr])
     
-    public func consumeTagName() -> [UInt8] {
+    public func consumeTagName() -> ArraySlice<UInt8> {
         return consumeToAny(CharacterReader.tagNameTerminators)
     }
 }

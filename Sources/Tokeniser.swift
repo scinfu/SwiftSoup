@@ -82,17 +82,21 @@ final class Tokeniser {
         }
     }
 
-    func emit(_ str: [UInt8]) {
-        // buffer strings up until last string token found, to emit only one token for a run of character refs etc.
-        // does not set isEmitPending; read checks that
-        if (charsString == nil) {
-            charsString = str
+    func emit(_ str: ArraySlice<UInt8>) {
+        // Buffer strings up until last string token found, to emit only one token for a run of character refs, etc.
+        // Does not set isEmitPending; read checks that
+        if charsString == nil {
+            charsString = Array(str) // Convert to Array when first string is stored
         } else {
-            if charsBuilder.isEmpty { // switching to string builder as more than one emit before read
+            if charsBuilder.isEmpty { // Switching to string builder as more than one emit before read
                 charsBuilder.append(charsString!)
             }
-            charsBuilder.append(str)
+            charsBuilder.append(str) // Append directly from the slice
         }
+    }
+    
+    func emit(_ str: [UInt8]) {
+        emit(str[...]) // Call the slice version with the full array as a slice
     }
     
     func emit(_ str: String) {
@@ -146,7 +150,7 @@ final class Tokeniser {
         reader.markPos()
         if (reader.matchConsume("#".utf8Array)) { // numbered
             let isHexMode: Bool = reader.matchConsumeIgnoreCase("X".utf8Array)
-            let numRef: [UInt8] = isHexMode ? reader.consumeHexSequence() : reader.consumeDigitSequence()
+            let numRef: ArraySlice<UInt8> = isHexMode ? reader.consumeHexSequence() : reader.consumeDigitSequence()
             if (numRef.isEmpty) { // didn't match anything
                 characterReferenceError("numeric reference with no numerals")
                 reader.rewindToMark()
@@ -172,7 +176,7 @@ final class Tokeniser {
             }
         } else { // named
             // get as many letters as possible, and look for matching entities.
-            let nameRef: [UInt8] = reader.consumeLetterThenDigitSequence()
+            let nameRef: ArraySlice<UInt8> = reader.consumeLetterThenDigitSequence()
             let looksLegit: Bool = reader.matches(";")
             // found if a base named entity without a ;, or an extended entity with the ;.
             let found: Bool = (Entities.isBaseNamedEntity(nameRef) || (Entities.isNamedEntity(nameRef) && looksLegit))

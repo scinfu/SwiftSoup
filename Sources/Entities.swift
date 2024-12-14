@@ -38,7 +38,7 @@ public class Entities {
 
         struct NamedCodepoint {
             let scalar: UnicodeScalar
-            let name: [UInt8]
+            let name: ArraySlice<UInt8>
         }
         
         // Array of named references, sorted by name for binary search. built by BuildEntities.
@@ -66,7 +66,7 @@ public class Entities {
             
             entitiesByName.reserveCapacity(size)
             while !reader.isEmpty() {
-                let name: [UInt8] = reader.consumeTo("=")
+                let name: ArraySlice<UInt8> = reader.consumeTo("=")
                 reader.advance()
                 let cp1: Int = reader.consumeToAny(EscapeMode.codeDelims).toInt(radix: codepointRadix) ?? 0
                 let codeDelim: UnicodeScalar = reader.current()
@@ -95,6 +95,11 @@ public class Entities {
 
         // Only returns the first of potentially multiple codepoints
         public func codepointForName(_ name: [UInt8]) -> UnicodeScalar? {
+            return codepointForName(name[...])
+        }
+        
+        // Only returns the first of potentially multiple codepoints
+        public func codepointForName(_ name: ArraySlice<UInt8>) -> UnicodeScalar? {
             let ix = entitiesByName.binarySearch { $0.name < name }
             guard ix < entitiesByName.endIndex else { return nil }
             let entity = entitiesByName[ix]
@@ -109,7 +114,7 @@ public class Entities {
         // Search by first codepoint only
         public func nameForCodepoint(_ codepoint: UnicodeScalar) -> String? {
             var ix = entitiesByCodepoint.binarySearch { $0.scalar < codepoint }
-            var matches: [[UInt8]] = []
+            var matches: [ArraySlice<UInt8>] = []
             while ix < entitiesByCodepoint.endIndex && entitiesByCodepoint[ix].scalar == codepoint {
                 matches.append(entitiesByCodepoint[ix].name)
                 entitiesByCodepoint.formIndex(after: &ix)
@@ -123,7 +128,7 @@ public class Entities {
 
     }
 
-    private static var multipoints: [[UInt8]: [UnicodeScalar]] = [:] // name -> multiple character references
+    private static var multipoints: [ArraySlice<UInt8>: [UnicodeScalar]] = [:] // name -> multiple character references
     private static var multipointsLock = MutexLock()
 
     /**
@@ -131,7 +136,7 @@ public class Entities {
      * @param name the possible entity name (e.g. "lt" or "amp")
      * @return true if a known named entity
      */
-    public static func isNamedEntity(_ name: [UInt8] ) -> Bool {
+    public static func isNamedEntity(_ name: ArraySlice<UInt8>) -> Bool {
         return (EscapeMode.extended.codepointForName(name) != nil)
     }
 
@@ -141,7 +146,7 @@ public class Entities {
      * @return true if a known named entity in the base set
      * @see #isNamedEntity(String)
      */
-    public static func isBaseNamedEntity(_ name: [UInt8]) -> Bool {
+    public static func isBaseNamedEntity(_ name: ArraySlice<UInt8>) -> Bool {
         return EscapeMode.base.codepointForName(name) != nil
     }
 
@@ -151,17 +156,17 @@ public class Entities {
      * @return the string value of the character(s) represented by this entity, or "" if not defined
      */
     public static func getByName(name: String) -> String? {
-        return getByName(name: name.utf8Array)
+        return getByName(name: name.utf8ArraySlice)
     }
     
-    public static func getByName(name: [UInt8]) -> String? {
+    public static func getByName(name: ArraySlice<UInt8>) -> String? {
         if let scalars = codepointsForName(name) {
             return String(String.UnicodeScalarView(scalars))
         }
         return nil
     }
 
-    public static func codepointsForName(_ name: [UInt8]) -> [UnicodeScalar]? {
+    public static func codepointsForName(_ name: ArraySlice<UInt8>) -> [UnicodeScalar]? {
         multipointsLock.lock()
         if let scalars = multipoints[name] {
             multipointsLock.unlock()
