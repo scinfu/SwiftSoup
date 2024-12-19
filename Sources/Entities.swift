@@ -135,7 +135,6 @@ public class Entities {
         private func size() -> Int {
             return entitiesByName.count
         }
-
     }
 
     private static var multipoints: [ArraySlice<UInt8>: [UnicodeScalar]] = [:] // name -> multiple character references
@@ -215,6 +214,7 @@ public class Entities {
     ) {
     }
     
+    // this method is ugly, and does a lot. but other breakups cause rescanning and stringbuilder generations
     static func escape(
         _ accum: StringBuilder,
         _ string: [UInt8],
@@ -228,14 +228,19 @@ public class Entities {
         let escapeMode: EscapeMode = out.escapeMode()
         let encoder: String.Encoding = out.encoder()
         
-        for byte in string {
+        var i = 0
+        while i < string.count {
+            let byte = string[i]
+            
             if normaliseWhite {
                 if byte.isWhitespace {
                     if (stripLeadingWhite && !reachedNonWhite) || lastWasWhite {
+                        i += 1
                         continue
                     }
-                    accum.append([0x20]) // Append a space (0x20) directly as [UInt8]
+                    accum.append([0x20]) // Append a space (0x20)
                     lastWasWhite = true
+                    i += 1
                     continue
                 } else {
                     lastWasWhite = false
@@ -243,42 +248,92 @@ public class Entities {
                 }
             }
             
-            switch byte {
-            case 0x26: // '&'
-                accum.append(ampEntityUTF8)
-            case 0xA0: // Non-breaking space
-                if escapeMode != .xhtml {
-                    accum.append(nbspEntityUTF8)
-                } else {
-                    accum.append(xa0EntityUTF8)
+            if byte < 0x80 {
+                // Single-byte ASCII character
+                switch byte {
+                case 0x26: // '&'
+                    accum.append(ampEntityUTF8)
+                case 0xA0: // Non-breaking space
+                    if escapeMode != .xhtml {
+                        accum.append(nbspEntityUTF8)
+                    } else {
+                        accum.append(xa0EntityUTF8)
+                    }
+                case 0x3C: // '<'
+                    if !inAttribute || escapeMode == .xhtml {
+                        accum.append(ltEntityUTF8)
+                    } else {
+                        accum.append([byte])
+                    }
+                case 0x3E: // '>'
+                    if !inAttribute {
+                        accum.append(gtEntityUTF8)
+                    } else {
+                        accum.append([byte])
+                    }
+                case 0x22: // '"'
+                    if inAttribute {
+                        accum.append(quotEntityUTF8)
+                    } else {
+                        accum.append([byte])
+                    }
+                default:
+                    if canEncode(bytes: [byte], encoder: encoder) {
+                        accum.append([byte])
+                    } else {
+                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: [byte])
+                    }
                 }
-            case 0x3C: // '<'
-                if !inAttribute || escapeMode == .xhtml {
-                    accum.append(ltEntityUTF8)
+                i += 1
+            } else {
+                // Multi-byte UTF-8 character
+                var charBytes: [UInt8] = []
+                var remainingBytes = 0
+                
+                if byte & 0xE0 == 0xC0 {
+                    // Two-byte character
+                    remainingBytes = 1
+                } else if byte & 0xF0 == 0xE0 {
+                    // Three-byte character
+                    remainingBytes = 2
+                } else if byte & 0xF8 == 0xF0 {
+                    // Four-byte character
+                    remainingBytes = 3
                 } else {
-                    accum.append([byte])
+                    // Invalid UTF-8 start byte
+                    appendEncoded(accum: accum, escapeMode: escapeMode, bytes: [byte])
+                    i += 1
+                    continue
                 }
-            case 0x3E: // '>'
-                if !inAttribute {
-                    accum.append(gtEntityUTF8)
-                } else {
-                    accum.append([byte])
+                
+                // Collect the full character bytes
+                charBytes.append(byte)
+                while remainingBytes > 0, i + 1 < string.count {
+                    i += 1
+                    let nextByte = string[i]
+                    if nextByte & 0xC0 == 0x80 {
+                        charBytes.append(nextByte)
+                        remainingBytes -= 1
+                    } else {
+                        // Invalid UTF-8 sequence
+                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: [byte])
+                        break
+                    }
                 }
-            case 0x22: // '"'
-                if inAttribute {
-                    accum.append(quotEntityUTF8)
-                } else {
-                    accum.append([byte])
+                
+                if remainingBytes == 0 {
+                    // Successfully collected a valid multi-byte character
+                    if canEncode(bytes: charBytes, encoder: encoder) {
+                        accum.append(charBytes)
+                    } else {
+                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
+                    }
                 }
-            default:
-                if canEncode(byte: byte, encoder: encoder) {
-                    accum.append([byte]) // Directly append the byte as [UInt8]
-                } else {
-                    appendEncoded(accum: accum, escapeMode: escapeMode, byte: byte)
-                }
+                i += 1
             }
         }
     }
+    
     /*
     // this method is ugly, and does a lot. but other breakups cause rescanning and stringbuilder generations
     static func escape(
@@ -367,21 +422,24 @@ public class Entities {
         }
     }
      */
-    
-    private static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, byte: UInt8) {
-        if let name = escapeMode.nameForCodepoint(byte) {
-            // Append '&' as [UInt8]
+
+    private static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: [UInt8]) {
+        if bytes.count == 1,
+           let name = escapeMode.nameForCodepoint(bytes[0]) {
+            // Append named entity (e.g., "&amp;")
             accum.append([0x26]) // '&'
             accum.append(name)
             accum.append([0x3B]) // ';'
         } else {
-            // Append "&#x" and ";" as [UInt8]
+            // Append numeric entity for each byte
             accum.append([0x26, 0x23, 0x78]) // '&#x'
-            accum.append(String.toHexString(n: Int(byte)))
+            accum.append(bytes)
+            for byte in bytes {
+                accum.append(String.toHexString(n: Int(byte)))
+            }
             accum.append([0x3B]) // ';'
         }
     }
-    
     private static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, codePoint: UnicodeScalar) {
         if let name = escapeMode.nameForCodepoint(codePoint) {
             // ok for identity check
@@ -441,20 +499,23 @@ public class Entities {
         }
     }
     
-    private static func canEncode(byte: UInt8, encoder: String.Encoding) -> Bool {
+    private static func canEncode(bytes: [UInt8], encoder: String.Encoding) -> Bool {
         switch encoder {
         case .ascii:
-            return byte < 0x80
+            // Check if all bytes are within ASCII range
+            return bytes.allSatisfy { $0 < 0x80 }
         case .utf8:
-            return true // Any UInt8 is valid UTF-8
+            // UTF-8 can encode all valid sequences
+            return true
         case .utf16, .unicode:
-            return true // UTF-16 can encode all valid UInt8 values
+            // UTF-16 can encode all valid sequences
+            return true
         default:
-            // Fallback: Try encoding to test
-            return String(bytes: [byte], encoding: encoder) != nil
+            // Fallback: Try creating a string and see if it succeeds
+            return String(bytes: bytes, encoding: encoder) != nil
         }
     }
-
+    
     static let xhtml: [UInt8] = "amp=12;1\ngt=1q;3\nlt=1o;2\nquot=y;0".utf8Array
 
     static let base: [UInt8] = "AElig=5i;1c\nAMP=12;2\nAacute=5d;17\nAcirc=5e;18\nAgrave=5c;16\nAring=5h;1b\nAtilde=5f;19\nAuml=5g;1a\nCOPY=4p;h\nCcedil=5j;1d\nETH=5s;1m\nEacute=5l;1f\nEcirc=5m;1g\nEgrave=5k;1e\nEuml=5n;1h\nGT=1q;6\nIacute=5p;1j\nIcirc=5q;1k\nIgrave=5o;1i\nIuml=5r;1l\nLT=1o;4\nNtilde=5t;1n\nOacute=5v;1p\nOcirc=5w;1q\nOgrave=5u;1o\nOslash=60;1u\nOtilde=5x;1r\nOuml=5y;1s\nQUOT=y;0\nREG=4u;n\nTHORN=66;20\nUacute=62;1w\nUcirc=63;1x\nUgrave=61;1v\nUuml=64;1y\nYacute=65;1z\naacute=69;23\nacirc=6a;24\nacute=50;u\naelig=6e;28\nagrave=68;22\namp=12;3\naring=6d;27\natilde=6b;25\nauml=6c;26\nbrvbar=4m;e\nccedil=6f;29\ncedil=54;y\ncent=4i;a\ncopy=4p;i\ncurren=4k;c\ndeg=4w;q\ndivide=6v;2p\neacute=6h;2b\necirc=6i;2c\negrave=6g;2a\neth=6o;2i\neuml=6j;2d\nfrac12=59;13\nfrac14=58;12\nfrac34=5a;14\ngt=1q;7\niacute=6l;2f\nicirc=6m;2g\niexcl=4h;9\nigrave=6k;2e\niquest=5b;15\niuml=6n;2h\nlaquo=4r;k\nlt=1o;5\nmacr=4v;p\nmicro=51;v\nmiddot=53;x\nnbsp=4g;8\nnot=4s;l\nntilde=6p;2j\noacute=6r;2l\nocirc=6s;2m\nograve=6q;2k\nordf=4q;j\nordm=56;10\noslash=6w;2q\notilde=6t;2n\nouml=6u;2o\npara=52;w\nplusmn=4x;r\npound=4j;b\nquot=y;1\nraquo=57;11\nreg=4u;o\nsect=4n;f\nshy=4t;m\nsup1=55;z\nsup2=4y;s\nsup3=4z;t\nszlig=67;21\nthorn=72;2w\ntimes=5z;1t\nuacute=6y;2s\nucirc=6z;2t\nugrave=6x;2r\numl=4o;g\nuuml=70;2u\nyacute=71;2v\nyen=4l;d\nyuml=73;2x".utf8Array
