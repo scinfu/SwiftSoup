@@ -16,8 +16,7 @@ let package = Package(
                     "InfoMac.plist",
                     "InfotvOS.plist",
                     "InfoWatchOS.plist",
-                ],
-                resources: [.copy("PrivacyInfo.xcprivacy")]),
+                ]),
         .testTarget(name: "SwiftSoupTests", dependencies: ["SwiftSoup"])
     ]
 )
