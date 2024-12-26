@@ -116,4 +116,9 @@ public struct ParsingStrings: Hashable, Equatable {
         // Directly check the precomputed single-byte set
         return singleByteSet.contains(byte)
     }
+    
+    public func contains(_ scalar: UnicodeScalar) -> Bool {
+        let utf8Bytes = Array(scalar.utf8)
+        return contains(ArraySlice(utf8Bytes))
+    }
 }
