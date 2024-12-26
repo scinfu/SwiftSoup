@@ -60,6 +60,14 @@ class CharacterReaderTest: XCTestCase {
         // XCTAssertTrue(r.isEmpty())
         // XCTAssertEqual(CharacterReader.EOF, r.current())
     }
+    
+    func testMultibyteUnconsume() {
+        let r = CharacterReader("π>")
+        XCTAssertEqual("π", r.consume())
+        XCTAssertEqual(">", r.current())
+        r.unconsume()
+        XCTAssertEqual("π", r.current())
+    }
 
     func testMark() {
         let r = CharacterReader("one")
@@ -317,6 +325,7 @@ class CharacterReaderTest: XCTestCase {
             ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
             ("testConsume", testConsume),
 			("testUnconsume", testUnconsume),
+            ("testMultibyteUnconsume", testMultibyteUnconsume),
 			("testMark", testMark),
 			("testConsumeToEnd", testConsumeToEnd),
 			("testNextIndexOfChar", testNextIndexOfChar),

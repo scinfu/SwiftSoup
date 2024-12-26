@@ -6,12 +6,15 @@ public final class CharacterReader {
     private let input: [UInt8]
     private var pos: [UInt8].Index
     private var mark: [UInt8].Index
+    private let start: [UInt8].Index
     private let end: [UInt8].Index
-    
+
     public init(_ input: [UInt8]) {
         self.input = input
-        self.pos = self.input.startIndex
-        self.mark = self.input.startIndex
+        let start = self.input.startIndex
+        self.pos = start
+        self.mark = start
+        self.start = start
         self.end = self.input.endIndex
     }
     
@@ -24,11 +27,11 @@ public final class CharacterReader {
     }
     
     public func isEmpty() -> Bool {
-        return pos >= input.endIndex
+        return pos >= end
     }
     
     public func current() -> UnicodeScalar {
-        guard pos < input.endIndex else { return CharacterReader.EOF }
+        guard pos < end else { return CharacterReader.EOF }
         
         var utf8Decoder = UTF8()
         var iterator = input[pos...].makeIterator()
@@ -48,7 +51,8 @@ public final class CharacterReader {
         var iterator = input[pos...].makeIterator()
         switch utf8Decoder.decode(&iterator) {
         case .scalarValue(let scalar):
-            input.formIndex(after: &pos)
+            let scalarLength = UTF8.width(scalar)
+            input.formIndex(&pos, offsetBy: scalarLength)
             return scalar
         case .emptyInput, .error:
             return CharacterReader.EOF
@@ -56,13 +60,38 @@ public final class CharacterReader {
     }
     
     public func unconsume() {
-        guard pos > input.startIndex else { return }
-        input.formIndex(before: &pos)
+        guard pos > start else { return }
+        
+        var utf8Decoder = UTF8()
+        var index = pos
+        var scalarLength = 1
+        
+        // Decode previous scalar from current position
+        while index > start {
+            input.formIndex(before: &index)
+            var iterator = input[index..<pos].makeIterator()
+            switch utf8Decoder.decode(&iterator) {
+            case .scalarValue(let scalar):
+                scalarLength = UTF8.width(scalar)
+                pos = input.index(pos, offsetBy: -scalarLength)
+                return
+            case .emptyInput, .error:
+                break // Continue moving back until a valid scalar is found
+            }
+        }
     }
     
     public func advance() {
-        guard pos < input.endIndex else { return }
-        input.formIndex(after: &pos)
+        guard pos < end else { return }
+        var utf8Decoder = UTF8()
+        var iterator = input[pos...].makeIterator()
+        switch utf8Decoder.decode(&iterator) {
+        case .scalarValue(let scalar):
+            let scalarLength = UTF8.width(scalar)
+            input.formIndex(&pos, offsetBy: scalarLength)
+        case .emptyInput, .error:
+            break
+        }
     }
     
     public func markPos() {
@@ -74,13 +103,14 @@ public final class CharacterReader {
     }
     
     public func consumeAsString() -> String {
-        guard pos < input.endIndex else { return "" }
+        guard pos < end else { return "" }
         
         var utf8Decoder = UTF8()
         var iterator = input[pos...].makeIterator()
         switch utf8Decoder.decode(&iterator) {
         case .scalarValue(let scalar):
-            input.formIndex(after: &pos)
+            let scalarLength = UTF8.width(scalar)
+            input.formIndex(&pos, offsetBy: scalarLength)
             return String(scalar)
         case .emptyInput, .error:
             return ""
@@ -93,13 +123,20 @@ public final class CharacterReader {
     
     public func consumeToAny(_ chars: ParsingStrings) -> ArraySlice<UInt8> {
         let start = pos
+        var utf8Decoder = UTF8()
         
         while pos < end {
-            let utf8Byte = input[pos]
-            if chars.contains(utf8Byte) {
-                break
+            var iterator = input[pos...].makeIterator()
+            switch utf8Decoder.decode(&iterator) {
+            case .scalarValue(let scalar):
+                if chars.contains(scalar) {
+                    return input[start..<pos]
+                }
+                let scalarLength = UTF8.width(scalar)
+                input.formIndex(&pos, offsetBy: scalarLength)
+            case .emptyInput, .error:
+                return input[start..<pos]
             }
-            input.formIndex(after: &pos)
         }
         
         return input[start..<pos]
@@ -150,7 +187,7 @@ public final class CharacterReader {
         // Convert `String.UTF8View.Index` (targetIx) to `[UInt8].Index` for `input`
         let utf8View = String(decoding: input, as: UTF8.self).utf8
         let byteOffset = utf8View.distance(from: utf8View.startIndex, to: targetIx)
-        let targetByteIndex = input.index(input.startIndex, offsetBy: byteOffset)
+        let targetByteIndex = input.index(start, offsetBy: byteOffset)
         
         // Use the `cacheString` method with `pos` and `targetByteIndex`
         let consumed = cacheString(pos, targetByteIndex)
@@ -174,8 +211,8 @@ public final class CharacterReader {
     }
     
     public func consumeToEndUTF8() -> ArraySlice<UInt8> {
-        let consumed = cacheString(pos, input.endIndex)
-        pos = input.endIndex
+        let consumed = cacheString(pos, end)
+        pos = end
         return consumed
     }
     
@@ -183,16 +220,13 @@ public final class CharacterReader {
         let start = pos
         var utf8Decoder = UTF8()
         
-        while pos < input.endIndex {
+        while pos < end {
             var iterator = input[pos...].makeIterator()
             switch utf8Decoder.decode(&iterator) {
             case .scalarValue(let scalar) where CharacterSet.letters.contains(scalar):
-                // Advance the index by the number of bytes consumed for this scalar
-                for _ in input[pos..<input.index(pos, offsetBy: scalar.utf8.count)] {
-                    input.formIndex(after: &pos)
-                }
+                let scalarLength = UTF8.width(scalar)
+                input.formIndex(&pos, offsetBy: scalarLength)
             case .scalarValue, .emptyInput, .error:
-                // Break the loop if not a letter or any decoding issue
                 return cacheString(start, pos)
             }
         }
@@ -203,32 +237,24 @@ public final class CharacterReader {
         let start = pos
         var utf8Decoder = UTF8()
         
-        // Consume letter sequence
-        letterLoop: while pos < input.endIndex {
+        letterLoop: while pos < end {
             var iterator = input[pos...].makeIterator()
             switch utf8Decoder.decode(&iterator) {
             case .scalarValue(let scalar) where CharacterSet.letters.contains(scalar):
-                // Advance the index by the number of bytes consumed for this scalar
-                for _ in input[pos..<input.index(pos, offsetBy: scalar.utf8.count)] {
-                    input.formIndex(after: &pos)
-                }
+                let scalarLength = UTF8.width(scalar)
+                input.formIndex(&pos, offsetBy: scalarLength)
             default:
-                // Stop the loop if not a letter
                 break letterLoop
             }
         }
         
-        // Consume digit sequence
-        digitLoop: while pos < input.endIndex {
+        digitLoop: while pos < end {
             var iterator = input[pos...].makeIterator()
             switch utf8Decoder.decode(&iterator) {
             case .scalarValue(let scalar) where CharacterSet.decimalDigits.contains(scalar):
-                // Advance the index by the number of bytes consumed for this scalar
-                for _ in input[pos..<input.index(pos, offsetBy: scalar.utf8.count)] {
-                    input.formIndex(after: &pos)
-                }
+                let scalarLength = UTF8.width(scalar)
+                input.formIndex(&pos, offsetBy: scalarLength)
             default:
-                // Stop the loop if not a digit
                 break digitLoop
             }
         }
@@ -240,16 +266,13 @@ public final class CharacterReader {
         let start = pos
         var utf8Decoder = UTF8()
         
-        while pos < input.endIndex {
+        while pos < end {
             var iterator = input[pos...].makeIterator()
             switch utf8Decoder.decode(&iterator) {
             case .scalarValue(let scalar) where CharacterSet(charactersIn: "0123456789ABCDEFabcdef").contains(scalar):
-                // Advance the index by the number of bytes consumed for this scalar
-                for _ in input[pos..<input.index(pos, offsetBy: scalar.utf8.count)] {
-                    input.formIndex(after: &pos)
-                }
+                let scalarLength = UTF8.width(scalar)
+                input.formIndex(&pos, offsetBy: scalarLength)
             case .scalarValue, .emptyInput, .error:
-                // Break the loop if not a hex character or on decoding error
                 return cacheString(start, pos)
             }
         }
@@ -260,16 +283,13 @@ public final class CharacterReader {
         let start = pos
         var utf8Decoder = UTF8()
         
-        while pos < input.endIndex {
+        while pos < end {
             var iterator = input[pos...].makeIterator()
             switch utf8Decoder.decode(&iterator) {
             case .scalarValue(let scalar) where CharacterSet.decimalDigits.contains(scalar):
-                // Advance the index by the number of bytes consumed for this scalar
-                for _ in input[pos..<input.index(pos, offsetBy: scalar.utf8.count)] {
-                    input.formIndex(after: &pos)
-                }
+                let scalarLength = UTF8.width(scalar)
+                input.formIndex(&pos, offsetBy: scalarLength)
             case .scalarValue, .emptyInput, .error:
-                // Break the loop if not a digit or any decoding issue
                 return cacheString(start, pos)
             }
         }
@@ -277,7 +297,7 @@ public final class CharacterReader {
     }
     
     public func matches(_ c: UnicodeScalar) -> Bool {
-        guard pos < input.endIndex else { return false }
+        guard pos < end else { return false }
         
         // Decode the UTF-8 byte sequence at the current position
         var utf8Decoder = UTF8()
@@ -296,20 +316,32 @@ public final class CharacterReader {
 
     public func matches(_ seq: [UInt8], ignoreCase: Bool = false, consume: Bool = false) -> Bool {
         var current = pos
-        let scalars = seq.unicodeScalars()
-        for scalar in scalars {
-            guard current < input.endIndex else { return false }
-            let c = UnicodeScalar(input[current])
-            if ignoreCase {
-                guard c.uppercase == scalar.uppercase else { return false }
-            } else {
-                guard c == scalar else { return false }
+        var utf8Decoder = UTF8()
+        var seqIterator = seq.makeIterator()
+        
+        while let expectedByte = seqIterator.next() {
+            guard current < end else { return false }
+            
+            var inputIterator = input[current...].makeIterator()
+            switch utf8Decoder.decode(&inputIterator) {
+            case .scalarValue(let scalar):
+                let expectedScalar = UnicodeScalar(expectedByte)
+                if ignoreCase {
+                    guard scalar.properties.uppercaseMapping == expectedScalar.properties.uppercaseMapping else { return false }
+                } else {
+                    guard scalar == expectedScalar else { return false }
+                }
+                let scalarLength = UTF8.width(scalar)
+                input.formIndex(&current, offsetBy: scalarLength)
+            case .emptyInput, .error:
+                return false
             }
-            input.formIndex(after: &current)
         }
+        
         if consume {
             pos = current
         }
+        
         return true
     }
     
@@ -326,7 +358,7 @@ public final class CharacterReader {
     }
     
     public func matchesAny(_ seq: [UnicodeScalar]) -> Bool {
-        guard pos < input.endIndex else { return false }
+        guard pos < end else { return false }
         
         // Decode the UTF-8 byte sequence
         var utf8Decoder = UTF8()
@@ -340,7 +372,7 @@ public final class CharacterReader {
     }
     
     public func matchesLetter() -> Bool {
-        guard pos < input.endIndex else { return false }
+        guard pos < end else { return false }
         
         // Decode the UTF-8 byte sequence
         var utf8Decoder = UTF8()
@@ -354,7 +386,7 @@ public final class CharacterReader {
     }
     
     public func matchesDigit() -> Bool {
-        guard pos < input.endIndex else { return false }
+        guard pos < end else { return false }
         
         // Decode the UTF-8 byte sequence
         var utf8Decoder = UTF8()
@@ -415,7 +447,7 @@ public final class CharacterReader {
     public func nextIndexOf(_ seq: String) -> String.UTF8View.Index? {
         let utf8View = String(decoding: input, as: UTF8.self).utf8
         let startIndex = utf8View.index(utf8View.startIndex, offsetBy: getPos())
-        let targetUtf8 = Array(seq.utf8) // Convert the sequence into an Array for easier handling
+        let targetUtf8 = seq.utf8
         
         var current = startIndex
         
@@ -424,10 +456,12 @@ public final class CharacterReader {
                 return current
             }
             
-            // Safely increment the index to avoid splitting UTF-8 character bytes
-            utf8View.formIndex(after: &current)
-            if current >= utf8View.endIndex {
-                break
+            // Increment the current index by one scalar to avoid breaking UTF-8 sequences
+            if let scalar = utf8View[current...].first.map({ UnicodeScalar($0) }) {
+                let scalarLength = UTF8.width(scalar)
+                utf8View.formIndex(&current, offsetBy: scalarLength)
+            } else {
+                utf8View.formIndex(after: &current)
             }
         }
         
@@ -443,7 +477,7 @@ public final class CharacterReader {
             var current = firstCharIx
             var matched = true
             for utf8Byte in targetUtf8 {
-                guard current < input.endIndex else { return nil }
+                guard current < end else { return nil }
                 if input[current] != utf8Byte {
                     matched = false
                     break
