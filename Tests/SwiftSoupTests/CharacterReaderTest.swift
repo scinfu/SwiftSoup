@@ -139,13 +139,13 @@ class CharacterReaderTest: XCTestCase {
 
     func testConsumeToAny() {
         let r = CharacterReader("One 二 &bar; qux 三")
-        XCTAssertEqual("One 二 ", r.consumeToAny(Set(["&", ";"])))
+        XCTAssertEqual("One 二 ", r.consumeToAny(ParsingStrings(["&", ";"])))
         XCTAssertTrue(r.matches("&"))
         XCTAssertTrue(r.matches("&bar;"))
         XCTAssertEqual("&", r.consume())
-        XCTAssertEqual("bar", r.consumeToAny(Set(["&", ";"])))
+        XCTAssertEqual("bar", r.consumeToAny(ParsingStrings(["&", ";"])))
         XCTAssertEqual(";", String(decoding: Array(r.consume().utf8), as: UTF8.self))
-        XCTAssertEqual(" qux 三", r.consumeToAny(Set(["&", ";"])))
+        XCTAssertEqual(" qux 三", r.consumeToAny(ParsingStrings(["&", ";"])))
     }
 
     func testConsumeLetterSequence() {
@@ -208,7 +208,7 @@ class CharacterReaderTest: XCTestCase {
         //let scan = [" ", "\n", "\t"]
         let r = CharacterReader("One\nTwo\tThree")
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
-        XCTAssertEqual("One", r.consumeToAny(Set([" ", "\n", "\t"])))
+        XCTAssertEqual("One", r.consumeToAny(ParsingStrings([" ", "\n", "\t"])))
         XCTAssertTrue(r.matchesAny(" ", "\n", "\t"))
         XCTAssertEqual("\n", r.consume())
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
@@ -298,6 +298,20 @@ class CharacterReaderTest: XCTestCase {
         _ = try SwiftSoup.parse(html)
     }
 
+    func testMultibyteConsume() throws {
+        let r = CharacterReader("-本文-")
+        XCTAssertEqual(0, r.getPos())
+        XCTAssertEqual("-", r.consume())
+        XCTAssertEqual(1, r.getPos())
+        XCTAssertEqual("本", r.current())
+        XCTAssertEqual("本", r.consume())
+        XCTAssertEqual(4, r.getPos())
+        XCTAssertEqual("文", r.current())
+        XCTAssertEqual("文", r.consume())
+        XCTAssertEqual(7, r.getPos())
+        XCTAssertEqual("-", r.consume())
+    }
+    
 	static var allTests = {
 		return [
             ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
@@ -322,6 +336,7 @@ class CharacterReaderTest: XCTestCase {
 			("testRangeEquals", testRangeEquals),
             ("testJavaScriptParsingHangRegression", testJavaScriptParsingHangRegression),
             ("testURLCrashRegression", testURLCrashRegression),
+            ("testMultibyteConsume", testMultibyteConsume),
         ]
 	}()
 
