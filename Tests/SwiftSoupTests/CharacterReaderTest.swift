@@ -155,6 +155,12 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual(";", String(decoding: Array(r.consume().utf8), as: UTF8.self))
         XCTAssertEqual(" qux 三", r.consumeToAny(ParsingStrings(["&", ";"])))
     }
+    
+    func testConsumeToAnyMultibyte() {
+        let r = CharacterReader("若い\"")
+        let value: ArraySlice<UInt8> = r.consumeToAny(ParsingStrings(["\"", UnicodeScalar.Ampersand, "\u{0000}"]))
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), "若い")
+    }
 
     func testConsumeLetterSequence() {
         let r = CharacterReader("One &bar; qux")
@@ -335,6 +341,7 @@ class CharacterReaderTest: XCTestCase {
 			("testConsumeToString", testConsumeToString),
 			("testAdvance", testAdvance),
 			("testConsumeToAny", testConsumeToAny),
+            ("testConsumeToAnyMultibyte", testConsumeToAnyMultibyte),
 			("testConsumeLetterSequence", testConsumeLetterSequence),
 			("testConsumeLetterThenDigitSequence", testConsumeLetterThenDigitSequence),
 			("testMatches", testMatches),

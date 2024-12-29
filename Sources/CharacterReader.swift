@@ -124,10 +124,11 @@ public final class CharacterReader {
     public func consumeToAny(_ chars: ParsingStrings) -> ArraySlice<UInt8> {
         let start = pos
         var utf8Decoder = UTF8()
+        var iterator = input[pos...].makeIterator()
         
         while pos < end {
-            var iterator = input[pos...].makeIterator()
-            switch utf8Decoder.decode(&iterator) {
+            let decodingResult = utf8Decoder.decode(&iterator)
+            switch decodingResult {
             case .scalarValue(let scalar):
                 if chars.contains(scalar) {
                     return input[start..<pos]
@@ -141,29 +142,6 @@ public final class CharacterReader {
         
         return input[start..<pos]
     }
-//    public func consumeToAny(_ chars: ParsingStrings) -> ArraySlice<UInt8> {
-//        let start = pos
-//        
-//        while pos < end { // Use precomputed `end`
-//            var length = 1
-//            
-//            while true {
-//                let sliceEnd = pos + length
-//                if sliceEnd > end || length > chars.multiByteByteLookupsCount { break }
-//                
-//                let slice = input[pos..<sliceEnd]
-//                if chars.contains(slice) {
-//                    return input[start..<pos]
-//                }
-//                
-//                length &+= 1
-//            }
-//            
-//            pos &+= 1
-//        }
-//        
-//        return input[start..<pos]
-//    }
     
     private func unicodeScalar(at index: String.UTF8View.Index, in utf8View: String.UTF8View) -> UnicodeScalar? {
         var iterator = utf8View[index...].makeIterator()
