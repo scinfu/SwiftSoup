@@ -9,16 +9,11 @@ let package = Package(
         .library(name: "SwiftSoup", targets: ["SwiftSoup"])
     ],
     targets: [
-        .target(name: "SwiftSoup",
-                path: "Sources",
-                exclude: [
-                    "Info.plist",
-                    "InfoMac.plist",
-                    "InfotvOS.plist",
-                    "InfoWatchOS.plist",
-                ]),
-        .testTarget(name: "SwiftSoupTests", dependencies: ["SwiftSoup"])
+        .target(
+            name: "SwiftSoup",
+            path: "Sources"),
+        .testTarget(
+            name: "SwiftSoupTests", 
+            dependencies: ["SwiftSoup"])
     ]
 )
-
-
