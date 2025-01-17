@@ -42,6 +42,7 @@ public struct ParsingStrings: Hashable, Equatable {
     let multiByteByteLookupsCount: Int
     public var singleByteMask: (UInt64, UInt64, UInt64, UInt64) = (0, 0, 0, 0) // Precomputed set for single-byte lookups
     private let precomputedHash: Int
+    private let root = TrieNode()
     
     public init(_ strings: [String]) {
         self.init(strings.map { $0.utf8Array })
@@ -53,6 +54,19 @@ public struct ParsingStrings: Hashable, Equatable {
         let maxLen = multiByteCharLengths.max() ?? 0
         
         var multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)] = Array(repeating: (0,0,0,0), count: maxLen)
+        
+        for bytes in strings {
+            guard !bytes.isEmpty else { continue }
+            
+            var current = root
+            for b in bytes {
+                if current.children[Int(b)] == nil {
+                    current.children[Int(b)] = TrieNode()
+                }
+                current = current.children[Int(b)]!
+            }
+            current.isTerminal = true
+        }
         
         for char in multiByteChars {
             if char.count == 1 {
@@ -142,11 +156,35 @@ public struct ParsingStrings: Hashable, Equatable {
             return contains(UInt8(scalar.value))
         }
         
-        var utf8Bytes = [UInt8]()
-        utf8Bytes.reserveCapacity(4)
+        var buffer = [UInt8](repeating: 0, count: 4)
+        var length = 0
         for b in scalar.utf8 {
-            utf8Bytes.append(b)
+            buffer[length] = b
+            length &+= 1
         }
-        return contains(utf8Bytes[...])
+        let slice = buffer[..<length]
+        
+        // Walk the trie:
+        return containsTrie(slice)
+    }
+}
+
+extension ParsingStrings {
+    /// Checks membership by walking our trie.
+    /// Returns true if `slice` exactly matches a terminal path.
+    public func containsTrie(_ slice: ArraySlice<UInt8>) -> Bool {
+        // Early single-byte check
+        if slice.count == 1 {
+            return contains(slice.first!)
+        }
+        
+        var current = root
+        for b in slice {
+            guard let child = current.children[Int(b)] else {
+                return false
+            }
+            current = child
+        }
+        return current.isTerminal
     }
 }
