@@ -34,20 +34,26 @@ open class Evaluator {
      * Evaluator for tag name
      */
     public class Tag: Evaluator {
-        private let tagName: String
-        private let tagNameNormal: String
+        private let tagName: [UInt8]
+        private let tagNameNormal: [UInt8]
 
         public init(_ tagName: String) {
+            let utf8TagName = tagName.utf8Array
+            self.tagName = utf8TagName
+            self.tagNameNormal = utf8TagName.lowercased()
+        }
+        
+        public init(_ tagName: [UInt8]) {
             self.tagName = tagName
             self.tagNameNormal = tagName.lowercased()
         }
 
-        open override func matches(_ root: Element, _ element: Element)throws->Bool {
-            return element.tagNameNormal() == tagNameNormal
+        open override func matches(_ root: Element, _ element: Element) throws -> Bool {
+            return element.tagNameNormalUTF8() == tagNameNormal
         }
 
         open override func toString() -> String {
-            return String(tagName)
+            return String(decoding: tagName, as: UTF8.self)
         }
     }
 

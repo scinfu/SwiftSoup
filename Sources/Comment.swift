@@ -12,7 +12,7 @@ import Foundation
  A comment node.
  */
 public class Comment: Node {
-    private static let COMMENT_KEY: [UInt8] = "comment".utf8Array
+    private static let COMMENT_KEY: [UInt8] = UTF8Arrays.comment
 
     /**
      Create a new comment node.

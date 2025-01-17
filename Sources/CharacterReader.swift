@@ -45,6 +45,31 @@ public final class CharacterReader {
         }
     }
     
+    public func currentUTF8() -> [UInt8] {
+        guard pos < end else { return [] }
+        
+        let firstByte = input[pos]
+        let length: Int
+        if firstByte & 0x80 == 0 { // 1-byte character (ASCII)
+            length = 1
+        } else if firstByte & 0xE0 == 0xC0 { // 2-byte character
+            length = 2
+        } else if firstByte & 0xF0 == 0xE0 { // 3-byte character
+            length = 3
+        } else if firstByte & 0xF8 == 0xF0 { // 4-byte character
+            length = 4
+        } else {
+            return [] // Invalid UTF-8 byte
+        }
+        
+        // Ensure there are enough bytes remaining
+        guard input.distance(from: pos, to: end) >= length else {
+            return [] // Incomplete character
+        }
+        
+        return Array(input[pos..<input.index(pos, offsetBy: length)])
+    }
+
     @discardableResult
     public func consume() -> UnicodeScalar {
         guard pos < end else { return CharacterReader.EOF }

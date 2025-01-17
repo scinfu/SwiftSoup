@@ -45,7 +45,7 @@ open class Attributes: NSCopying {
         if let attr = attributes.first(where: { $0.getKeyUTF8() == key }) {
             return attr.getValueUTF8()
         }
-        return "".utf8Array
+        return []
     }
 
     /**
@@ -62,7 +62,7 @@ open class Attributes: NSCopying {
         if let attr = attributes.first(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame }) {
             return attr.getValueUTF8()
         }
-        return "".utf8Array
+        return []
     }
 
     /**

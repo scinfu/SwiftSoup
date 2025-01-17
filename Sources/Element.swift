@@ -394,7 +394,12 @@ open class Element: Node {
      */
     @discardableResult
     public func appendElement(_ tagName: String) throws -> Element {
-        let child: Element = Element(try Tag.valueOfUTF8(tagName.utf8Array), getBaseUriUTF8())
+        return try appendElement(tagName.utf8Array)
+    }
+    
+    @discardableResult
+    internal func appendElement(_ tagName: [UInt8]) throws -> Element {
+        let child: Element = Element(try Tag.valueOf(tagName), getBaseUriUTF8())
         try appendChild(child)
         return child
     }
@@ -408,7 +413,12 @@ open class Element: Node {
      */
     @discardableResult
     public func prependElement(_ tagName: String) throws -> Element {
-        let child: Element = Element(try Tag.valueOfUTF8(tagName.utf8Array), getBaseUriUTF8())
+        return try prependElement(tagName.utf8Array)
+    }
+    
+    @discardableResult
+    internal func prependElement(_ tagName: [UInt8]) throws -> Element {
+        let child: Element = Element(try Tag.valueOf(tagName), getBaseUriUTF8())
         try prependChild(child)
         return child
     }
@@ -527,7 +537,7 @@ open class Element: Node {
      * @return this element, for chaining.
      */
     @discardableResult
-    open override func wrap(_ html: String)throws->Element {
+    open override func wrap(_ html: String) throws -> Element {
         return try super.wrap(html) as! Element
     }
 
@@ -541,7 +551,7 @@ open class Element: Node {
      *
      * @return the CSS Path that can be used to retrieve the element in a selector.
      */
-    public func cssSelector()throws->String {
+    public func cssSelector() throws -> String {
         let elementId = id()
         if (elementId.count > 0) {
             return "#" + elementId
@@ -681,9 +691,18 @@ open class Element: Node {
      * @return a matching unmodifiable list of elements. Will be empty if this element and none of its children match.
      */
     public func getElementsByTag(_ tagName: String) throws -> Elements {
-        try Validate.notEmpty(string: tagName.utf8Array)
+        return try getElementsByTag(tagName.utf8Array)
+    }
+    
+    /**
+     * Finds elements, including and recursively under this element, with the specified tag name.
+     * @param tagName The tag name to search for (case insensitively).
+     * @return a matching unmodifiable list of elements. Will be empty if this element and none of its children match.
+     */
+    public func getElementsByTag(_ tagName: [UInt8]) throws -> Elements {
+        try Validate.notEmpty(string: tagName)
         let tagName = tagName.lowercased().trim()
-
+        
         return try Collector.collect(Evaluator.Tag(tagName), self)
     }
 
@@ -1257,19 +1276,19 @@ open class Element: Node {
             }
         }
         accum
-            .append("<")
-            .append(tagName())
+            .append(UTF8Arrays.tagStart)
+            .append(tagNameUTF8())
         try attributes?.html(accum: accum, out: out)
 
         // selfclosing includes unknown tags, isEmpty defines tags that are always empty
         if (childNodes.isEmpty && _tag.isSelfClosing()) {
             if (out.syntax() == OutputSettings.Syntax.html && _tag.isEmpty()) {
-                accum.append(" />") // <img /> for "always empty" tags. selfclosing is ignored but retained for xml/xhtml compatibility
+                accum.append(UTF8Arrays.selfClosingTagEnd) // <img /> for "always empty" tags. selfclosing is ignored but retained for xml/xhtml compatibility
             } else {
-                accum.append(" />") // <img /> in xml
+                accum.append(UTF8Arrays.selfClosingTagEnd) // <img /> in xml
             }
         } else {
-            accum.append(">")
+            accum.append(UTF8Arrays.tagEnd)
         }
     }
 
@@ -1280,7 +1299,7 @@ open class Element: Node {
                 ))) {
                 indent(accum, depth, out)
             }
-            accum.append("</").append(tagName()).append(">")
+            accum.append("</").append(tagNameUTF8()).append(">")
         }
     }
 

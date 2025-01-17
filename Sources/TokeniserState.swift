@@ -200,12 +200,12 @@ enum TokeniserState: TokeniserStateProtocol {
         case .EndTagOpen:
             if (r.isEmpty()) {
                 t.eofError(self)
-                t.emit("</")
+                t.emit(UTF8Arrays.endTagStart)
                 t.transition(.Data)
             } else if (r.matchesLetter()) {
                 t.createTagPending(false)
                 t.transition(.TagName)
-            } else if (r.matches(">")) {
+            } else if (r.matches(UTF8Arrays.tagEnd)) {
                 t.error(self)
                 t.advanceTransition(.Data)
             } else {
@@ -272,11 +272,11 @@ enum TokeniserState: TokeniserStateProtocol {
         case .RCDATAEndTagOpen:
             if (r.matchesLetter()) {
                 t.createTagPending(false)
-                t.tagPending.appendTagName(r.current())
-                t.dataBuffer.append(r.current())
+                t.tagPending.appendTagName(r.currentUTF8())
+                t.dataBuffer.append(r.currentUTF8())
                 t.advanceTransition(.RCDATAEndTagName)
             } else {
-                t.emit("</")
+                t.emit(UTF8Arrays.endTagStart)
                 t.transition(.Rcdata)
             }
             break
@@ -289,7 +289,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
 
             func anythingElse(_ t: Tokeniser, _ r: CharacterReader) {
-                t.emit("</" + t.dataBuffer.toString())
+                t.emit(UTF8Arrays.endTagStart + t.dataBuffer.buffer)
                 r.unconsume()
                 t.transition(.Rcdata)
             }
@@ -485,8 +485,8 @@ enum TokeniserState: TokeniserStateProtocol {
         case .ScriptDataEscapedLessthanSign:
             if (r.matchesLetter()) {
                 t.createTempBuffer()
-                t.dataBuffer.append(r.current())
-                t.emit("<" + String(r.current()))
+                t.dataBuffer.append(r.currentUTF8())
+                t.emit(UTF8Arrays.tagStart + r.currentUTF8())
                 t.advanceTransition(.ScriptDataDoubleEscapeStart)
             } else if (r.matches("/")) {
                 t.createTempBuffer()
@@ -499,11 +499,11 @@ enum TokeniserState: TokeniserStateProtocol {
         case .ScriptDataEscapedEndTagOpen:
             if (r.matchesLetter()) {
                 t.createTagPending(false)
-                t.tagPending.appendTagName(r.current())
-                t.dataBuffer.append(r.current())
+                t.tagPending.appendTagName(r.currentUTF8())
+                t.dataBuffer.append(r.currentUTF8())
                 t.advanceTransition(.ScriptDataEscapedEndTagName)
             } else {
-                t.emit("</")
+                t.emit(UTF8Arrays.endTagStart)
                 t.transition(.ScriptDataEscaped)
             }
             break
@@ -1580,7 +1580,7 @@ enum TokeniserState: TokeniserStateProtocol {
         }
 
         if (needsExitTransition) {
-            t.emit("</" + t.dataBuffer.toString())
+            t.emit(UTF8Arrays.endTagStart + t.dataBuffer.buffer)
             t.transition(elseTransition)
         }
     }
@@ -1620,7 +1620,7 @@ enum TokeniserState: TokeniserStateProtocol {
             t.createTagPending(false)
             t.transition(a)
         } else {
-            t.emit("</")
+            t.emit(UTF8Arrays.endTagStart)
             t.transition(b)
         }
     }
@@ -1636,7 +1636,7 @@ enum TokeniserState: TokeniserStateProtocol {
         let c = r.consume()
         switch (c) {
         case UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", ">":
-            if (t.dataBuffer.toString() == "script") {
+            if (t.dataBuffer.buffer == UTF8Arrays.script) {
             t.transition(primary)
             } else {
             t.transition(fallback)

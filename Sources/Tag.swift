@@ -101,10 +101,10 @@ open class Tag: Hashable {
      * @return The tag, either defined or new generic.
      */
     public static func valueOf(_ tagName: String) throws -> Tag {
-        return try valueOfUTF8(tagName.utf8Array)
+        return try valueOf(tagName.utf8Array)
     }
     
-    public static func valueOfUTF8(_ tagName: [UInt8]) throws -> Tag {
+    public static func valueOf(_ tagName: [UInt8]) throws -> Tag {
         return try valueOf(tagName, ParseSettings.preserveCase)
     }
 

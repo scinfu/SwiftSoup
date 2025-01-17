@@ -93,9 +93,9 @@ open class Attribute {
     public func html(accum: StringBuilder, out: OutputSettings ) {
         accum.append(key)
         if (!shouldCollapseAttribute(out: out)) {
-            accum.append("=\"")
+            accum.append(UTF8Arrays.attributeEqualsQuoteMark)
             Entities.escape(accum, Array(value), out, true, false, false)
-            accum.append("\"")
+            accum.append(UTF8Arrays.quoteMark)
         }
     }
 
@@ -129,7 +129,7 @@ open class Attribute {
      * @return  Returns whether collapsible or not
      */
     public final func shouldCollapseAttribute(out: OutputSettings) -> Bool {
-        return ("".utf8Array == value  || value.equalsIgnoreCase(string: key))
+        return (value.isEmpty || value.equalsIgnoreCase(string: key))
             && out.syntax() == OutputSettings.Syntax.html
             && isBooleanAttribute()
     }
@@ -152,7 +152,7 @@ open class Attribute {
         } catch {
 
         }
-        return try! Attribute(key: Array("".utf8), value: Array("".utf8))
+        return try! Attribute(key: [], value: [])
     }
 }
 
