@@ -97,8 +97,8 @@ open class Attributes: NSCopying {
      @param attribute attribute
      */
     open func put(attribute: Attribute) {
-        let key = attribute.getKey()
-        if let ix = attributes.firstIndex(where: { $0.getKey() == key }) {
+        let key = attribute.getKeyUTF8()
+        if let ix = attributes.firstIndex(where: { $0.getKeyUTF8() == key }) {
             attributes[ix] = attribute
         } else {
             attributes.append(attribute)
