@@ -26,13 +26,21 @@ func testBit(_ mask: (UInt64, UInt64, UInt64, UInt64), _ b: UInt8) -> Bool {
     return (val & (1 << shift)) != 0
 }
 
+final class TrieNode {
+    // For fastest lookup: a 256-element array for direct indexing by byte
+    var children: [TrieNode?] = .init(repeating: nil, count: 256)
+    
+    // Mark that a path ending at this node represents a complete string
+    var isTerminal: Bool = false
+}
+
 public struct ParsingStrings: Hashable, Equatable {
     let multiByteChars: [[UInt8]]
     let multiByteCharLengths: [Int]
     let multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)]
     let multiByteSet: Set<ArraySlice<UInt8>>
     let multiByteByteLookupsCount: Int
-    let singleByteSet: Set<UInt8> // Precomputed set for single-byte lookups
+    public var singleByteMask: (UInt64, UInt64, UInt64, UInt64) = (0, 0, 0, 0) // Precomputed set for single-byte lookups
     private let precomputedHash: Int
     
     public init(_ strings: [String]) {
@@ -45,12 +53,10 @@ public struct ParsingStrings: Hashable, Equatable {
         let maxLen = multiByteCharLengths.max() ?? 0
         
         var multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)] = Array(repeating: (0,0,0,0), count: maxLen)
-        var singleByteSet = Set<UInt8>() // Initialize single-byte set
         
         for char in multiByteChars {
             if char.count == 1 {
-                // Add single-byte characters directly to the set
-                singleByteSet.insert(char[0])
+                setBit(in: &singleByteMask, forByte: char[0])
             }
             for (i, byte) in char.enumerated() {
                 var mask = multiByteByteLookups[i]
@@ -61,7 +67,6 @@ public struct ParsingStrings: Hashable, Equatable {
         self.multiByteByteLookups = multiByteByteLookups
         multiByteByteLookupsCount = multiByteByteLookups.count
         
-        self.singleByteSet = singleByteSet
         multiByteSet = Set(multiByteChars.map { ArraySlice($0) })
         self.precomputedHash = Self.computeHash(
             multiByteChars: multiByteChars,
@@ -112,13 +117,36 @@ public struct ParsingStrings: Hashable, Equatable {
         return multiByteSet.contains(slice)
     }
     
+    @inlinable
     public func contains(_ byte: UInt8) -> Bool {
-        // Directly check the precomputed single-byte set
-        return singleByteSet.contains(byte)
+        let idx = Int(byte >> 6)
+        let shift = byte & 63
+        
+        // Pick which 64-bit in the tuple:
+        let val: UInt64
+        switch idx {
+        case 0: val = singleByteMask.0
+        case 1: val = singleByteMask.1
+        case 2: val = singleByteMask.2
+        default: val = singleByteMask.3
+        }
+        
+        // If the corresponding bit is set, membership is true
+        return (val & (1 << shift)) != 0
     }
     
+    @inlinable
     public func contains(_ scalar: UnicodeScalar) -> Bool {
-        let utf8Bytes = Array(scalar.utf8)
-        return contains(ArraySlice(utf8Bytes))
+        // Fast path for ASCII
+        if scalar.value < 0x80 {
+            return contains(UInt8(scalar.value))
+        }
+        
+        var utf8Bytes = [UInt8]()
+        utf8Bytes.reserveCapacity(4)
+        for b in scalar.utf8 {
+            utf8Bytes.append(b)
+        }
+        return contains(utf8Bytes[...])
     }
 }
