@@ -37,6 +37,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     case AfterAfterFrameset
     case ForeignContent
     
+    // TODO: Replace sets with byte masks for speed (easier done via single byte ASCII assumption, too)
     private enum TagSets {
         static let outer = Set(["head", "body", "html", "br"].map { $0.utf8Array })
         static let outer2 = Set(["body", "html", "br"].map { $0.utf8Array })
@@ -1583,7 +1584,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         return true
     }
 
-    private static func handleRcData(_ startTag: Token.StartTag, _ tb: HtmlTreeBuilder)throws {
+    private static func handleRcData(_ startTag: Token.StartTag, _ tb: HtmlTreeBuilder) throws {
         tb.tokeniser.transition(TokeniserState.Rcdata)
         tb.markInsertionMode()
         tb.transition(.Text)
