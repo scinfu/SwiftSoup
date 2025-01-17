@@ -24,6 +24,8 @@ public class Entities {
     private static let ltEntityUTF8 = "&lt;".utf8Array
     private static let gtEntityUTF8 = "&gt;".utf8Array
     private static let quotEntityUTF8 = "&quot;".utf8Array
+    
+    private static let spaceString: [UInt8] = [0x20]
 
     public class EscapeMode: Equatable {
 
@@ -230,21 +232,24 @@ public class Entities {
         while i < string.count {
             let byte = string[i]
             
-            if normaliseWhite {
-                if byte.isWhitespace {
-                    if (stripLeadingWhite && !reachedNonWhite) || lastWasWhite {
-                        i += 1
-                        continue
-                    }
-                    accum.append([0x20]) // Append a space (0x20)
-                    lastWasWhite = true
-                    i += 1
-                    continue
-                } else {
-                    lastWasWhite = false
-                    reachedNonWhite = true
+            if normaliseWhite && byte.isWhitespace {
+                var j = i
+                // Skip all consecutive whitespace
+                while j < string.count && string[j].isWhitespace {
+                    j += 1
                 }
+                // If leading or consecutive whitespace should be skipped
+                if (!reachedNonWhite && stripLeadingWhite) || lastWasWhite {
+                    i = j
+                    continue
+                }
+                accum.append(spaceString) // Append one space (normalize)
+                lastWasWhite = true
+                i = j
+                continue
             }
+            lastWasWhite = false
+            reachedNonWhite = true
             
             if byte < 0x80 {
                 // Single-byte ASCII character
@@ -261,23 +266,23 @@ public class Entities {
                     if !inAttribute || escapeMode == .xhtml {
                         accum.append(ltEntityUTF8)
                     } else {
-                        accum.append([byte])
+                        accum.append(byte)
                     }
                 case 0x3E: // '>'
                     if !inAttribute {
                         accum.append(gtEntityUTF8)
                     } else {
-                        accum.append([byte])
+                        accum.append(byte)
                     }
                 case 0x22: // '"'
                     if inAttribute {
                         accum.append(quotEntityUTF8)
                     } else {
-                        accum.append([byte])
+                        accum.append(byte)
                     }
                 default:
-                    if canEncode(bytes: [byte], encoder: encoder) {
-                        accum.append([byte])
+                    if encoder == .ascii || encoder == .utf8 || encoder == .utf16 || canEncode(byte: byte, encoder: encoder) {
+                        accum.append(byte)
                     } else {
                         appendEncoded(accum: accum, escapeMode: escapeMode, bytes: [byte])
                     }
@@ -332,12 +337,13 @@ public class Entities {
         }
     }
 
-    private static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: [UInt8]) {
+    @inlinable
+    internal static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: [UInt8]) {
         if let name = escapeMode.nameForCodepoint(bytes) {
             // Append named entity (e.g., "&amp;")
-            accum.append([0x26]) // '&'
+            accum.append(0x26) // '&'
             accum.append(name)
-            accum.append([0x3B]) // ';'
+            accum.append(0x3B) // ';'
         } else {
             // Convert bytes into a UnicodeScalar
             guard let scalar = String(bytes: bytes, encoding: .utf8)?.unicodeScalars.first else {
@@ -346,14 +352,14 @@ public class Entities {
                 for byte in bytes {
                     accum.append(String.toHexString(n: Int(byte)))
                 }
-                accum.append([0x3B]) // ';'
+                accum.append(0x3B) // ';'
                 return
             }
             
             // Append numeric entity for the scalar
             accum.append([0x26, 0x23, 0x78]) // '&#x'
             accum.append(String.toHexString(n: Int(scalar.value)))
-            accum.append([0x3B]) // ';'
+            accum.append(0x3B) // ';'
         }
     }
 
@@ -394,20 +400,20 @@ public class Entities {
      */
     private static func canEncode(_ c: UnicodeScalar, _ fallback: String.Encoding) -> Bool {
         // todo add more charset tests if impacted by Android's bad perf in canEncode
+        let value = c.value
         switch fallback {
         case .ascii:
-            return c.value < 0x80
-        case .utf8:
-            return c.value <= 0x10FFFF
-            //return true // real is:!(Character.isLowSurrogate(c) || Character.isHighSurrogate(c)) - but already check above (?)
-        case .utf16:
-            return c.value <= 0x10FFFF
+            return value < 0x80
+        case .utf8, .utf16:
+            // UTF-8, UTF-16 can encode all valid sequences
+            return true
         default:
             return fallback.canEncode(c)
         }
     }
     
-    private static func canEncode(bytes: [UInt8], encoder: String.Encoding) -> Bool {
+    @inlinable
+    internal static func canEncode(bytes: [UInt8], encoder: String.Encoding) -> Bool {
         switch encoder {
         case .ascii:
             // Check if all bytes are within ASCII range
@@ -424,6 +430,23 @@ public class Entities {
         }
     }
     
+    @inlinable
+    internal static func canEncode(byte: UInt8, encoder: String.Encoding) -> Bool {
+        switch encoder {
+        case .ascii:
+            // Check if all bytes are within ASCII range
+            return byte < 0x80
+        case .utf8:
+            // UTF-8 can encode all valid sequences
+            return true
+        case .utf16, .unicode:
+            // UTF-16 can encode all valid sequences
+            return true
+        default:
+            // Fallback: Try creating a string and see if it succeeds
+            return String(bytes: [byte], encoding: encoder) != nil
+        }
+    }
 
     static let xhtml: [UInt8] = "amp=12;1\ngt=1q;3\nlt=1o;2\nquot=y;0".utf8Array
     

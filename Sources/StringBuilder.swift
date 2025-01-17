@@ -3,7 +3,7 @@
  Based on https://gist.github.com/kristopherjohnson/1fc55e811d944a430289
  */
 open class StringBuilder {
-    internal var buffer: [UInt8] = []
+    public var buffer: [UInt8] = []
     
     /**
      Construct with initial String contents
@@ -47,24 +47,29 @@ open class StringBuilder {
      
      :return: reference to this StringBuilder instance
      */
+    @inlinable
     @discardableResult
-    open func append(_ string: String) -> StringBuilder{
+    open func append(_ string: String) -> StringBuilder {
         buffer.append(contentsOf: string.utf8)
         return self
     }
     
+    @inlinable
     open func append(_ chr: Character) {
         append(String(chr))
     }
     
+    @inlinable
     open func appendCodePoints(_ chr: [Character]) {
         append(String(chr))
     }
     
+    @inlinable
     open func appendCodePoint(_ ch: Int) {
         appendCodePoint(UnicodeScalar(ch)!)
     }
     
+    @inlinable
     open func appendCodePoint(_ ch: UnicodeScalar) {
         let val = ch.value
         if val < 0x80 {
@@ -94,6 +99,7 @@ open class StringBuilder {
         }
     }
     
+    @inlinable
     open func appendCodePoints(_ chr: [UnicodeScalar]) {
         for chr in chr {
             appendCodePoint(chr)
@@ -113,18 +119,28 @@ open class StringBuilder {
 //        return self
 //    }
     
+    @inlinable
     @discardableResult
     open func append(_ value: ArraySlice<UInt8>) -> StringBuilder {
         buffer.append(contentsOf: value)
         return self
     }
     
+    @inlinable
     @discardableResult
     open func append(_ value: [UInt8]) -> StringBuilder {
         buffer.append(contentsOf: value)
         return self
     }
+    
+    @inlinable
+    @discardableResult
+    open func append(_ value: UInt8) -> StringBuilder {
+        buffer.append(value)
+        return self
+    }
 
+    @inlinable
     @discardableResult
     open func append(_ value: UnicodeScalar) -> StringBuilder {
         appendCodePoint(value)
