@@ -81,18 +81,18 @@ class HtmlTreeBuilder: TreeBuilder {
                 tokeniser.transition(TokeniserState.Rcdata)
             } else {
                 switch context.tagNameUTF8() {
-                case "script".utf8Array:
+                case UTF8Arrays.script:
                     tokeniser.transition(TokeniserState.ScriptData)
-                case "noscript".utf8Array:
+                case UTF8Arrays.noscript:
                     tokeniser.transition(TokeniserState.Data) // if scripting enabled, rawtext
-                case "plaintext".utf8Array:
+                case UTF8Arrays.plaintext:
                     tokeniser.transition(TokeniserState.Data)
                 default:
                     tokeniser.transition(TokeniserState.Data)
                 }
             }
 
-            root = try Element(Tag.valueOf("html".utf8Array, settings), baseUri)
+            root = try Element(Tag.valueOf(UTF8Arrays.html, settings), baseUri)
             try Validate.notNull(obj: root)
             try doc.appendChild(root!)
             stack.append(root!)
@@ -167,7 +167,7 @@ class HtmlTreeBuilder: TreeBuilder {
             return
         }
 
-        let href: [UInt8] = try base.absUrl("href".utf8Array)
+        let href: [UInt8] = try base.absUrl(UTF8Arrays.href)
         if (href.count != 0) { // ignore <base target> etc
             baseUri = href
             baseUriSetFromDoc = true
@@ -254,7 +254,7 @@ class HtmlTreeBuilder: TreeBuilder {
         var node: Node
         // characters in script and style go in as datanodes, not text nodes
         let tagName: [UInt8]? = currentElement()?.tagNameUTF8()
-        if (tagName == "script".utf8Array || tagName == "style".utf8Array) {
+        if (tagName == UTF8Arrays.script || tagName == UTF8Arrays.style) {
             try Validate.notNull(obj: characterToken.getData())
             node = DataNode(characterToken.getData()!, baseUri)
         } else {
@@ -385,15 +385,15 @@ class HtmlTreeBuilder: TreeBuilder {
     }
 
     func clearStackToTableContext() {
-        clearStackToContext("table".utf8Array)
+        clearStackToContext(UTF8Arrays.table)
     }
 
     func clearStackToTableBodyContext() {
-        clearStackToContext("tbody".utf8Array, "tfoot".utf8Array, "thead".utf8Array)
+        clearStackToContext(UTF8Arrays.tbody, UTF8Arrays.tfoot, UTF8Arrays.thead)
     }
 
     func clearStackToTableRowContext() {
-        clearStackToContext("tr".utf8Array)
+        clearStackToContext(UTF8Arrays.tr)
     }
 
     private func clearStackToContext(_ nodeNames: [UInt8]...) {
@@ -403,7 +403,7 @@ class HtmlTreeBuilder: TreeBuilder {
         for pos in (0..<stack.count).reversed() {
             let next: Element = stack[pos]
             let nextName = next.nodeNameUTF8()
-            if nodeNames.contains(nextName) || nextName == "html".utf8Array {
+            if nodeNames.contains(nextName) || nextName == UTF8Arrays.html {
                 break
             } else {
                 stack.remove(at: pos)
@@ -785,7 +785,7 @@ class HtmlTreeBuilder: TreeBuilder {
 
     func insertInFosterParent(_ input: Node) throws {
         let fosterParent: Element?
-        let lastTable: Element? = getFromStack("table".utf8Array)
+        let lastTable: Element? = getFromStack(UTF8Arrays.table)
         var isLastTableParent: Bool = false
         if let lastTable = lastTable {
             if (lastTable.parent() != nil) {

@@ -162,7 +162,7 @@ extension ArraySlice: @retroactive Comparable where Element == UInt8 {
 }
 
 extension String {
-    var utf8Array: [UInt8] {
+    public var utf8Array: [UInt8] {
         return Array(self.utf8)
     }
     

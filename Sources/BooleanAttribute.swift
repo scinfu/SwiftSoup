@@ -17,7 +17,7 @@ open class BooleanAttribute: Attribute {
      * @param key attribute key
      */
     init(key: [UInt8]) throws {
-        try super.init(key: key, value: "".utf8Array)
+        try super.init(key: key, value: [])
     }
 
     override public func isBooleanAttribute() -> Bool {

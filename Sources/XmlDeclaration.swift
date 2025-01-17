@@ -57,7 +57,7 @@ public class XmlDeclaration: Node {
 
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         accum
-            .append("<")
+            .append(UTF8Arrays.tagStart)
             .append(isProcessingInstruction ? "!" : "?")
             .append(_name)
         do {
@@ -65,7 +65,7 @@ public class XmlDeclaration: Node {
         } catch {}
         accum
             .append(isProcessingInstruction ? "!" : "?")
-            .append(">")
+            .append(UTF8Arrays.tagEnd)
     }
 
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {}

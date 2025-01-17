@@ -26,12 +26,12 @@ open class Document: Element {
      */
     public init(_ baseUri: [UInt8]) {
         _location = baseUri
-        super.init(try! Tag.valueOf("#root".utf8Array, ParseSettings.htmlDefault), baseUri)
+        super.init(try! Tag.valueOf(UTF8Arrays.hashRoot, ParseSettings.htmlDefault), baseUri)
     }
     
     public init(_ baseUri: String) {
         _location = baseUri.utf8Array
-        super.init(try! Tag.valueOf("#root".utf8Array, ParseSettings.htmlDefault), _location)
+        super.init(try! Tag.valueOf(UTF8Arrays.hashRoot, ParseSettings.htmlDefault), _location)
     }
 
     /**
@@ -66,7 +66,7 @@ open class Document: Element {
      @return {@code head}
      */
     public func head() -> Element? {
-        return findFirstElementByTagName("head".utf8Array, self)
+        return findFirstElementByTagName(UTF8Arrays.head, self)
     }
 
     /**
@@ -74,7 +74,7 @@ open class Document: Element {
      @return {@code body}
      */
     public func body() -> Element? {
-        return findFirstElementByTagName("body".utf8Array, self)
+        return findFirstElementByTagName(UTF8Arrays.body, self)
     }
 
     /**
@@ -117,17 +117,17 @@ open class Document: Element {
      */
     @discardableResult
     public func normalise() throws -> Document {
-        var htmlE: Element? = findFirstElementByTagName("html".utf8Array, self)
+        var htmlE: Element? = findFirstElementByTagName(UTF8Arrays.html, self)
         if (htmlE == nil) {
-            htmlE = try appendElement("html")
+            htmlE = try appendElement(UTF8Arrays.html)
         }
         let htmlEl: Element = htmlE!
 
         if (head() == nil) {
-            try htmlEl.prependElement("head")
+            try htmlEl.prependElement(UTF8Arrays.head)
         }
         if (body() == nil) {
-            try htmlEl.appendElement("body")
+            try htmlEl.appendElement(UTF8Arrays.body)
         }
 
         // pull text nodes out of root, html, and head els, and push into body. non-text nodes are already taken care
@@ -136,8 +136,8 @@ open class Document: Element {
         try normaliseTextNodes(htmlEl)
         try normaliseTextNodes(self)
 
-        try normaliseStructure("head", htmlEl)
-        try normaliseStructure("body", htmlEl)
+        try normaliseStructure(UTF8Arrays.head, htmlEl)
+        try normaliseStructure(UTF8Arrays.body, htmlEl)
 
         try ensureMetaCharsetElement()
 
@@ -145,7 +145,7 @@ open class Document: Element {
     }
 
     // does not recurse.
-    private func normaliseTextNodes(_ element: Element)throws {
+    private func normaliseTextNodes(_ element: Element) throws {
         var toMove: Array<Node> =  Array<Node>()
         for node: Node in element.childNodes {
             if let tn = (node as? TextNode) {
@@ -158,13 +158,13 @@ open class Document: Element {
         for i in (0..<toMove.count).reversed() {
             let node: Node = toMove[i]
             try element.removeChild(node)
-            try body()?.prependChild(TextNode(" ".utf8Array, []))
+            try body()?.prependChild(TextNode(UTF8Arrays.whitespace, []))
             try body()?.prependChild(node)
         }
     }
 
     // merge multiple <head> or <body> contents into one, delete the remainder, and ensure they are owned by <html>
-    private func normaliseStructure(_ tag: String, _ htmlEl: Element)throws {
+    private func normaliseStructure(_ tag: [UInt8], _ htmlEl: Element) throws {
         let elements: Elements = try self.getElementsByTag(tag)
         let master: Element? = elements.first() // will always be available as created above if not existent
         if (elements.size() > 1) { // dupes, move contents to master
@@ -202,7 +202,7 @@ open class Document: Element {
         return nil
     }
 
-    open override func outerHtml()throws->String {
+    open override func outerHtml() throws -> String {
         return try super.html() // no outer wrapper tag
     }
 
@@ -212,7 +212,7 @@ open class Document: Element {
      @return this document
      */
     @discardableResult
-    public override func text(_ text: String)throws->Element {
+    public override func text(_ text: String) throws -> Element {
         try body()?.text(text) // overridden to not nuke doc structure
         return self
     }

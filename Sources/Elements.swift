@@ -579,7 +579,7 @@ open class Elements: NSCopying {
 	}
 
 	/// Returns all elements
-	open func array()->Array<Element> {
+	open func array() -> Array<Element> {
 		return this
 	}
 }

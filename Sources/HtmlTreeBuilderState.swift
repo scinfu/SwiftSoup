@@ -60,64 +60,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         static let thTd = Set(["th", "td"].map { $0.utf8Array })
         static let inputKeygenTextarea = Set(["input", "keygen", "textarea"].map { $0.utf8Array })
     }
-    
-    private enum UTF8Arrays {
-        static let html = "html".utf8Array
-        static let head = "head".utf8Array
-        static let meta = "meta".utf8Array
-        static let body = "body".utf8Array
-        static let a = "a".utf8Array
-        static let p = "p".utf8Array
-        static let li = "li".utf8Array
-        static let span = "span".utf8Array
-        static let img = "img".utf8Array
-        static let action = "action".utf8Array
-        static let prompt = "prompt".utf8Array
-        static let ruby = "ruby".utf8Array
-        static let table = "table".utf8Array
-        static let tbody = "tbody".utf8Array
-        static let th = "th".utf8Array
-        static let tr = "tr".utf8Array
-        static let td = "td".utf8Array
-        static let thead = "thead".utf8Array
-        static let tfoot = "tfoot".utf8Array
-        static let optgroup = "optgroup".utf8Array
-        static let select = "select".utf8Array
-        static let form = "form".utf8Array
-        static let plaintext = "plaintext".utf8Array
-        static let button = "button".utf8Array
-        static let image = "image".utf8Array
-        static let nobr = "nobr".utf8Array
-        static let input = "input".utf8Array
-        static let type = "type".utf8Array
-        static let hidden = "hidden".utf8Array
-        static let caption = "caption".utf8Array
-        static let hr = "hr".utf8Array
-        static let svg = "svg".utf8Array
-        static let isindex = "isindex".utf8Array
-        static let label = "label".utf8Array
-        static let xmp = "xmp".utf8Array
-        static let textarea = "textarea".utf8Array
-        static let iframe = "iframe".utf8Array
-        static let noembed = "noembed".utf8Array
-        static let option = "option".utf8Array
-        static let math = "math".utf8Array
-        static let sarcasm = "sarcasm".utf8Array // Huh
-        static let name = "name".utf8Array
-        static let col = "col".utf8Array
-        static let colgroup = "colgroup".utf8Array
-        static let frame = "frame".utf8Array
-        static let base = "base".utf8Array
-        static let href = "href".utf8Array
-        static let noscript = "noscript".utf8Array
-        static let noframes = "noframes".utf8Array
-        static let style = "style".utf8Array
-        static let title = "title".utf8Array
-        static let script = "script".utf8Array
-        static let br = "br".utf8Array
-        static let frameset = "frameset".utf8Array
-    }
-
 
     private static let nullString: [UInt8] = "\u{0000}".utf8Array
 
