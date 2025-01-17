@@ -259,6 +259,7 @@ extension String {
         return false
     }
 
+    @inlinable
     static func toHexString(n: Int) -> String {
         return String(format: "%2x", n)
     }
