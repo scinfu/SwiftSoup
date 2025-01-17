@@ -77,23 +77,28 @@ extension Array: @retroactive Comparable where Element == UInt8 {
     func equals(_ string: [UInt8]) -> Bool {
         return self == string
     }
-
+    
     func trim() -> [UInt8] {
-        let whitespaces: Set<UInt8> = [9, 10, 13, 32] // '\t', '\n', '\r', ' ' (ASCII values)
+        // Helper function to check if a byte is whitespace
+        func isWhitespace(_ byte: UInt8) -> Bool {
+            return byte == 0x20 || (byte >= 0x09 && byte <= 0x0D)
+        }
         
-        // Find the start index by skipping leading whitespace
         var start = startIndex
-        while start < endIndex, whitespaces.contains(self[start]) {
-            formIndex(after: &start)
-        }
-        
-        // Find the end index by skipping trailing whitespace
         var end = endIndex
-        while start < end, whitespaces.contains(self[index(before: end)]) {
-            formIndex(before: &end)
+        var trimmed = false
+        
+        while start < end, isWhitespace(self[start]) {
+            formIndex(after: &start)
+            trimmed = true
         }
         
-        return Array(self[start..<end])
+        while start < end, isWhitespace(self[index(before: end)]) {
+            formIndex(before: &end)
+            trimmed = true
+        }
+        
+        return trimmed ? Array(self[start..<end]) : self
     }
     
     func substring(_ beginPrefix: Int) -> [UInt8] {
