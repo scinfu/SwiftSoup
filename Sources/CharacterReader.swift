@@ -1,5 +1,7 @@
 import Foundation
 
+fileprivate let hexCharacterSet = CharacterSet(charactersIn: "0123456789ABCDEFabcdef")
+
 public final class CharacterReader {
     private static let empty = ""
     public static let EOF: UnicodeScalar = "\u{FFFF}" // 65535
@@ -247,7 +249,7 @@ public final class CharacterReader {
         while pos < end {
             var iterator = input[pos...].makeIterator()
             switch utf8Decoder.decode(&iterator) {
-            case .scalarValue(let scalar) where CharacterSet(charactersIn: "0123456789ABCDEFabcdef").contains(scalar):
+            case .scalarValue(let scalar) where hexCharacterSet.contains(scalar):
                 let scalarLength = UTF8.width(scalar)
                 input.formIndex(&pos, offsetBy: scalarLength)
             case .scalarValue, .emptyInput, .error:
