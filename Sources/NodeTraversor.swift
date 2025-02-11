@@ -8,7 +8,7 @@
 
 import Foundation
 
-class NodeTraversor {
+open class NodeTraversor {
     private let visitor: NodeVisitor
 
     /**
