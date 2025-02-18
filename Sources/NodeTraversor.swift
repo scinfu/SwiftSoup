@@ -29,19 +29,19 @@ open class NodeTraversor {
 
         while (node != nil) {
             try visitor.head(node!, depth)
-            if (node!.childNodeSize() > 0) {
+            if node!.hasChildNodes() {
                 node = node!.childNode(0)
-                depth+=1
+                depth += 1
             } else {
-                while (node!.nextSibling() == nil && depth > 0) {
+                while !node!.hasNextSibling() && depth > 0 {
                     let parent = node!.getParentNode()
                     try visitor.tail(node!, depth)
                     node = parent
-                    depth-=1
+                    depth -= 1
                 }
                 let nextSib = node!.nextSibling()
                 try visitor.tail(node!, depth)
-                if (node === root) {
+                if node === root {
                     break
                 }
                 node = nextSib
