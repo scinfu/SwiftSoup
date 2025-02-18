@@ -13,7 +13,7 @@ open class Node: Equatable, Hashable {
     fileprivate static let empty = "".utf8Array
     private static let EMPTY_NODES: Array<Node>  = Array<Node>()
     weak var parentNode: Node?
-    var childNodes: Array <Node>
+    var childNodes: Array<Node>
     var attributes: Attributes?
     var baseUri: [UInt8]?
 
@@ -246,7 +246,7 @@ open class Node: Equatable, Hashable {
      themselves can be manipulated.
      @return list of children. If no children, returns an empty list.
      */
-    open func getChildNodes()->Array<Node> {
+    open func getChildNodes() -> Array<Node> {
         return childNodes
     }
 
@@ -591,12 +591,13 @@ open class Node: Equatable, Hashable {
      Get this node's next sibling.
      @return next sibling, or null if this is the last sibling
      */
+    @inlinable
     open func nextSibling() -> Node? {
-        guard let siblings: Array<Node> =  parentNode?.childNodes else {
+        guard let siblings: Array<Node> = parent()?.getChildNodes() else {
             return nil
         }
 
-        let index: Int = siblingIndex+1
+        let index: Int = siblingIndex + 1
         if (siblings.count > index) {
             return siblings[index]
         } else {

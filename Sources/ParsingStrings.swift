@@ -13,7 +13,7 @@ func setBit(in mask: inout (UInt64, UInt64, UInt64, UInt64), forByte b: UInt8) {
 }
 
 @inline(__always)
-func testBit(_ mask: (UInt64, UInt64, UInt64, UInt64), _ b: UInt8) -> Bool {
+public func testBit(_ mask: (UInt64, UInt64, UInt64, UInt64), _ b: UInt8) -> Bool {
     let idx = Int(b >> 6)
     let shift = b & 63
     let val: UInt64
@@ -37,9 +37,9 @@ final class TrieNode {
 public struct ParsingStrings: Hashable, Equatable {
     let multiByteChars: [[UInt8]]
     let multiByteCharLengths: [Int]
-    let multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)]
-    let multiByteSet: Set<ArraySlice<UInt8>>
-    let multiByteByteLookupsCount: Int
+    public let multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)]
+    public let multiByteSet: Set<ArraySlice<UInt8>>
+    public let multiByteByteLookupsCount: Int
     public var singleByteMask: (UInt64, UInt64, UInt64, UInt64) = (0, 0, 0, 0) // Precomputed set for single-byte lookups
     private let precomputedHash: Int
     private let root = TrieNode()
@@ -120,6 +120,12 @@ public struct ParsingStrings: Hashable, Equatable {
         hasher.combine(precomputedHash)
     }
     
+    @inlinable
+    public func contains(_ bytes: [UInt8]) -> Bool {
+        return contains(ArraySlice(bytes))
+    }
+    
+    @inlinable
     public func contains(_ slice: ArraySlice<UInt8>) -> Bool {
         var index = 0
         for byte in slice {

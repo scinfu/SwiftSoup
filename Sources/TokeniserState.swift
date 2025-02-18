@@ -100,6 +100,7 @@ enum TokeniserState: TokeniserStateProtocol {
     case BogusDoctype
     case CdataSection
 
+    @inlinable
     internal func read(_ t: Tokeniser, _ r: CharacterReader) throws {
         switch self {
         case .Data:

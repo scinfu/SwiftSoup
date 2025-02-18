@@ -28,7 +28,7 @@ extension UInt8 {
 }
 
 extension Array: @retroactive Comparable where Element == UInt8 {
-    func lowercased() -> [UInt8] {
+    public func lowercased() -> [UInt8] {
         map { $0 >= 65 && $0 <= 90 ? $0 + 32 : $0 }
     }
      
@@ -78,7 +78,7 @@ extension Array: @retroactive Comparable where Element == UInt8 {
         return self == string
     }
     
-    func trim() -> [UInt8] {
+    public func trim() -> [UInt8] {
         // Helper function to check if a byte is whitespace
         func isWhitespace(_ byte: UInt8) -> Bool {
             return byte == 0x20 || (byte >= 0x09 && byte <= 0x0D)
@@ -245,7 +245,7 @@ extension String {
         return self.indexOf(substring, 0)
     }
 
-    func trim() -> String {
+    public func trim() -> String {
         // trimmingCharacters() in the stdlib is not very efficiently
         // implemented, perhaps because it always creates a new string.
         // Avoid actually calling it if it's not needed.

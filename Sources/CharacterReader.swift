@@ -5,11 +5,11 @@ fileprivate let hexCharacterSet = CharacterSet(charactersIn: "0123456789ABCDEFab
 public final class CharacterReader {
     private static let empty = ""
     public static let EOF: UnicodeScalar = "\u{FFFF}" // 65535
-    private let input: [UInt8]
-    private var pos: [UInt8].Index
+    public let input: [UInt8]
+    public var pos: [UInt8].Index
     private var mark: [UInt8].Index
     private let start: [UInt8].Index
-    private let end: [UInt8].Index
+    public let end: [UInt8].Index
 
     public init(_ input: [UInt8]) {
         self.input = input
@@ -144,27 +144,30 @@ public final class CharacterReader {
         }
     }
     
+    @inlinable
     public func consumeToAny(_ chars: ParsingStrings) -> String {
         return String(decoding: consumeToAny(chars), as: UTF8.self)
     }
     
+    @inlinable
     public func consumeToAny(_ chars: ParsingStrings) -> ArraySlice<UInt8> {
         let start = pos
-        var utf8Decoder = UTF8()
-        var iterator = input[pos...].makeIterator()
         
         while pos < end {
-            let decodingResult = utf8Decoder.decode(&iterator)
-            switch decodingResult {
-            case .scalarValue(let scalar):
-                if chars.contains(scalar) {
-                    return input[start..<pos]
-                }
-                let scalarLength = UTF8.width(scalar)
-                input.formIndex(&pos, offsetBy: scalarLength)
-            case .emptyInput, .error:
+            // Skip continuation bytes
+            if input[pos] & 0b11000000 == 0b10000000 {
+                pos += 1
+                continue
+            }
+            
+            let charLen = input[pos] < 0x80 ? 1 : input[pos] < 0xE0 ? 2 : input[pos] < 0xF0 ? 3 : 4
+            
+            // Check if the current multi-byte sequence matches any character in `chars`
+            if chars.contains(input[pos..<min(pos + charLen, end)]) {
                 return input[start..<pos]
             }
+            
+            pos += charLen
         }
         
         return input[start..<pos]
@@ -498,14 +501,16 @@ public final class CharacterReader {
         }
     }
 
-    static let dataTerminators = ParsingStrings([.Ampersand, .LessThan, TokeniserStateVars.nullScalr])
+    public static let dataTerminators = ParsingStrings([.Ampersand, .LessThan, TokeniserStateVars.nullScalr])
     
+    @inlinable
     public func consumeData() -> ArraySlice<UInt8> {
         return consumeToAny(CharacterReader.dataTerminators)
     }
     
-    static let tagNameTerminators = ParsingStrings([.BackslashT, .BackslashN, .BackslashR, .BackslashF, .Space, .Slash, .GreaterThan, TokeniserStateVars.nullScalr])
+    public static let tagNameTerminators = ParsingStrings([.BackslashT, .BackslashN, .BackslashR, .BackslashF, .Space, .Slash, .GreaterThan, TokeniserStateVars.nullScalr])
     
+    @inlinable
     public func consumeTagName() -> ArraySlice<UInt8> {
         return consumeToAny(CharacterReader.tagNameTerminators)
     }
