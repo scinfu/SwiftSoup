@@ -25,6 +25,8 @@ public enum UTF8Arrays {
     public static let rb = "rb".utf8Array
     public static let rp = "rp".utf8Array
     public static let rt = "rt".utf8Array
+    public static let rtc = "rtc".utf8Array
+    public static let page = "page".utf8Array
     public static let table = "table".utf8Array
     public static let tbody = "tbody".utf8Array
     public static let th = "th".utf8Array
@@ -67,4 +69,5 @@ public enum UTF8Arrays {
     public static let script = "script".utf8Array
     public static let br = "br".utf8Array
     public static let frameset = "frameset".utf8Array
+    public static let blobColon = "blob:".utf8Array
     }

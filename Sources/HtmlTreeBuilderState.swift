@@ -39,26 +39,26 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     
     // TODO: Replace sets with byte masks for speed (easier done via single byte ASCII assumption, too)
     private enum TagSets {
-        static let outer = Set(["head", "body", "html", "br"].map { $0.utf8Array })
-        static let outer2 = Set(["body", "html", "br"].map { $0.utf8Array })
-        static let outer3 = Set(["body", "html"].map { $0.utf8Array })
-        static let baseEtc = Set(["base", "basefont", "bgsound", "command", "link"].map { $0.utf8Array })
-        static let baseEtc2 = Set(["basefont", "bgsound", "link", "meta", "noframes", "style"].map { $0.utf8Array })
-        static let baseEtc3 = Set(["base", "basefont", "bgsound", "link", "meta", "noframes", "script", "style", "title"].map { $0.utf8Array })
-        static let headNoscript = Set(["head", "noscript"].map { $0.utf8Array })
-        static let table = Set(["table", "tbody", "tfoot", "thead", "tr"].map { $0.utf8Array })
-        static let tableSections = Set(["tbody", "tfoot", "thead"].map { $0.utf8Array })
-        static let tableMix = Set(["body", "caption", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr"].map { $0.utf8Array })
-        static let tableMix2 = Set(["body", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr"].map { $0.utf8Array })
-        static let tableMix3 = Set(["caption", "col", "colgroup", "tbody", "tfoot", "thead"].map { $0.utf8Array })
-        static let tableMix4 = Set(["body", "caption", "col", "colgroup", "html", "td", "th", "tr"].map { $0.utf8Array })
-        static let tableMix5 = Set(["caption", "col", "colgroup", "tbody", "tfoot", "thead", "tr"].map { $0.utf8Array })
-        static let tableMix6 = Set(["body", "caption", "col", "colgroup", "html", "td", "th"].map { $0.utf8Array })
-        static let tableMix7 = Set(["body", "caption", "col", "colgroup", "html"].map { $0.utf8Array })
-        static let tableMix8 = Set(["caption", "table", "tbody", "tfoot", "thead", "tr", "td", "th"].map { $0.utf8Array })
-        static let tableRowsAndCols = Set(["caption", "col", "colgroup", "tbody", "td", "tfoot", "th", "thead", "tr"].map { $0.utf8Array })
-        static let thTd = Set(["th", "td"].map { $0.utf8Array })
-        static let inputKeygenTextarea = Set(["input", "keygen", "textarea"].map { $0.utf8Array })
+        static let outer = ParsingStrings(["head", "body", "html", "br"])
+        static let outer2 = ParsingStrings(["body", "html", "br"])
+        static let outer3 = ParsingStrings(["body", "html"])
+        static let baseEtc = ParsingStrings(["base", "basefont", "bgsound", "command", "link"])
+        static let baseEtc2 = ParsingStrings(["basefont", "bgsound", "link", "meta", "noframes", "style"])
+        static let baseEtc3 = ParsingStrings(["base", "basefont", "bgsound", "link", "meta", "noframes", "script", "style", "title"])
+        static let headNoscript = ParsingStrings(["head", "noscript"])
+        static let table = ParsingStrings(["table", "tbody", "tfoot", "thead", "tr"])
+        static let tableSections = ParsingStrings(["tbody", "tfoot", "thead"])
+        static let tableMix = ParsingStrings(["body", "caption", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr"])
+        static let tableMix2 = ParsingStrings(["body", "col", "colgroup", "html", "tbody", "td", "tfoot", "th", "thead", "tr"])
+        static let tableMix3 = ParsingStrings(["caption", "col", "colgroup", "tbody", "tfoot", "thead"])
+        static let tableMix4 = ParsingStrings(["body", "caption", "col", "colgroup", "html", "td", "th", "tr"])
+        static let tableMix5 = ParsingStrings(["caption", "col", "colgroup", "tbody", "tfoot", "thead", "tr"])
+        static let tableMix6 = ParsingStrings(["body", "caption", "col", "colgroup", "html", "td", "th"])
+        static let tableMix7 = ParsingStrings(["body", "caption", "col", "colgroup", "html"])
+        static let tableMix8 = ParsingStrings(["caption", "table", "tbody", "tfoot", "thead", "tr", "td", "th"])
+        static let tableRowsAndCols = ParsingStrings(["caption", "col", "colgroup", "tbody", "td", "tfoot", "th", "thead", "tr"])
+        static let thTd = ParsingStrings(["th", "td"])
+        static let inputKeygenTextarea = ParsingStrings(["input", "keygen", "textarea"])
     }
 
     private static let nullString: [UInt8] = "\u{0000}".utf8Array
@@ -1543,32 +1543,31 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     // lists of tags to search through. A little harder to read here, but causes less GC than dynamic varargs.
     // was contributing around 10% of parse GC load.
     fileprivate final class Constants {
-        fileprivate static let InBodyStartToHead: Set = Set(["base", "basefont", "bgsound", "command", "link", "meta", "noframes", "script", "style", "title"].map { $0.utf8Array })
-        fileprivate static let InBodyStartPClosers: Set = Set(["address", "article", "aside", "blockquote", "center", "details", "dir", "div", "dl",
+        fileprivate static let InBodyStartToHead = ParsingStrings(["base", "basefont", "bgsound", "command", "link", "meta", "noframes", "script", "style", "title"])
+        fileprivate static let InBodyStartPClosers = ParsingStrings(["address", "article", "aside", "blockquote", "center", "details", "dir", "div", "dl",
                                                                 "fieldset", "figcaption", "figure", "footer", "header", "hgroup", "menu", "nav", "ol",
-                                                                "p", "section", "summary", "ul"].map { $0.utf8Array })
-        fileprivate static let Headings: Set = Set(["h1", "h2", "h3", "h4", "h5", "h6"].map { $0.utf8Array })
-        fileprivate static let InBodyStartPreListing: Set = Set(["pre", "listing"].map { $0.utf8Array })
-        fileprivate static let InBodyStartLiBreakers: Set = Set(["address", "div", "p"].map { $0.utf8Array })
-        fileprivate static let DdDt: Set = Set(["dd", "dt"].map { $0.utf8Array })
-        fileprivate static let Formatters: Set = Set(["b", "big", "code", "em", "font", "i", "s", "small", "strike", "strong", "tt", "u"].map { $0.utf8Array })
-        fileprivate static let InBodyStartApplets: Set = Set(["applet", "marquee", "object"].map { $0.utf8Array })
-        fileprivate static let InBodyStartEmptyFormatters: Set = Set(["area", "br", "embed", "img", "keygen", "wbr"].map { $0.utf8Array })
-        fileprivate static let InBodyStartMedia: Set = Set(["param", "source", "track"].map { $0.utf8Array })
-        fileprivate static let InBodyStartInputAttribs: Set = Set(["name", "action", "prompt"].map { $0.utf8Array })
-        fileprivate static let InBodyStartOptions: Set = Set(["optgroup", "option"].map { $0.utf8Array })
-        fileprivate static let InBodyStartRuby: Set = Set(["rp", "rt"].map { $0.utf8Array })
-        fileprivate static let InBodyStartDrop: Set = Set(["caption", "col", "colgroup", "frame", "head", "tbody", "td", "tfoot", "th", "thead", "tr"].map { $0.utf8Array })
-        fileprivate static let InBodyEndClosers: Set = Set(["address", "article", "aside", "blockquote", "button", "center", "details", "dir", "div",
+                                                                "p", "section", "summary", "ul"])
+        fileprivate static let Headings = ParsingStrings(["h1", "h2", "h3", "h4", "h5", "h6"])
+        fileprivate static let InBodyStartPreListing = ParsingStrings(["pre", "listing"])
+        fileprivate static let InBodyStartLiBreakers = ParsingStrings(["address", "div", "p"])
+        fileprivate static let DdDt = ParsingStrings(["dd", "dt"])
+        fileprivate static let Formatters = ParsingStrings(["b", "big", "code", "em", "font", "i", "s", "small", "strike", "strong", "tt", "u"])
+        fileprivate static let InBodyStartApplets = ParsingStrings(["applet", "marquee", "object"])
+        fileprivate static let InBodyStartEmptyFormatters = ParsingStrings(["area", "br", "embed", "img", "keygen", "wbr"])
+        fileprivate static let InBodyStartMedia = ParsingStrings(["param", "source", "track"])
+        fileprivate static let InBodyStartInputAttribs = ParsingStrings(["name", "action", "prompt"])
+        fileprivate static let InBodyStartOptions = ParsingStrings(["optgroup", "option"])
+        fileprivate static let InBodyStartRuby = ParsingStrings(["rp", "rt"])
+        fileprivate static let InBodyStartDrop = ParsingStrings(["caption", "col", "colgroup", "frame", "head", "tbody", "td", "tfoot", "th", "thead", "tr"])
+        fileprivate static let InBodyEndClosers = ParsingStrings(["address", "article", "aside", "blockquote", "button", "center", "details", "dir", "div",
                                                              "dl", "fieldset", "figcaption", "figure", "footer", "header", "hgroup", "listing", "menu",
-                                                             "nav", "ol", "pre", "section", "summary", "ul"].map { $0.utf8Array })
-        fileprivate static let InBodyEndAdoptionFormatters: Set = Set(["a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong", "tt", "u"].map { $0.utf8Array })
-        fileprivate static let InBodyEndTableFosters: Set = Set(["table", "tbody", "tfoot", "thead", "tr"].map { $0.utf8Array })
+                                                             "nav", "ol", "pre", "section", "summary", "ul"])
+        fileprivate static let InBodyEndAdoptionFormatters = ParsingStrings(["a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong", "tt", "u"])
+        fileprivate static let InBodyEndTableFosters = ParsingStrings(["table", "tbody", "tfoot", "thead", "tr"])
     }
 }
 
 fileprivate extension Token {
-    
     func endTagNormalName() -> [UInt8]? {
         guard isEndTag() else { return nil }
         return asEndTag().normalName()

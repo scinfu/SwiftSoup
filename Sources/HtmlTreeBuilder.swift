@@ -15,23 +15,23 @@ class HtmlTreeBuilder: TreeBuilder {
     
     private enum TagSets {
         // tag searches
-        static let inScope = Set(["applet", "caption", "html", "table", "td", "th", "marquee", "object"].map { $0.utf8Array })
-        static let list = Set(["ol", "ul"].map { $0.utf8Array })
-        static let button = Set(["button"].map { $0.utf8Array })
-        static let tableScope = Set(["html", "table"].map { $0.utf8Array })
-        static let selectScope = Set(["optgroup", "option"].map { $0.utf8Array })
-        static let endTags = Set(["dd", "dt", "li", "option", "optgroup", "p", "rp", "rt"].map { $0.utf8Array })
-        static let titleTextarea = Set(["title", "textarea"].map { $0.utf8Array })
-        static let frames = Set(["iframe", "noembed", "noframes", "style", "xmp"].map { $0.utf8Array })
+        static let inScope = ParsingStrings(["applet", "caption", "html", "table", "td", "th", "marquee", "object"])
+        static let list = ParsingStrings(["ol", "ul"])
+        static let button = ParsingStrings(["button"])
+        static let tableScope = ParsingStrings(["html", "table"])
+        static let selectScope = ParsingStrings(["optgroup", "option"])
+        static let endTags = ParsingStrings(["dd", "dt", "li", "option", "optgroup", "p", "rp", "rt"])
+        static let titleTextarea = ParsingStrings(["title", "textarea"])
+        static let frames = ParsingStrings(["iframe", "noembed", "noframes", "style", "xmp"])
         
-        static let special = Set(["address", "applet", "area", "article", "aside", "base", "basefont", "bgsound",
+        static let special = ParsingStrings(["address", "applet", "area", "article", "aside", "base", "basefont", "bgsound",
                               "blockquote", "body", "br", "button", "caption", "center", "col", "colgroup", "command", "dd",
                               "details", "dir", "div", "dl", "dt", "embed", "fieldset", "figcaption", "figure", "footer", "form",
                               "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html",
                               "iframe", "img", "input", "isindex", "li", "link", "listing", "marquee", "menu", "meta", "nav",
                               "noembed", "noframes", "noscript", "object", "ol", "p", "param", "plaintext", "pre", "script",
                               "section", "select", "style", "summary", "table", "tbody", "td", "textarea", "tfoot", "th", "thead",
-                                  "title", "tr", "ul", "wbr", "xmp"].map { $0.utf8Array })
+                                  "title", "tr", "ul", "wbr", "xmp"])
     }
 
     private var _state: HtmlTreeBuilderState = HtmlTreeBuilderState.Initial // the current state
@@ -348,6 +348,16 @@ class HtmlTreeBuilder: TreeBuilder {
             }
         }
     }
+    
+    func popStackToClose(_ elName: ParsingStrings) {
+        for pos in (0..<stack.count).reversed() {
+            let next: Element = stack[pos]
+            stack.remove(at: pos)
+            if elName.contains(next.nodeNameUTF8()) {
+                break
+            }
+        }
+    }
 
     func popStackToClose(_ elNames: [UInt8]...) {
 		popStackToClose(elNames)
@@ -504,11 +514,29 @@ class HtmlTreeBuilder: TreeBuilder {
         }
     }
 
-    private func inSpecificScope(_ targetName: [UInt8], _ baseTypes: Set<[UInt8]>, _ extraTypes: Set<[UInt8]>? = nil) throws -> Bool {
+    private func inSpecificScope(_ targetName: [UInt8], _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
         return try inSpecificScope([targetName], baseTypes, extraTypes)
     }
 
-    private func inSpecificScope(_ targetNames: Set<[UInt8]>, _ baseTypes: Set<[UInt8]>, _ extraTypes: Set<[UInt8]>? = nil) throws -> Bool {
+    private func inSpecificScope(_ targetNames: Set<[UInt8]>, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
+        for pos in (0..<stack.count).reversed() {
+            let el = stack[pos]
+            let elName = el.nodeNameUTF8()
+            if targetNames.contains(elName) {
+                return true
+            }
+            if baseTypes.contains(elName) {
+                return false
+            }
+            if let extraTypes = extraTypes, extraTypes.contains(elName) {
+                return false
+            }
+        }
+        try Validate.fail(msg: "Should not be reachable")
+        return false
+    }
+    
+    private func inSpecificScope(_ targetNames: ParsingStrings, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
         for pos in (0..<stack.count).reversed() {
             let el = stack[pos]
             let elName = el.nodeNameUTF8()
@@ -526,6 +554,11 @@ class HtmlTreeBuilder: TreeBuilder {
         return false
     }
 
+
+    func inScope(_ targetNames: ParsingStrings) throws -> Bool {
+        return try inSpecificScope(targetNames, TagSets.inScope)
+    }
+    
     func inScope(_ targetNames: Set<[UInt8]>) throws -> Bool {
         return try inSpecificScope(targetNames, TagSets.inScope)
     }
@@ -534,15 +567,15 @@ class HtmlTreeBuilder: TreeBuilder {
         return try inScope(Set(targetNames.map { $0.utf8Array }))
     }
 
-    func inScope(_ targetName: [UInt8], _ extras: Set<[UInt8]>? = nil) throws -> Bool {
+    func inScope(_ targetName: [UInt8], _ extras: ParsingStrings? = nil) throws -> Bool {
         return try inSpecificScope(targetName, TagSets.inScope, extras)
         // todo: in mathml namespace: mi, mo, mn, ms, mtext annotation-xml
         // todo: in svg namespace: forignOjbect, desc, title
     }
     
-    func inScope(_ targetName: String, _ extras: Set<String>? = nil) throws -> Bool {
+    func inScope(_ targetName: String, _ extras: ParsingStrings? = nil) throws -> Bool {
         if let extras {
-            return try inScope(targetName.utf8Array, Set(extras.map { $0.utf8Array }))
+            return try inScope(targetName.utf8Array, extras)
         }
         return try inScope(targetName.utf8Array)
     }

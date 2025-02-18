@@ -50,7 +50,7 @@ open class TextNode: Node {
      * @see TextNode#getWholeText()
      */
     open func text() -> String {
-        return TextNode.normaliseWhitespace(getWholeText())
+        return TextNode.normaliseWhitespace(getWholeTextUTF8())
     }
 
     /**
@@ -153,9 +153,14 @@ open class TextNode: Node {
         return TextNode(text, baseUri.utf8Array)
     }
 
+    @inlinable
     static public func normaliseWhitespace(_ text: String) -> String {
-        let _text = StringUtil.normaliseWhitespace(text)
-        return _text
+        return StringUtil.normaliseWhitespace(text)
+    }
+    
+    @inlinable
+    static public func normaliseWhitespace(_ text: [UInt8]) -> String {
+        return StringUtil.normaliseWhitespace(text)
     }
 
     static public func stripLeadingWhitespace(_ text: String) -> String {
@@ -163,6 +168,7 @@ open class TextNode: Node {
         //return text.replaceFirst("^\\s+", "")
     }
 
+    @inlinable
     static public func lastCharIsWhitespace(_ sb: StringBuilder) -> Bool {
         return sb.buffer.last == 0x20  // 0x20 is the UTF-8 code for a space character
     }

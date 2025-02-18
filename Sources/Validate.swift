@@ -8,7 +8,7 @@
 
 import Foundation
 
-struct Validate {
+public struct Validate {
 
     /**
      * Validates that the object is not null
