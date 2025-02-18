@@ -35,7 +35,7 @@ open class Evaluator {
      */
     public class Tag: Evaluator {
         private let tagName: [UInt8]
-        private let tagNameNormal: [UInt8]
+        public let tagNameNormal: [UInt8]
 
         public init(_ tagName: String) {
             let utf8TagName = tagName.utf8Array
@@ -48,6 +48,7 @@ open class Evaluator {
             self.tagNameNormal = tagName.lowercased()
         }
 
+        @inlinable
         open override func matches(_ root: Element, _ element: Element) throws -> Bool {
             return element.tagNameNormalUTF8() == tagNameNormal
         }

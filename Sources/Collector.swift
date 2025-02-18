@@ -23,7 +23,7 @@ open class Collector {
      @param root root of tree to descend
      @return list of matches; empty if none
      */
-    public static func collect (_ eval: Evaluator, _ root: Element)throws->Elements {
+    public static func collect (_ eval: Evaluator, _ root: Element) throws -> Elements {
         let elements: Elements = Elements()
         try NodeTraversor(Accumulator(root, elements, eval)).traverse(root)
         return elements

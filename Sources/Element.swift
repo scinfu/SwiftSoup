@@ -704,7 +704,6 @@ open class Element: Node {
     public func getElementsByTag(_ tagName: [UInt8]) throws -> Elements {
         try Validate.notEmpty(string: tagName)
         let tagName = tagName.lowercased().trim()
-        
         return try Collector.collect(Evaluator.Tag(tagName), self)
     }
 

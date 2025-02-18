@@ -270,6 +270,10 @@ open class Node: Equatable, Hashable {
     public func childNodeSize() -> Int {
         return childNodes.count
     }
+    
+    public func hasChildNodes() -> Bool {
+        return !childNodes.isEmpty
+    }
 
     final func childNodesAsArray() -> [Node] {
         return childNodes as Array
@@ -559,7 +563,7 @@ open class Node: Equatable, Hashable {
         }
         try child.setParentNode(self)
     }
-
+    
     private func reindexChildren(_ start: Int) {
         for (index, node) in childNodes[start...].enumerated() {
             node.setSiblingIndex(start + index)
@@ -571,7 +575,7 @@ open class Node: Equatable, Hashable {
      include this node (a node is not a sibling of itself).
      @return node siblings. If the node has no parent, returns an empty list.
      */
-    open func siblingNodes()->Array<Node> {
+    open func siblingNodes() -> Array<Node> {
         if (parentNode == nil) {
             return Array<Node>()
         }
@@ -583,10 +587,10 @@ open class Node: Equatable, Hashable {
                 siblings.append(node)
             }
         }
-
+        
         return siblings
     }
-
+    
     /**
      Get this node's next sibling.
      @return next sibling, or null if this is the last sibling
@@ -596,13 +600,18 @@ open class Node: Equatable, Hashable {
         guard let siblings: Array<Node> = parent()?.getChildNodes() else {
             return nil
         }
-
+        
         let index: Int = siblingIndex + 1
-        if (siblings.count > index) {
-            return siblings[index]
-        } else {
-            return nil
+        guard let i = siblings.index(siblings.startIndex, offsetBy: index, limitedBy: siblings.endIndex) else { return nil }
+        return siblings[i]
+    }
+    
+    @inlinable
+    open func hasNextSibling() -> Bool {
+        guard let parent = parent() else {
+            return false
         }
+        return parent.childNodeSize() > siblingIndex + 1
     }
 
     /**
@@ -613,14 +622,14 @@ open class Node: Equatable, Hashable {
         if (parentNode == nil) {
             return nil // root
         }
-
-        if (siblingIndex > 0) {
-            return parentNode?.childNodes[siblingIndex-1]
+        
+        if siblingIndex > 0 {
+            return parentNode?.childNodes[siblingIndex - 1]
         } else {
             return nil
         }
     }
-
+    
     public func setSiblingIndex(_ siblingIndex: Int) {
         self.siblingIndex = siblingIndex
     }
