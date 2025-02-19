@@ -10,7 +10,10 @@ public final class CharacterReader {
     private var mark: [UInt8].Index
     private let start: [UInt8].Index
     public let end: [UInt8].Index
-
+    
+    private static let letters = ParsingStrings("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".map { String($0) })
+    private static let digits = ParsingStrings(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"])
+    
     public init(_ input: [UInt8]) {
         self.input = input
         let start = self.input.startIndex
@@ -361,50 +364,138 @@ public final class CharacterReader {
         return matches(seq.utf8Array, ignoreCase: true)
     }
 
+    public func matchesAny(_ seq: ParsingStrings) -> Bool {
+        var buffer = [UInt8](repeating: 0, count: 4) // Max UTF-8 sequence is 4 bytes
+        var length = 1
+        buffer[0] = input[pos]
+        
+        // Check if the first byte indicates a multi-byte character
+        if buffer[0] & 0b10000000 != 0 {
+            if buffer[0] & 0b11100000 == 0b11000000, pos + 1 < end {
+                buffer[1] = input[pos + 1]
+                length = 2
+            } else if buffer[0] & 0b11110000 == 0b11100000, pos + 2 < end {
+                buffer[1] = input[pos + 1]
+                buffer[2] = input[pos + 2]
+                length = 3
+            } else if buffer[0] & 0b11111000 == 0b11110000, pos + 3 < end {
+                buffer[1] = input[pos + 1]
+                buffer[2] = input[pos + 2]
+                buffer[3] = input[pos + 3]
+                length = 4
+            } else {
+                return false // Invalid UTF-8 sequence
+            }
+        }
+        let bufferSlice = buffer[..<length]
+        
+        return seq.contains(bufferSlice)
+    }
+    
     public func matchesAny(_ seq: UnicodeScalar...) -> Bool {
         return matchesAny(seq)
     }
     
     public func matchesAny(_ seq: [UnicodeScalar]) -> Bool {
+        return matchesAny(seq.map { Array($0.utf8) })
+    }
+    
+    public func matchesAny(_ seq: [UInt8]...) -> Bool {
+        return matchesAny(seq)
+    }
+
+    public func matchesAny(_ seq: [[UInt8]]) -> Bool {
         guard pos < end else { return false }
         
-        // Decode the UTF-8 byte sequence
-        var utf8Decoder = UTF8()
-        var iterator = input[pos...].makeIterator()
-        switch utf8Decoder.decode(&iterator) {
-        case .scalarValue(let scalar):
-            return seq.contains(scalar)
-        case .emptyInput, .error:
-            return false // Handle errors or end of input gracefully
+        var buffer = [UInt8](repeating: 0, count: 4) // Max UTF-8 sequence is 4 bytes
+        var length = 1
+        buffer[0] = input[pos]
+        
+        // Check if the first byte indicates a multi-byte character
+        if buffer[0] & 0b10000000 != 0 {
+            if buffer[0] & 0b11100000 == 0b11000000, pos + 1 < end {
+                buffer[1] = input[pos + 1]
+                length = 2
+            } else if buffer[0] & 0b11110000 == 0b11100000, pos + 2 < end {
+                buffer[1] = input[pos + 1]
+                buffer[2] = input[pos + 2]
+                length = 3
+            } else if buffer[0] & 0b11111000 == 0b11110000, pos + 3 < end {
+                buffer[1] = input[pos + 1]
+                buffer[2] = input[pos + 2]
+                buffer[3] = input[pos + 3]
+                length = 4
+            } else {
+                return false // Invalid UTF-8 sequence
+            }
         }
+        let bufferSlice = buffer[..<length]
+        for utf8Bytes in seq {
+            if utf8Bytes.count == length, utf8Bytes.elementsEqual(bufferSlice) {
+                return true
+            }
+        }
+        return false
     }
     
     public func matchesLetter() -> Bool {
         guard pos < end else { return false }
         
-        // Decode the UTF-8 byte sequence
-        var utf8Decoder = UTF8()
-        var iterator = input[pos...].makeIterator()
-        switch utf8Decoder.decode(&iterator) {
-        case .scalarValue(let scalar):
-            return CharacterSet.letters.contains(scalar)
-        case .emptyInput, .error:
-            return false
+        var buffer = [UInt8](repeating: 0, count: 4)
+        var length = 0
+        
+        buffer[0] = input[pos]
+        length = 1
+        
+        if buffer[0] & 0b10000000 != 0 { // Multibyte sequence
+            if buffer[0] & 0b11100000 == 0b11000000, pos + 1 < end {
+                buffer[1] = input[pos + 1]
+                length = 2
+            } else if buffer[0] & 0b11110000 == 0b11100000, pos + 2 < end {
+                buffer[1] = input[pos + 1]
+                buffer[2] = input[pos + 2]
+                length = 3
+            } else if buffer[0] & 0b11111000 == 0b11110000, pos + 3 < end {
+                buffer[1] = input[pos + 1]
+                buffer[2] = input[pos + 2]
+                buffer[3] = input[pos + 3]
+                length = 4
+            } else {
+                return false
+            }
         }
+        
+        return Self.letters.contains(buffer[..<length])
     }
     
     public func matchesDigit() -> Bool {
         guard pos < end else { return false }
         
-        // Decode the UTF-8 byte sequence
-        var utf8Decoder = UTF8()
-        var iterator = input[pos...].makeIterator()
-        switch utf8Decoder.decode(&iterator) {
-        case .scalarValue(let scalar):
-            return CharacterSet.decimalDigits.contains(scalar)
-        case .emptyInput, .error:
-            return false
+        var buffer = [UInt8](repeating: 0, count: 4)
+        var length = 0
+        
+        buffer[0] = input[pos]
+        length = 1
+        
+        if buffer[0] & 0b10000000 != 0 { // Multibyte sequence
+            if buffer[0] & 0b11100000 == 0b11000000, pos + 1 < end {
+                buffer[1] = input[pos + 1]
+                length = 2
+            } else if buffer[0] & 0b11110000 == 0b11100000, pos + 2 < end {
+                buffer[1] = input[pos + 1]
+                buffer[2] = input[pos + 2]
+                length = 3
+            } else if buffer[0] & 0b11111000 == 0b11110000, pos + 3 < end {
+                buffer[1] = input[pos + 1]
+                buffer[2] = input[pos + 2]
+                buffer[3] = input[pos + 3]
+                length = 4
+            } else {
+                return false
+            }
         }
+        
+        return Self.digits.contains(buffer[..<length])
     }
     
     @discardableResult

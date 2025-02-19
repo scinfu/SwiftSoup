@@ -110,7 +110,7 @@ extension Array: @retroactive Comparable where Element == UInt8 {
         guard let string else { return false }
         guard self.count == string.count else { return false }
         
-        for (byte1, byte2) in zip(self, string) {
+        for (byte1, byte2) in zip(self.lazy, string.lazy) {
             // Convert ASCII uppercase to lowercase by adding 32
             let lowerByte1 = (byte1 >= 65 && byte1 <= 90) ? byte1 + 32 : byte1
             let lowerByte2 = (byte2 >= 65 && byte2 <= 90) ? byte2 + 32 : byte2
@@ -121,8 +121,9 @@ extension Array: @retroactive Comparable where Element == UInt8 {
         return true
     }
     
-    func caseInsensitiveCompare(_ other: [UInt8]) -> ComparisonResult {
-        for (byte1, byte2) in zip(self, other) {
+    func caseInsensitiveCompare<T: Collection>(_ other: T) -> ComparisonResult where T.Element == UInt8 {
+//    func caseInsensitiveCompare(_ other: [UInt8]) -> ComparisonResult {
+        for (byte1, byte2) in zip(self.lazy, other.lazy) {
             let lower1 = (byte1 >= 65 && byte1 <= 90) ? byte1 + 32 : byte1
             let lower2 = (byte2 >= 65 && byte2 <= 90) ? byte2 + 32 : byte2
             if lower1 < lower2 { return .orderedAscending }
@@ -286,8 +287,13 @@ extension String {
         return String.split(self, beginIndex, count)
     }
 
-    func regionMatches(ignoreCase: Bool, selfOffset: Int,
-                       other: String, otherOffset: Int, targetLength: Int ) -> Bool {
+    func regionMatches(
+        ignoreCase: Bool,
+        selfOffset: Int,
+        other: String,
+        otherOffset: Int,
+        targetLength: Int
+    ) -> Bool {
         if ((otherOffset < 0) || (selfOffset < 0)
             || (selfOffset > self.count - targetLength)
             || (otherOffset > other.count - targetLength)) {
@@ -295,16 +301,14 @@ extension String {
         }
 
         for i in 0..<targetLength {
-            let charSelf: Character = self[i+selfOffset]
-            let charOther: Character = other[i+otherOffset]
-            if(ignoreCase) {
-                if(charSelf.lowercase != charOther.lowercase) {
+            let charSelf: Character = self[i + selfOffset]
+            let charOther: Character = other[i + otherOffset]
+            if ignoreCase {
+                if charSelf.lowercase != charOther.lowercase {
                     return false
                 }
-            } else {
-                if(charSelf != charOther) {
-                    return false
-                }
+            } else if charSelf != charOther {
+                return false
             }
         }
         return true
@@ -315,9 +319,9 @@ extension String {
             return false
         }
         for i in 0..<input.count {
-            let charSelf: Character = self[i+offset]
+            let charSelf: Character = self[i + offset]
             let charOther: Character = input[i]
-            if(charSelf != charOther) {return false}
+            if charSelf != charOther { return false }
         }
         return true
     }

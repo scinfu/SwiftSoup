@@ -176,18 +176,18 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .TagOpen:
             // from < in data
-            switch (r.current()) {
-            case "!":
+            switch r.currentUTF8() {
+            case UTF8Arrays.bang:
                 t.advanceTransition(.MarkupDeclarationOpen)
                 break
-            case "/":
+            case UTF8Arrays.forwardSlash:
                 t.advanceTransition(.EndTagOpen)
                 break
-            case "?":
+            case UTF8Arrays.questionMark:
                 t.advanceTransition(.BogusComment)
                 break
             default:
-                if (r.matchesLetter()) {
+                if r.matchesLetter() {
                     t.createTagPending(true)
                     t.transition(.TagName)
                 } else {

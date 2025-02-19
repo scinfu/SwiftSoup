@@ -9,8 +9,9 @@
 import Foundation
 
 final class Tokeniser {
-    static  let replacementChar: UnicodeScalar = "\u{FFFD}" // replaces null character
-    private static let notCharRefCharsSorted: [UnicodeScalar] = [UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "<", UnicodeScalar.Ampersand].sorted()
+    static let replacementChar: UnicodeScalar = "\u{FFFD}" // replaces null character
+    private static let notCharRefChars = ParsingStrings([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "<", UnicodeScalar.Ampersand])
+    private static let notNamedCharRefChars = ParsingStrings([UTF8Arrays.equalSign, UTF8Arrays.hyphen, UTF8Arrays.underscore])
 
     private let reader: CharacterReader // html input
     private let errors: ParseErrorList? // errors found while tokenising
@@ -143,12 +144,12 @@ final class Tokeniser {
         if (additionalAllowedCharacter != nil && additionalAllowedCharacter == reader.current()) {
             return nil
         }
-        if (reader.matchesAny(Tokeniser.notCharRefCharsSorted)) {
+        if (reader.matchesAny(Tokeniser.notCharRefChars)) {
             return nil
         }
 
         reader.markPos()
-        if (reader.matchConsume("#".utf8Array)) { // numbered
+        if (reader.matchConsume(UTF8Arrays.hash)) { // numbered
             let isHexMode: Bool = reader.matchConsumeIgnoreCase("X".utf8Array)
             let numRef: ArraySlice<UInt8> = isHexMode ? reader.consumeHexSequence() : reader.consumeDigitSequence()
             if (numRef.isEmpty) { // didn't match anything
@@ -156,7 +157,7 @@ final class Tokeniser {
                 reader.rewindToMark()
                 return nil
             }
-            if (!reader.matchConsume(";".utf8Array)) {
+            if (!reader.matchConsume(UTF8Arrays.semicolon)) {
                 characterReferenceError("missing semicolon") // missing semi
             }
             var charval: Int  = -1
@@ -188,12 +189,12 @@ final class Tokeniser {
                 }
                 return nil
             }
-            if (inAttribute && (reader.matchesLetter() || reader.matchesDigit() || reader.matchesAny("=", "-", "_"))) {
+            if (inAttribute && (reader.matchesLetter() || reader.matchesDigit() || reader.matchesAny(Self.notNamedCharRefChars))) {
                 // don't want that to match
                 reader.rewindToMark()
                 return nil
             }
-            if (!reader.matchConsume(";".utf8Array)) {
+            if (!reader.matchConsume(UTF8Arrays.semicolon)) {
                 characterReferenceError("missing semicolon") // missing semi
             }
             if let points = Entities.codepointsForName(nameRef) {
@@ -208,7 +209,7 @@ final class Tokeniser {
     }
 
     @discardableResult
-    func createTagPending(_ start: Bool)->Token.Tag {
+    func createTagPending(_ start: Bool) -> Token.Tag {
         tagPending = start ? startPending.reset() : endPending.reset()
         return tagPending
     }
