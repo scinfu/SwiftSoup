@@ -168,16 +168,19 @@ open class Token {
 		}
 
         // these appenders are rarely hit in not null state-- caused by null chars.
+        @inlinable
         func appendTagName(_ append: [UInt8]) {
             appendTagName(append[...])
         }
         
 		// these appenders are rarely hit in not null state-- caused by null chars.
-		func appendTagName(_ append: ArraySlice<UInt8>) {
+        @inlinable
+        func appendTagName(_ append: ArraySlice<UInt8>) {
 			_tagName = _tagName == nil ? Array(append) : (_tagName! + Array(append))
 			_normalName = _tagName?.lowercased()
 		}
 
+        @inlinable
 		func appendTagName(_ append: UnicodeScalar) {
             appendTagName(ArraySlice(append.utf8))
 		}

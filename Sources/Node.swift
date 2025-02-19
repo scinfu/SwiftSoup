@@ -25,6 +25,7 @@ open class Node: Equatable, Hashable {
     var baseUri: [UInt8]?
     var attributes: Attributes?
     
+    @usableFromInline
     weak var parentNode: Node? {
         didSet {
             guard oldValue !== parentNode else { return }
@@ -43,6 +44,7 @@ open class Node: Equatable, Hashable {
                     }
                 }
                 
+                // TODO: reserve capacity
                 if let newParent = parentNode {
                     newParent.normalizedTagNameIndex[key, default: []].append(Weak(element))
                 }
@@ -51,10 +53,10 @@ open class Node: Equatable, Hashable {
     }
     
     @usableFromInline
-    var childNodes: [Node] = []
+    lazy var childNodes: [Node] = []
     
     @usableFromInline
-    internal var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]] = [:]
+    internal lazy var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]] = [:]
     
 	/**
 	* Get the list index of this node in its node sibling list. I.e. if this is the first node
@@ -608,9 +610,7 @@ open class Node: Equatable, Hashable {
     }
 
     public func reparentChild(_ child: Node)throws {
-        if (child.parentNode != nil) {
-            try child.parentNode?.removeChild(child)
-        }
+        try child.parentNode?.removeChild(child)
         try child.setParentNode(self)
     }
     
@@ -941,7 +941,7 @@ internal extension Node {
         propagateQueryIndexUpdateUpward(removed: adding ? nil : nodes, added: adding ? nodes : nil)
     }
     
-    @usableFromInline
+    @inlinable
     func propagateQueryIndexUpdateUpward(removed: [Node]?, added: [Node]?) {
         var currentNode: Node? = self
         

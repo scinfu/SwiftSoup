@@ -14,6 +14,7 @@ protocol TokeniserStateProtocol {
 
 public class TokeniserStateVars {
 	public static let nullScalr: UnicodeScalar = "\u{0000}"
+    public static let nullScalrUTF8 = "\u{0000}".utf8Array
 
     static let attributeSingleValueChars = ParsingStrings(["'", UnicodeScalar.Ampersand, nullScalr])
     static let attributeDoubleValueChars = ParsingStrings(["\"", UnicodeScalar.Ampersand, nullScalr])
@@ -29,6 +30,7 @@ public class TokeniserStateVars {
     static let replacementChar: UnicodeScalar = Tokeniser.replacementChar
     static let replacementStr: [UInt8] = Array(Tokeniser.replacementChar.utf8)
     static let eof: UnicodeScalar = CharacterReader.EOF
+    static let eofUTF8 = String(CharacterReader.EOF).utf8Array
 }
 
 enum TokeniserState: TokeniserStateProtocol {
@@ -104,18 +106,18 @@ enum TokeniserState: TokeniserStateProtocol {
     internal func read(_ t: Tokeniser, _ r: CharacterReader) throws {
         switch self {
         case .Data:
-            switch (r.current()) {
-            case UnicodeScalar.Ampersand:
+            switch (r.currentUTF8()) {
+            case UTF8Arrays.ampersand:
                 t.advanceTransition(.CharacterReferenceInData)
                 break
-            case UnicodeScalar.LessThan:
+            case UTF8Arrays.tagStart:
                 t.advanceTransition(.TagOpen)
                 break
-            case TokeniserStateVars.nullScalr:
+            case TokeniserStateVars.nullScalrUTF8:
                 t.error(self) // NOT replacement character (oddly?)
                 t.emit(r.consume())
                 break
-            case TokeniserStateVars.eof:
+            case TokeniserStateVars.eofUTF8:
                 try t.emit(Token.EOF())
                 break
             default:
@@ -128,19 +130,19 @@ enum TokeniserState: TokeniserStateProtocol {
             try TokeniserState.readCharRef(t, .Data)
             break
         case .Rcdata:
-            switch (r.current()) {
-            case UnicodeScalar.Ampersand:
+            switch (r.currentUTF8()) {
+            case UTF8Arrays.ampersand:
                 t.advanceTransition(.CharacterReferenceInRcdata)
                 break
-            case UnicodeScalar.LessThan:
+            case UTF8Arrays.tagStart:
                 t.advanceTransition(.RcdataLessthanSign)
                 break
-            case TokeniserStateVars.nullScalr:
+            case TokeniserStateVars.nullScalrUTF8:
                 t.error(self)
                 r.advance()
                 t.emit(TokeniserStateVars.replacementChar)
                 break
-            case TokeniserStateVars.eof:
+            case TokeniserStateVars.eofUTF8:
                 try t.emit(Token.EOF())
                 break
             default:
@@ -159,13 +161,13 @@ enum TokeniserState: TokeniserStateProtocol {
             try TokeniserState.readData(t, r, self, .ScriptDataLessthanSign)
             break
         case .PLAINTEXT:
-            switch (r.current()) {
-            case TokeniserStateVars.nullScalr:
+            switch (r.currentUTF8()) {
+            case TokeniserStateVars.nullScalrUTF8:
                 t.error(self)
                 r.advance()
                 t.emit(TokeniserStateVars.replacementChar)
                 break
-            case TokeniserStateVars.eof:
+            case TokeniserStateVars.eofUTF8:
                 try t.emit(Token.EOF())
                 break
             default:
@@ -410,15 +412,15 @@ enum TokeniserState: TokeniserStateProtocol {
                 return
             }
 
-            switch (r.current()) {
-            case "-":
-                t.emit("-")
+            switch (r.currentUTF8()) {
+            case UTF8Arrays.hyphen:
+                t.emit(UTF8Arrays.hyphen)
                 t.advanceTransition(.ScriptDataEscapedDash)
                 break
-            case UnicodeScalar.LessThan:
+            case UTF8Arrays.tagStart:
                 t.advanceTransition(.ScriptDataEscapedLessthanSign)
                 break
-            case TokeniserStateVars.nullScalr:
+            case TokeniserStateVars.nullScalrUTF8:
                 t.error(self)
                 r.advance()
                 t.emit(TokeniserStateVars.replacementChar)
@@ -515,22 +517,22 @@ enum TokeniserState: TokeniserStateProtocol {
             TokeniserState.handleDataDoubleEscapeTag(t, r, .ScriptDataDoubleEscaped, .ScriptDataEscaped)
             break
         case .ScriptDataDoubleEscaped:
-            let c = r.current()
+            let c = r.currentUTF8()
             switch (c) {
-            case "-":
+            case UTF8Arrays.hyphen:
                 t.emit(c)
                 t.advanceTransition(.ScriptDataDoubleEscapedDash)
                 break
-            case UnicodeScalar.LessThan:
+            case UTF8Arrays.tagStart:
                 t.emit(c)
                 t.advanceTransition(.ScriptDataDoubleEscapedLessthanSign)
                 break
-            case TokeniserStateVars.nullScalr:
+            case TokeniserStateVars.nullScalrUTF8:
                 t.error(self)
                 r.advance()
                 t.emit(TokeniserStateVars.replacementChar)
                 break
-            case TokeniserStateVars.eof:
+            case TokeniserStateVars.eofUTF8:
                 t.eofError(self)
                 t.transition(.Data)
                 break
@@ -999,17 +1001,17 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .Comment:
-            let c = r.current()
+            let c = r.currentUTF8()
             switch (c) {
-            case "-":
+            case UTF8Arrays.hyphen:
                 t.advanceTransition(.CommentEndDash)
                 break
-            case TokeniserStateVars.nullScalr:
+            case TokeniserStateVars.nullScalrUTF8:
                 t.error(self)
                 r.advance()
                 t.commentPending.data.append(TokeniserStateVars.replacementChar)
                 break
-            case TokeniserStateVars.eof:
+            case TokeniserStateVars.eofUTF8:
                 t.eofError(self)
                 try t.emitCommentPending()
                 t.transition(.Data)
@@ -1587,16 +1589,16 @@ enum TokeniserState: TokeniserStateProtocol {
     }
 
     private static func readData(_ t: Tokeniser, _ r: CharacterReader, _ current: TokeniserState, _ advance: TokeniserState)throws {
-        switch (r.current()) {
-        case UnicodeScalar.LessThan:
+        switch (r.currentUTF8()) {
+        case UTF8Arrays.tagStart:
             t.advanceTransition(advance)
             break
-        case TokeniserStateVars.nullScalr:
+        case TokeniserStateVars.nullScalrUTF8:
             t.error(current)
             r.advance()
             t.emit(TokeniserStateVars.replacementChar)
             break
-        case TokeniserStateVars.eof:
+        case TokeniserStateVars.eofUTF8:
             try t.emit(Token.EOF())
             break
         default:
