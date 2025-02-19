@@ -14,6 +14,8 @@ fileprivate let childNodesDiffAlgorithmThreshold: Int = 10
 internal final class Weak<T: AnyObject> {
     @usableFromInline
     weak var value: T?
+    
+    @usableFromInline
     init(_ value: T) {
         self.value = value
     }
@@ -48,29 +50,8 @@ open class Node: Equatable, Hashable {
         }
     }
     
-    var childNodes: [Node] = [] {
-        didSet {
-            let oldCount = oldValue.count
-            let newCount = childNodes.count
-            var removed: [Element] = []
-            var added: [Element] = []
-            
-            if oldCount > childNodesDiffAlgorithmThreshold || newCount > childNodesDiffAlgorithmThreshold {
-                let oldSet = Set(oldValue)
-                let newSet = Set(childNodes)
-                removed = oldSet.subtracting(newSet).compactMap { $0 as? Element }
-                added = newSet.subtracting(oldSet).compactMap { $0 as? Element }
-            } else {
-                // Avoid set overhead for smaller size childNodes
-                removed = oldValue.filter { !childNodes.contains($0) }.compactMap { $0 as? Element }
-                added = childNodes.filter { !oldValue.contains($0) }.compactMap { $0 as? Element }
-            }
-            
-            updateIndex(for: removed, adding: false)
-            updateIndex(for: added, adding: true)
-            propagateIndexUpdateUpward(removed: removed, added: added)
-        }
-    }
+    @usableFromInline
+    var childNodes: [Node] = []
     
     @usableFromInline
     internal var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]] = [:]
@@ -85,7 +66,7 @@ open class Node: Equatable, Hashable {
 
     private static let abs = "abs:".utf8Array
     fileprivate static let empty = "".utf8Array
-    private static let EMPTY_NODES: Array<Node>  = Array<Node>()
+    private static let EMPTY_NODES: Array<Node> = Array<Node>()
     
     /**
      Create a new Node.
@@ -97,7 +78,7 @@ open class Node: Equatable, Hashable {
         self.baseUri = baseUri.trim()
         self.attributes = attributes
         
-        rebuildIndexesForThisNodeOnly()
+        rebuildQueryIndexesForThisNodeOnly()
     }
 
     public init(_ baseUri: [UInt8]) {
@@ -105,7 +86,7 @@ open class Node: Equatable, Hashable {
         self.baseUri = baseUri.trim()
         self.attributes = Attributes()
         
-        rebuildIndexesForThisNodeOnly()
+        rebuildQueryIndexesForThisNodeOnly()
     }
 
     /**
@@ -116,7 +97,7 @@ open class Node: Equatable, Hashable {
         self.attributes = nil
         self.baseUri = nil
         
-        rebuildIndexesForThisNodeOnly()
+        rebuildQueryIndexesForThisNodeOnly()
     }
     
     /**
@@ -323,7 +304,7 @@ open class Node: Equatable, Hashable {
      * nodes
      * @return a deep copy of this node's children
      */
-    open func childNodesCopy()->Array<Node> {
+    open func childNodesCopy() -> Array<Node> {
 		var children: Array<Node> = Array<Node>()
 		for node: Node in childNodes {
 			children.append(node.copy() as! Node)
@@ -576,7 +557,10 @@ open class Node: Equatable, Hashable {
         }
 
         let index: Int = out.siblingIndex
+        let replacing = childNodes[index]
         childNodes[index] = input
+        updateQueryIndex(for: [replacing], adding: false)
+        updateQueryIndex(for: [input], adding: true)
         input.parentNode = self
         input.setSiblingIndex(index)
         out.parentNode = nil
@@ -585,22 +569,26 @@ open class Node: Equatable, Hashable {
     public func removeChild(_ out: Node) throws {
         try Validate.isTrue(val: out.parentNode === self)
         let index: Int = out.siblingIndex
+        let removing = childNodes[index]
         childNodes.remove(at: index)
+        updateQueryIndex(for: [removing], adding: false)
         reindexChildren(index)
         out.parentNode = nil
     }
 
+    @inlinable
     public func addChildren(_ children: Node...) throws {
         //most used. short circuit addChildren(int), which hits reindex children and array copy
         try addChildren(children)
     }
 
+    @inlinable
     public func addChildren(_ children: [Node]) throws {
         //most used. short circuit addChildren(int), which hits reindex children and array copy
         for child in children {
             try reparentChild(child)
-            ensureChildNodes()
             childNodes.append(child)
+            updateQueryIndex(for: [child], adding: true)
             child.setSiblingIndex(childNodes.count - 1)
         }
     }
@@ -610,19 +598,13 @@ open class Node: Equatable, Hashable {
     }
 
     public func addChildren(_ index: Int, _ children: [Node]) throws {
-        ensureChildNodes()
         for i in (0..<children.count).reversed() {
             let input: Node = children[i]
             try reparentChild(input)
             childNodes.insert(input, at: index)
+            updateQueryIndex(for: [input], adding: true)
             reindexChildren(index)
         }
-    }
-
-    public func ensureChildNodes() {
-//        if (childNodes === Node.EMPTY_NODES) {
-//            childNodes = Array<Node>()
-//        }
     }
 
     public func reparentChild(_ child: Node)throws {
@@ -818,9 +800,13 @@ open class Node: Equatable, Hashable {
 			for i in 0..<currParent.childNodes.count {
 				let childClone: Node = currParent.childNodes[i].copy(parent: currParent)
 				currParent.childNodes[i] = childClone
+                currParent.rebuildQueryIndexesForThisNodeOnly()
 				nodesToProcess.append(childClone)
 			}
 		}
+        
+        thisClone.rebuildQueryIndexesForThisNodeOnly()
+        
 		return thisClone
 	}
 
@@ -835,10 +821,12 @@ open class Node: Equatable, Hashable {
 		clone.baseUri = baseUri
 		clone.childNodes = Array<Node>()
 
-		for  child in childNodes {
+		for child in childNodes {
 			clone.childNodes.append(child)
 		}
 
+        clone.rebuildQueryIndexesForThisNodeOnly()
+        
 		return clone
 	}
 
@@ -915,8 +903,8 @@ extension Node: CustomDebugStringConvertible {
 	}
 }
 
-fileprivate extension Node {
-    func rebuildIndexesForThisNodeOnly() {
+internal extension Node {
+    func rebuildQueryIndexesForThisNodeOnly() {
         var newNormalizedTagNameIndex: [[UInt8]: [Weak<Element>]] = [:]
         var stack: [Node] = self.childNodes
         
@@ -932,8 +920,9 @@ fileprivate extension Node {
         normalizedTagNameIndex = newNormalizedTagNameIndex
     }
     
-    func updateIndex(for elements: [Element], adding: Bool) {
-        for element in elements {
+    @inlinable
+    func updateQueryIndex(for nodes: [Node], adding: Bool) {
+        for element in nodes.lazy.compactMap({ $0 as? Element }) {
             let key = element.tagNameNormalUTF8()
             if adding {
                 normalizedTagNameIndex[key, default: []].append(Weak(element))
@@ -948,27 +937,34 @@ fileprivate extension Node {
                 }
             }
         }
+        
+        propagateQueryIndexUpdateUpward(removed: adding ? nil : nodes, added: adding ? nodes : nil)
     }
     
-    func propagateIndexUpdateUpward(removed: [Element], added: [Element]) {
+    @usableFromInline
+    func propagateQueryIndexUpdateUpward(removed: [Node]?, added: [Node]?) {
         var currentNode: Node? = self
         
         while let node = currentNode, let parent = node.parentNode {
-            for element in removed {
-                let key = element.tagNameNormalUTF8()
-                if var elements = parent.normalizedTagNameIndex[key] {
-                    elements.removeAll { $0.value == element }
-                    if elements.isEmpty {
-                        parent.normalizedTagNameIndex.removeValue(forKey: key)
-                    } else {
-                        parent.normalizedTagNameIndex[key] = elements
+            if let removed {
+                for element in removed.lazy.compactMap({ $0 as? Element }) {
+                    let key = element.tagNameNormalUTF8()
+                    if var elements = parent.normalizedTagNameIndex[key] {
+                        elements.removeAll { $0.value == element }
+                        if elements.isEmpty {
+                            parent.normalizedTagNameIndex.removeValue(forKey: key)
+                        } else {
+                            parent.normalizedTagNameIndex[key] = elements
+                        }
                     }
                 }
             }
             
-            for element in added {
-                let key = element.tagNameNormalUTF8()
-                parent.normalizedTagNameIndex[key, default: []].append(Weak(element))
+            if let added {
+                for element in added.lazy.compactMap({ $0 as? Element }) {
+                    let key = element.tagNameNormalUTF8()
+                    parent.normalizedTagNameIndex[key, default: []].append(Weak(element))
+                }
             }
             
             currentNode = parent
