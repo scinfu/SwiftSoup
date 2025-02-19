@@ -426,7 +426,7 @@ open class Node: Equatable, Hashable {
 
         let context: Element? = parent() as? Element
         var wrapChildren: Array<Node> = try Parser.parseFragment(html, context, getBaseUriUTF8())
-        let wrapNode: Node? = wrapChildren.count > 0 ? wrapChildren[0] : nil
+        let wrapNode: Node? = !wrapChildren.isEmpty ? wrapChildren[0] : nil
         if (wrapNode == nil || !(((wrapNode as? Element) != nil))) { // nothing to wrap with; noop
             return nil
         }
@@ -438,7 +438,7 @@ open class Node: Equatable, Hashable {
         try deepest.addChildren(self)
 
         // remainder (unbalanced wrap, like <div></div><p></p> -- The <p> is remainder
-        if (wrapChildren.count > 0) {
+        if !wrapChildren.isEmpty {
             for i in  0..<wrapChildren.count {
                 let remainder: Node = wrapChildren[i]
                 try remainder.parentNode?.removeChild(remainder)
@@ -467,7 +467,7 @@ open class Node: Equatable, Hashable {
     open func unwrap() throws ->Node? {
         try Validate.notNull(obj: parentNode)
 
-        let firstChild: Node? = childNodes.count > 0 ? childNodes[0] : nil
+        let firstChild: Node? = !childNodes.isEmpty ? childNodes[0] : nil
         try parentNode?.addChildren(siblingIndex, self.childNodesAsArray())
         try self.remove()
 
@@ -533,7 +533,7 @@ open class Node: Equatable, Hashable {
             try reparentChild(child)
             ensureChildNodes()
             childNodes.append(child)
-            child.setSiblingIndex(childNodes.count-1)
+            child.setSiblingIndex(childNodes.count - 1)
         }
     }
 
