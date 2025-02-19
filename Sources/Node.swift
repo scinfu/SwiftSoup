@@ -597,13 +597,11 @@ open class Node: Equatable, Hashable {
      */
     @inlinable
     open func nextSibling() -> Node? {
+        guard hasNextSibling() else { return nil }
         guard let siblings: Array<Node> = parent()?.getChildNodes() else {
             return nil
         }
-        
-        let index: Int = siblingIndex + 1
-        guard let i = siblings.index(siblings.startIndex, offsetBy: index, limitedBy: siblings.endIndex) else { return nil }
-        return siblings[i]
+        return siblings[siblingIndex + 1]
     }
     
     @inlinable
