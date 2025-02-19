@@ -8,15 +8,73 @@
 
 import Foundation
 
-open class Node: Equatable, Hashable {
-    private static let abs = "abs:".utf8Array
-    fileprivate static let empty = "".utf8Array
-    private static let EMPTY_NODES: Array<Node>  = Array<Node>()
-    weak var parentNode: Node?
-    var childNodes: Array<Node>
-    var attributes: Attributes?
-    var baseUri: [UInt8]?
+fileprivate let childNodesDiffAlgorithmThreshold: Int = 10
 
+@usableFromInline
+internal final class Weak<T: AnyObject> {
+    @usableFromInline
+    weak var value: T?
+    init(_ value: T) {
+        self.value = value
+    }
+}
+
+open class Node: Equatable, Hashable {
+    var baseUri: [UInt8]?
+    var attributes: Attributes?
+    
+    weak var parentNode: Node? {
+        didSet {
+            guard oldValue !== parentNode else { return }
+            
+            if let element = self as? Element {
+                let key = element.tagNameNormalUTF8()
+                
+                if let oldParent = oldValue {
+                    if var elements = oldParent.normalizedTagNameIndex[key] {
+                        elements.removeAll { $0.value == element }
+                        if elements.isEmpty {
+                            oldParent.normalizedTagNameIndex.removeValue(forKey: key)
+                        } else {
+                            oldParent.normalizedTagNameIndex[key] = elements
+                        }
+                    }
+                }
+                
+                if let newParent = parentNode {
+                    newParent.normalizedTagNameIndex[key, default: []].append(Weak(element))
+                }
+            }
+        }
+    }
+    
+    var childNodes: [Node] = [] {
+        didSet {
+            let oldCount = oldValue.count
+            let newCount = childNodes.count
+            var removed: [Element] = []
+            var added: [Element] = []
+            
+            if oldCount > childNodesDiffAlgorithmThreshold || newCount > childNodesDiffAlgorithmThreshold {
+                let oldSet = Set(oldValue)
+                let newSet = Set(childNodes)
+                removed = oldSet.subtracting(newSet).compactMap { $0 as? Element }
+                added = newSet.subtracting(oldSet).compactMap { $0 as? Element }
+            } else {
+                // Avoid set overhead for smaller size childNodes
+                removed = oldValue.filter { !childNodes.contains($0) }.compactMap { $0 as? Element }
+                added = childNodes.filter { !oldValue.contains($0) }.compactMap { $0 as? Element }
+            }
+            
+            updateIndex(for: removed, adding: false)
+            updateIndex(for: added, adding: true)
+            propagateIndexUpdateUpward(removed: removed, added: added)
+        }
+    }
+    
+    @usableFromInline
+    internal var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]] = [:]
+    
 	/**
 	* Get the list index of this node in its node sibling list. I.e. if this is the first node
 	* sibling, returns 0.
@@ -25,6 +83,10 @@ open class Node: Equatable, Hashable {
 	*/
     public private(set) var siblingIndex: Int = 0
 
+    private static let abs = "abs:".utf8Array
+    fileprivate static let empty = "".utf8Array
+    private static let EMPTY_NODES: Array<Node>  = Array<Node>()
+    
     /**
      Create a new Node.
      @param baseUri base URI
@@ -34,12 +96,16 @@ open class Node: Equatable, Hashable {
         self.childNodes = Node.EMPTY_NODES
         self.baseUri = baseUri.trim()
         self.attributes = attributes
+        
+        rebuildIndexesForThisNodeOnly()
     }
 
     public init(_ baseUri: [UInt8]) {
         childNodes = Node.EMPTY_NODES
         self.baseUri = baseUri.trim()
         self.attributes = Attributes()
+        
+        rebuildIndexesForThisNodeOnly()
     }
 
     /**
@@ -49,8 +115,10 @@ open class Node: Equatable, Hashable {
         self.childNodes = Node.EMPTY_NODES
         self.attributes = nil
         self.baseUri = nil
+        
+        rebuildIndexesForThisNodeOnly()
     }
-
+    
     /**
      Get the node name of this node. Use for debugging purposes and not logic switching (for that, use instanceof).
      @return node name
@@ -845,4 +913,65 @@ extension Node: CustomDebugStringConvertible {
 		}
 		return String(describing: type(of: self))
 	}
+}
+
+fileprivate extension Node {
+    func rebuildIndexesForThisNodeOnly() {
+        var newNormalizedTagNameIndex: [[UInt8]: [Weak<Element>]] = [:]
+        var stack: [Node] = self.childNodes
+        
+        while !stack.isEmpty {
+            let node = stack.removeLast()
+            if let element = node as? Element {
+                let key = element.tagNameNormalUTF8()
+                newNormalizedTagNameIndex[key, default: []].append(Weak(element))
+            }
+            stack.append(contentsOf: node.childNodes) // Add children to stack
+        }
+        
+        normalizedTagNameIndex = newNormalizedTagNameIndex
+    }
+    
+    func updateIndex(for elements: [Element], adding: Bool) {
+        for element in elements {
+            let key = element.tagNameNormalUTF8()
+            if adding {
+                normalizedTagNameIndex[key, default: []].append(Weak(element))
+            } else {
+                if var list = normalizedTagNameIndex[key] {
+                    list.removeAll { $0.value == element }
+                    if list.isEmpty {
+                        normalizedTagNameIndex.removeValue(forKey: key)
+                    } else {
+                        normalizedTagNameIndex[key] = list
+                    }
+                }
+            }
+        }
+    }
+    
+    func propagateIndexUpdateUpward(removed: [Element], added: [Element]) {
+        var currentNode: Node? = self
+        
+        while let node = currentNode, let parent = node.parentNode {
+            for element in removed {
+                let key = element.tagNameNormalUTF8()
+                if var elements = parent.normalizedTagNameIndex[key] {
+                    elements.removeAll { $0.value == element }
+                    if elements.isEmpty {
+                        parent.normalizedTagNameIndex.removeValue(forKey: key)
+                    } else {
+                        parent.normalizedTagNameIndex[key] = elements
+                    }
+                }
+            }
+            
+            for element in added {
+                let key = element.tagNameNormalUTF8()
+                parent.normalizedTagNameIndex[key, default: []].append(Weak(element))
+            }
+            
+            currentNode = parent
+        }
+    }
 }

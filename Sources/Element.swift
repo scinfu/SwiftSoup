@@ -703,8 +703,10 @@ open class Element: Node {
     @inlinable
     public func getElementsByTag(_ tagName: [UInt8]) throws -> Elements {
         try Validate.notEmpty(string: tagName)
-        let tagName = tagName.lowercased().trim()
-        return try Collector.collect(Evaluator.Tag(tagName), self)
+        let normalizedTagName = tagName.lowercased().trim()
+        let weakElements = self.normalizedTagNameIndex[normalizedTagName] ?? []
+        let elements = weakElements.compactMap { $0.value }
+        return Elements(elements)
     }
 
     /**
