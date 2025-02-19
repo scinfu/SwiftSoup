@@ -28,6 +28,7 @@ extension UInt8 {
 }
 
 extension Array: @retroactive Comparable where Element == UInt8 {
+    @inline(__always)
     public func lowercased() -> [UInt8] {
         map { $0 >= 65 && $0 <= 90 ? $0 + 32 : $0 }
     }
