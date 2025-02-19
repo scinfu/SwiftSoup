@@ -2,6 +2,13 @@ import Foundation
 
 public enum UTF8Arrays {
     public static let whitespace = " ".utf8Array
+    public static let bang = "!".utf8Array
+    public static let equalSign = "=".utf8Array
+    public static let hyphen = "-".utf8Array
+    public static let underscore = "_".utf8Array
+    public static let semicolon = ";".utf8Array
+    public static let questionMark = "?".utf8Array
+    public static let forwardSlash = "/".utf8Array
     public static let selfClosingTagEnd = " />".utf8Array
     public static let endTagStart = "</".utf8Array
     public static let tagStart = "<".utf8Array
@@ -20,6 +27,7 @@ public enum UTF8Arrays {
     public static let action = "action".utf8Array
     public static let prompt = "prompt".utf8Array
     public static let comment = "comment".utf8Array
+    public static let hash = "#".utf8Array
     public static let hashRoot = "#root".utf8Array
     public static let ruby = "ruby".utf8Array
     public static let rb = "rb".utf8Array
@@ -40,6 +48,7 @@ public enum UTF8Arrays {
     public static let plaintext = "plaintext".utf8Array
     public static let button = "button".utf8Array
     public static let image = "image".utf8Array
+    public static let value = "value".utf8Array
     public static let nobr = "nobr".utf8Array
     public static let input = "input".utf8Array
     public static let type = "type".utf8Array

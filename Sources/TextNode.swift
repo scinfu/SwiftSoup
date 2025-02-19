@@ -228,7 +228,7 @@ open class TextNode: Node {
         return try super.absUrl(attributeKey)
     }
     
-    open override func absUrl(_ attributeKey: [UInt8]) throws -> [UInt8] {
+    open override func absUrl<T: Collection>(_ attributeKey: T) throws -> [UInt8] where T.Element == UInt8 {
         ensureAttributes()
         return try super.absUrl(attributeKey)
     }

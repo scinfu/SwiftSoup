@@ -152,7 +152,7 @@ open class Attributes: NSCopying {
         return hasKeyIgnoreCase(key: key.utf8Array)
     }
     
-    open func hasKeyIgnoreCase(key: [UInt8]) -> Bool {
+    open func hasKeyIgnoreCase<T: Collection>(key: T) -> Bool where T.Element == UInt8 {
         return attributes.contains(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame})
     }
 

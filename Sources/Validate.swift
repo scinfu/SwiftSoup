@@ -98,7 +98,7 @@ public struct Validate {
      * Validates that the string is not empty
      * @param string the string to test
      */
-    public static func notEmpty(string: [UInt8]?) throws {
+    public static func notEmpty<T: Collection>(string: T?) throws where T.Element == UInt8 {
         if string?.isEmpty ?? true {
             throw Exception.Error(type: ExceptionType.IllegalArgumentException, Message: "String must not be empty")
         }

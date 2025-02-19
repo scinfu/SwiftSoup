@@ -95,6 +95,7 @@ open class Token {
 		}
 
 		@discardableResult
+        @inlinable
 		override func reset() -> Tag {
 			_tagName = nil
 			_normalName = nil
@@ -113,9 +114,9 @@ open class Token {
 			//                _attributes = Attributes()
 			//            }
 
-			if (_pendingAttributeName != nil) {
+			if _pendingAttributeName != nil {
 				var attribute: Attribute
-				if (_hasPendingAttributeValue) {
+				if _hasPendingAttributeValue {
                     attribute = try Attribute(
                         key: _pendingAttributeName!,
                         value: !_pendingAttributeValue.isEmpty ? _pendingAttributeValue.buffer : Array(_pendingAttributeValueS!)
@@ -241,6 +242,7 @@ open class Token {
 		}
 
 		@discardableResult
+        @inlinable
 		override func reset() -> Tag {
 			super.reset()
 			_attributes = Attributes()

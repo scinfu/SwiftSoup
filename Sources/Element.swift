@@ -237,13 +237,7 @@ open class Element: Node {
      */
     open func children() -> Elements {
         // create on the fly rather than maintaining two lists. if gets slow, memoize, and mark dirty on change
-        var elements = Array<Element>()
-        for node in childNodes {
-            if let n = node as? Element {
-                elements.append(n)
-            }
-        }
-        return Elements(elements)
+        return Elements(childNodes.lazy.compactMap { $0 as? Element })
     }
 
     /**
@@ -262,14 +256,8 @@ open class Element: Node {
      *     <li>{@code p.textNodes()} = {@code List<TextNode>["One ", " Three ", " Four"]}</li>
      * </ul>
      */
-    open func textNodes()->Array<TextNode> {
-        var textNodes =  Array<TextNode>()
-        for node in childNodes {
-            if let n = node as? TextNode {
-                textNodes.append(n)
-            }
-        }
-        return textNodes
+    open func textNodes() -> Array<TextNode> {
+        return childNodes.compactMap { $0 as? TextNode }
     }
 
     /**
@@ -281,14 +269,8 @@ open class Element: Node {
      * empty list.
      * @see #data()
      */
-    open func dataNodes()->Array<DataNode> {
-        var dataNodes = Array<DataNode>()
-        for node in childNodes {
-            if let n = node as? DataNode {
-                dataNodes.append(n)
-            }
-        }
-        return dataNodes
+    open func dataNodes() -> Array<DataNode> {
+        return childNodes.compactMap { $0 as? DataNode }
     }
 
     /**
@@ -990,13 +972,13 @@ open class Element: Node {
                 if trimAndNormaliseWhitespace {
                     Element.appendNormalisedText(accum, textNode)
                 } else {
-                    accum.append(textNode.getWholeText())
+                    accum.append(textNode.getWholeTextUTF8())
                 }
             } else if let element = (node as? Element) {
                 if !accum.isEmpty &&
-                    (element.isBlock() || element._tag.getName() == "br") &&
+                    (element.isBlock() || element._tag.getNameUTF8() == UTF8Arrays.br) &&
                     !TextNode.lastCharIsWhitespace(accum) {
-                    accum.append(" ")
+                    accum.append(UTF8Arrays.whitespace)
                 }
             }
         }
@@ -1005,7 +987,7 @@ open class Element: Node {
         }
     }
     
-    public func text(trimAndNormaliseWhitespace: Bool = true)throws->String {
+    public func text(trimAndNormaliseWhitespace: Bool = true) throws -> String {
         let accum: StringBuilder = StringBuilder()
         try NodeTraversor(TextNodeVisitor(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)).traverse(self)
         let text = accum.toString()
@@ -1043,7 +1025,7 @@ open class Element: Node {
     }
 
     private static func appendNormalisedText(_ accum: StringBuilder, _ textNode: TextNode) {
-        let text: String = textNode.getWholeText()
+        let text = textNode.getWholeTextUTF8()
 
         if (Element.preserveWhitespace(textNode.parentNode)) {
             accum.append(text)
@@ -1053,8 +1035,8 @@ open class Element: Node {
     }
 
     private static func appendWhitespaceIfBr(_ element: Element, _ accum: StringBuilder) {
-        if (element._tag.getName() == "br" && !TextNode.lastCharIsWhitespace(accum)) {
-            accum.append(" ")
+        if (element._tag.getNameUTF8() == UTF8Arrays.br && !TextNode.lastCharIsWhitespace(accum)) {
+            accum.append(UTF8Arrays.whitespace)
         }
     }
 
@@ -1109,7 +1091,7 @@ open class Element: Node {
 
         for childNode: Node in childNodes {
             if let data = (childNode as? DataNode) {
-                sb.append(data.getWholeData())
+                sb.append(data.getWholeDataUTF8())
             } else if let element = (childNode as? Element) {
                 let elementData: String = element.data()
                 sb.append(elementData)
@@ -1301,11 +1283,11 @@ open class Element: Node {
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         if (!(childNodes.isEmpty && _tag.isSelfClosing())) {
             if (out.prettyPrint() && (!childNodes.isEmpty && (
-                _tag.formatAsBlock() || (out.outline() && (childNodes.count>1 || (childNodes.count==1 && !(((childNodes[0] as? TextNode) != nil)))))
+                _tag.formatAsBlock() || (out.outline() && (childNodes.count > 1 || (childNodes.count == 1 && !(((childNodes[0] as? TextNode) != nil)))))
                 ))) {
                 indent(accum, depth, out)
             }
-            accum.append("</").append(tagNameUTF8()).append(">")
+            accum.append(UTF8Arrays.endTagStart).append(tagNameUTF8()).append(UTF8Arrays.tagEnd)
         }
     }
 

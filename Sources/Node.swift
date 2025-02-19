@@ -175,11 +175,11 @@ open class Node: Equatable, Hashable {
 		guard let attributes = attributes else {
 			return false
 		}
-        if (attributeKey.starts(with: String(decoding: Node.abs, as: UTF8.self))) {
-            let key = attributeKey.substring(String(decoding: Node.abs, as: UTF8.self).count)
+        if attributeKey.utf8.starts(with: Node.abs) {
+            let key = ArraySlice(attributeKey.utf8.dropFirst(Node.abs.count))
             do {
                 let abs = try absUrl(key)
-                if (attributes.hasKeyIgnoreCase(key: key) && "" != abs) {
+                if (attributes.hasKeyIgnoreCase(key: key) && !abs.isEmpty) {
                     return true
                 }
             } catch {
@@ -270,7 +270,7 @@ open class Node: Equatable, Hashable {
         return try String(decoding: absUrl(attributeKey.utf8Array), as: UTF8.self)
     }
     
-    open func absUrl(_ attributeKey: [UInt8]) throws -> [UInt8] {
+    open func absUrl<T: Collection>(_ attributeKey: T) throws -> [UInt8] where T.Element == UInt8 {
         try Validate.notEmpty(string: attributeKey)
 
         let keyStr = String(decoding: attributeKey, as: UTF8.self)
