@@ -4,6 +4,7 @@ public enum UTF8Arrays {
     public static let whitespace = " ".utf8Array
     public static let bang = "!".utf8Array
     public static let equalSign = "=".utf8Array
+    public static let ampersand = "&".utf8Array
     public static let hyphen = "-".utf8Array
     public static let underscore = "_".utf8Array
     public static let semicolon = ";".utf8Array

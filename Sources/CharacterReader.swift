@@ -49,28 +49,39 @@ public final class CharacterReader {
     }
     
     public func currentUTF8() -> [UInt8] {
-        guard pos < end else { return [] }
+        guard pos < end else { return TokeniserStateVars.eofUTF8 }
         
         let firstByte = input[pos]
+
         let length: Int
-        if firstByte & 0x80 == 0 { // 1-byte character (ASCII)
+        
+        // Determine UTF-8 sequence length based on the first byte
+        if firstByte & 0x80 == 0 { // 1-byte ASCII (0xxxxxxx)
             length = 1
-        } else if firstByte & 0xE0 == 0xC0 { // 2-byte character
+        } else if firstByte & 0xE0 == 0xC0 { // 2-byte sequence (110xxxxx)
             length = 2
-        } else if firstByte & 0xF0 == 0xE0 { // 3-byte character
+        } else if firstByte & 0xF0 == 0xE0 { // 3-byte sequence (1110xxxx)
             length = 3
-        } else if firstByte & 0xF8 == 0xF0 { // 4-byte character
+        } else if firstByte & 0xF8 == 0xF0 { // 4-byte sequence (11110xxx)
             length = 4
         } else {
-            return [] // Invalid UTF-8 byte
+            return [] // Invalid UTF-8 leading byte
         }
         
-        // Ensure there are enough bytes remaining
-        guard input.distance(from: pos, to: end) >= length else {
-            return [] // Incomplete character
+        // Ensure there are enough bytes remaining in `input`
+        if pos + length > end {
+            return [] // Incomplete UTF-8 sequence
         }
         
-        return Array(input[pos..<input.index(pos, offsetBy: length)])
+        // Validate continuation bytes (they should all be 10xxxxxx)
+        for i in 1..<length {
+            if input[pos + i] & 0xC0 != 0x80 {
+                return [] // Invalid UTF-8 sequence
+            }
+        }
+        
+        // Return the valid UTF-8 byte sequence
+        return Array(input[pos..<(pos + length)])
     }
 
     @discardableResult
