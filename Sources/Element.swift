@@ -747,24 +747,6 @@ open class Element: Node {
     }
     
     /**
-     * Find elements that have this class, including or under this element. Case insensitive.
-     * <p>
-     * Elements can have multiple classes (e.g. {@code <div class="header round first">}. This method
-     * checks each class, so you can find the above with {@code el.getElementsByClass("header")}.
-     *
-     * @param className the name of the class to search for.
-     * @return elements with the supplied class name, empty if none
-     * @see #hasClass(String)
-     * @see #classNames()
-     */
-    @inlinable
-    public func getElementsByClass(_ className: [UInt8]) throws -> Elements {
-        try Validate.notEmpty(string: className)
-        
-        return try Collector.collect(Evaluator.Class(String(decoding: className, as: UTF8.self)), self)
-    }
-
-    /**
      * Find elements that have a named attribute set. Case insensitive.
      *
      * @param key name of the attribute, e.g. {@code href}
