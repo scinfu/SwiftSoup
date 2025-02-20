@@ -329,7 +329,6 @@ open class Element: Node {
         // was - Node#addChildren(child). short-circuits an array create and a loop.
         try reparentChild(child)
         childNodes.append(child)
-        updateQueryIndex(for: [child], adding: true)
         child.setSiblingIndex(childNodes.count - 1)
         return self
     }
