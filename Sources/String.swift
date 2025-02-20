@@ -27,7 +27,7 @@ extension UInt8 {
     }
 }
 
-extension Array: @retroactive Comparable where Element == UInt8 {
+extension Array where Element == UInt8 {
     @inline(__always)
     public func lowercased() -> [UInt8] {
         map { $0 >= 65 && $0 <= 90 ? $0 + 32 : $0 }
@@ -133,8 +133,7 @@ extension Array: @retroactive Comparable where Element == UInt8 {
     }
 }
 
-extension ArraySlice: @retroactive Comparable where Element == UInt8 {
-//extension Array: @retroactive Comparable where Element == UInt8 {
+extension ArraySlice where Element == UInt8 {
     public static func < (lhs: ArraySlice<UInt8>, rhs: ArraySlice<UInt8>) -> Bool {
 //    public static func < (lhs: [UInt8], rhs: [UInt8]) -> Bool {
         for (byte1, byte2) in zip(lhs, rhs) {
