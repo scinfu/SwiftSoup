@@ -1158,7 +1158,7 @@ open class Element: Node {
         var inClass: Bool = false
         var start: Int = 0
         for i in 0..<len {
-            if (classAttr.charAt(i).isWhitespace) {
+            if (classAttr.utf8CharAt(i).isWhitespace) {
                 if (inClass) {
                     // white space ends a class name, compare it with the requested one, ignore case
                     if (i - start == wantLen && classAttr.regionMatches(ignoreCase: true, selfOffset: start,
