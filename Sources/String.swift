@@ -282,6 +282,10 @@ extension String {
         return self[i] as Character
     }
 
+    func utf8CharAt(_ i: Int) -> UTF8Char {
+      return self.utf8Array[i]
+    }
+
 	func substring(_ beginIndex: Int) -> String {
         return String.split(self, beginIndex, self.count-beginIndex)
     }
