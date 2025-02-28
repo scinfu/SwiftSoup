@@ -28,12 +28,8 @@ open class Node: Equatable, Hashable {
     @usableFromInline
     weak var parentNode: Node? {
         didSet {
-            guard oldValue !== parentNode, let element = self as? Element else { return }
-            let descendants = element.normalizedTagNameIndex.values.flatMap { $0.compactMap { $0.value } }
-            let forElements = [element] + descendants
-            oldValue?.updateQueryIndex(for: forElements, adding: false)
-            parentNode?.updateQueryIndex(for: [element], adding: true)
-            parentNode?.mergeQueryIndex(from: element)
+            guard oldValue !== parentNode, self is Element else { return }
+            markQueryIndexDirty()
         }
     }
     
@@ -41,7 +37,11 @@ open class Node: Equatable, Hashable {
     lazy var childNodes: [Node] = []
     
     @usableFromInline
-    internal lazy var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]] = [:]
+    internal var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]]? = nil
+//    internal lazy var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]] = [:]
+
+    @usableFromInline
+    internal var isQueryIndexDirty: Bool = false
     
 	/**
 	* Get the list index of this node in its node sibling list. I.e. if this is the first node
@@ -884,81 +884,43 @@ extension Node: CustomDebugStringConvertible {
 }
 
 internal extension Node {
-    func rebuildQueryIndexesForThisNodeOnly() {
-        var newNormalizedTagNameIndex: [[UInt8]: [Weak<Element>]] = [:]
-        var stack: [Node] = self.childNodes
-        
-        while !stack.isEmpty {
-            let node = stack.removeLast()
-            if let element = node as? Element {
-                let key = element.tagNameNormalUTF8()
-                newNormalizedTagNameIndex[key, default: []].append(Weak(element))
-            }
-            stack.append(contentsOf: node.childNodes) // Add children to stack
-        }
-        
-        normalizedTagNameIndex = newNormalizedTagNameIndex
+    @inlinable
+    func markQueryIndexDirty() {
+        isQueryIndexDirty = true
+        parentNode?.markQueryIndexDirty()
     }
     
-    @inlinable
-    func mergeQueryIndex(from element: Element) {
-        normalizedTagNameIndex.merge(element.normalizedTagNameIndex) { existing, new in
-            var updated = existing
-            let existingSet = Set(updated.compactMap { $0.value })
-            updated.append(contentsOf: new.filter { $0.value != nil && !existingSet.contains($0.value!) })
-            return updated
+    @usableFromInline
+    func rebuildQueryIndexesForAllTags() {
+        var newIndex: [[UInt8]: [Weak<Element>]] = [:]
+        var queue: [Node] = [self]
+        queue.reserveCapacity(childNodeSize())
+        
+        var index = 0
+        while index < queue.count {
+            let node = queue[index]
+            index += 1  // Move to the next element
+            
+            if let element = node as? Element {
+                let key = element.tagNameNormalUTF8()
+                newIndex[key, default: []].append(Weak(element))
+            }
+            
+            queue.append(contentsOf: node.childNodes)
         }
+        
+        normalizedTagNameIndex = newIndex
+        isQueryIndexDirty = false
+    }
+    
+    @usableFromInline
+    func rebuildQueryIndexesForThisNodeOnly() {
+        normalizedTagNameIndex = nil
+        markQueryIndexDirty()
     }
     
     @inlinable
     func updateQueryIndex(for nodes: [Node], adding: Bool) {
-        for element in nodes.lazy.compactMap({ $0 as? Element }) {
-            let key = element.tagNameNormalUTF8()
-            if adding {
-                normalizedTagNameIndex[key, default: []].append(Weak(element))
-            } else {
-                if var list = normalizedTagNameIndex[key] {
-                    list.removeAll { $0.value == element }
-                    if list.isEmpty {
-                        normalizedTagNameIndex.removeValue(forKey: key)
-                    } else {
-                        normalizedTagNameIndex[key] = list
-                    }
-                }
-            }
-        }
-        
-        propagateQueryIndexUpdateUpward(removed: adding ? nil : nodes, added: adding ? nodes : nil)
-    }
-    
-    @inlinable
-    func propagateQueryIndexUpdateUpward(removed: [Node]?, added: [Node]?) {
-        var currentNode: Node? = self
-        
-        while let node = currentNode, let parent = node.parentNode {
-            if let removed {
-                for element in removed.lazy.compactMap({ $0 as? Element }) {
-                    let key = element.tagNameNormalUTF8()
-                    if var elements = parent.normalizedTagNameIndex[key] {
-                        elements.removeAll { $0.value == element }
-                        if elements.isEmpty {
-                            parent.normalizedTagNameIndex.removeValue(forKey: key)
-                        } else {
-                            parent.normalizedTagNameIndex[key] = elements
-                        }
-                    }
-                }
-            }
-            
-            if let added {
-                for element in added.lazy.compactMap({ $0 as? Element }) {
-                    let key = element.tagNameNormalUTF8()
-                    // TODO: reserve capacity
-                    parent.normalizedTagNameIndex[key, default: []].append(Weak(element))
-                }
-            }
-            
-            currentNode = parent
-        }
+        markQueryIndexDirty()
     }
 }

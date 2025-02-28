@@ -686,9 +686,14 @@ open class Element: Node {
     public func getElementsByTag(_ tagName: [UInt8]) throws -> Elements {
         try Validate.notEmpty(string: tagName)
         let normalizedTagName = tagName.lowercased().trim()
-        let weakElements = self.normalizedTagNameIndex[normalizedTagName] ?? []
-        let elements = weakElements.compactMap { $0.value }
-        return Elements(elements)
+        
+        if isQueryIndexDirty || normalizedTagNameIndex == nil {
+            rebuildQueryIndexesForAllTags()
+            isQueryIndexDirty = false
+        }
+        
+        let weakElements = normalizedTagNameIndex?[normalizedTagName] ?? []
+        return Elements(weakElements.compactMap { $0.value })
     }
 
     /**
