@@ -32,7 +32,8 @@ open class Node: Equatable, Hashable {
             let descendants = element.normalizedTagNameIndex.values.flatMap { $0.compactMap { $0.value } }
             let forElements = [element] + descendants
             oldValue?.updateQueryIndex(for: forElements, adding: false)
-            parentNode?.updateQueryIndex(for: forElements, adding: true)
+            parentNode?.updateQueryIndex(for: [element], adding: true)
+            parentNode?.mergeQueryIndex(from: element)
         }
     }
     
@@ -897,6 +898,16 @@ internal extension Node {
         }
         
         normalizedTagNameIndex = newNormalizedTagNameIndex
+    }
+    
+    @inlinable
+    func mergeQueryIndex(from element: Element) {
+        normalizedTagNameIndex.merge(element.normalizedTagNameIndex) { existing, new in
+            var updated = existing
+            let existingSet = Set(updated.compactMap { $0.value })
+            updated.append(contentsOf: new.filter { $0.value != nil && !existingSet.contains($0.value!) })
+            return updated
+        }
     }
     
     @inlinable
