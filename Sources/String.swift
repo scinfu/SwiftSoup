@@ -292,7 +292,7 @@ extension String {
         return self[i] as Character
     }
 
-    func utf8CharAt(_ i: Int) -> UTF8Char {
+    func utf8ByteAt(_ i: Int) -> UInt8 {
       return self.utf8Array[i]
     }
 
