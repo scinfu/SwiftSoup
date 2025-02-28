@@ -979,6 +979,20 @@ class ElementTest: XCTestCase {
         let bodyEls: Elements = try! doc.body()!.getElementsByTag("ruby")
         XCTAssertEqual(bodyEls.size(), els.size())
     }
+    
+    func testGetElementsByTagIndexRegression() throws {
+        let h = "<p><u>test</u></p>"
+        let doc: Document = try SwiftSoup.parseBodyFragment(h)
+        let pBodyEls: Elements = try! doc.body()!.getElementsByTag("p")
+        XCTAssertEqual(1, pBodyEls.size())
+        let pEls: Elements = try! doc.getElementsByTag("p")
+        XCTAssertEqual(1, pEls.size())
+        let bodyEls: Elements = try! doc.body()!.getElementsByTag("u")
+        XCTAssertEqual(1, bodyEls.size())
+        let els: Elements = try! doc.getElementsByTag("u")
+        XCTAssertEqual(1, els.size())
+    }
+
 
 	static var allTests = {
 		return [
@@ -1055,6 +1069,7 @@ class ElementTest: XCTestCase {
             ("testChainedRemoveAttributes", testChainedRemoveAttributes),
             ("testIs", testIs),
             ("testGetElementsByTagIndexDuplicatesRegression", testGetElementsByTagIndexDuplicatesRegression),
+            ("testGetElementsByTagIndexRegression", testGetElementsByTagIndexRegression)
         ]
 	}()
 }

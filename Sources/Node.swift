@@ -29,9 +29,10 @@ open class Node: Equatable, Hashable {
     weak var parentNode: Node? {
         didSet {
             guard oldValue !== parentNode, let element = self as? Element else { return }
-            
-            oldValue?.updateQueryIndex(for: [element], adding: false)
-            parentNode?.updateQueryIndex(for: [element], adding: true)
+            let descendants = element.normalizedTagNameIndex.values.flatMap { $0.compactMap { $0.value } }
+            let forElements = [element] + descendants
+            oldValue?.updateQueryIndex(for: forElements, adding: false)
+            parentNode?.updateQueryIndex(for: forElements, adding: true)
         }
     }
     
