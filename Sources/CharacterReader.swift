@@ -452,31 +452,22 @@ public final class CharacterReader {
     public func matchesLetter() -> Bool {
         guard pos < end else { return false }
         
-        var buffer = [UInt8](repeating: 0, count: 4)
-        var length = 0
+        let firstByte = input[pos]
+        var length = 1
         
-        buffer[0] = input[pos]
-        length = 1
-        
-        if buffer[0] & 0b10000000 != 0 { // Multibyte sequence
-            if buffer[0] & 0b11100000 == 0b11000000, pos + 1 < end {
-                buffer[1] = input[pos + 1]
+        if firstByte & 0b10000000 != 0 {
+            if firstByte & 0b11100000 == 0b11000000, pos + 1 < end {
                 length = 2
-            } else if buffer[0] & 0b11110000 == 0b11100000, pos + 2 < end {
-                buffer[1] = input[pos + 1]
-                buffer[2] = input[pos + 2]
+            } else if firstByte & 0b11110000 == 0b11100000, pos + 2 < end {
                 length = 3
-            } else if buffer[0] & 0b11111000 == 0b11110000, pos + 3 < end {
-                buffer[1] = input[pos + 1]
-                buffer[2] = input[pos + 2]
-                buffer[3] = input[pos + 3]
+            } else if firstByte & 0b11111000 == 0b11110000, pos + 3 < end {
                 length = 4
             } else {
                 return false
             }
         }
         
-        return Self.letters.contains(buffer[..<length])
+        return Self.letters.contains(input[pos..<(pos + length)])
     }
     
     public func matchesDigit() -> Bool {
