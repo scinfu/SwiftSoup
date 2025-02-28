@@ -52,6 +52,7 @@ open class Node: Equatable, Hashable {
     public private(set) var siblingIndex: Int = 0
 
     private static let abs = "abs:".utf8Array
+    private static let absCount = abs.count
     fileprivate static let empty = "".utf8Array
     private static let EMPTY_NODES: Array<Node> = Array<Node>()
     
@@ -159,11 +160,20 @@ open class Node: Equatable, Hashable {
      * @return true if the attribute exists, false if not.
      */
     open func hasAttr(_ attributeKey: String) -> Bool {
-		guard let attributes = attributes else {
-			return false
-		}
-        if attributeKey.utf8.starts(with: Node.abs) {
-            let key = ArraySlice(attributeKey.utf8.dropFirst(Node.abs.count))
+        return hasAttr(attributeKey.utf8Array)
+    }
+    
+    /**
+     * Test if this element has an attribute. <b>Case insensitive</b>
+     * @param attributeKey The attribute key to check.
+     * @return true if the attribute exists, false if not.
+     */
+    open func hasAttr(_ attributeKey: [UInt8]) -> Bool {
+        guard let attributes = attributes else {
+            return false
+        }
+        if attributeKey.starts(with: Node.abs) {
+            let key = ArraySlice(attributeKey.dropFirst(Node.absCount))
             do {
                 let abs = try absUrl(key)
                 if (attributes.hasKeyIgnoreCase(key: key) && !abs.isEmpty) {
@@ -172,11 +182,11 @@ open class Node: Equatable, Hashable {
             } catch {
                 return false
             }
-
+            
         }
         return attributes.hasKeyIgnoreCase(key: attributeKey)
     }
-    
+
     /**
      * Remove an attribute from this element.
      * @param attributeKey The attribute to remove.
