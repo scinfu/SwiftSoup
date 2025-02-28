@@ -80,6 +80,7 @@ public enum UTF8Arrays {
     public static let br = "br".utf8Array
     public static let frameset = "frameset".utf8Array
     public static let blobColon = "blob:".utf8Array
+    public static let true_ = "true".utf8Array
 }
 
 public enum UTF8ArraySlices {
@@ -162,4 +163,5 @@ public enum UTF8ArraySlices {
     public static let br = UTF8Arrays.br[...]
     public static let frameset = UTF8Arrays.frameset[...]
     public static let blobColon = UTF8Arrays.blobColon[...]
+    public static let true_ = UTF8Arrays.true_[...]
 }

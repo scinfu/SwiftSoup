@@ -27,6 +27,7 @@ open class Token {
 		preconditionFailure("This method must be overridden")
 	}
 
+    @inlinable
 	static func reset(_ sb: StringBuilder) {
 		sb.clear()
 	}

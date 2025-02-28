@@ -14,10 +14,12 @@ open class StringBuilder {
         if !string.isEmpty {
             buffer.append(contentsOf: string.utf8)
         }
+        buffer.reserveCapacity(string.utf8.count ?? 128)
     }
     
     public init(_ size: Int) {
-        self.buffer = Array()
+        buffer = Array()
+        buffer.reserveCapacity(size)
     }
     
     /**
@@ -47,24 +49,24 @@ open class StringBuilder {
      
      :return: reference to this StringBuilder instance
      */
-    @inlinable
+    @inline(__always)
     @discardableResult
     open func append(_ string: String) -> StringBuilder {
         buffer.append(contentsOf: string.utf8)
         return self
     }
     
-    @inlinable
+    @inline(__always)
     open func append(_ chr: Character) {
         append(String(chr))
     }
     
-    @inlinable
+    @inline(__always)
     open func appendCodePoints(_ chr: [Character]) {
         append(String(chr))
     }
     
-    @inlinable
+    @inline(__always)
     open func appendCodePoint(_ ch: Int) {
         appendCodePoint(UnicodeScalar(ch)!)
     }
@@ -181,6 +183,7 @@ open class StringBuilder {
      :return: reference to this StringBuilder instance
      */
     @discardableResult
+    @inlinable
     open func clear() -> StringBuilder {
         buffer.removeAll(keepingCapacity: true)
         return self
@@ -193,6 +196,7 @@ open class StringBuilder {
  :param: lhs StringBuilder
  :param: rhs String
  */
+@inlinable
 public func += (lhs: StringBuilder, rhs: String) {
     lhs.append(rhs)
 }
@@ -203,6 +207,7 @@ public func += (lhs: StringBuilder, rhs: String) {
  :param: lhs Printable
  :param: rhs String
  */
+@inlinable
 public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
     lhs.append(rhs.description)
 }
@@ -215,6 +220,7 @@ public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
  
  :result StringBuilder
  */
+@inlinable
 public func +(lhs: StringBuilder, rhs: StringBuilder) -> StringBuilder {
     return StringBuilder(string: lhs.toString() + rhs.toString())
 }
