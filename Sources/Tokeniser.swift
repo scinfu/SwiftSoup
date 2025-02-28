@@ -19,7 +19,8 @@ final class Tokeniser {
     private var state: TokeniserState = TokeniserState.Data // current tokenisation state
     private var emitPending: Token?  // the token we are about to emit on next read
     private var isEmitPending: Bool = false
-    private var charsString: [UInt8]? // characters pending an emit. Will fall to charsBuilder if more than one
+    private var charsSlice: ArraySlice<UInt8>? = nil // characters pending an emit. Will fall to charsBuilder if more than one
+    private var pendingSlices = [ArraySlice<UInt8>]()
     private let charsBuilder: StringBuilder = StringBuilder(1024) // buffers characters to output as one token, if more than one emit per read
     let dataBuffer: StringBuilder = StringBuilder(1024) // buffers data looking for </script>
     
@@ -42,27 +43,33 @@ final class Tokeniser {
             error("Self closing flag not acknowledged")
             selfClosingFlagAcknowledged = true
         }
-
+        
         while (!isEmitPending) {
             try state.read(self, reader)
         }
-
-        // if emit is pending, a non-character token was found: return any chars in buffer, and leave token for next read:
+        
         if !charsBuilder.isEmpty {
             let str = charsBuilder.buffer
             charsBuilder.clear()
-            charsString = nil
+            // Clear any pending slices, as the builder takes precedence.
+            pendingSlices.removeAll()
             return charPending.data(str)
-        } else if (charsString != nil) {
-            let token: Token = charPending.data(charsString!)
-            charsString = nil
-            return token
+        } else if !pendingSlices.isEmpty {
+            // Combine all the pending slices in one allocation.
+            let totalCount = pendingSlices.reduce(0) { $0 + $1.count }
+            var combined = [UInt8]()
+            combined.reserveCapacity(totalCount)
+            for slice in pendingSlices {
+                combined.append(contentsOf: slice)
+            }
+            pendingSlices.removeAll()
+            return charPending.data(combined)
         } else {
             isEmitPending = false
             return emitPending!
         }
     }
-
+    
     func emit(_ token: Token) throws {
         try Validate.isFalse(val: isEmitPending, msg: "There is an unread token pending!")
 
@@ -84,16 +91,7 @@ final class Tokeniser {
     }
 
     func emit(_ str: ArraySlice<UInt8>) {
-        // Buffer strings up until last string token found, to emit only one token for a run of character refs, etc.
-        // Does not set isEmitPending; read checks that
-        if charsString == nil {
-            charsString = Array(str) // Convert to Array when first string is stored
-        } else {
-            if charsBuilder.isEmpty { // Switching to string builder as more than one emit before read
-                charsBuilder.append(charsString!)
-            }
-            charsBuilder.append(str) // Append directly from the slice
-        }
+        pendingSlices.append(str)
     }
     
     func emit(_ str: [UInt8]) {
