@@ -32,9 +32,19 @@ extension UInt8 {
 extension Array: Comparable where Element == UInt8 {
     @inline(__always)
     public func lowercased() -> [UInt8] {
-        map { $0 >= 65 && $0 <= 90 ? $0 + 32 : $0 }
+        // Check if any element needs lowercasing
+        guard self.contains(where: { $0 >= 65 && $0 <= 90 }) else { return self }
+        // Only allocate a new array if necessary
+        var result = self
+        for i in result.indices {
+            let b = result[i]
+            if b >= 65 && b <= 90 {
+                result[i] = b + 32
+            }
+        }
+        return result
     }
-     
+    
     func uppercased() -> [UInt8] {
         map { $0 >= 97 && $0 <= 122 ? $0 - 32 : $0 }
     }

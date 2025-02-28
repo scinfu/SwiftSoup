@@ -152,10 +152,30 @@ open class Attributes: NSCopying {
         return hasKeyIgnoreCase(key: key.utf8Array)
     }
     
-    open func hasKeyIgnoreCase<T: Collection>(key: T) -> Bool where T.Element == UInt8 {
-        return attributes.contains(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame})
+    @inline(__always)
+    private func asciiLowercase(_ byte: UInt8) -> UInt8 {
+        return (byte >= 65 && byte <= 90) ? (byte + 32) : byte
     }
-
+    
+    open func hasKeyIgnoreCase<T: Collection>(key: T) -> Bool where T.Element == UInt8 {
+        let keyCount = key.count
+        for attr in attributes {
+            let attrKey = attr.getKeyUTF8()
+            if attrKey.count != keyCount { continue }
+            var attrIter = attrKey.makeIterator()
+            var keyIter = key.makeIterator()
+            var equal = true
+            while let a = attrIter.next(), let b = keyIter.next() {
+                if asciiLowercase(a) != asciiLowercase(b) {
+                    equal = false
+                    break
+                }
+            }
+            if equal { return true }
+        }
+        return false
+    }
+    
     /**
      Get the number of attributes in this set.
      @return size
