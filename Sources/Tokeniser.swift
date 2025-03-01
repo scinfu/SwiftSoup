@@ -209,9 +209,14 @@ final class Tokeniser {
     @discardableResult
     @inlinable
     func createTagPending(_ start: Bool) -> Token.Tag {
-        let token: Token.Tag = start ? Token.StartTag() : Token.EndTag()
-        tagPending = token
-        return token
+        if start {
+            startPending.reset()
+            tagPending = startPending
+        } else {
+            endPending.reset()
+            tagPending = endPending
+        }
+        return tagPending
     }
 
     @inlinable

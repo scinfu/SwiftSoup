@@ -136,7 +136,8 @@ open class Token {
 			_pendingAttributeValueS = nil
 		}
 
-		func finaliseTag() throws {
+        @inlinable
+        func finaliseTag() throws {
 			// finalises for emit
 			if (_pendingAttributeName != nil) {
 				// todo: check if attribute name exists; if so, drop and error
@@ -144,11 +145,13 @@ open class Token {
 			}
 		}
 
+        @inlinable
 		func name() throws -> [UInt8] { // preserves case, for input into Tag.valueOf (which may drop case)
             try Validate.isFalse(val: _tagName == nil || _tagName!.isEmpty)
 			return _tagName!
 		}
 
+        @inline(__always)
 		func normalName() -> [UInt8]? { // loses case, used in tree building for working out where in tree it should go
 			return _normalName
 		}
@@ -160,10 +163,12 @@ open class Token {
 			return self
 		}
 
+        @inline(__always)
 		func isSelfClosing() -> Bool {
 			return _selfClosing
 		}
 
+        @inline(__always)
 		func getAttributes() -> Attributes {
 			return _attributes
 		}

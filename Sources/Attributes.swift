@@ -31,7 +31,9 @@ open class Attributes: NSCopying {
     lazy var attributes: [Attribute] = []
     internal var lowercasedKeysCache: [[UInt8]]? = nil
 
-	public init() {}
+    public init() {
+        attributes.reserveCapacity(16)
+    }
     
     @usableFromInline
     internal func updateLowercasedKeysCache() {
