@@ -533,12 +533,14 @@ open class Node: Equatable, Hashable {
      * Replace this node in the DOM with the supplied node.
      * @param in the node that will will replace the existing node.
      */
+    @inlinable
     public func replaceWith(_ input: Node) throws {
         try Validate.notNull(obj: input)
         try Validate.notNull(obj: parentNode)
         try parentNode?.replaceChild(self, input)
     }
 
+    @inlinable
     public func setParentNode(_ parentNode: Node) throws {
         if (self.parentNode != nil) {
         try self.parentNode?.removeChild(self)
@@ -546,6 +548,7 @@ open class Node: Equatable, Hashable {
         self.parentNode = parentNode
     }
 
+    @inlinable
     public func replaceChild(_ out: Node, _ input: Node) throws {
         try Validate.isTrue(val: out.parentNode === self)
         try Validate.notNull(obj: input)
@@ -554,17 +557,16 @@ open class Node: Equatable, Hashable {
         }
 
         let index: Int = out.siblingIndex
-        let replacing = childNodes[index]
         childNodes[index] = input
         input.parentNode = self
         input.setSiblingIndex(index)
         out.parentNode = nil
     }
 
+    @inlinable
     public func removeChild(_ out: Node) throws {
         try Validate.isTrue(val: out.parentNode === self)
         let index: Int = out.siblingIndex
-        let removing = childNodes[index]
         childNodes.remove(at: index)
         reindexChildren(index)
         out.parentNode = nil
@@ -586,10 +588,12 @@ open class Node: Equatable, Hashable {
         }
     }
 
+    @inlinable
     public func addChildren(_ index: Int, _ children: Node...) throws {
         try addChildren(index, children)
     }
 
+    @inlinable
     public func addChildren(_ index: Int, _ children: [Node]) throws {
         for i in (0..<children.count).reversed() {
             let input: Node = children[i]
@@ -599,12 +603,14 @@ open class Node: Equatable, Hashable {
         }
     }
 
+    @inlinable
     public func reparentChild(_ child: Node)throws {
         try child.parentNode?.removeChild(child)
         try child.setParentNode(self)
     }
     
-    private func reindexChildren(_ start: Int) {
+    @usableFromInline
+    internal func reindexChildren(_ start: Int) {
         for (index, node) in childNodes[start...].enumerated() {
             node.setSiblingIndex(start + index)
         }
@@ -831,7 +837,6 @@ open class Node: Equatable, Hashable {
         }
 
         open func head(_ node: Node, _ depth: Int)throws {
-
             try node.outerHtmlHead(accum, depth, out)
         }
 
