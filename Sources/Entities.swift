@@ -204,162 +204,94 @@ public class Entities {
     }
 
     public static func escape(_ string: String, _ out: OutputSettings) -> String {
-        let accum = StringBuilder()//string.characters.count * 2
-        escape(accum, string.utf8Array, out, false, false, false)
-        //        try {
-        //
-        //        } catch (IOException e) {
-        //        throw new SerializationException(e) // doesn't happen
-        //        }
-        return accum.toString()
+        var accum = [UInt8]()
+        accum.reserveCapacity(string.utf8.count * 2)
+        escape(&accum, string.utf8Array, out, false, false, false)
+        return String(decoding: accum, as: UTF8.self)
+    }
+    
+    @inline(__always)
+    internal static func utf8CharLength(for byte: UInt8) -> Int {
+        if byte < 0x80 { return 1 }
+        else if byte < 0xE0 { return 2 }
+        else if byte < 0xF0 { return 3 }
+        else { return 4 }
     }
     
     // this method is ugly, and does a lot. but other breakups cause rescanning and stringbuilder generations
     static func escape(
-        _ accum: StringBuilder,
+        _ accum: inout [UInt8],
         _ string: [UInt8],
         _ out: OutputSettings,
         _ inAttribute: Bool,
         _ normaliseWhite: Bool,
         _ stripLeadingWhite: Bool
     ) {
-        var lastWasWhite = false
-        var reachedNonWhite = false
-        let escapeMode: EscapeMode = out.escapeMode()
-        let encoder: String.Encoding = out.encoder()
-        
-        var i = 0
-        while i < string.count {
-            let byte = string[i]
-            
-            if normaliseWhite && byte.isWhitespace {
+        let escapeMode = out.escapeMode()
+        let encoder = out.encoder()
+        var i = 0, n = string.count
+        var lastWasWhite = false, reachedNonWhite = false
+        while i < n {
+            let b = string[i]
+            if normaliseWhite && b.isWhitespace {
                 var j = i
-                // Skip all consecutive whitespace
-                while j < string.count && string[j].isWhitespace {
-                    j += 1
-                }
-                // If leading or consecutive whitespace should be skipped
+                while j < n && string[j].isWhitespace { j += 1 }
                 if (!reachedNonWhite && stripLeadingWhite) || lastWasWhite {
-                    i = j
-                    continue
+                    i = j; continue
                 }
-                accum.append(spaceString) // Append one space (normalize)
-                lastWasWhite = true
-                i = j
-                continue
+                accum.append(0x20)
+                lastWasWhite = true; i = j; continue
             }
             lastWasWhite = false
             reachedNonWhite = true
-            
-            if byte < 0x80 {
-                // Single-byte ASCII character
-                switch byte {
-                case 0x26: // '&'
-                    accum.append(ampEntityUTF8)
-                case 0xA0: // Non-breaking space
-                    if escapeMode != .xhtml {
-                        accum.append(nbspEntityUTF8)
-                    } else {
-                        accum.append(xa0EntityUTF8)
-                    }
-                case 0x3C: // '<'
-                    if !inAttribute || escapeMode == .xhtml {
-                        accum.append(ltEntityUTF8)
-                    } else {
-                        accum.append(byte)
-                    }
-                case 0x3E: // '>'
-                    if !inAttribute {
-                        accum.append(gtEntityUTF8)
-                    } else {
-                        accum.append(byte)
-                    }
-                case 0x22: // '"'
-                    if inAttribute {
-                        accum.append(quotEntityUTF8)
-                    } else {
-                        accum.append(byte)
-                    }
+            if b < 0x80 {
+                switch b {
+                case 0x26: accum.append(contentsOf: ampEntityUTF8)
+                case 0xA0: accum.append(contentsOf: escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
+                case 0x3C:
+                    if !inAttribute || escapeMode == .xhtml { accum.append(contentsOf: ltEntityUTF8) } else { accum.append(b) }
+                case 0x3E:
+                    if !inAttribute { accum.append(contentsOf: gtEntityUTF8) } else { accum.append(b) }
+                case 0x22:
+                    if inAttribute { accum.append(contentsOf: quotEntityUTF8) } else { accum.append(b) }
                 default:
-                    if encoder == .ascii || encoder == .utf8 || encoder == .utf16 || canEncode(byte: byte, encoder: encoder) {
-                        accum.append(byte)
+                    if encoder == .ascii || encoder == .utf8 || encoder == .utf16 || canEncode(byte: b, encoder: encoder) {
+                        accum.append(b)
                     } else {
-                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: [byte])
+                        appendEncoded(accum: &accum, escapeMode: escapeMode, bytes: [b])
                     }
                 }
                 i += 1
             } else {
-                // Multi-byte UTF-8 character
-                var charBytes: [UInt8] = []
-                var remainingBytes = 0
-                
-                if byte & 0xE0 == 0xC0 {
-                    // Two-byte character
-                    remainingBytes = 1
-                } else if byte & 0xF0 == 0xE0 {
-                    // Three-byte character
-                    remainingBytes = 2
-                } else if byte & 0xF8 == 0xF0 {
-                    // Four-byte character
-                    remainingBytes = 3
+                let len = utf8CharLength(for: b)
+                let end = i + len <= n ? i + len : n
+                let charBytes = Array(string[i..<end])
+                if canEncode(bytes: charBytes, encoder: encoder) {
+                    accum.append(contentsOf: charBytes)
                 } else {
-                    // Invalid UTF-8 start byte
-                    appendEncoded(accum: accum, escapeMode: escapeMode, bytes: [byte])
-                    i += 1
-                    continue
+                    appendEncoded(accum: &accum, escapeMode: escapeMode, bytes: charBytes)
                 }
-                
-                // Collect the full character bytes
-                charBytes.append(byte)
-                while remainingBytes > 0, i + 1 < string.count {
-                    i += 1
-                    let nextByte = string[i]
-                    if nextByte & 0xC0 == 0x80 {
-                        charBytes.append(nextByte)
-                        remainingBytes -= 1
-                    } else {
-                        // Invalid UTF-8 sequence
-                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: [byte])
-                        break
-                    }
-                }
-                
-                if remainingBytes == 0 {
-                    // Successfully collected a valid multi-byte character
-                    if canEncode(bytes: charBytes, encoder: encoder) {
-                        accum.append(charBytes)
-                    } else {
-                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
-                    }
-                }
-                i += 1
+                i += len
             }
         }
     }
-
+    
     @inlinable
-    internal static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: [UInt8]) {
+    internal static func appendEncoded(accum: inout [UInt8], escapeMode: EscapeMode, bytes: [UInt8]) {
         if let name = escapeMode.nameForCodepoint(bytes) {
-            // Append named entity (e.g., "&amp;")
             accum.append(0x26) // '&'
-            accum.append(name)
+            accum.append(contentsOf: name)
             accum.append(0x3B) // ';'
         } else {
-            // Convert bytes into a UnicodeScalar
             guard let scalar = String(bytes: bytes, encoding: .utf8)?.unicodeScalars.first else {
-                // Fallback for invalid encoding
-                accum.append([0x26, 0x23, 0x78]) // '&#x'
-                for byte in bytes {
-                    accum.append(String.toHexString(n: Int(byte)))
-                }
-                accum.append(0x3B) // ';'
+                accum.append(contentsOf: [0x26, 0x23, 0x78]) // '&#x'
+                for b in bytes { accum.append(contentsOf: String.toHexString(n: Int(b)).utf8Array) }
+                accum.append(0x3B)
                 return
             }
-            
-            // Append numeric entity for the scalar
-            accum.append([0x26, 0x23, 0x78]) // '&#x'
-            accum.append(String.toHexString(n: Int(scalar.value)))
-            accum.append(0x3B) // ';'
+            accum.append(contentsOf: [0x26, 0x23, 0x78])
+            accum.append(contentsOf: String.toHexString(n: Int(scalar.value)).utf8Array)
+            accum.append(0x3B)
         }
     }
 

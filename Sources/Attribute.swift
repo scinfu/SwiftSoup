@@ -94,7 +94,7 @@ open class Attribute {
         accum.append(key)
         if (!shouldCollapseAttribute(out: out)) {
             accum.append(UTF8Arrays.attributeEqualsQuoteMark)
-            Entities.escape(accum, Array(value), out, true, false, false)
+            Entities.escape(&accum.buffer, Array(value), out, true, false, false)
             accum.append(UTF8Arrays.quoteMark)
         }
     }
