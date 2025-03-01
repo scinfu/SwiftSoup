@@ -16,9 +16,6 @@ open class Element: Node {
     private static let idString = "id".utf8Array
     private static let rootString = "#root".utf8Array
 
-    //private static let classSplit : Pattern = Pattern("\\s+")
-	private static let classSplit = "\\s+"
-
     /**
      * Create a new, standalone Element. (Standalone in that is has no parent.)
      *
