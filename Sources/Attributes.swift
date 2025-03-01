@@ -22,7 +22,6 @@ import Foundation
  * 
  */
 open class Attributes: NSCopying {
-
     public static var dataPrefix: [UInt8] = "data-".utf8Array
 
     // Stored by lowercased key, but key case is checked against the copy inside
@@ -84,11 +83,13 @@ open class Attributes: NSCopying {
      @param key attribute key
      @param value attribute value
      */
+    @inlinable
     open func put(_ key: [UInt8], _ value: [UInt8]) throws {
         let attr = try Attribute(key: key, value: value)
         put(attribute: attr)
     }
     
+    @inlinable
     open func put(_ key: String, _ value: String) throws {
         return try put(key.utf8Array, value.utf8Array)
     }
@@ -98,6 +99,7 @@ open class Attributes: NSCopying {
      @param key attribute key
      @param value attribute value
      */
+    @inlinable
     open func put(_ key: [UInt8], _ value: Bool) throws {
         if (value) {
             try put(attribute: BooleanAttribute(key: key))
@@ -110,6 +112,7 @@ open class Attributes: NSCopying {
      Set a new attribute, or replace an existing one by (case-sensitive) key.
      @param attribute attribute
      */
+    @inlinable
     open func put(attribute: Attribute) {
         let key = attribute.getKeyUTF8()
         if let ix = attributes.firstIndex(where: { $0.getKeyUTF8() == key }) {
