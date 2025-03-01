@@ -421,8 +421,10 @@ public class OutputSettings: NSCopying {
      */
     public enum Syntax {case html, xml}
 
-    private var _escapeMode: Entities.EscapeMode  = Entities.EscapeMode.base
-    private var _encoder: String.Encoding = String.Encoding.utf8 // Charset.forName("UTF-8")
+    @usableFromInline
+    internal var _escapeMode: Entities.EscapeMode  = Entities.EscapeMode.base
+    @usableFromInline
+    internal var _encoder: String.Encoding = String.Encoding.utf8 // Charset.forName("UTF-8")
     private var _prettyPrint: Bool = true
     private var _outline: Bool = false
     private var _indentAmount: UInt  = 1
@@ -438,6 +440,7 @@ public class OutputSettings: NSCopying {
      * The default escape mode is <code>base</code>.
      * @return the document's current escape mode
      */
+    @inlinable
     public func escapeMode() -> Entities.EscapeMode {
         return _escapeMode
     }
@@ -449,6 +452,7 @@ public class OutputSettings: NSCopying {
      * @return the document's output settings, for chaining
      */
     @discardableResult
+    @inlinable
     public func escapeMode(_ escapeMode: Entities.EscapeMode) -> OutputSettings {
         self._escapeMode = escapeMode
         return self
@@ -462,9 +466,11 @@ public class OutputSettings: NSCopying {
      * input charset. Otherwise, it defaults to UTF-8.
      * @return the document's current charset.
      */
+    @inlinable
     public func encoder() -> String.Encoding {
         return _encoder
     }
+    @inlinable
     public func charset() -> String.Encoding {
         return _encoder
     }

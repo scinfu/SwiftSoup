@@ -19,7 +19,9 @@ open class Attribute {
         "selected", "sortable", "truespeed", "typemustmatch"
     ])
 
+    @usableFromInline
     var key: [UInt8]
+    @usableFromInline
     var value: [UInt8]
 
     public init(key: [UInt8], value: [UInt8]) throws {
@@ -86,15 +88,16 @@ open class Attribute {
      */
     public func html() -> String {
         let accum = StringBuilder()
-		html(accum: accum, out: (Document("")).outputSettings())
+		html(accum: accum, out: (Document([])).outputSettings())
         return accum.toString()
     }
-
+    
+    @inlinable
     public func html(accum: StringBuilder, out: OutputSettings ) {
         accum.append(key)
         if (!shouldCollapseAttribute(out: out)) {
             accum.append(UTF8Arrays.attributeEqualsQuoteMark)
-            Entities.escape(&accum.buffer, Array(value), out, true, false, false)
+            Entities.escape(&accum.buffer, value, out, true, false, false)
             accum.append(UTF8Arrays.quoteMark)
         }
     }

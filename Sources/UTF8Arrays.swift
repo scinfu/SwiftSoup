@@ -36,6 +36,7 @@ public enum UTF8Arrays {
     public static let rt = "rt".utf8Array
     public static let rtc = "rtc".utf8Array
     public static let page = "page".utf8Array
+    public static let class_ = "class".utf8Array
     public static let table = "table".utf8Array
     public static let tbody = "tbody".utf8Array
     public static let th = "th".utf8Array
@@ -119,6 +120,7 @@ public enum UTF8ArraySlices {
     public static let rt = UTF8Arrays.rt[...]
     public static let rtc = UTF8Arrays.rtc[...]
     public static let page = UTF8Arrays.page[...]
+    public static let class_ = UTF8Arrays.class_[...]
     public static let table = UTF8Arrays.table[...]
     public static let tbody = UTF8Arrays.tbody[...]
     public static let th = UTF8Arrays.th[...]

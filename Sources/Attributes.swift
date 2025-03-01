@@ -27,6 +27,7 @@ open class Attributes: NSCopying {
 
     // Stored by lowercased key, but key case is checked against the copy inside
     // the Attribute on retrieval.
+    @usableFromInline
     lazy var attributes: [Attribute] = []
     internal var lowercasedKeysCache: [[UInt8]]? = nil
 
@@ -229,13 +230,14 @@ open class Attributes: NSCopying {
      */
     open func html()throws -> String {
         let accum = StringBuilder()
-        try html(accum: accum, out: Document("").outputSettings()) // output settings a bit funky, but this html() seldom used
+        try html(accum: accum, out: Document([]).outputSettings()) // output settings a bit funky, but this html() seldom used
         return accum.toString()
     }
 
+    @inlinable
     public func html(accum: StringBuilder, out: OutputSettings ) throws {
         for attr in attributes {
-            accum.append(" ")
+            accum.append(UTF8Arrays.whitespace)
             attr.html(accum: accum, out: out)
         }
     }
