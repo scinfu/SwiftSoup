@@ -186,7 +186,7 @@ open class StringUtil {
                 if ((stripLeading && !reachedNonWhite) || lastWasWhite) {
                     continue
                 }
-                accum.append(" ")
+                accum.append(UTF8Arrays.whitespace)
                 lastWasWhite = true
             } else {
                 accum.append(c)

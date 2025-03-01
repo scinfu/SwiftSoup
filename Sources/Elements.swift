@@ -190,7 +190,7 @@ open class Elements: NSCopying {
 		let sb: StringBuilder = StringBuilder()
 		for element: Element in this {
 			if !sb.isEmpty {
-				sb.append(" ")
+                sb.append(UTF8Arrays.whitespace)
 			}
             sb.append(try element.text(trimAndNormaliseWhitespace: trimAndNormaliseWhitespace))
 		}

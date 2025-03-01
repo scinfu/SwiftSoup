@@ -12,6 +12,7 @@ extension UInt8 {
     /// Checks if the byte represents a whitespace character:
     /// Space (0x20), Tab (0x09), Newline (0x0A), Carriage Return (0x0D),
     /// Form Feed (0x0C), or Vertical Tab (0x0B).
+    @inline(__always)
     var isWhitespace: Bool {
         switch self {
         case 0x20, // Space
@@ -177,22 +178,27 @@ extension ArraySlice: Comparable where Element == UInt8 {
 }
 
 extension String {
+    @inline(__always)
     public var utf8Array: [UInt8] {
         return Array(self.utf8)
     }
     
+    @inline(__always)
     var utf8ArraySlice: ArraySlice<UInt8> {
         return ArraySlice(self.utf8)
     }
 
+    @inline(__always)
     func equals(_ string: [UInt8]?) -> Bool {
         return self.utf8Array == string
     }
     
+    @inline(__always)
 	subscript (i: Int) -> Character {
         return self[self.index(self.startIndex, offsetBy: i)]
     }
 
+    @inline(__always)
 	subscript (i: Int) -> String {
         return String(self[i] as Character)
     }

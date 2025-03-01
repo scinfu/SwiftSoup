@@ -219,6 +219,7 @@ public class Entities {
     }
     
     // this method is ugly, and does a lot. but other breakups cause rescanning and stringbuilder generations
+    @usableFromInline
     static func escape(
         _ accum: inout [UInt8],
         _ string: [UInt8],

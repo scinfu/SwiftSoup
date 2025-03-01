@@ -38,7 +38,6 @@ open class Node: Equatable, Hashable {
     
     @usableFromInline
     internal var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]]? = nil
-//    internal lazy var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]] = [:]
 
     @usableFromInline
     internal var isQueryIndexDirty: Bool = false
@@ -313,10 +312,12 @@ open class Node: Equatable, Hashable {
      * Get the number of child nodes that this node holds.
      * @return the number of child nodes that this node holds.
      */
+    @inline(__always)
     public func childNodeSize() -> Int {
         return childNodes.count
     }
     
+    @inline(__always)
     public func hasChildNodes() -> Bool {
         return !childNodes.isEmpty
     }
@@ -706,7 +707,7 @@ open class Node: Equatable, Hashable {
 
     // if this node has no document (or parent), retrieve the default output settings
     func getOutputSettings() -> OutputSettings {
-        return ownerDocument() != nil ? ownerDocument()!.outputSettings() : (Document("")).outputSettings()
+        return ownerDocument() != nil ? ownerDocument()!.outputSettings() : (Document([])).outputSettings()
     }
 
     /**
@@ -909,7 +910,10 @@ internal extension Node {
     func rebuildQueryIndexesForAllTags() {
         var newIndex: [[UInt8]: [Weak<Element>]] = [:]
         var queue: [Node] = [self]
-        queue.reserveCapacity(childNodeSize())
+        
+        let childNodeCount = childNodeSize()
+        newIndex.reserveCapacity(childNodeCount * 4)
+        queue.reserveCapacity(childNodeCount)
         
         var index = 0
         while index < queue.count {
