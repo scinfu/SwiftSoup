@@ -16,6 +16,7 @@ open class BooleanAttribute: Attribute {
      * Create a new boolean attribute from unencoded (raw) key.
      * @param key attribute key
      */
+    @usableFromInline
     init(key: [UInt8]) throws {
         try super.init(key: key, value: [])
     }
