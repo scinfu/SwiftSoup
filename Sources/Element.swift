@@ -1112,6 +1112,15 @@ open class Element: Node {
     public func className() throws -> String {
         return try String(decoding: attr(Element.classString).trim(), as: UTF8.self)
     }
+    
+    /**
+     * Gets the literal value of this element's "class" attribute, which may include multiple class names, space
+     * separated. (E.g. on <code>&lt;div class="header gray"&gt;</code> returns, "<code>header gray</code>")
+     * @return The literal class attribute, or <b>empty string</b> if no class attribute set.
+     */
+    public func classNameUTF8() throws -> [UInt8] {
+        return try attr(Element.classString).trim()
+    }
 
     /**
      * Get all of the element's class names. E.g. on element {@code <div class="header gray">},
@@ -1119,13 +1128,36 @@ open class Element: Node {
      * the backing {@code class} attribute; use the {@link #classNames(java.util.Set)} method to persist them.
      * @return set of classnames, empty if no class attribute
      */
-	public func classNames() throws -> OrderedSet<String> {
-        let fitted = try className().replaceAll(of: Element.classSplit, with: " ", options: .caseInsensitive)
-		let names: [String] = fitted.components(separatedBy: " ")
-		let classNames: OrderedSet<String> = OrderedSet(sequence: names)
-		classNames.remove("") // if classNames() was empty, would include an empty class
-		return classNames
-	}
+    public func classNames() throws -> OrderedSet<String> {
+        let utf8ClassName = try classNameUTF8()
+        var classNames = OrderedSet<String>()
+        var currentStartIndex: Int? = nil
+        
+        for (i, byte) in utf8ClassName.enumerated() {
+            if byte.isWhitespace {
+                if let start = currentStartIndex {
+                    let classBytes = utf8ClassName[start..<i]
+                    if !classBytes.isEmpty {
+                        classNames.append(String(decoding: classBytes, as: UTF8.self))
+                    }
+                    currentStartIndex = nil
+                }
+            } else {
+                if currentStartIndex == nil {
+                    currentStartIndex = i
+                }
+            }
+        }
+        
+        if let start = currentStartIndex {
+            let classBytes = utf8ClassName[start..<utf8ClassName.count]
+            if !classBytes.isEmpty {
+                classNames.append(String(decoding: classBytes, as: UTF8.self))
+            }
+        }
+        
+        return classNames
+    }
 
     /**
      Set the element's {@code class} attribute to the supplied class names.
@@ -1302,13 +1334,13 @@ open class Element: Node {
      * @return String of HTML.
      * @see #outerHtml()
      */
-    public func html()throws->String {
+    public func html() throws -> String {
         let accum: StringBuilder = StringBuilder()
         try html2(accum)
         return getOutputSettings().prettyPrint() ? accum.toString().trim() : accum.toString()
     }
 
-    private func html2(_ accum: StringBuilder)throws {
+    private func html2(_ accum: StringBuilder) throws {
         for node in childNodes {
             try node.outerHtml(accum)
         }

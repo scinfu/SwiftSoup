@@ -10,11 +10,11 @@ open class StringBuilder {
      
      :param: string Initial value; defaults to empty string
      */
-    public init(string: String = "") {
-        if !string.isEmpty {
+    public init(string: String? = nil) {
+        if let string, !string.isEmpty {
             buffer.append(contentsOf: string.utf8)
         }
-        buffer.reserveCapacity(string.utf8.count ?? 128)
+        buffer.reserveCapacity(1024)
     }
     
     public init(_ size: Int) {
