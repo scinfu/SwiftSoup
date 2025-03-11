@@ -142,7 +142,14 @@ open class Element: Node {
         try super.attr(attributeKey, attributeValue)
         return self
     }
-    
+
+    /**
+     * Set an attribute value on this element. If this element already has an attribute with the
+     * key, its value is updated; otherwise, a new attribute is added.
+     *
+     * @return this element
+     */
+    @discardableResult
     open override func attr(_ attributeKey: String, _ attributeValue: String) throws -> Element {
         try super.attr(attributeKey.utf8Array, attributeValue.utf8Array)
         return self
@@ -163,7 +170,18 @@ open class Element: Node {
         try attributes?.put(attributeKey, attributeValue)
         return self
     }
-    
+
+    /**
+     * Set a boolean attribute value on this element. Setting to <code>true</code> sets the attribute value to "" and
+     * marks the attribute as boolean so no value is written out. Setting to <code>false</code> removes the attribute
+     * with the same key if it exists.
+     *
+     * @param attributeKey the attribute key
+     * @param attributeValue the attribute value
+     *
+     * @return this element
+     */
+    @discardableResult
     open func attr(_ attributeKey: String, _ attributeValue: Bool) throws -> Element {
         try attributes?.put(attributeKey.utf8Array, attributeValue)
         return self
