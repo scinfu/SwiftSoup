@@ -999,6 +999,16 @@ open class Element: Node {
         }
         return text
     }
+    
+    public func textUTF8(trimAndNormaliseWhitespace: Bool = true) throws -> [UInt8] {
+        let accum: StringBuilder = StringBuilder()
+        try NodeTraversor(TextNodeVisitor(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)).traverse(self)
+        let text = accum.buffer
+        if trimAndNormaliseWhitespace {
+            return text.trim()
+        }
+        return text
+    }
 
     /**
      * Gets the text owned by this element only; does not get the combined text of all children.
@@ -1015,6 +1025,23 @@ open class Element: Node {
         let sb: StringBuilder = StringBuilder()
         ownText(sb)
         return sb.toString().trim()
+    }
+    
+    /**
+     * Gets the text owned by this element only; does not get the combined text of all children.
+     * <p>
+     * For example, given HTML {@code <p>Hello <b>there</b> now!</p>}, {@code p.ownText()} returns {@code "Hello now!"},
+     * whereas {@code p.text()} returns {@code "Hello there now!"}.
+     * Note that the text within the {@code b} element is not returned, as it is not a direct child of the {@code p} element.
+     *
+     * @return unencoded text, or empty string if none.
+     * @see #text()
+     * @see #textNodes()
+     */
+    public func ownTextUTF8() -> [UInt8] {
+        let sb: StringBuilder = StringBuilder()
+        ownText(sb)
+        return sb.buffer.trim()
     }
 
     private func ownText(_ accum: StringBuilder) {
