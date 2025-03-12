@@ -539,25 +539,27 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
                         tb.tokeniser.acknowledgeSelfClosingFlag()
                         try tb.processStartTag(UTF8Arrays.form)
-                        if (startTag._attributes.hasKey(key: UTF8Arrays.action)) {
+                        if startTag._attributes?.hasKey(key: UTF8Arrays.action) ?? false {
                             if let form: Element = tb.getFormElement() {
-                                try form.attr(UTF8Arrays.action, startTag._attributes.get(key: UTF8Arrays.action))
+                                try form.attr(UTF8Arrays.action, startTag._attributes?.get(key: UTF8Arrays.action) ?? [])
                             }
                         }
                         try tb.processStartTag(UTF8Arrays.hr)
                         try tb.processStartTag(UTF8Arrays.label)
                         // hope you like english.
-                        let prompt: [UInt8] = startTag._attributes.hasKey(key: UTF8Arrays.prompt) ?
-                        startTag._attributes.get(key: UTF8Arrays.prompt) :
+                        let prompt: [UInt8] = (startTag._attributes?.hasKey(key: UTF8Arrays.prompt) ?? false) ?
+                        startTag._attributes?.get(key: UTF8Arrays.prompt) ?? [] :
                         "self is a searchable index. Enter search keywords: ".utf8Array
 
                         try tb.process(Token.Char().data(prompt))
 
                         // input
                         let inputAttribs: Attributes = Attributes()
-                        for attr: Attribute in startTag._attributes {
-                            if (!Constants.InBodyStartInputAttribs.contains(attr.getKeyUTF8())) {
-                                inputAttribs.put(attribute: attr)
+                        if let attributes = startTag._attributes {
+                            for attr: Attribute in attributes {
+                                if (!Constants.InBodyStartInputAttribs.contains(attr.getKeyUTF8())) {
+                                    inputAttribs.put(attribute: attr)
+                                }
                             }
                         }
                         try inputAttribs.put(UTF8Arrays.name, UTF8Arrays.isindex)
@@ -927,7 +929,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     } else if name == UTF8Arrays.style || name == UTF8Arrays.script {
                         return try tb.process(t, .InHead)
                     } else if name == UTF8Arrays.input {
-                        if (!startTag._attributes.get(key: UTF8Arrays.type).equalsIgnoreCase(string: UTF8Arrays.hidden)) {
+                        if !(startTag._attributes?.get(key: UTF8Arrays.type).equalsIgnoreCase(string: UTF8Arrays.hidden) ?? false) {
                             return try anythingElse(t, tb)
                         } else {
                             try tb.insertEmpty(startTag)

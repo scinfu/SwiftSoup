@@ -89,7 +89,7 @@ open class Token {
         private var _hasPendingAttributeValue: Bool = false
         public var _selfClosing: Bool = false
         // start tags get attributes on construction. End tags get attributes on first new attribute (but only for parser convenience, not used).
-        public var _attributes: Attributes = Attributes()
+        public var _attributes: Attributes?
         
         override init() {
             super.init()
@@ -106,7 +106,7 @@ open class Token {
             _hasEmptyAttributeValue = false
             _hasPendingAttributeValue = false
             _selfClosing = false
-            _attributes = Attributes()
+            _attributes = nil
             return self
         }
         
@@ -123,7 +123,10 @@ open class Token {
                 } else {
                     attribute = try BooleanAttribute(key: pendingAttr)
                 }
-                _attributes.put(attribute: attribute)
+                if _attributes == nil {
+                    _attributes = Attributes()
+                }
+                _attributes?.put(attribute: attribute)
             }
             _pendingAttributeName?.removeAll(keepingCapacity: true)
             _hasEmptyAttributeValue = false
@@ -166,7 +169,10 @@ open class Token {
         
         @inline(__always)
         func getAttributes() -> Attributes {
-            return _attributes
+            if _attributes == nil {
+                _attributes = Attributes()
+            }
+            return _attributes!
         }
         
         // these appenders are rarely hit in not null state-- caused by null chars.
@@ -242,7 +248,6 @@ open class Token {
     final class StartTag: Tag {
         override init() {
             super.init()
-            _attributes = Attributes()
             type = TokenType.StartTag
         }
         
@@ -262,7 +267,7 @@ open class Token {
         }
         
         public override func toString() throws -> String {
-            if (_attributes.size() > 0) {
+            if let _attributes, !_attributes.attributes.isEmpty {
                 return "<" + String(decoding: try name(), as: UTF8.self) + " " + (try _attributes.toString()) + ">"
             } else {
                 return "<" + String(decoding: try name(), as: UTF8.self) + ">"

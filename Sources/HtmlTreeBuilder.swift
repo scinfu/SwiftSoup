@@ -196,8 +196,12 @@ class HtmlTreeBuilder: TreeBuilder {
             try tokeniser.emit(emptyEnd.reset().name(el.tagNameUTF8()))  // ensure we get out of whatever state we are in. emitted for yielded processing
             return el
         }
-        try Validate.notNull(obj: startTag._attributes)
-        let el: Element = try Element(Tag.valueOf(startTag.name(), settings), baseUri, settings.normalizeAttributes(startTag._attributes))
+        let el: Element
+        if let attributes = startTag._attributes {
+            el = try Element(Tag.valueOf(startTag.name(), settings), baseUri, settings.normalizeAttributes(attributes))
+        } else {
+            el = try Element(Tag.valueOf(startTag.name(), settings), baseUri)
+        }
         try insert(el)
         return el
     }
@@ -217,8 +221,12 @@ class HtmlTreeBuilder: TreeBuilder {
     @discardableResult
     func insertEmpty(_ startTag: Token.StartTag) throws -> Element {
         let tag: Tag = try Tag.valueOf(startTag.name(), settings)
-        try Validate.notNull(obj: startTag._attributes)
-        let el: Element = Element(tag, baseUri, startTag._attributes)
+        let el: Element
+        if let attributes = startTag._attributes {
+            el = Element(tag, baseUri, attributes)
+        } else {
+            el = Element(tag, baseUri)
+        }
         try insertNode(el)
         if (startTag.isSelfClosing()) {
             if (tag.isKnownTag()) {
@@ -235,8 +243,12 @@ class HtmlTreeBuilder: TreeBuilder {
     @discardableResult
     func insertForm(_ startTag: Token.StartTag, _ onStack: Bool) throws -> FormElement {
         let tag: Tag = try Tag.valueOf(startTag.name(), settings)
-        try Validate.notNull(obj: startTag._attributes)
-        let el: FormElement = FormElement(tag, baseUri, startTag._attributes)
+        let el: FormElement
+        if let attributes = startTag._attributes {
+            el = FormElement(tag, baseUri, attributes)
+        } else {
+            el = FormElement(tag, baseUri)
+        }
         setFormElement(el)
         try insertNode(el)
         if (onStack) {

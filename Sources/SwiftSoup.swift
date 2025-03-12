@@ -16,7 +16,7 @@ import Foundation
 	before the HTML declares a {@code <base href>} tag.
 	@return sane HTML
 	*/
-	public  func parse(_ html: String, _ baseUri: String)throws->Document {
+	public  func parse(_ html: String, _ baseUri: String) throws -> Document {
 		return try Parser.parse(html, baseUri)
 	}
 
@@ -30,7 +30,7 @@ import Foundation
 	@param parser alternate {@link Parser#xmlParser() parser} to use.
 	@return sane HTML
 	*/
-	public  func parse(_ html: String, _ baseUri: String, _ parser: Parser)throws->Document {
+	public  func parse(_ html: String, _ baseUri: String, _ parser: Parser) throws -> Document {
 		return try parser.parseInput(html, baseUri)
 	}
 
@@ -43,7 +43,7 @@ import Foundation
 	
 	@see #parse(String, String)
 	*/
-	public  func parse(_ html: String)throws->Document {
+	public  func parse(_ html: String) throws -> Document {
 		return try Parser.parse(html, "")
 	}
 
