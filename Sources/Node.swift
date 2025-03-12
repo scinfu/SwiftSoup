@@ -381,6 +381,18 @@ open class Node: Equatable, Hashable {
     }
     
     /**
+     * Insert the specified HTML into the DOM before this node (i.e. as a preceding sibling).
+     * @param html HTML to add before this node
+     * @return this node, for chaining
+     * @see #after(String)
+     */
+    @discardableResult
+    open func before(_ html: [UInt8]) throws -> Node {
+        try addSiblingHtml(siblingIndex, html)
+        return self
+    }
+
+    /**
      * Insert the specified node into the DOM before this node (i.e. as a preceding sibling).
      * @param node to add before this node
      * @return this node, for chaining
@@ -431,6 +443,15 @@ open class Node: Equatable, Hashable {
         try parentNode?.addChildren(index, nodes)
     }
     
+    private func addSiblingHtml(_ index: Int, _ html: [UInt8]) throws {
+        try Validate.notNull(obj: parentNode)
+        
+        let context: Element? = parent() as? Element
+        
+        let nodes: Array<Node> = try Parser.parseFragment(html, context, getBaseUriUTF8())
+        try parentNode?.addChildren(index, nodes)
+    }
+
     /**
      * Insert the specified HTML into the DOM after this node (i.e. as a following sibling).
      * @param html HTML to add after this node
@@ -700,13 +721,13 @@ open class Node: Equatable, Hashable {
      Get the outer HTML of this node.
      @return HTML
      */
-    open func outerHtml()throws->String {
+    open func outerHtml() throws -> String {
         let accum: StringBuilder = StringBuilder(128)
         try outerHtml(accum)
         return accum.toString()
     }
     
-    public func outerHtml(_ accum: StringBuilder)throws {
+    public func outerHtml(_ accum: StringBuilder) throws {
         try NodeTraversor(OuterHtmlVisitor(accum, getOutputSettings())).traverse(self)
     }
     

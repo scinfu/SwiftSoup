@@ -1228,7 +1228,7 @@ open class Element: Node {
      @return this element
      */
     @discardableResult
-	public func addClass(_ className: String)throws->Element {
+	public func addClass(_ className: String) throws -> Element {
 		let classes: OrderedSet<String> = try classNames()
 		classes.append(className)
 		try classNames(classes)
@@ -1241,7 +1241,7 @@ open class Element: Node {
      @return this element
      */
     @discardableResult
-    public func removeClass(_ className: String)throws->Element {
+    public func removeClass(_ className: String) throws -> Element {
         let classes: OrderedSet<String> = try classNames()
 		classes.remove(className)
         try classNames(classes)
@@ -1254,7 +1254,7 @@ open class Element: Node {
      @return this element
      */
     @discardableResult
-    public func toggleClass(_ className: String)throws->Element {
+    public func toggleClass(_ className: String) throws -> Element {
         let classes: OrderedSet<String> = try classNames()
         if (classes.contains(className)) {classes.remove(className)
         } else {
@@ -1338,6 +1338,19 @@ open class Element: Node {
         try html2(accum)
         return getOutputSettings().prettyPrint() ? accum.toString().trim() : accum.toString()
     }
+    
+    /**
+     * Retrieves the element's inner HTML. E.g. on a {@code <div>} with one empty {@code <p>}, would return
+     * {@code <p></p>}. (Whereas {@link #outerHtml()} would return {@code <div><p></p></div>}.)
+     *
+     * @return String of HTML.
+     * @see #outerHtml()
+     */
+    public func htmlUTF8() throws -> [UInt8] {
+        let accum: StringBuilder = StringBuilder()
+        try html2(accum)
+        return getOutputSettings().prettyPrint() ? accum.buffer.trim() : accum.buffer
+    }
 
     private func html2(_ accum: StringBuilder) throws {
         for node in childNodes {
@@ -1348,7 +1361,7 @@ open class Element: Node {
     /**
      * {@inheritDoc}
      */
-    open override func html(_ appendable: StringBuilder)throws->StringBuilder {
+    open override func html(_ appendable: StringBuilder) throws -> StringBuilder {
         for node in childNodes {
             try node.outerHtml(appendable)
         }
@@ -1362,7 +1375,7 @@ open class Element: Node {
 	* @see #append(String)
 	*/
     @discardableResult
-	public func html(_ html: String)throws->Element {
+	public func html(_ html: String) throws -> Element {
 		empty()
 		try append(html)
 		return self

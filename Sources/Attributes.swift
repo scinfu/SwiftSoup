@@ -233,10 +233,21 @@ open class Attributes: NSCopying {
      @return HTML
      @throws SerializationException if the HTML representation of the attributes cannot be constructed.
      */
-    open func html()throws -> String {
+    open func html() throws -> String {
         let accum = StringBuilder()
         try html(accum: accum, out: Document([]).outputSettings()) // output settings a bit funky, but this html() seldom used
         return accum.toString()
+    }
+    
+    /**
+     Get the HTML representation of these attributes.
+     @return HTML
+     @throws SerializationException if the HTML representation of the attributes cannot be constructed.
+     */
+    open func htmlUTF8() throws -> [UInt8] {
+        let accum = StringBuilder()
+        try html(accum: accum, out: Document([]).outputSettings()) // output settings a bit funky, but this html() seldom used
+        return accum.buffer
     }
 
     @inlinable
