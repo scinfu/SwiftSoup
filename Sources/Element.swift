@@ -32,6 +32,7 @@ open class Element: Node {
     public init(_ tag: Tag, _ baseUri: [UInt8], _ attributes: Attributes) {
         self._tag = tag
         super.init(baseUri, attributes)
+        childNodes.reserveCapacity(8)
     }
     /**
      * Create a new Element from a tag and a base URI.
@@ -48,6 +49,7 @@ open class Element: Node {
     public init(_ tag: Tag, _ baseUri: [UInt8]) {
         self._tag = tag
         super.init(baseUri, Attributes())
+        childNodes.reserveCapacity(8)
     }
 
     public override func nodeNameUTF8() -> [UInt8] {
