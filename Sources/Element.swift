@@ -32,6 +32,7 @@ open class Element: Node {
     public init(_ tag: Tag, _ baseUri: [UInt8], _ attributes: Attributes) {
         self._tag = tag
         super.init(baseUri, attributes)
+        childNodes.reserveCapacity(8)
     }
     /**
      * Create a new Element from a tag and a base URI.
@@ -48,6 +49,7 @@ open class Element: Node {
     public init(_ tag: Tag, _ baseUri: [UInt8]) {
         self._tag = tag
         super.init(baseUri, Attributes())
+        childNodes.reserveCapacity(8)
     }
 
     public override func nodeNameUTF8() -> [UInt8] {
@@ -1015,6 +1017,16 @@ open class Element: Node {
         }
         return text
     }
+    
+    public func textUTF8(trimAndNormaliseWhitespace: Bool = true) throws -> [UInt8] {
+        let accum: StringBuilder = StringBuilder()
+        try NodeTraversor(TextNodeVisitor(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)).traverse(self)
+        let text = accum.buffer
+        if trimAndNormaliseWhitespace {
+            return text.trim()
+        }
+        return text
+    }
 
     /**
      * Gets the text owned by this element only; does not get the combined text of all children.
@@ -1031,6 +1043,23 @@ open class Element: Node {
         let sb: StringBuilder = StringBuilder()
         ownText(sb)
         return sb.toString().trim()
+    }
+    
+    /**
+     * Gets the text owned by this element only; does not get the combined text of all children.
+     * <p>
+     * For example, given HTML {@code <p>Hello <b>there</b> now!</p>}, {@code p.ownText()} returns {@code "Hello now!"},
+     * whereas {@code p.text()} returns {@code "Hello there now!"}.
+     * Note that the text within the {@code b} element is not returned, as it is not a direct child of the {@code p} element.
+     *
+     * @return unencoded text, or empty string if none.
+     * @see #text()
+     * @see #textNodes()
+     */
+    public func ownTextUTF8() -> [UInt8] {
+        let sb: StringBuilder = StringBuilder()
+        ownText(sb)
+        return sb.buffer.trim()
     }
 
     private func ownText(_ accum: StringBuilder) {
@@ -1244,7 +1273,7 @@ open class Element: Node {
      @return this element
      */
     @discardableResult
-	public func addClass(_ className: String)throws->Element {
+	public func addClass(_ className: String) throws -> Element {
 		let classes: OrderedSet<String> = try classNames()
 		classes.append(className)
 		try classNames(classes)
@@ -1257,7 +1286,7 @@ open class Element: Node {
      @return this element
      */
     @discardableResult
-    public func removeClass(_ className: String)throws->Element {
+    public func removeClass(_ className: String) throws -> Element {
         let classes: OrderedSet<String> = try classNames()
 		classes.remove(className)
         try classNames(classes)
@@ -1270,7 +1299,7 @@ open class Element: Node {
      @return this element
      */
     @discardableResult
-    public func toggleClass(_ className: String)throws->Element {
+    public func toggleClass(_ className: String) throws -> Element {
         let classes: OrderedSet<String> = try classNames()
         if (classes.contains(className)) {classes.remove(className)
         } else {
@@ -1354,6 +1383,19 @@ open class Element: Node {
         try html2(accum)
         return getOutputSettings().prettyPrint() ? accum.toString().trim() : accum.toString()
     }
+    
+    /**
+     * Retrieves the element's inner HTML. E.g. on a {@code <div>} with one empty {@code <p>}, would return
+     * {@code <p></p>}. (Whereas {@link #outerHtml()} would return {@code <div><p></p></div>}.)
+     *
+     * @return String of HTML.
+     * @see #outerHtml()
+     */
+    public func htmlUTF8() throws -> [UInt8] {
+        let accum: StringBuilder = StringBuilder()
+        try html2(accum)
+        return getOutputSettings().prettyPrint() ? accum.buffer.trim() : accum.buffer
+    }
 
     private func html2(_ accum: StringBuilder) throws {
         for node in childNodes {
@@ -1364,7 +1406,7 @@ open class Element: Node {
     /**
      * {@inheritDoc}
      */
-    open override func html(_ appendable: StringBuilder)throws->StringBuilder {
+    open override func html(_ appendable: StringBuilder) throws -> StringBuilder {
         for node in childNodes {
             try node.outerHtml(appendable)
         }
@@ -1378,7 +1420,7 @@ open class Element: Node {
 	* @see #append(String)
 	*/
     @discardableResult
-	public func html(_ html: String)throws->Element {
+	public func html(_ html: String) throws -> Element {
 		empty()
 		try append(html)
 		return self

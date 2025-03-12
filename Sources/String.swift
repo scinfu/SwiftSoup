@@ -28,6 +28,23 @@ extension UInt8 {
     }
 }
 
+extension ArraySlice where Element == UInt8 {
+    @inline(__always)
+    public func lowercased() -> ArraySlice<UInt8> {
+        // Check if any element needs lowercasing
+        guard self.contains(where: { $0 >= 65 && $0 <= 90 }) else { return self }
+        // Only allocate a new array if necessary
+        var result = self
+        for i in result.indices {
+            let b = result[i]
+            if b >= 65 && b <= 90 {
+                result[i] = b + 32
+            }
+        }
+        return result
+    }
+}
+
 // TODO: Use @retroactive once supported on Ubuntu (?)
 //extension Array: @retroactive Comparable where Element == UInt8 {
 extension Array: Comparable where Element == UInt8 {
@@ -184,7 +201,7 @@ extension String {
     }
     
     @inline(__always)
-    var utf8ArraySlice: ArraySlice<UInt8> {
+    public var utf8ArraySlice: ArraySlice<UInt8> {
         return ArraySlice(self.utf8)
     }
 
