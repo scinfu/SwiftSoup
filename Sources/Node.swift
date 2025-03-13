@@ -61,7 +61,9 @@ open class Node: Equatable, Hashable {
      @param attributes attributes (not null, but may be empty)
      */
     public init(_ baseUri: [UInt8], _ attributes: Attributes) {
-        self.childNodes = Node.EMPTY_NODES
+        childNodes = Node.EMPTY_NODES
+        childNodes.reserveCapacity(8)
+        
         self.baseUri = baseUri.trim()
         self.attributes = attributes
         
@@ -70,6 +72,8 @@ open class Node: Equatable, Hashable {
     
     public init(_ baseUri: [UInt8]) {
         childNodes = Node.EMPTY_NODES
+        childNodes.reserveCapacity(8)
+        
         self.baseUri = baseUri.trim()
         self.attributes = Attributes()
         
@@ -81,6 +85,8 @@ open class Node: Equatable, Hashable {
      */
     public init() {
         self.childNodes = Node.EMPTY_NODES
+        childNodes.reserveCapacity(8)
+        
         self.attributes = nil
         self.baseUri = nil
         

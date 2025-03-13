@@ -193,18 +193,22 @@ open class Token {
             appendTagName(ArraySlice(append.utf8))
         }
         
+        @inlinable
         func appendAttributeName(_ append: [UInt8]) {
             appendAttributeName(append[...])
         }
         
+        @inlinable
         func appendAttributeName(_ append: ArraySlice<UInt8>) {
             _pendingAttributeName = _pendingAttributeName == nil ? Array(append) : ((_pendingAttributeName ?? []) + Array(append))
         }
         
+        @inlinable
         func appendAttributeName(_ append: UnicodeScalar) {
             appendAttributeName(Array(append.utf8))
         }
         
+        @inlinable
         func appendAttributeValue(_ append: ArraySlice<UInt8>) {
             ensureAttributeValue()
             if _pendingAttributeValue.isEmpty {
@@ -214,16 +218,19 @@ open class Token {
             }
         }
         
+        @inlinable
         func appendAttributeValue(_ append: UnicodeScalar) {
             ensureAttributeValue()
             _pendingAttributeValue.appendCodePoint(append)
         }
         
+        @inlinable
         func appendAttributeValue(_ append: [UnicodeScalar]) {
             ensureAttributeValue()
             _pendingAttributeValue.appendCodePoints(append)
         }
         
+        @inlinable
         func appendAttributeValue(_ appendCodepoints: [Int]) {
             ensureAttributeValue()
             for codepoint in appendCodepoints {
@@ -231,6 +238,7 @@ open class Token {
             }
         }
         
+        @inlinable
         func setEmptyAttributeValue() {
             _hasEmptyAttributeValue = true
         }

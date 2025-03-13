@@ -27,7 +27,7 @@ open class Attributes: NSCopying {
     // Stored by lowercased key, but key case is checked against the copy inside
     // the Attribute on retrieval.
     @usableFromInline
-    lazy var attributes: [Attribute] = []
+    var attributes: [Attribute] = []
     @usableFromInline
     internal var lowercasedKeysCache: [[UInt8]]? = nil
 
