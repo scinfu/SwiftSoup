@@ -93,7 +93,7 @@ open class Attribute {
     }
     
     @inlinable
-    public func html(accum: StringBuilder, out: OutputSettings ) {
+    public func html(accum: StringBuilder, out: OutputSettings) {
         accum.append(key)
         if (!shouldCollapseAttribute(out: out)) {
             accum.append(UTF8Arrays.attributeEqualsQuoteMark)

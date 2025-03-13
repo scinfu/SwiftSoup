@@ -72,7 +72,12 @@ public class XmlTreeBuilder: TreeBuilder {
     func insert(_ startTag: Token.StartTag)throws->Element {
         let tag: Tag = try Tag.valueOf(startTag.name(), settings)
         // todo: wonder if for xml parsing, should treat all tags as unknown? because it's not html.
-        let el: Element = try Element(tag, baseUri, settings.normalizeAttributes(startTag._attributes))
+        let el: Element
+        if let attributes = startTag._attributes {
+            el = try Element(tag, baseUri, settings.normalizeAttributes(attributes))
+        } else {
+            el = Element(tag, baseUri)
+        }
         try insertNode(el)
         if (startTag.isSelfClosing()) {
             tokeniser.acknowledgeSelfClosingFlag()

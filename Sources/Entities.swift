@@ -230,49 +230,77 @@ public class Entities {
     ) {
         let escapeMode = out.escapeMode()
         let encoder = out.encoder()
-        var i = 0, n = string.count
-        var lastWasWhite = false, reachedNonWhite = false
-        while i < n {
-            let b = string[i]
-            if normaliseWhite && b.isWhitespace {
-                var j = i
-                while j < n && string[j].isWhitespace { j += 1 }
-                if (!reachedNonWhite && stripLeadingWhite) || lastWasWhite {
-                    i = j; continue
-                }
-                accum.append(0x20)
-                lastWasWhite = true; i = j; continue
-            }
-            lastWasWhite = false
-            reachedNonWhite = true
-            if b < 0x80 {
-                switch b {
-                case 0x26: accum.append(contentsOf: ampEntityUTF8)
-                case 0xA0: accum.append(contentsOf: escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
-                case 0x3C:
-                    if !inAttribute || escapeMode == .xhtml { accum.append(contentsOf: ltEntityUTF8) } else { accum.append(b) }
-                case 0x3E:
-                    if !inAttribute { accum.append(contentsOf: gtEntityUTF8) } else { accum.append(b) }
-                case 0x22:
-                    if inAttribute { accum.append(contentsOf: quotEntityUTF8) } else { accum.append(b) }
-                default:
-                    if encoder == .ascii || encoder == .utf8 || encoder == .utf16 || canEncode(byte: b, encoder: encoder) {
-                        accum.append(b)
-                    } else {
-                        appendEncoded(accum: &accum, escapeMode: escapeMode, bytes: [b])
+        let encoderKnownToBeAbleToEncode = encoder == .ascii || encoder == .utf8 || encoder == .utf16
+        let count = string.count
+        accum.reserveCapacity(count)
+        string.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            var i = 0
+            var lastWasWhite = false, reachedNonWhite = false
+            while i < count {
+                let b = base[i]
+                if normaliseWhite && b.isWhitespace {
+                    var j = i
+                    while j < count && base[j].isWhitespace {
+                        j += 1
                     }
+                    if (!reachedNonWhite && stripLeadingWhite) || lastWasWhite {
+                        i = j
+                        continue
+                    }
+                    accum.append(0x20)
+                    lastWasWhite = true
+                    i = j
+                    continue
                 }
-                i += 1
-            } else {
-                let len = utf8CharLength(for: b)
-                let end = i + len <= n ? i + len : n
-                let charBytes = Array(string[i..<end])
-                if canEncode(bytes: charBytes, encoder: encoder) {
-                    accum.append(contentsOf: charBytes)
+                lastWasWhite = false
+                reachedNonWhite = true
+                if b < 0x80 {
+                    switch b {
+                    case 0x26:
+                        accum.append(contentsOf: ampEntityUTF8)
+                    case 0xA0:
+                        accum.append(contentsOf: escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
+                    case 0x3C:
+                        if !inAttribute || escapeMode == .xhtml {
+                            accum.append(contentsOf: ltEntityUTF8)
+                        } else {
+                            accum.append(b)
+                        }
+                    case 0x3E:
+                        if !inAttribute {
+                            accum.append(contentsOf: gtEntityUTF8)
+                        } else {
+                            accum.append(b)
+                        }
+                    case 0x22:
+                        if inAttribute {
+                            accum.append(contentsOf: quotEntityUTF8)
+                        } else {
+                            accum.append(b)
+                        }
+                    default:
+                        if encoderKnownToBeAbleToEncode || canEncode(byte: b, encoder: encoder) {
+                            accum.append(b)
+                        } else {
+                            appendEncoded(accum: &accum, escapeMode: escapeMode, bytes: [b])
+                        }
+                    }
+                    i += 1
                 } else {
-                    appendEncoded(accum: &accum, escapeMode: escapeMode, bytes: charBytes)
+                    let len = utf8CharLength(for: b)
+                    let end = i + len <= count ? i + len : count
+                    var charBytes = [UInt8]()
+                    for j in i..<end {
+                        charBytes.append(base[j])
+                    }
+                    if canEncode(bytes: charBytes, encoder: encoder) {
+                        accum.append(contentsOf: charBytes)
+                    } else {
+                        appendEncoded(accum: &accum, escapeMode: escapeMode, bytes: charBytes)
+                    }
+                    i += len
                 }
-                i += len
             }
         }
     }
@@ -363,7 +391,7 @@ public class Entities {
         }
     }
     
-    @inlinable
+    @inline(__always)
     internal static func canEncode(byte: UInt8, encoder: String.Encoding) -> Bool {
         switch encoder {
         case .ascii:

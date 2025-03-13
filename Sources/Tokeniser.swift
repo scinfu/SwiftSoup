@@ -84,7 +84,7 @@ final class Tokeniser {
             }
         } else if (token.type == Token.TokenType.EndTag) {
             let endTag: Token.EndTag = token as! Token.EndTag
-            if (endTag._attributes.size() != 0) {
+            if !(endTag._attributes?.attributes.isEmpty ?? true) {
                 error("Attributes incorrectly present on end tag")
             }
         }

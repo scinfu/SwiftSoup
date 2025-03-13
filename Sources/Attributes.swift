@@ -27,7 +27,8 @@ open class Attributes: NSCopying {
     // Stored by lowercased key, but key case is checked against the copy inside
     // the Attribute on retrieval.
     @usableFromInline
-    lazy var attributes: [Attribute] = []
+    var attributes: [Attribute] = []
+    @usableFromInline
     internal var lowercasedKeysCache: [[UInt8]]? = nil
 
     public init() {
@@ -138,7 +139,7 @@ open class Attributes: NSCopying {
             invalidateLowercasedKeysCache()
         }
     }
-
+    
     /**
      Remove an attribute by key. <b>Case insensitive.</b>
      @param key attribute key to remove
@@ -212,6 +213,7 @@ open class Attributes: NSCopying {
      to keys will not be recognised in the containing set.
      @return an view of the attributes as a List.
      */
+    @inlinable
     open func asList() -> [Attribute] {
         return attributes
     }

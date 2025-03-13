@@ -196,8 +196,12 @@ class HtmlTreeBuilder: TreeBuilder {
             try tokeniser.emit(emptyEnd.reset().name(el.tagNameUTF8()))  // ensure we get out of whatever state we are in. emitted for yielded processing
             return el
         }
-        try Validate.notNull(obj: startTag._attributes)
-        let el: Element = try Element(Tag.valueOf(startTag.name(), settings), baseUri, settings.normalizeAttributes(startTag._attributes))
+        let el: Element
+        if let attributes = startTag._attributes {
+            el = try Element(Tag.valueOf(startTag.name(), settings), baseUri, settings.normalizeAttributes(attributes))
+        } else {
+            el = try Element(Tag.valueOf(startTag.name(), settings), baseUri)
+        }
         try insert(el)
         return el
     }
@@ -209,7 +213,8 @@ class HtmlTreeBuilder: TreeBuilder {
         return el
     }
 
-    func insert(_ el: Element)throws {
+    @inlinable
+    func insert(_ el: Element) throws {
         try insertNode(el)
         stack.append(el)
     }
@@ -217,8 +222,12 @@ class HtmlTreeBuilder: TreeBuilder {
     @discardableResult
     func insertEmpty(_ startTag: Token.StartTag) throws -> Element {
         let tag: Tag = try Tag.valueOf(startTag.name(), settings)
-        try Validate.notNull(obj: startTag._attributes)
-        let el: Element = Element(tag, baseUri, startTag._attributes)
+        let el: Element
+        if let attributes = startTag._attributes {
+            el = Element(tag, baseUri, attributes)
+        } else {
+            el = Element(tag, baseUri)
+        }
         try insertNode(el)
         if (startTag.isSelfClosing()) {
             if (tag.isKnownTag()) {
@@ -235,8 +244,12 @@ class HtmlTreeBuilder: TreeBuilder {
     @discardableResult
     func insertForm(_ startTag: Token.StartTag, _ onStack: Bool) throws -> FormElement {
         let tag: Tag = try Tag.valueOf(startTag.name(), settings)
-        try Validate.notNull(obj: startTag._attributes)
-        let el: FormElement = FormElement(tag, baseUri, startTag._attributes)
+        let el: FormElement
+        if let attributes = startTag._attributes {
+            el = FormElement(tag, baseUri, attributes)
+        } else {
+            el = FormElement(tag, baseUri)
+        }
         setFormElement(el)
         try insertNode(el)
         if (onStack) {
@@ -250,6 +263,7 @@ class HtmlTreeBuilder: TreeBuilder {
         try insertNode(comment)
     }
 
+    @inlinable
     func insert(_ characterToken: Token.Char) throws {
         var node: Node
         // characters in script and style go in as datanodes, not text nodes
@@ -264,9 +278,10 @@ class HtmlTreeBuilder: TreeBuilder {
         try currentElement()?.appendChild(node) // doesn't use insertNode, because we don't foster these; and will always have a stack.
     }
 
-    private func insertNode(_ node: Node)throws {
+    @inlinable
+    internal func insertNode(_ node: Node) throws {
         // if the stack hasn't been set up yet, elements (doctype, comments) go into the doc
-        if (stack.count == 0) {
+        if stack.isEmpty {
             try doc.appendChild(node)
         } else if (isFosterInserts()) {
             try insertInFosterParent(node)
@@ -276,8 +291,8 @@ class HtmlTreeBuilder: TreeBuilder {
 
         // connect form controls to their form element
         if let n = (node as? Element) {
-            if(n.tag().isFormListed()) {
-                if ( formElement != nil) {
+            if n.tag().isFormListed() {
+                if formElement != nil {
                     formElement!.addElement(n)
                 }
             }
@@ -290,10 +305,12 @@ class HtmlTreeBuilder: TreeBuilder {
         return stack.remove(at: size-1)
     }
 
+    @inlinable
     func push(_ element: Element) {
         stack.append(element)
     }
 
+    @inlinable
     func getStack()->Array<Element> {
         return stack
     }
@@ -323,6 +340,7 @@ class HtmlTreeBuilder: TreeBuilder {
         return nil
     }
     
+    @inlinable
     func getFromStack(_ elName: String) -> Element? {
         return getFromStack(elName.utf8Array)
     }
@@ -622,6 +640,7 @@ class HtmlTreeBuilder: TreeBuilder {
         return headElement
     }
 
+    @inlinable
     func isFosterInserts() -> Bool {
         return fosterInserts
     }
