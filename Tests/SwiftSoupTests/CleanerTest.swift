@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 13/01/17.
-//  Copyright © 2017 Nabil Chatbi. All rights reserved.
 //
 
 import XCTest

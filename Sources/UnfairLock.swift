@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by xukun on 2022/3/31.
-//  Copyright © 2022 Nabil Chatbi. All rights reserved.
 //
 
 import Foundation

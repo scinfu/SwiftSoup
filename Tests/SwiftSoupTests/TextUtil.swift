@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 03/11/16.
-//  Copyright © 2016 Nabil Chatbi. All rights reserved.
 //
 
 import Foundation

@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 20/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 /**
 A list of {@link Element}s, with methods that act on every element in the list.

@@ -3,7 +3,6 @@
 //  SwifSoupTests
 //
 //  Created by Nabil Chatbi on 20/04/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import XCTest

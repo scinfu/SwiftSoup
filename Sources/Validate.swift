@@ -3,7 +3,6 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 02/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation

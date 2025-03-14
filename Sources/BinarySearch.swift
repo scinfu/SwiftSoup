@@ -3,7 +3,6 @@
 //  SwiftSoup-iOS
 //
 //  Created by Garth Snyder on 2/28/19.
-//  Copyright © 2019 Nabil Chatbi. All rights reserved.
 //
 //  Adapted from https://stackoverflow.com/questions/31904396/swift-binary-search-for-standard-array
 //
