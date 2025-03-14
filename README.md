@@ -151,4 +151,4 @@ SwiftSoup was ported to Swift from Java [Jsoup](https://jsoup.org/) library.
 
 ## License
 
-SwiftSoup is available under the MIT license. See the LICENSE file for more info.
+SwiftSoup is available under the MIT license. See the [LICENSE](https://github.com/scinfu/SwiftSoup/blob/master/LICENSE) file for more info.
