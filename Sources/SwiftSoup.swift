@@ -15,9 +15,21 @@ import Foundation
 	before the HTML declares a {@code <base href>} tag.
 	@return sane HTML
 	*/
-	public  func parse(_ html: String, _ baseUri: String) throws -> Document {
+	public func parse(_ html: String, _ baseUri: String) throws -> Document {
 		return try Parser.parse(html, baseUri)
 	}
+
+    /**
+    Parse Data into a Document. The parser will make a sensible, balanced document tree out of any HTML.
+
+    @param data Data to parse
+    @param baseUri The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs, that occur
+    before the HTML declares a {@code <base href>} tag.
+    @return sane HTML
+    */
+    public func parse(_ data: Data, _ baseUri: String) throws -> Document {
+        return try Parser.parse(data, baseUri)
+    }
 
 	/**
 	Parse HTML into a Document, using the provided Parser. You can provide an alternate parser, such as a simple XML
@@ -29,7 +41,7 @@ import Foundation
 	@param parser alternate {@link Parser#xmlParser() parser} to use.
 	@return sane HTML
 	*/
-	public  func parse(_ html: String, _ baseUri: String, _ parser: Parser) throws -> Document {
+	public func parse(_ html: String, _ baseUri: String, _ parser: Parser) throws -> Document {
 		return try parser.parseInput(html, baseUri)
 	}
 
@@ -42,9 +54,22 @@ import Foundation
 	
 	@see #parse(String, String)
 	*/
-	public  func parse(_ html: String) throws -> Document {
+	public func parse(_ html: String) throws -> Document {
 		return try Parser.parse(html, "")
 	}
+
+    /**
+    Parse Data into a Document. As no base URI is specified, absolute URL detection relies on the HTML including a
+    {@code <base href>} tag.
+
+    @param data Data to parse
+    @return sane HTML
+
+    @see #parse(String, String)
+    */
+    public func parse(_ data: Data) throws -> Document {
+        return try Parser.parse(data, "")
+    }
 
 	//todo:
 //	/**
@@ -135,7 +160,7 @@ import Foundation
 	
 	@see Document#body()
 	*/
-	public  func parseBodyFragment(_ bodyHtml: String, _ baseUri: String)throws->Document {
+	public func parseBodyFragment(_ bodyHtml: String, _ baseUri: String) throws -> Document {
 		return try Parser.parseBodyFragment(bodyHtml, baseUri)
 	}
 
@@ -147,7 +172,7 @@ import Foundation
 	
 	@see Document#body()
 	*/
-	public  func parseBodyFragment(_ bodyHtml: String) throws -> Document {
+	public func parseBodyFragment(_ bodyHtml: String) throws -> Document {
 		return try Parser.parseBodyFragment(bodyHtml, "")
 	}
 
@@ -185,7 +210,7 @@ import Foundation
 	
 	@see Cleaner#clean(Document)
 	*/
-	public  func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist) throws -> String? {
+	public func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist) throws -> String? {
 		let dirty: Document = try parseBodyFragment(bodyHtml, baseUri)
 		let cleaner: Cleaner = Cleaner(whitelist)
 		let clean: Document = try cleaner.clean(dirty)
@@ -202,7 +227,7 @@ import Foundation
 	
 	@see Cleaner#clean(Document)
 	*/
-	public  func clean(_ bodyHtml: String, _ whitelist: Whitelist) throws -> String? {
+	public func clean(_ bodyHtml: String, _ whitelist: Whitelist) throws -> String? {
 		return try SwiftSoup.clean(bodyHtml, "", whitelist)
 	}
 
@@ -218,7 +243,9 @@ import Foundation
 	* @return safe HTML (body fragment)
 	* @see Cleaner#clean(Document)
 	*/
-	public  func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist, _ outputSettings: OutputSettings)throws->String? {
+	public func clean(
+        _ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist, _ outputSettings: OutputSettings
+    ) throws -> String? {
 		let dirty: Document = try SwiftSoup.parseBodyFragment(bodyHtml, baseUri)
 		let cleaner: Cleaner = Cleaner(whitelist)
 		let clean: Document = try cleaner.clean(dirty)
@@ -234,7 +261,7 @@ import Foundation
      @return true if no tags or attributes were removed; false otherwise
      @see #clean(String, Whitelist)
      */
-    public  func isValid(_ bodyHtml: String, _ whitelist: Whitelist)throws->Bool {
+    public func isValid(_ bodyHtml: String, _ whitelist: Whitelist) throws -> Bool {
         let dirty = try parseBodyFragment(bodyHtml, "")
         let cleaner  = Cleaner(whitelist)
         return try cleaner.isValid(dirty)
