@@ -340,6 +340,7 @@ open class Element: Node {
      * @param child node to add.
      * @return this element, so that you can add more child nodes or elements.
      */
+    @inlinable
     @discardableResult
     public func appendChild(_ child: Node) throws -> Element {
         // was - Node#addChildren(child). short-circuits an array create and a loop.
@@ -1358,7 +1359,7 @@ open class Element: Node {
             accum.append(UTF8Arrays.tagEnd)
         }
     }
-
+    
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         if (!(childNodes.isEmpty && _tag.isSelfClosing())) {
             if (out.prettyPrint() && (!childNodes.isEmpty && (
