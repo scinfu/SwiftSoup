@@ -31,6 +31,7 @@ public class TokeniserStateVars {
     static let replacementStr: [UInt8] = Array(Tokeniser.replacementChar.utf8)
     static let eof: UnicodeScalar = CharacterReader.EOF
     static let eofUTF8 = String(CharacterReader.EOF).utf8Array
+    @usableFromInline
     static let eofUTF8Slice = ArraySlice(String(CharacterReader.EOF).utf8Array)
 }
 

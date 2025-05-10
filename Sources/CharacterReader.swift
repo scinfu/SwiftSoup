@@ -48,6 +48,7 @@ public final class CharacterReader {
         }
     }
     
+    @inlinable
     public func currentUTF8() -> ArraySlice<UInt8> {
         guard pos < end else { return TokeniserStateVars.eofUTF8Slice }
         
