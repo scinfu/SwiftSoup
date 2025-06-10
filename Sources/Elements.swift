@@ -510,7 +510,7 @@ open class Elements: NSCopying {
 
 	/// Check if no element stored
 	open func isEmpty() -> Bool {
-		return array().count == 0
+		return array().isEmpty
 	}
 
 	/// Count

@@ -91,7 +91,7 @@ open class StringUtil {
      * @return if string is blank
      */
     public static func isBlank(_ string: String) -> Bool {
-        if (string.count == 0) {
+        if (string.isEmpty) {
             return true
         }
 
@@ -109,7 +109,7 @@ open class StringUtil {
      * @return true if only digit chars, false if empty or null or contains non-digit chrs
      */
     public static func isNumeric(_ string: String) -> Bool {
-        if (string.count == 0) {
+        if (string.isEmpty) {
             return false
         }
 
