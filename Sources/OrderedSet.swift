@@ -342,7 +342,7 @@ extension OrderedSet {
 	}
 
 	public var isEmpty: Bool {
-		return count == 0
+		return contents.isEmpty
 	}
 
 	public var first: T? {

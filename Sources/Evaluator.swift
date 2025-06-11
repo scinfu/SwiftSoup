@@ -593,7 +593,7 @@ open class Evaluator {
     public final class IsOnlyChild: Evaluator {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             let p = element.parent()
-            return p != nil && !((p as? Document) != nil) && element.siblingElements().array().count == 0
+            return p != nil && !((p as? Document) != nil) && element.siblingElements().isEmpty()
         }
         public override func toString() -> String {
             return ":only-child"
