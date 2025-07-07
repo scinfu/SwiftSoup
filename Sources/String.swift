@@ -294,6 +294,7 @@ extension String {
         return self
     }
 
+    @inlinable
     func equalsIgnoreCase(string: String?) -> Bool {
         if let string {
             return caseInsensitiveCompare(string) == .orderedSame

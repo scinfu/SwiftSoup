@@ -1268,6 +1268,74 @@ open class Element: Node {
     }
 
     /**
+     * Tests if this element has a class. Case insensitive.
+     * @param className name of class to check for
+     * @return true if it does, false if not
+     */
+    // performance sensitive
+    public func hasClass(_ className: [UInt8]) -> Bool {
+        let classAttr: [UInt8]? = attributes?.get(key: Element.classString)
+        let len: Int = (classAttr != nil) ? classAttr!.count : 0
+        let wantLen: Int = className.count
+        
+        if (len == 0 || len < wantLen) {
+            return false
+        }
+        
+        // if both lengths are equal, only need compare the className with the attribute
+        if (len == wantLen) {
+            return className.equalsIgnoreCase(string: classAttr)
+        }
+        
+        // otherwise, scan for whitespace and compare regions (with no string or arraylist allocations)
+        var inClass: Bool = false
+        var start = [].startIndex
+        if let classAttr {
+            let startIdx = classAttr.startIndex
+            start = startIdx
+            let endIdx = classAttr.endIndex
+            
+            for i in startIdx..<endIdx {
+                if classAttr[i].isWhitespace {
+                    if inClass {
+                        // white space ends a class name, compare it with the requested one, ignore case
+                        if (
+                            i - start == wantLen && classAttr.regionMatches(
+                                ignoreCase: true,
+                                selfOffset: start,
+                                other: className,
+                                otherOffset: 0,
+                                targetLength: wantLen
+                            )
+                        ) {
+                            return true
+                        }
+                        inClass = false
+                    }
+                } else {
+                    if (!inClass) {
+                        // we're in a class name : keep the start of the substring
+                        inClass = true
+                        start = i
+                    }
+                }
+            }
+        }
+        
+        // check the last entry
+        if inClass && len - start == wantLen {
+            return classAttr?.regionMatches(
+                ignoreCase: true,
+                selfOffset: start,
+                other: className,
+                otherOffset: 0,
+                targetLength: wantLen
+            ) ?? false
+        }
+        
+        return false
+    }
+    /**
      Add a class name to this element's {@code class} attribute.
      @param className class name to add
      @return this element
