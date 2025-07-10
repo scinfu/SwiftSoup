@@ -28,12 +28,16 @@ open class Attributes: NSCopying {
     @usableFromInline
     var attributes: [Attribute] = [] {
         didSet {
-            if let lowercasedKeysCache, lowercasedKeysCache.contains(UTF8Arrays.class_) {
+            guard let lowercasedKeysCache else {
+                ownerElement?.markClassQueryIndexDirty()
+                return
+            }
+            if lowercasedKeysCache.contains(UTF8Arrays.class_) {
                 ownerElement?.markClassQueryIndexDirty()
                 updateLowercasedKeysCache()
             } else {
                 updateLowercasedKeysCache()
-                if let lowercasedKeysCache, lowercasedKeysCache.contains(UTF8Arrays.class_) {
+                if lowercasedKeysCache.contains(UTF8Arrays.class_) {
                     ownerElement?.markClassQueryIndexDirty()
                 }
             }
