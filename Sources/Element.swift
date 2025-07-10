@@ -1239,6 +1239,40 @@ open class Element: Node {
      * @return set of classnames, empty if no class attribute
      */
     @inlinable
+    internal func unorderedClassNamesUTF8() throws -> [ArraySlice<UInt8>] {
+        let input = try classNameUTF8()
+        var result = [ArraySlice<UInt8>]()
+        result.reserveCapacity(Int(ceil(CGFloat(input.underestimatedCount) / 10)))
+        var i = 0
+        let len = input.count
+        
+        while i < len {
+            // Skip any leading whitespace
+            while i < len && input[i].isWhitespace {
+                i += 1
+            }
+            let start = i
+            
+            // Find the end of the class name
+            while i < len && !input[i].isWhitespace {
+                i += 1
+            }
+            
+            if start < i {
+                result.append(input[start..<i])
+            }
+        }
+        
+        return result
+    }
+    
+    /**
+     * Get all of the element's class names. E.g. on element {@code <div class="header gray">},
+     * returns a set of two elements {@code "header", "gray"}. Note that modifications to this set are not pushed to
+     * the backing {@code class} attribute; use the {@link #classNames(java.util.Set)} method to persist them.
+     * @return set of classnames, empty if no class attribute
+     */
+    @inlinable
     public func classNamesUTF8() throws -> OrderedSet<[UInt8]> {
         let input = try classNameUTF8()
         let set = OrderedSet<[UInt8]>()
@@ -1707,9 +1741,9 @@ internal extension Element {
             let node = queue[idx]
             idx += 1
             if let element = node as? Element {
-                if let classNames = try? element.classNamesUTF8() {
+                if let classNames = try? element.unorderedClassNamesUTF8() {
                     for className in classNames {
-                        newIndex[className, default: []].append(Weak(element))
+                        newIndex[Array(className), default: []].append(Weak(element))
                     }
                 }
             }
