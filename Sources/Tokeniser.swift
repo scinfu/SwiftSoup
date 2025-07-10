@@ -20,8 +20,8 @@ final class Tokeniser {
     private var isEmitPending: Bool = false
     private var charsSlice: ArraySlice<UInt8>? = nil // characters pending an emit. Will fall to charsBuilder if more than one
     private var pendingSlices = [ArraySlice<UInt8>]()
-    private let charsBuilder: StringBuilder = StringBuilder(1024) // buffers characters to output as one token, if more than one emit per read
-    let dataBuffer: StringBuilder = StringBuilder(1024) // buffers data looking for </script>
+    private let charsBuilder: StringBuilder = StringBuilder(256) // buffers characters to output as one token, if more than one emit per read
+    let dataBuffer: StringBuilder = StringBuilder(4 * 1024) // buffers data looking for </script>
     
     var tagPending: Token.Tag = Token.Tag() // tag we are building up
     let startPending: Token.StartTag  = Token.StartTag()

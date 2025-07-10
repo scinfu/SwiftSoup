@@ -36,10 +36,12 @@ public class TreeBuilder {
         settings = ParseSettings(false, false)
     }
     
+    @inline(__always)
     func beginBulkAppend() {
         isBulkBuilding = true
     }
     
+    @inline(__always)
     func endBulkAppend() {
         isBulkBuilding = false
     }
@@ -82,9 +84,11 @@ public class TreeBuilder {
     }
     
     @discardableResult
+    @inline(__always)
     public func process(_ token: Token)throws->Bool {preconditionFailure("This method must be overridden")}
     
     @discardableResult
+    @inline(__always)
     public func processStartTag(_ name: [UInt8]) throws -> Bool {
         if (currentToken === start) { // don't recycle an in-use token
             return try process(Token.StartTag().name(name))
@@ -93,11 +97,13 @@ public class TreeBuilder {
     }
     
     @discardableResult
+    @inline(__always)
     public func processStartTag(_ name: String) throws -> Bool {
         return try processStartTag(name.utf8Array)
     }
     
     @discardableResult
+    @inline(__always)
     public func processStartTag(_ name: [UInt8], _ attrs: Attributes) throws -> Bool {
         if (currentToken === start) { // don't recycle an in-use token
             return try process(Token.StartTag().nameAttr(name, attrs))
@@ -108,11 +114,13 @@ public class TreeBuilder {
     }
     
     @discardableResult
+    @inline(__always)
     public func processStartTag(_ name: String, _ attrs: Attributes) throws -> Bool {
         return try processStartTag(name.utf8Array, attrs)
     }
     
     @discardableResult
+    @inline(__always)
     public func processEndTag(_ name: [UInt8]) throws -> Bool {
         if (currentToken === end) { // don't recycle an in-use token
             return try process(Token.EndTag().name(name))
@@ -122,10 +130,12 @@ public class TreeBuilder {
     }
     
     @discardableResult
+    @inline(__always)
     public func processEndTag(_ name: String) throws -> Bool {
         return try processEndTag(name.utf8Array)
     }
     
+    @inline(__always)
     public func currentElement() -> Element? {
         let size: Int = stack.count
         return size > 0 ? stack[size-1] : nil

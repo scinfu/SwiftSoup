@@ -13,6 +13,7 @@ open class Token {
     private init() {
     }
     
+    @inline(__always)
     func tokenType() -> String {
         return String(describing: Swift.type(of: self))
     }
@@ -22,15 +23,17 @@ open class Token {
      * piece of data, which immediately get GCed.
      */
     @discardableResult
+    @inline(__always)
     public func reset() -> Token {
         preconditionFailure("This method must be overridden")
     }
     
-    @inlinable
+    @inline(__always)
     static func reset(_ sb: StringBuilder) {
         sb.clear()
     }
     
+    @inline(__always)
     open func toString() throws -> String {
         return String(describing: Swift.type(of: self))
     }
@@ -57,22 +60,27 @@ open class Token {
             return self
         }
         
+        @inline(__always)
         func getName() -> [UInt8] {
             return name.buffer
         }
         
+        @inline(__always)
         func getPubSysKey() -> [UInt8]? {
             return pubSysKey
         }
         
+        @inline(__always)
         func getPublicIdentifier() -> [UInt8] {
             return publicIdentifier.buffer
         }
         
+        @inline(__always)
         public func getSystemIdentifier() -> [UInt8] {
             return systemIdentifier.buffer
         }
         
+        @inline(__always)
         public func isForceQuirks() -> Bool {
             return forceQuirks
         }
@@ -134,7 +142,7 @@ open class Token {
             _pendingAttributeValueS = nil
         }
         
-        @inlinable
+        @inline(__always)
         func finaliseTag() throws {
             // finalises for emit
             if (_pendingAttributeName != nil) {
@@ -143,7 +151,7 @@ open class Token {
             }
         }
         
-        @inlinable
+        @inline(__always)
         func name() throws -> [UInt8] { // preserves case, for input into Tag.valueOf (which may drop case)
             try Validate.isFalse(val: _tagName == nil || _tagName!.isEmpty)
             return _tagName!
@@ -217,19 +225,19 @@ open class Token {
             }
         }
         
-        @inlinable
+        @inline(__always)
         func appendAttributeValue(_ append: UnicodeScalar) {
             ensureAttributeValue()
             _pendingAttributeValue.appendCodePoint(append)
         }
         
-        @inlinable
+        @inline(__always)
         func appendAttributeValue(_ append: [UnicodeScalar]) {
             ensureAttributeValue()
             _pendingAttributeValue.appendCodePoints(append)
         }
         
-        @inlinable
+        @inline(__always)
         func appendAttributeValue(_ appendCodepoints: [Int]) {
             ensureAttributeValue()
             for codepoint in appendCodepoints {
@@ -237,11 +245,12 @@ open class Token {
             }
         }
         
-        @inlinable
+        @inline(__always)
         func setEmptyAttributeValue() {
             _hasEmptyAttributeValue = true
         }
         
+        @inline(__always)
         private func ensureAttributeValue() {
             _hasPendingAttributeValue = true
             // if on second hit, we'll need to move to the builder
@@ -259,7 +268,7 @@ open class Token {
         }
         
         @discardableResult
-        @inlinable
+        @inline(__always)
         override func reset() -> Tag {
             super.reset()
             return self
@@ -318,6 +327,7 @@ open class Token {
             return data.buffer
         }
         
+        @inline(__always)
         public override func toString() throws -> String {
             return "<!--" + String(decoding: getData(), as: UTF8.self) + "-->"
         }
