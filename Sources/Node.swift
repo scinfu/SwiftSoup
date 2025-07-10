@@ -28,8 +28,8 @@ open class Node: Equatable, Hashable {
     weak var parentNode: Node? {
         @inline(__always)
         didSet {
-            guard self is Element, oldValue !== parentNode else { return }
-            markQueryIndexDirty()
+            guard let element = self as? Element, oldValue !== parentNode else { return }
+            element.markQueryIndexDirty()
         }
     }
     
@@ -104,8 +104,6 @@ open class Node: Equatable, Hashable {
         
         self.attributes = nil
         self.baseUri = nil
-        
-        rebuildQueryIndexesForThisNodeOnly()
     }
     
     /**
@@ -869,7 +867,9 @@ open class Node: Equatable, Hashable {
                 currParent.childNodes.append(childClone)
                 queue.append(childClone)
             }
-            currParent.rebuildQueryIndexesForThisNodeOnly()
+            if let currParentElement = currParent as? Element {
+                currParentElement.rebuildQueryIndexesForThisNodeOnly()
+            }
         }
         
         return thisClone
@@ -890,7 +890,9 @@ open class Node: Equatable, Hashable {
             clone.childNodes.append(child)
         }
         
-        clone.rebuildQueryIndexesForThisNodeOnly()
+        if let cloneElement = clone as? Element {
+            cloneElement.rebuildQueryIndexesForThisNodeOnly()
+        }
         
         return clone
     }
@@ -966,54 +968,5 @@ extension Node: CustomDebugStringConvertible {
             
         }
         return String(describing: type(of: self))
-    }
-}
-
-internal extension Node {
-    @inlinable
-    func markQueryIndexDirty() {
-        guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
-        var current: Node? = self
-        while let node = current {
-            node.isQueryIndexDirty = true
-            current = node.parentNode
-        }
-    }
-    
-    @usableFromInline
-    func rebuildQueryIndexesForAllTags() {
-        var newIndex: [[UInt8]: [Weak<Element>]] = [:]
-        var queue: [Node] = [self]
-        
-        let childNodeCount = childNodeSize()
-        newIndex.reserveCapacity(childNodeCount * 4)
-        queue.reserveCapacity(childNodeCount)
-        
-        var index = 0
-        while index < queue.count {
-            let node = queue[index]
-            index += 1  // Move to the next element
-            
-            if let element = node as? Element {
-                let key = element.tagNameNormalUTF8()
-                newIndex[key, default: []].append(Weak(element))
-            }
-            
-            queue.append(contentsOf: node.childNodes)
-        }
-        
-        normalizedTagNameIndex = newIndex
-        isQueryIndexDirty = false
-    }
-    
-    @inlinable
-    func rebuildQueryIndexesForThisNodeOnly() {
-        normalizedTagNameIndex = nil
-        markQueryIndexDirty()
-    }
-    
-    @inlinable
-    func updateQueryIndex(for nodes: [Node], adding: Bool) {
-        markQueryIndexDirty()
     }
 }

@@ -1518,3 +1518,52 @@ open class Element: Node {
         hasher.combine(_tag)
     }
 }
+
+internal extension Element {
+    @inlinable
+    func markQueryIndexDirty() {
+        guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
+        var current: Node? = self
+        while let node = current {
+            node.isQueryIndexDirty = true
+            current = node.parentNode
+        }
+    }
+    
+    @usableFromInline
+    func rebuildQueryIndexesForAllTags() {
+        var newIndex: [[UInt8]: [Weak<Element>]] = [:]
+        var queue: [Node] = [self]
+        
+        let childNodeCount = childNodeSize()
+        newIndex.reserveCapacity(childNodeCount * 4)
+        queue.reserveCapacity(childNodeCount)
+        
+        var index = 0
+        while index < queue.count {
+            let node = queue[index]
+            index += 1  // Move to the next element
+            
+            if let element = node as? Element {
+                let key = element.tagNameNormalUTF8()
+                newIndex[key, default: []].append(Weak(element))
+            }
+            
+            queue.append(contentsOf: node.childNodes)
+        }
+        
+        normalizedTagNameIndex = newIndex
+        isQueryIndexDirty = false
+    }
+    
+    @inlinable
+    func rebuildQueryIndexesForThisNodeOnly() {
+        normalizedTagNameIndex = nil
+        markQueryIndexDirty()
+    }
+    
+    @inlinable
+    func updateQueryIndex(for nodes: [Node], adding: Bool) {
+        markQueryIndexDirty()
+    }
+}
