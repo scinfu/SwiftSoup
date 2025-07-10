@@ -26,8 +26,9 @@ open class Node: Equatable, Hashable {
     
     @usableFromInline
     weak var parentNode: Node? {
+        @inline(__always)
         didSet {
-            guard oldValue !== parentNode, self is Element else { return }
+            guard self is Element, oldValue !== parentNode else { return }
             markQueryIndexDirty()
         }
     }
@@ -63,9 +64,13 @@ open class Node: Equatable, Hashable {
      @param baseUri base URI
      @param attributes attributes (not null, but may be empty)
      */
-    public init(_ baseUri: [UInt8], _ attributes: Attributes) {
+    public init(
+        _ baseUri: [UInt8],
+        _ attributes: Attributes,
+        skipChildReserve: Bool = false
+    ) {
         childNodes = Node.EMPTY_NODES
-        if self is Element || self is DocumentType {
+        if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
         
@@ -73,9 +78,12 @@ open class Node: Equatable, Hashable {
         self.attributes = attributes
     }
     
-    public init(_ baseUri: [UInt8]) {
+    public init(
+        _ baseUri: [UInt8],
+        skipChildReserve: Bool = false
+    ) {
         childNodes = Node.EMPTY_NODES
-        if self is Element || self is DocumentType {
+        if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
         
@@ -86,9 +94,11 @@ open class Node: Equatable, Hashable {
     /**
      * Default constructor. Doesn't setup base uri, children, or attributes; use with caution.
      */
-    public init() {
+    public init(
+        skipChildReserve: Bool = false
+    ) {
         self.childNodes = Node.EMPTY_NODES
-        if self is Element || self is DocumentType {
+        if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
         
@@ -580,7 +590,7 @@ open class Node: Equatable, Hashable {
         try parentNode?.replaceChild(self, input)
     }
     
-    @inlinable
+    @inline(__always)
     public func setParentNode(_ parentNode: Node) throws {
         if (self.parentNode != nil) {
             try self.parentNode?.removeChild(self)
@@ -643,7 +653,7 @@ open class Node: Equatable, Hashable {
         }
     }
     
-    @inlinable
+    @inline(__always)
     public func reparentChild(_ child: Node)throws {
         try child.parentNode?.removeChild(child)
         try child.setParentNode(self)
@@ -786,6 +796,7 @@ open class Node: Equatable, Hashable {
      * @see Node#hasSameValue(Object) to compare nodes by their value
      */
     
+    @inline(__always)
     open func equals(_ o: Node) -> Bool {
         // implemented just so that javadoc is clear this is an identity test
         return self === o
@@ -797,7 +808,7 @@ open class Node: Equatable, Hashable {
      * @param o other object to compare to
      * @return true if the content of this node is the same as the other
      */
-    
+    @inline(__always)
     open func hasSameValue(_ o: Node)throws->Bool {
         if (self === o) {return true}
         //        if (type(of:self) != type(of: o))
@@ -816,12 +827,14 @@ open class Node: Equatable, Hashable {
      * The cloned node may be adopted into another Document or node structure using {@link Element#appendChild(Node)}.
      * @return stand-alone cloned node
      */
+    @inline(__always)
     public func copy(with zone: NSZone? = nil) -> Any {
-        return copy(clone: Node())
+        return copy(clone: Node(skipChildReserve: !hasChildNodes()))
     }
     
+    @inline(__always)
     public func copy(parent: Node?) -> Node {
-        let clone = Node()
+        let clone = Node(skipChildReserve: !hasChildNodes())
         return copy(clone: clone, parent: parent)
     }
     
