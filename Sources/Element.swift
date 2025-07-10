@@ -441,6 +441,9 @@ open class Element: Node {
     @inline(__always)
     internal func appendElement(_ tagName: [UInt8]) throws -> Element {
         let child: Element = Element(try Tag.valueOf(tagName), getBaseUriUTF8())
+        if let treeBuilder {
+            child.treeBuilder = treeBuilder
+        }
         try appendChild(child)
         return child
     }
@@ -462,6 +465,9 @@ open class Element: Node {
     @inline(__always)
     internal func prependElement(_ tagName: [UInt8]) throws -> Element {
         let child: Element = Element(try Tag.valueOf(tagName), getBaseUriUTF8())
+        if let treeBuilder {
+            child.treeBuilder = treeBuilder
+        }
         try prependChild(child)
         return child
     }
@@ -1642,12 +1648,18 @@ open class Element: Node {
     @inline(__always)
     public override func copy(with zone: NSZone? = nil) -> Any {
         let clone = Element(_tag, baseUri!, attributes!)
+        if let treeBuilder {
+            clone.treeBuilder = treeBuilder
+        }
         return copy(clone: clone)
     }
     
     @inline(__always)
     public override func copy(parent: Node?) -> Node {
         let clone = Element(_tag, baseUri!, attributes!)
+        if let treeBuilder {
+            clone.treeBuilder = treeBuilder
+        }
         return copy(clone: clone, parent: parent)
     }
     

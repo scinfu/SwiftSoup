@@ -8,7 +8,7 @@
 import Foundation
 
 protocol HtmlTreeBuilderStateProtocol {
-    func process(_ t: Token, _ tb: HtmlTreeBuilder)throws->Bool
+    func process(_ t: Token, _ tb: HtmlTreeBuilder) throws -> Bool
 }
 
 enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
@@ -93,7 +93,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             return true
         case .BeforeHtml:
 
-            func anythingElse(_ t: Token, _ tb: HtmlTreeBuilder)throws->Bool {
+            func anythingElse(_ t: Token, _ tb: HtmlTreeBuilder) throws -> Bool {
                 try tb.insertStartTag(UTF8Arrays.html)
                 tb.transition(.BeforeHead)
                 return try tb.process(t)
@@ -696,6 +696,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 }
 
                                 let replacement: Element = try Element(Tag.valueOf(node!.nodeNameUTF8(), ParseSettings.preserveCase), tb.getBaseUri())
+                                replacement.treeBuilder = tb
                                 // case will follow the original node (so honours ParseSettings)
                                 try tb.replaceActiveFormattingElement(node!, replacement)
                                 try tb.replaceOnStack(node!, replacement)
@@ -726,6 +727,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             }
 
                             let adopter: Element = Element(formatEl!.tag(), tb.getBaseUri())
+                            adopter.treeBuilder = tb
                             adopter.getAttributes()?.addAll(incoming: formatEl!.getAttributes())
                             let childNodes: [Node] = furthestBlock!.getChildNodes()
                             for childNode: Node in childNodes {

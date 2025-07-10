@@ -79,6 +79,7 @@ public class XmlTreeBuilder: TreeBuilder {
         } else {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
+        el.treeBuilder = self
         try insertNode(el)
         if (startTag.isSelfClosing()) {
             tokeniser.acknowledgeSelfClosingFlag()

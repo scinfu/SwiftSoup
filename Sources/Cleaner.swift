@@ -132,6 +132,9 @@ extension Cleaner {
             destAttrs.addAll(incoming: enforcedAttrs)
 
             let dest = try Element(Tag.valueOf(sourceTag.utf8Array), sourceEl.getBaseUriUTF8(), destAttrs)
+            if let treeBuilder = sourceEl.treeBuilder {
+                dest.treeBuilder = treeBuilder
+            }
             return ElementMeta(dest, numDiscarded)
         }
 	}
