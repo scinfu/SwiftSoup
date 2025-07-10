@@ -63,7 +63,7 @@ open class StringBuilder {
     @inline(__always)
     @discardableResult
     open func append(_ string: String) -> StringBuilder {
-        let bytes = Array(string.utf8)
+        let bytes = string.utf8
         write(contentsOf: bytes)
         return self
     }
@@ -136,7 +136,7 @@ open class StringBuilder {
     @discardableResult
     @inline(__always)
     open func append(_ value: ArraySlice<UInt8>) -> StringBuilder {
-        write(contentsOf: Array(value))
+        write(contentsOf: value)
         return self
     }
     
@@ -217,6 +217,24 @@ open class StringBuilder {
     @usableFromInline
     @inline(__always)
     internal func write(contentsOf bytes: [UInt8]) {
+        internalBuffer.reserveCapacity(size + bytes.count)
+        for byte in bytes {
+            write(byte)
+        }
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    internal func write(contentsOf bytes: String.UTF8View) {
+        internalBuffer.reserveCapacity(size + bytes.count)
+        for byte in bytes {
+            write(byte)
+        }
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    internal func write(contentsOf bytes: ArraySlice<UInt8>) {
         internalBuffer.reserveCapacity(size + bytes.count)
         for byte in bytes {
             write(byte)
