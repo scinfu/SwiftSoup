@@ -325,6 +325,7 @@ open class Node: Equatable, Hashable {
      * nodes
      * @return a deep copy of this node's children
      */
+    @inline(__always)
     open func childNodesCopy() -> Array<Node> {
         var children: Array<Node> = Array<Node>()
         for node: Node in childNodes {

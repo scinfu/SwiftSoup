@@ -130,26 +130,20 @@ public class XmlTreeBuilder: TreeBuilder {
      * @param endTag
      */
     private func popStackToClose(_ endTag: Token.EndTag) throws {
-        let elName: [UInt8] = try endTag.name()
-        var firstFound: Element? = nil
+        let elName = try endTag.name()
+        var targetIndex: Int? = nil
         
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            if (next.nodeNameUTF8() == elName) {
-                firstFound = next
+        // Find the index of the first matching tag from the top
+        for i in (0..<stack.count).reversed() {
+            if stack[i].nodeNameUTF8() == elName {
+                targetIndex = i
                 break
             }
         }
-        if (firstFound == nil) {
-            return // not found, skip
-        }
         
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            stack.remove(at: pos)
-            if (next == firstFound!) {
-                break
-            }
+        // If found, remove everything from that element upward
+        if let index = targetIndex {
+            stack.removeSubrange(index..<stack.count)
         }
     }
     

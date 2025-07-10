@@ -360,22 +360,14 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func popStackToClose(_ elName: [UInt8]) {
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            stack.remove(at: pos)
-            if (next.nodeNameUTF8() == elName) {
-                break
-            }
+        if let index = stack.lastIndex(where: { $0.nodeNameUTF8() == elName }) {
+            stack.removeSubrange(index..<stack.count)
         }
     }
     
     func popStackToClose(_ elName: ParsingStrings) {
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            stack.remove(at: pos)
-            if elName.contains(next.nodeNameUTF8()) {
-                break
-            }
+        if let index = stack.lastIndex(where: { elName.contains($0.nodeNameUTF8()) }) {
+            stack.removeSubrange(index..<stack.count)
         }
     }
     
@@ -384,22 +376,14 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func popStackToClose(_ elNames: [[UInt8]]) {
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            stack.remove(at: pos)
-            if elNames.contains(next.nodeNameUTF8()) {
-                break
-            }
+        if let index = stack.lastIndex(where: { elNames.contains($0.nodeNameUTF8()) }) {
+            stack.removeSubrange(index..<stack.count)
         }
     }
     
     func popStackToClose(_ elNames: Set<[UInt8]>) {
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            stack.remove(at: pos)
-            if elNames.contains(next.nodeNameUTF8()) {
-                break
-            }
+        if let index = stack.lastIndex(where: { elNames.contains($0.nodeNameUTF8()) }) {
+            stack.removeSubrange(index..<stack.count)
         }
     }
     

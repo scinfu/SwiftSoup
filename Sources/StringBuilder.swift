@@ -27,6 +27,7 @@ open class StringBuilder {
      
      :return: String
      */
+    @inline(__always)
     open func toString() -> String {
         return String(decoding: buffer, as: UTF8.self)
     }
@@ -34,10 +35,12 @@ open class StringBuilder {
     /**
      Return the current length of the String object
      */
+    @inline(__always)
     open var xlength: Int {
         return buffer.count
     }
     
+    @inline(__always)
     open var isEmpty: Bool {
         return buffer.isEmpty
     }
@@ -101,7 +104,7 @@ open class StringBuilder {
         }
     }
     
-    @inlinable
+    @inline(__always)
     open func appendCodePoints(_ chr: [UnicodeScalar]) {
         for chr in chr {
             appendCodePoint(chr)
@@ -121,29 +124,29 @@ open class StringBuilder {
 //        return self
 //    }
     
-    @inlinable
     @discardableResult
+    @inline(__always)
     open func append(_ value: ArraySlice<UInt8>) -> StringBuilder {
         buffer.append(contentsOf: value)
         return self
     }
     
-    @inlinable
     @discardableResult
+    @inline(__always)
     open func append(_ value: [UInt8]) -> StringBuilder {
         buffer.append(contentsOf: value)
         return self
     }
     
-    @inlinable
     @discardableResult
+    @inline(__always)
     open func append(_ value: UInt8) -> StringBuilder {
         buffer.append(value)
         return self
     }
 
-    @inlinable
     @discardableResult
+    @inline(__always)
     open func append(_ value: UnicodeScalar) -> StringBuilder {
         appendCodePoint(value)
         return self
@@ -157,6 +160,7 @@ open class StringBuilder {
      :return: reference to this StringBuilder instance
      */
     @discardableResult
+    @inline(__always)
     open func appendLine(_ string: String) -> StringBuilder {
         append(string)
         append("\n")
@@ -171,6 +175,7 @@ open class StringBuilder {
      :return: reference to this StringBuilder instance
      */
     @discardableResult
+    @inline(__always)
     open func appendLine<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
         append(value.description)
         append("\n")
@@ -183,7 +188,7 @@ open class StringBuilder {
      :return: reference to this StringBuilder instance
      */
     @discardableResult
-    @inlinable
+    @inline(__always)
     open func clear() -> StringBuilder {
         buffer.removeAll(keepingCapacity: true)
         return self
@@ -196,7 +201,7 @@ open class StringBuilder {
  :param: lhs StringBuilder
  :param: rhs String
  */
-@inlinable
+@inline(__always)
 public func += (lhs: StringBuilder, rhs: String) {
     lhs.append(rhs)
 }
@@ -207,7 +212,7 @@ public func += (lhs: StringBuilder, rhs: String) {
  :param: lhs Printable
  :param: rhs String
  */
-@inlinable
+@inline(__always)
 public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
     lhs.append(rhs.description)
 }
@@ -220,7 +225,7 @@ public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
  
  :result StringBuilder
  */
-@inlinable
+@inline(__always)
 public func +(lhs: StringBuilder, rhs: StringBuilder) -> StringBuilder {
     return StringBuilder(string: lhs.toString() + rhs.toString())
 }
