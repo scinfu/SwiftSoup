@@ -1167,6 +1167,7 @@ open class Element: Node {
      * @return this element
      */
     @discardableResult
+    @inline(__always)
     public func text(_ text: String) throws -> Element {
         empty()
         let textNode: TextNode = TextNode(text.utf8Array, baseUri)
@@ -1237,35 +1238,31 @@ open class Element: Node {
      * the backing {@code class} attribute; use the {@link #classNames(java.util.Set)} method to persist them.
      * @return set of classnames, empty if no class attribute
      */
+    @inlinable
     public func classNamesUTF8() throws -> OrderedSet<[UInt8]> {
-        let utf8ClassName = try classNameUTF8()
-        let classNames = OrderedSet<[UInt8]>()
-        var currentStartIndex: Int? = nil
+        let input = try classNameUTF8()
+        let set = OrderedSet<[UInt8]>()
+        var i = 0
+        let len = input.count
         
-        for (i, byte) in utf8ClassName.enumerated() {
-            if byte.isWhitespace {
-                if let start = currentStartIndex {
-                    let classBytes = utf8ClassName[start..<i]
-                    if !classBytes.isEmpty {
-                        classNames.append(Array(classBytes))
-                    }
-                    currentStartIndex = nil
-                }
-            } else {
-                if currentStartIndex == nil {
-                    currentStartIndex = i
-                }
+        while i < len {
+            // Skip any leading whitespace
+            while i < len && input[i].isWhitespace {
+                i += 1
+            }
+            let start = i
+            
+            // Find the end of the class name
+            while i < len && !input[i].isWhitespace {
+                i += 1
+            }
+            
+            if start < i {
+                set.append(Array(input[start..<i]))
             }
         }
         
-        if let start = currentStartIndex {
-            let classBytes = utf8ClassName[start..<utf8ClassName.count]
-            if !classBytes.isEmpty {
-                classNames.append(Array(classBytes))
-            }
-        }
-        
-        return classNames
+        return set
     }
     
     /**
@@ -1443,6 +1440,7 @@ open class Element: Node {
      @return this element
      */
     @discardableResult
+    @inline(__always)
     public func addClass(_ className: String) throws -> Element {
         let classes: OrderedSet<String> = try classNames()
         classes.append(className)
@@ -1456,6 +1454,7 @@ open class Element: Node {
      @return this element
      */
     @discardableResult
+    @inline(__always)
     public func removeClass(_ className: String) throws -> Element {
         let classes: OrderedSet<String> = try classNames()
         classes.remove(className)
@@ -1469,6 +1468,7 @@ open class Element: Node {
      @return this element
      */
     @discardableResult
+    @inline(__always)
     public func toggleClass(_ className: String) throws -> Element {
         let classes: OrderedSet<String> = try classNames()
         if (classes.contains(className)) {classes.remove(className)
@@ -1484,6 +1484,7 @@ open class Element: Node {
      * Get the value of a form element (input, textarea, etc).
      * @return the value of the form element, or empty string if not set.
      */
+    @inline(__always)
     public func val() throws -> String {
         if (tagName() == "textarea") {
             return try text()
@@ -1498,6 +1499,7 @@ open class Element: Node {
      * @return this element (for chaining)
      */
     @discardableResult
+    @inline(__always)
     public func val(_ value: String) throws -> Element {
         if (tagName() == "textarea") {
             try text(value)
@@ -1548,6 +1550,7 @@ open class Element: Node {
      * @return String of HTML.
      * @see #outerHtml()
      */
+    @inline(__always)
     public func html() throws -> String {
         let accum: StringBuilder = StringBuilder()
         try html2(accum)
@@ -1561,12 +1564,14 @@ open class Element: Node {
      * @return String of HTML.
      * @see #outerHtml()
      */
+    @inline(__always)
     public func htmlUTF8() throws -> [UInt8] {
         let accum: StringBuilder = StringBuilder()
         try html2(accum)
         return Array(getOutputSettings().prettyPrint() ? accum.buffer.trim() : accum.buffer)
     }
     
+    @inline(__always)
     private func html2(_ accum: StringBuilder) throws {
         for node in childNodes {
             try node.outerHtml(accum)
@@ -1576,6 +1581,7 @@ open class Element: Node {
     /**
      * {@inheritDoc}
      */
+    @inline(__always)
     open override func html(_ appendable: StringBuilder) throws -> StringBuilder {
         for node in childNodes {
             try node.outerHtml(appendable)
@@ -1660,8 +1666,9 @@ internal extension Element {
             current = node.parentNode
         }
     }
-
+    
     @usableFromInline
+    @inline(__always)
     func rebuildQueryIndexesForAllTags() {
         var newIndex: [[UInt8]: [Weak<Element>]] = [:]
         var queue: [Node] = [self]
@@ -1688,6 +1695,7 @@ internal extension Element {
     }
     
     @usableFromInline
+    @inline(__always)
     func rebuildQueryIndexesForAllClasses() {
         var newIndex: [[UInt8]: [Weak<Element>]] = [:]
         var queue: [Node] = [self]
