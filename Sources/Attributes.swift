@@ -27,20 +27,10 @@ open class Attributes: NSCopying {
     // the Attribute on retrieval.
     @usableFromInline
     var attributes: [Attribute] = [] {
+        @inline(__always)
         didSet {
-            guard let lowercasedKeysCache else {
-                ownerElement?.markClassQueryIndexDirty()
-                return
-            }
-            if lowercasedKeysCache.contains(UTF8Arrays.class_) {
-                ownerElement?.markClassQueryIndexDirty()
-                updateLowercasedKeysCache()
-            } else {
-                updateLowercasedKeysCache()
-                if lowercasedKeysCache.contains(UTF8Arrays.class_) {
-                    ownerElement?.markClassQueryIndexDirty()
-                }
-            }
+            ownerElement?.markClassQueryIndexDirty()
+            invalidateLowercasedKeysCache()
         }
     }
     
@@ -251,7 +241,7 @@ open class Attributes: NSCopying {
      Get the number of attributes in this set.
      @return size
      */
-    @inlinable
+    @inline(__always)
     open func size() -> Int {
         return attributes.count
     }
@@ -260,6 +250,7 @@ open class Attributes: NSCopying {
      Add all the attributes from the incoming set to this set.
      @param incoming attributes to add to these attributes.
      */
+    @inline(__always)
     open func addAll(incoming: Attributes?) {
         guard let incoming = incoming else { return }
         for attr in incoming.attributes {
@@ -272,7 +263,7 @@ open class Attributes: NSCopying {
      to keys will not be recognised in the containing set.
      @return an view of the attributes as a List.
      */
-    @inlinable
+    @inline(__always)
     open func asList() -> [Attribute] {
         return attributes
     }
@@ -282,6 +273,7 @@ open class Attributes: NSCopying {
      * starting with {@code data-}.
      * @return map of custom data attributes.
      */
+    @inline(__always)
     open func dataset() -> [String: String] {
         let prefixLength = Attributes.dataPrefix.count
         let pairs = attributes.filter { $0.isDataAttribute() }
@@ -294,6 +286,7 @@ open class Attributes: NSCopying {
      @return HTML
      @throws SerializationException if the HTML representation of the attributes cannot be constructed.
      */
+    @inline(__always)
     open func html() throws -> String {
         let accum = StringBuilder()
         try html(accum: accum, out: Document([]).outputSettings()) // output settings a bit funky, but this html() seldom used
@@ -305,6 +298,7 @@ open class Attributes: NSCopying {
      @return HTML
      @throws SerializationException if the HTML representation of the attributes cannot be constructed.
      */
+    @inline(__always)
     open func htmlUTF8() throws -> [UInt8] {
         let accum = StringBuilder()
         try html(accum: accum, out: Document([]).outputSettings()) // output settings a bit funky, but this html() seldom used
@@ -319,6 +313,7 @@ open class Attributes: NSCopying {
         }
     }
     
+    @inline(__always)
     open func toString()throws -> String {
         return try html()
     }
@@ -328,6 +323,7 @@ open class Attributes: NSCopying {
      * @param o attributes to compare with
      * @return if both sets of attributes have the same content
      */
+    @inline(__always)
     open func equals(o: AnyObject?) -> Bool {
         if(o == nil) {return false}
         if (self === o.self) {return true}
@@ -335,22 +331,26 @@ open class Attributes: NSCopying {
         return (attributes == that.attributes)
     }
     
+    @inline(__always)
     open func lowercaseAllKeys() {
         for ix in attributes.indices {
             attributes[ix].key = attributes[ix].key.lowercased()
         }
     }
     
+    @inline(__always)
     public func copy(with zone: NSZone? = nil) -> Any {
         let clone = Attributes()
         clone.attributes = attributes
         return clone
     }
     
+    @inline(__always)
     open func clone() -> Attributes {
         return self.copy() as! Attributes
     }
     
+    @inline(__always)
     fileprivate static func dataKey(key: [UInt8]) -> [UInt8] {
         return dataPrefix + key
     }
