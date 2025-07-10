@@ -9,16 +9,6 @@ import XCTest
 import SwiftSoup
 
 class CharacterReaderTest: XCTestCase {
-
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
     func testConsume() {
         let r = CharacterReader("one")
         XCTAssertEqual(0, r.getPos())
@@ -324,35 +314,4 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual(7, r.getPos())
         XCTAssertEqual("-", r.consume())
     }
-    
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testConsume", testConsume),
-			("testUnconsume", testUnconsume),
-            ("testMultibyteUnconsume", testMultibyteUnconsume),
-			("testMark", testMark),
-			("testConsumeToEnd", testConsumeToEnd),
-			("testNextIndexOfChar", testNextIndexOfChar),
-			("testNextIndexOfString", testNextIndexOfString),
-			("testNextIndexOfUnmatched", testNextIndexOfUnmatched),
-			("testConsumeToChar", testConsumeToChar),
-			("testConsumeToString", testConsumeToString),
-			("testAdvance", testAdvance),
-			("testConsumeToAny", testConsumeToAny),
-            ("testConsumeToAnyMultibyte", testConsumeToAnyMultibyte),
-			("testConsumeLetterSequence", testConsumeLetterSequence),
-			("testConsumeLetterThenDigitSequence", testConsumeLetterThenDigitSequence),
-			("testMatches", testMatches),
-			("testMatchesIgnoreCase", testMatchesIgnoreCase),
-			("testContainsIgnoreCase", testContainsIgnoreCase),
-			("testMatchesAny", testMatchesAny),
-			("testCachesStrings", testCachesStrings),
-			("testRangeEquals", testRangeEquals),
-            ("testJavaScriptParsingHangRegression", testJavaScriptParsingHangRegression),
-            ("testURLCrashRegression", testURLCrashRegression),
-            ("testMultibyteConsume", testMultibyteConsume),
-        ]
-	}()
-
 }

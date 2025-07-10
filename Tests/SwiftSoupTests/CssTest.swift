@@ -44,14 +44,6 @@ class CssTest: XCTestCase {
 		html  = try! SwiftSoup.parse(htmlString)
 	}
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
 
 	func testFirstChild() throws {
 		try check(html.select("#pseudo :first-child"), "1")
@@ -206,27 +198,4 @@ class CssTest: XCTestCase {
 		XCTAssertNotNil(sel2.get(0))
 		try XCTAssertEqual(Tag.valueOf("body"), sel2.get(0).tag())
 	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testFirstChild", testFirstChild),
-			("testLastChild", testLastChild),
-			("testNthChild_simple", testNthChild_simple),
-			("testNthOfType_unknownTag", testNthOfType_unknownTag),
-			("testNthLastChild_simple", testNthLastChild_simple),
-			("testNthOfType_simple", testNthOfType_simple),
-			("testNthLastOfType_simple", testNthLastOfType_simple),
-			("testNthChild_advanced", testNthChild_advanced),
-			("testNthOfType_advanced", testNthOfType_advanced),
-			("testNthLastChild_advanced", testNthLastChild_advanced),
-			("testNthLastOfType_advanced", testNthLastOfType_advanced),
-			("testFirstOfType", testFirstOfType),
-			("testLastOfType", testLastOfType),
-			("testEmpty", testEmpty),
-			("testOnlyChild", testOnlyChild),
-			("testOnlyOfType", testOnlyOfType),
-			("testRoot", testRoot)
-		]
-	}()
 }

@@ -11,15 +11,6 @@ import XCTest
 import SwiftSoup
 class ElementsTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
 	func testFilter() throws {
 		let h: String = "<p>Excl</p><div class=headline><p>Hello</p><p>There</p></div><div class=headline><h1>Headline</h1></div>"
 		let doc: Document = try SwiftSoup.parse(h)
@@ -320,42 +311,4 @@ class ElementsTest: XCTestCase {
         XCTAssertEqual("7", pText[6]);
         XCTAssertEqual("12", pText[11]);
     }
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testFilter", testFilter),
-			("testRandomAccessCollection", testRandomAccessCollection),
-			("testAttributes", testAttributes),
-			("testHasAttr", testHasAttr),
-			("testHasAbsAttr", testHasAbsAttr),
-			("testAttr", testAttr),
-			("testAbsAttr", testAbsAttr),
-			("testClasses", testClasses),
-			("testText", testText),
-			("testHasText", testHasText),
-			("testHtml", testHtml),
-			("testOuterHtml", testOuterHtml),
-			("testSetHtml", testSetHtml),
-			("testVal", testVal),
-			("testBefore", testBefore),
-			("testAfter", testAfter),
-			("testWrap", testWrap),
-			("testWrapDiv", testWrapDiv),
-			("testUnwrap", testUnwrap),
-			("testUnwrapP", testUnwrapP),
-			("testUnwrapKeepsSpace", testUnwrapKeepsSpace),
-			("testEmpty", testEmpty),
-			("testRemove", testRemove),
-			("testEq", testEq),
-			("testIs", testIs),
-			("testParents", testParents),
-			("testNot", testNot),
-			("testTagNameSet", testTagNameSet),
-			("testTraverse", testTraverse),
-			("testForms", testForms),
-			("testClassWithHyphen", testClassWithHyphen),
-            ("testEachText", testEachText)
-		]
-	}()
 }

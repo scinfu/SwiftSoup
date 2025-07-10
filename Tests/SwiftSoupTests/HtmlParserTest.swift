@@ -13,15 +13,6 @@ import SwiftSoup
 
 class HtmlParserTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-        XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests: \(thisClass.defaultTestSuite.tests.filter { test in !thisClass.allTests.contains(where: { $0.0 == String(test.name.split(separator: " ")[1].dropLast(1)) }) })")
-        #endif
-    }
-
 	func testParsesSimpleDocument() throws {
 		let html: String = "<html><head><title>First!</title></head><body><p>First post! <img src=\"foo.png\" /></p></body></html>"
 		let doc: Document = try SwiftSoup.parse(html)
@@ -630,84 +621,4 @@ class HtmlParserTest: XCTestCase {
 		XCTAssertEqual(try doc.select("span").first()!.children().size(), 0) // the span gets closed
 		XCTAssertEqual(try doc.select("table").size(), 1) // only one table
 	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testParsesSimpleDocument", testParsesSimpleDocument),
-            ("testParsesSimpleDocumentFromData", testParsesSimpleDocumentFromData),
-			("testParsesRoughAttributes", testParsesRoughAttributes),
-            ("testParsesMultibyteAttributes", testParsesMultibyteAttributes),
-			("testParsesQuiteRoughAttributes", testParsesQuiteRoughAttributes),
-            ("testParsesQuiteRoughAttributes2", testParsesQuiteRoughAttributes2),
-			("testParsesComments", testParsesComments),
-			("testParsesUnterminatedComments", testParsesUnterminatedComments),
-			("testDropsUnterminatedTag", testDropsUnterminatedTag),
-			("testDropsUnterminatedAttribute", testDropsUnterminatedAttribute),
-			("testParsesUnterminatedTextarea", testParsesUnterminatedTextarea),
-			("testParsesUnterminatedOption", testParsesUnterminatedOption),
-			("testSpaceAfterTag", testSpaceAfterTag),
-			("testCreatesDocumentStructure", testCreatesDocumentStructure),
-			("testCreatesStructureFromBodySnippet", testCreatesStructureFromBodySnippet),
-			("testHandlesEscapedData", testHandlesEscapedData),
-			("testHandlesDataOnlyTags", testHandlesDataOnlyTags),
-			("testHandlesTextAfterData", testHandlesTextAfterData),
-			("testHandlesTextArea", testHandlesTextArea),
-			("testPreservesSpaceInTextArea", testPreservesSpaceInTextArea),
-			("testPreservesSpaceInScript", testPreservesSpaceInScript),
-			("testDoesNotCreateImplicitLists", testDoesNotCreateImplicitLists),
-			("testDiscardsNakedTds", testDiscardsNakedTds),
-			("testHandlesNestedImplicitTable", testHandlesNestedImplicitTable),
-			("testHandlesWhatWgExpensesTableExample", testHandlesWhatWgExpensesTableExample),
-			("testHandlesTbodyTable", testHandlesTbodyTable),
-			("testHandlesImplicitCaptionClose", testHandlesImplicitCaptionClose),
-			("testNoTableDirectInTable", testNoTableDirectInTable),
-			("testIgnoresDupeEndTrTag", testIgnoresDupeEndTrTag),
-			("testHandlesBaseTags", testHandlesBaseTags),
-			("testHandlesProtocolRelativeUrl", testHandlesProtocolRelativeUrl),
-			("testHandlesCdata", testHandlesCdata),
-			("testHandlesUnclosedCdataAtEOF", testHandlesUnclosedCdataAtEOF),
-			("testHandlesInvalidStartTags", testHandlesInvalidStartTags),
-			("testHandlesUnknownTags", testHandlesUnknownTags),
-			("testHandlesUnknownInlineTags", testHandlesUnknownInlineTags),
-			("testParsesBodyFragment", testParsesBodyFragment),
-			("testHandlesUnknownNamespaceTags", testHandlesUnknownNamespaceTags),
-			("testHandlesKnownEmptyBlocks", testHandlesKnownEmptyBlocks),
-			("testHandlesSolidusAtAttributeEnd", testHandlesSolidusAtAttributeEnd),
-			("testHandlesMultiClosingBody", testHandlesMultiClosingBody),
-			("testHandlesUnclosedDefinitionLists", testHandlesUnclosedDefinitionLists),
-			("testHandlesBlocksInDefinitions", testHandlesBlocksInDefinitions),
-			("testHandlesFrames", testHandlesFrames),
-			("testIgnoresContentAfterFrameset", testIgnoresContentAfterFrameset),
-			("testHandlesJavadocFont", testHandlesJavadocFont),
-			("testHandlesBaseWithoutHref", testHandlesBaseWithoutHref),
-			("testNormalisesDocument", testNormalisesDocument),
-			("testNormalisesEmptyDocument", testNormalisesEmptyDocument),
-			("testNormalisesHeadlessBody", testNormalisesHeadlessBody),
-			("testNormalisedBodyAfterContent", testNormalisedBodyAfterContent),
-			("testfindsCharsetInMalformedMeta", testfindsCharsetInMalformedMeta),
-			("testHgroup", testHgroup),
-			("testRelaxedTags", testRelaxedTags),
-			("testHeaderContents", testHeaderContents),
-			("testSpanContents", testSpanContents),
-			("testNoImagesInNoScriptInHead", testNoImagesInNoScriptInHead),
-			("testAFlowContents", testAFlowContents),
-			("testFontFlowContents", testFontFlowContents),
-			("testhandlesMisnestedTagsBI", testhandlesMisnestedTagsBI),
-			("testhandlesMisnestedTagsBP", testhandlesMisnestedTagsBP),
-			("testhandlesUnexpectedMarkupInTables", testhandlesUnexpectedMarkupInTables),
-			("testHandlesUnclosedFormattingElements", testHandlesUnclosedFormattingElements),
-			("testhandlesUnclosedAnchors", testhandlesUnclosedAnchors),
-			("testreconstructFormattingElements", testreconstructFormattingElements),
-			("testreconstructFormattingElementsInTable", testreconstructFormattingElementsInTable),
-			("testcommentBeforeHtml", testcommentBeforeHtml),
-			("testemptyTdTag", testemptyTdTag),
-			("testhandlesSolidusInA", testhandlesSolidusInA),
-			("testhandlesSpanInTbody", testhandlesSpanInTbody),
-            ("testHandlesKnownEmptyNoFrames", testHandlesKnownEmptyNoFrames),
-            ("testHandlesKnownEmptyStyle", testHandlesKnownEmptyStyle),
-            ("testHandlesKnownEmptyTitle", testHandlesKnownEmptyTitle),
-		]
-	}()
-
 }

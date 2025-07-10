@@ -50,15 +50,6 @@ class DocumentTest: XCTestCase {
 //		}
 //	}
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
 	func testSetTextPreservesDocumentStructure() {
 		do {
 			let doc: Document = try SwiftSoup.parse("<p>Hello</p>")
@@ -482,38 +473,5 @@ class DocumentTest: XCTestCase {
         let text = try! doc.text()
         XCTAssertEqual(text, "TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST")
     }
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testSetTextPreservesDocumentStructure", testSetTextPreservesDocumentStructure),
-			("testTitles", testTitles),
-			("testOutputEncoding", testOutputEncoding),
-			("testXhtmlReferences", testXhtmlReferences),
-			("testNormalisesStructure", testNormalisesStructure),
-			("testClone", testClone),
-			("testClonesDeclarations", testClonesDeclarations),
-			("testHtmlAndXmlSyntax", testHtmlAndXmlSyntax),
-			("testHtmlParseDefaultsToHtmlOutputSyntax", testHtmlParseDefaultsToHtmlOutputSyntax),
-			("testHtmlAppendable", testHtmlAppendable),
-			("testDocumentsWithSameContentAreEqual", testDocumentsWithSameContentAreEqual),
-			("testDocumentsWithSameContentAreVerifialbe", testDocumentsWithSameContentAreVerifialbe),
-			("testMetaCharsetUpdateUtf8", testMetaCharsetUpdateUtf8),
-			("testMetaCharsetUpdateIsoLatin2", testMetaCharsetUpdateIsoLatin2),
-			("testMetaCharsetUpdateNoCharset", testMetaCharsetUpdateNoCharset),
-			("testMetaCharsetUpdateDisabled", testMetaCharsetUpdateDisabled),
-			("testMetaCharsetUpdateDisabledNoChanges", testMetaCharsetUpdateDisabledNoChanges),
-			("testMetaCharsetUpdateEnabledAfterCharsetChange", testMetaCharsetUpdateEnabledAfterCharsetChange),
-			("testMetaCharsetUpdateCleanup", testMetaCharsetUpdateCleanup),
-			("testMetaCharsetUpdateXmlUtf8", testMetaCharsetUpdateXmlUtf8),
-			("testMetaCharsetUpdateXmlIso2022JP", testMetaCharsetUpdateXmlIso2022JP),
-			("testMetaCharsetUpdateXmlNoCharset", testMetaCharsetUpdateXmlNoCharset),
-			("testMetaCharsetUpdateXmlDisabled", testMetaCharsetUpdateXmlDisabled),
-			("testMetaCharsetUpdateXmlDisabledNoChanges", testMetaCharsetUpdateXmlDisabledNoChanges),
-			("testMetaCharsetUpdatedDisabledPerDefault", testMetaCharsetUpdatedDisabledPerDefault),
-			("testThai", testThai),
-            ("testNewLine", testNewLine)
-		]
-	}()
 
 }
