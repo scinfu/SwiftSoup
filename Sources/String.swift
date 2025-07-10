@@ -11,6 +11,7 @@ extension UInt8 {
     /// Checks if the byte represents a whitespace character:
     /// Space (0x20), Tab (0x09), Newline (0x0A), Carriage Return (0x0D),
     /// Form Feed (0x0C), or Vertical Tab (0x0B).
+    @usableFromInline
     @inline(__always)
     var isWhitespace: Bool {
         switch self {
