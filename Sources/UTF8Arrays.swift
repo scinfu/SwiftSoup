@@ -191,3 +191,34 @@ public enum UTF8ArraySlices {
     public static let blobColon = UTF8Arrays.blobColon[...]
     public static let true_ = UTF8Arrays.true_[...]
 }
+
+extension Array where Element == UInt8 {
+    /// Compares a region of self to a region of another UTF8 string, optionally case-insensitive (ASCII only).
+    func regionMatches(
+        ignoreCase: Bool,
+        selfOffset: Int,
+        other: [UInt8],
+        otherOffset: Int,
+        targetLength: Int
+    ) -> Bool {
+        // Bounds check
+        if selfOffset < 0 || otherOffset < 0 ||
+            selfOffset > self.count - targetLength ||
+            otherOffset > other.count - targetLength {
+            return false
+        }
+        for i in 0..<targetLength {
+            var a = self[selfOffset + i]
+            var b = other[otherOffset + i]
+            if ignoreCase {
+                // ASCII case folding (A-Z 65-90, a-z 97-122)
+                if a >= 65 && a <= 90 { a += 32 }
+                if b >= 65 && b <= 90 { b += 32 }
+            }
+            if a != b {
+                return false
+            }
+        }
+        return true
+    }
+}

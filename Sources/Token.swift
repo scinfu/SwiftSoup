@@ -13,6 +13,7 @@ open class Token {
     private init() {
     }
     
+    @inline(__always)
     func tokenType() -> String {
         return String(describing: Swift.type(of: self))
     }
@@ -22,15 +23,17 @@ open class Token {
      * piece of data, which immediately get GCed.
      */
     @discardableResult
+    @inline(__always)
     public func reset() -> Token {
         preconditionFailure("This method must be overridden")
     }
     
-    @inlinable
+    @inline(__always)
     static func reset(_ sb: StringBuilder) {
         sb.clear()
     }
     
+    @inline(__always)
     open func toString() throws -> String {
         return String(describing: Swift.type(of: self))
     }
@@ -57,22 +60,27 @@ open class Token {
             return self
         }
         
+        @inline(__always)
         func getName() -> [UInt8] {
-            return name.buffer
+            return Array(name.buffer)
         }
         
+        @inline(__always)
         func getPubSysKey() -> [UInt8]? {
             return pubSysKey
         }
         
+        @inline(__always)
         func getPublicIdentifier() -> [UInt8] {
-            return publicIdentifier.buffer
+            return Array(publicIdentifier.buffer)
         }
         
+        @inline(__always)
         public func getSystemIdentifier() -> [UInt8] {
-            return systemIdentifier.buffer
+            return Array(systemIdentifier.buffer)
         }
         
+        @inline(__always)
         public func isForceQuirks() -> Bool {
             return forceQuirks
         }
@@ -95,7 +103,7 @@ open class Token {
         }
         
         @discardableResult
-        @inlinable
+        @inline(__always)
         override func reset() -> Tag {
             _tagName = nil
             _normalName = nil
@@ -115,7 +123,7 @@ open class Token {
                 if _hasPendingAttributeValue {
                     attribute = try Attribute(
                         key: pendingAttr,
-                        value: !_pendingAttributeValue.isEmpty ? _pendingAttributeValue.buffer : Array(_pendingAttributeValueS!)
+                        value: !_pendingAttributeValue.isEmpty ? Array(_pendingAttributeValue.buffer) : Array(_pendingAttributeValueS!)
                     )
                 } else if _hasEmptyAttributeValue {
                     attribute = try Attribute(key: pendingAttr, value: [])
@@ -134,7 +142,7 @@ open class Token {
             _pendingAttributeValueS = nil
         }
         
-        @inlinable
+        @inline(__always)
         func finaliseTag() throws {
             // finalises for emit
             if (_pendingAttributeName != nil) {
@@ -143,7 +151,7 @@ open class Token {
             }
         }
         
-        @inlinable
+        @inline(__always)
         func name() throws -> [UInt8] { // preserves case, for input into Tag.valueOf (which may drop case)
             try Validate.isFalse(val: _tagName == nil || _tagName!.isEmpty)
             return _tagName!
@@ -175,39 +183,39 @@ open class Token {
         }
         
         // these appenders are rarely hit in not null state-- caused by null chars.
-        @inlinable
+        @inline(__always)
         func appendTagName(_ append: [UInt8]) {
             appendTagName(append[...])
         }
         
         // these appenders are rarely hit in not null state-- caused by null chars.
-        @inlinable
+        @inline(__always)
         func appendTagName(_ append: ArraySlice<UInt8>) {
             _tagName = _tagName == nil ? Array(append) : (_tagName! + Array(append))
             _normalName = _tagName?.lowercased()
         }
         
-        @inlinable
+        @inline(__always)
         func appendTagName(_ append: UnicodeScalar) {
             appendTagName(ArraySlice(append.utf8))
         }
         
-        @inlinable
+        @inline(__always)
         func appendAttributeName(_ append: [UInt8]) {
             appendAttributeName(append[...])
         }
         
-        @inlinable
+        @inline(__always)
         func appendAttributeName(_ append: ArraySlice<UInt8>) {
             _pendingAttributeName = _pendingAttributeName == nil ? Array(append) : ((_pendingAttributeName ?? []) + Array(append))
         }
         
-        @inlinable
+        @inline(__always)
         func appendAttributeName(_ append: UnicodeScalar) {
             appendAttributeName(Array(append.utf8))
         }
         
-        @inlinable
+        @inline(__always)
         func appendAttributeValue(_ append: ArraySlice<UInt8>) {
             ensureAttributeValue()
             if _pendingAttributeValue.isEmpty {
@@ -217,19 +225,19 @@ open class Token {
             }
         }
         
-        @inlinable
+        @inline(__always)
         func appendAttributeValue(_ append: UnicodeScalar) {
             ensureAttributeValue()
             _pendingAttributeValue.appendCodePoint(append)
         }
         
-        @inlinable
+        @inline(__always)
         func appendAttributeValue(_ append: [UnicodeScalar]) {
             ensureAttributeValue()
             _pendingAttributeValue.appendCodePoints(append)
         }
         
-        @inlinable
+        @inline(__always)
         func appendAttributeValue(_ appendCodepoints: [Int]) {
             ensureAttributeValue()
             for codepoint in appendCodepoints {
@@ -237,11 +245,12 @@ open class Token {
             }
         }
         
-        @inlinable
+        @inline(__always)
         func setEmptyAttributeValue() {
             _hasEmptyAttributeValue = true
         }
         
+        @inline(__always)
         private func ensureAttributeValue() {
             _hasPendingAttributeValue = true
             // if on second hit, we'll need to move to the builder
@@ -259,13 +268,14 @@ open class Token {
         }
         
         @discardableResult
-        @inlinable
+        @inline(__always)
         override func reset() -> Tag {
             super.reset()
             return self
         }
         
         @discardableResult
+        @inline(__always)
         func nameAttr(_ name: [UInt8], _ attributes: Attributes) -> StartTag {
             self._tagName = name
             self._attributes = attributes
@@ -273,6 +283,7 @@ open class Token {
             return self
         }
         
+        @inline(__always)
         public override func toString() throws -> String {
             if let _attributes, !_attributes.attributes.isEmpty {
                 return "<" + String(decoding: try name(), as: UTF8.self) + " " + (try _attributes.toString()) + ">"
@@ -288,6 +299,7 @@ open class Token {
             type = TokenType.EndTag
         }
         
+        @inline(__always)
         public override func toString() throws -> String {
             return "</" + String(decoding: try name(), as: UTF8.self) + ">"
         }
@@ -298,6 +310,7 @@ open class Token {
         var bogus: Bool = false
         
         @discardableResult
+        @inline(__always)
         override func reset() -> Token {
             Token.reset(data)
             bogus = false
@@ -309,10 +322,12 @@ open class Token {
             type = TokenType.Comment
         }
         
+        @inline(__always)
         func getData() -> [UInt8] {
-            return data.buffer
+            return Array(data.buffer)
         }
         
+        @inline(__always)
         public override func toString() throws -> String {
             return "<!--" + String(decoding: getData(), as: UTF8.self) + "-->"
         }
@@ -327,21 +342,25 @@ open class Token {
         }
         
         @discardableResult
+        @inline(__always)
         override func reset() -> Token {
             data = nil
             return self
         }
         
         @discardableResult
+        @inline(__always)
         func data(_ data: [UInt8]) -> Char {
             self.data = data
             return self
         }
         
+        @inline(__always)
         func getData() -> [UInt8]? {
             return data
         }
         
+        @inline(__always)
         public override func toString() throws -> String {
             try Validate.notNull(obj: data)
             return String(decoding: getData()!, as: UTF8.self) ?? ""
@@ -355,51 +374,63 @@ open class Token {
         }
         
         @discardableResult
+        @inline(__always)
         override func reset() -> Token {
             return self
         }
     }
     
+    @inline(__always)
     func isDoctype() -> Bool {
         return type == TokenType.Doctype
     }
     
+    @inline(__always)
     func asDoctype() -> Doctype {
         return self as! Doctype
     }
     
+    @inline(__always)
     func isStartTag() -> Bool {
         return type == TokenType.StartTag
     }
     
+    @inline(__always)
     func asStartTag() -> StartTag {
         return self as! StartTag
     }
     
+    @inline(__always)
     func isEndTag() -> Bool {
         return type == TokenType.EndTag
     }
     
+    @inline(__always)
     func asEndTag() -> EndTag {
         return self as! EndTag
     }
     
+    @inline(__always)
     func isComment() -> Bool {
         return type == TokenType.Comment
     }
     
+    @inline(__always)
     func asComment() -> Comment {
         return self as! Comment
     }
     
+    @inline(__always)
     func isCharacter() -> Bool {
         return type == TokenType.Char
     }
     
+    @inline(__always)
     func asCharacter() -> Char {
         return self as! Char
     }
     
+    @inline(__always)
     func isEOF() -> Bool {
         return type == TokenType.EOF
     }

@@ -3,7 +3,14 @@
  Based on https://gist.github.com/kristopherjohnson/1fc55e811d944a430289
  */
 open class StringBuilder {
-    public var buffer: [UInt8] = []
+    private var internalBuffer: [UInt8] = []
+    /// Number of bytes currently used in buffer
+    private var size: Int = 0
+    
+    /// Read-only view of the active buffer contents
+    public var buffer: ArraySlice<UInt8> {
+        return internalBuffer[0..<size]
+    }
     
     /**
      Construct with initial String contents
@@ -12,14 +19,15 @@ open class StringBuilder {
      */
     public init(string: String? = nil) {
         if let string, !string.isEmpty {
-            buffer.append(contentsOf: string.utf8)
+            internalBuffer.append(contentsOf: string.utf8)
+            size = internalBuffer.count
         }
-        buffer.reserveCapacity(1024)
+        internalBuffer.reserveCapacity(1024)
     }
     
-    public init(_ size: Int) {
-        buffer = Array()
-        buffer.reserveCapacity(size)
+    public init(_ capacity: Int) {
+        internalBuffer = []
+        internalBuffer.reserveCapacity(capacity)
     }
     
     /**
@@ -27,19 +35,22 @@ open class StringBuilder {
      
      :return: String
      */
+    @inline(__always)
     open func toString() -> String {
-        return String(decoding: buffer, as: UTF8.self)
+        return String(decoding: internalBuffer[0..<size], as: UTF8.self)
     }
     
     /**
      Return the current length of the String object
      */
-    open var xlength: Int {
-        return buffer.count
+    @inline(__always)
+    open var length: Int {
+        return size
     }
     
+    @inline(__always)
     open var isEmpty: Bool {
-        return buffer.isEmpty
+        return size == 0
     }
     
     /**
@@ -52,7 +63,8 @@ open class StringBuilder {
     @inline(__always)
     @discardableResult
     open func append(_ string: String) -> StringBuilder {
-        buffer.append(contentsOf: string.utf8)
+        let bytes = string.utf8
+        write(contentsOf: bytes)
         return self
     }
     
@@ -76,23 +88,23 @@ open class StringBuilder {
         let val = ch.value
         if val < 0x80 {
             // 1-byte ASCII
-            buffer.append(UInt8(val))
+            write(UInt8(val))
         } else if val < 0x800 {
             // 2-byte sequence
-            buffer.append(contentsOf: [
+            write(contentsOf: [
                 UInt8(0xC0 | (val >> 6)),
                 UInt8(0x80 | (val & 0x3F))
             ])
         } else if val < 0x10000 {
             // 3-byte sequence
-            buffer.append(contentsOf: [
+            write(contentsOf: [
                 UInt8(0xE0 | (val >> 12)),
                 UInt8(0x80 | ((val >> 6) & 0x3F)),
                 UInt8(0x80 | (val & 0x3F))
             ])
         } else {
             // 4-byte sequence
-            buffer.append(contentsOf: [
+            write(contentsOf: [
                 UInt8(0xF0 | (val >> 18)),
                 UInt8(0x80 | ((val >> 12) & 0x3F)),
                 UInt8(0x80 | ((val >> 6) & 0x3F)),
@@ -101,7 +113,7 @@ open class StringBuilder {
         }
     }
     
-    @inlinable
+    @inline(__always)
     open func appendCodePoints(_ chr: [UnicodeScalar]) {
         for chr in chr {
             appendCodePoint(chr)
@@ -115,35 +127,35 @@ open class StringBuilder {
      
      :return: reference to this StringBuilder instance
      */
-//    @discardableResult
-//    open func append<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
-//        append(value.description)
-//        return self
-//    }
+    //    @discardableResult
+    //    open func append<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
+    //        append(value.description)
+    //        return self
+    //    }
     
-    @inlinable
     @discardableResult
+    @inline(__always)
     open func append(_ value: ArraySlice<UInt8>) -> StringBuilder {
-        buffer.append(contentsOf: value)
+        write(contentsOf: value)
         return self
     }
     
-    @inlinable
     @discardableResult
+    @inline(__always)
     open func append(_ value: [UInt8]) -> StringBuilder {
-        buffer.append(contentsOf: value)
+        write(contentsOf: value)
         return self
     }
     
-    @inlinable
     @discardableResult
+    @inline(__always)
     open func append(_ value: UInt8) -> StringBuilder {
-        buffer.append(value)
+        write(value)
         return self
     }
-
-    @inlinable
+    
     @discardableResult
+    @inline(__always)
     open func append(_ value: UnicodeScalar) -> StringBuilder {
         appendCodePoint(value)
         return self
@@ -157,6 +169,7 @@ open class StringBuilder {
      :return: reference to this StringBuilder instance
      */
     @discardableResult
+    @inline(__always)
     open func appendLine(_ string: String) -> StringBuilder {
         append(string)
         append("\n")
@@ -171,6 +184,7 @@ open class StringBuilder {
      :return: reference to this StringBuilder instance
      */
     @discardableResult
+    @inline(__always)
     open func appendLine<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
         append(value.description)
         append("\n")
@@ -183,10 +197,48 @@ open class StringBuilder {
      :return: reference to this StringBuilder instance
      */
     @discardableResult
-    @inlinable
+    @inline(__always)
     open func clear() -> StringBuilder {
-        buffer.removeAll(keepingCapacity: true)
+        size = 0
         return self
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    internal func write(_ byte: UInt8) {
+        if size < internalBuffer.count {
+            internalBuffer[size] = byte
+        } else {
+            internalBuffer.append(byte)
+        }
+        size += 1
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    internal func write(contentsOf bytes: [UInt8]) {
+        internalBuffer.reserveCapacity(size + bytes.count)
+        for byte in bytes {
+            write(byte)
+        }
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    internal func write(contentsOf bytes: String.UTF8View) {
+        internalBuffer.reserveCapacity(size + bytes.count)
+        for byte in bytes {
+            write(byte)
+        }
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    internal func write(contentsOf bytes: ArraySlice<UInt8>) {
+        internalBuffer.reserveCapacity(size + bytes.count)
+        for byte in bytes {
+            write(byte)
+        }
     }
 }
 
@@ -196,7 +248,7 @@ open class StringBuilder {
  :param: lhs StringBuilder
  :param: rhs String
  */
-@inlinable
+@inline(__always)
 public func += (lhs: StringBuilder, rhs: String) {
     lhs.append(rhs)
 }
@@ -207,7 +259,7 @@ public func += (lhs: StringBuilder, rhs: String) {
  :param: lhs Printable
  :param: rhs String
  */
-@inlinable
+@inline(__always)
 public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
     lhs.append(rhs.description)
 }
@@ -220,7 +272,7 @@ public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
  
  :result StringBuilder
  */
-@inlinable
+@inline(__always)
 public func +(lhs: StringBuilder, rhs: StringBuilder) -> StringBuilder {
     return StringBuilder(string: lhs.toString() + rhs.toString())
 }

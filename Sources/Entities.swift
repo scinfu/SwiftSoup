@@ -25,18 +25,18 @@ public class Entities {
     private static let quotEntityUTF8 = "&quot;".utf8Array
     
     private static let spaceString: [UInt8] = [0x20]
-
+    
     public class EscapeMode: Equatable {
-
+        
         /** Restricted entities suitable for XHTML output: lt, gt, amp, and quot only. */
         public static let xhtml: EscapeMode = EscapeMode(string: Entities.xhtml, size: 4, id: 0)
         /** Default HTML output entities. */
         public static let base: EscapeMode = EscapeMode(string: Entities.base, size: 106, id: 1)
         /** Complete HTML entities. */
         public static let extended: EscapeMode = EscapeMode(string: Entities.full, size: 2125, id: 2)
-
+        
         fileprivate let value: Int
-
+        
         struct NamedCodepoint {
             let scalar: UnicodeScalar
             let name: ArraySlice<UInt8>
@@ -45,16 +45,16 @@ public class Entities {
         // Array of named references, sorted by name for binary search. built by BuildEntities.
         // The few entities that map to a multi-codepoint sequence go into multipoints.
         fileprivate var entitiesByName: [NamedCodepoint] = []
-
+        
         // Array of entities in first-codepoint order. We don't currently support
         // multicodepoints to single named value currently. Lazy because this index
         // is used only when generating HTML text.
         fileprivate lazy var entitiesByCodepoint = entitiesByName.sorted() { a, b in a.scalar < b.scalar }
-
+        
         public static func == (left: EscapeMode, right: EscapeMode) -> Bool {
             return left.value == right.value
         }
-
+        
         static func != (left: EscapeMode, right: EscapeMode) -> Bool {
             return left.value != right.value
         }
@@ -81,9 +81,9 @@ public class Entities {
                 }
                 let _ = reader.consumeTo("\n".utf8Array).toInt(radix: codepointRadix) ?? 0
                 reader.advance()
-
+                
                 entitiesByName.append(NamedCodepoint(scalar: UnicodeScalar(cp1)!, name: name))
-
+                
                 if cp2 != empty {
                     multipointsLock.lock()
                     multipoints[name] = [UnicodeScalar(cp1)!, UnicodeScalar(cp2)!]
@@ -93,7 +93,7 @@ public class Entities {
             // Entities should start in name order, but better safe than sorry...
             entitiesByName.sort() { a, b in a.name < b.name }
         }
-
+        
         // Only returns the first of potentially multiple codepoints
         public func codepointForName(_ name: [UInt8]) -> UnicodeScalar? {
             return codepointForName(name[...])
@@ -140,15 +140,15 @@ public class Entities {
             // Return the last match as an array of UInt8
             return matches.isEmpty ? nil : Array(matches.sorted().last ?? [])
         }
-
+        
         private func size() -> Int {
             return entitiesByName.count
         }
     }
-
+    
     private static var multipoints: [ArraySlice<UInt8>: [UnicodeScalar]] = [:] // name -> multiple character references
     private static var multipointsLock = MutexLock()
-
+    
     /**
      * Check if the input is a known named entity
      * @param name the possible entity name (e.g. "lt" or "amp")
@@ -157,7 +157,7 @@ public class Entities {
     public static func isNamedEntity(_ name: ArraySlice<UInt8>) -> Bool {
         return (EscapeMode.extended.codepointForName(name) != nil)
     }
-
+    
     /**
      * Check if the input is a known named entity in the base entity set.
      * @param name the possible entity name (e.g. "lt" or "amp")
@@ -167,7 +167,7 @@ public class Entities {
     public static func isBaseNamedEntity(_ name: ArraySlice<UInt8>) -> Bool {
         return EscapeMode.base.codepointForName(name) != nil
     }
-
+    
     /**
      * Get the character(s) represented by the named entitiy
      * @param name entity (e.g. "lt" or "amp")
@@ -183,7 +183,7 @@ public class Entities {
         }
         return nil
     }
-
+    
     public static func codepointsForName(_ name: ArraySlice<UInt8>) -> [UnicodeScalar]? {
         multipointsLock.lock()
         if let scalars = multipoints[name] {
@@ -197,16 +197,15 @@ public class Entities {
         }
         return nil
     }
-
+    
     public static func escape(_ string: String, _ encode: String.Encoding = .utf8 ) -> String {
         return Entities.escape(string, OutputSettings().charset(encode).escapeMode(Entities.EscapeMode.extended))
     }
-
+    
     public static func escape(_ string: String, _ out: OutputSettings) -> String {
-        var accum = [UInt8]()
-        accum.reserveCapacity(string.utf8.count * 2)
-        escape(&accum, string.utf8Array, out, false, false, false)
-        return String(decoding: accum, as: UTF8.self)
+        let accum = StringBuilder()
+        escape(accum, string.utf8Array, out, false, false, false)
+        return accum.toString()
     }
     
     @inline(__always)
@@ -220,7 +219,7 @@ public class Entities {
     // this method is ugly, and does a lot. but other breakups cause rescanning and stringbuilder generations
     @usableFromInline
     static func escape(
-        _ accum: inout [UInt8],
+        _ accum: StringBuilder,
         _ string: [UInt8],
         _ out: OutputSettings,
         _ inAttribute: Bool,
@@ -231,7 +230,6 @@ public class Entities {
         let encoder = out.encoder()
         let encoderKnownToBeAbleToEncode = encoder == .ascii || encoder == .utf8 || encoder == .utf16
         let count = string.count
-        accum.reserveCapacity(count)
         string.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return }
             var i = 0
@@ -257,24 +255,24 @@ public class Entities {
                 if b < 0x80 {
                     switch b {
                     case 0x26:
-                        accum.append(contentsOf: ampEntityUTF8)
+                        accum.append(ampEntityUTF8)
                     case 0xA0:
-                        accum.append(contentsOf: escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
+                        accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
                     case 0x3C:
                         if !inAttribute || escapeMode == .xhtml {
-                            accum.append(contentsOf: ltEntityUTF8)
+                            accum.append(ltEntityUTF8)
                         } else {
                             accum.append(b)
                         }
                     case 0x3E:
                         if !inAttribute {
-                            accum.append(contentsOf: gtEntityUTF8)
+                            accum.append(gtEntityUTF8)
                         } else {
                             accum.append(b)
                         }
                     case 0x22:
                         if inAttribute {
-                            accum.append(contentsOf: quotEntityUTF8)
+                            accum.append(quotEntityUTF8)
                         } else {
                             accum.append(b)
                         }
@@ -282,7 +280,7 @@ public class Entities {
                         if encoderKnownToBeAbleToEncode || canEncode(byte: b, encoder: encoder) {
                             accum.append(b)
                         } else {
-                            appendEncoded(accum: &accum, escapeMode: escapeMode, bytes: [b])
+                            appendEncoded(accum: accum, escapeMode: escapeMode, bytes: [b])
                         }
                     }
                     i += 1
@@ -294,9 +292,9 @@ public class Entities {
                         charBytes.append(base[j])
                     }
                     if canEncode(bytes: charBytes, encoder: encoder) {
-                        accum.append(contentsOf: charBytes)
+                        accum.append(charBytes)
                     } else {
-                        appendEncoded(accum: &accum, escapeMode: escapeMode, bytes: charBytes)
+                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
                     }
                     i += len
                 }
@@ -305,24 +303,24 @@ public class Entities {
     }
     
     @inlinable
-    internal static func appendEncoded(accum: inout [UInt8], escapeMode: EscapeMode, bytes: [UInt8]) {
+    internal static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: [UInt8]) {
         if let name = escapeMode.nameForCodepoint(bytes) {
             accum.append(0x26) // '&'
-            accum.append(contentsOf: name)
+            accum.append(name)
             accum.append(0x3B) // ';'
         } else {
             guard let scalar = String(bytes: bytes, encoding: .utf8)?.unicodeScalars.first else {
-                accum.append(contentsOf: [0x26, 0x23, 0x78]) // '&#x'
-                for b in bytes { accum.append(contentsOf: String.toHexString(n: Int(b)).utf8Array) }
+                accum.append([0x26, 0x23, 0x78]) // '&#x'
+                for b in bytes { accum.append(String.toHexString(n: Int(b)).utf8Array) }
                 accum.append(0x3B)
                 return
             }
-            accum.append(contentsOf: [0x26, 0x23, 0x78])
-            accum.append(contentsOf: String.toHexString(n: Int(scalar.value)).utf8Array)
+            accum.append([0x26, 0x23, 0x78])
+            accum.append(String.toHexString(n: Int(scalar.value)).utf8Array)
             accum.append(0x3B)
         }
     }
-
+    
     public static func unescape(_ string: [UInt8]) throws -> [UInt8] {
         return try unescape(string: string, strict: false)
     }
@@ -330,7 +328,7 @@ public class Entities {
     public static func unescape(_ string: String) throws -> String {
         return try String(decoding: unescape(string: string.utf8Array, strict: false), as: UTF8.self)
     }
-
+    
     /**
      * Unescape the input string.
      * @param string to un-HTML-escape
@@ -344,7 +342,7 @@ public class Entities {
     public static func unescape(string: [UInt8], strict: Bool) throws -> [UInt8] {
         return try Parser.unescapeEntities(string, strict)
     }
-
+    
     /*
      * Provides a fast-path for Encoder.canEncode, which drastically improves performance on Android post JellyBean.
      * After KitKat, the implementation of canEncode degrades to the point of being useless. For non ASCII or UTF,
@@ -407,7 +405,7 @@ public class Entities {
             return String(bytes: [byte], encoding: encoder) != nil
         }
     }
-
+    
     static let xhtml: [UInt8] = "amp=12;1\ngt=1q;3\nlt=1o;2\nquot=y;0".utf8Array
     
     static let base: [UInt8] = "AElig=5i;1c\nAMP=12;2\nAacute=5d;17\nAcirc=5e;18\nAgrave=5c;16\nAring=5h;1b\nAtilde=5f;19\nAuml=5g;1a\nCOPY=4p;h\nCcedil=5j;1d\nETH=5s;1m\nEacute=5l;1f\nEcirc=5m;1g\nEgrave=5k;1e\nEuml=5n;1h\nGT=1q;6\nIacute=5p;1j\nIcirc=5q;1k\nIgrave=5o;1i\nIuml=5r;1l\nLT=1o;4\nNtilde=5t;1n\nOacute=5v;1p\nOcirc=5w;1q\nOgrave=5u;1o\nOslash=60;1u\nOtilde=5x;1r\nOuml=5y;1s\nQUOT=y;0\nREG=4u;n\nTHORN=66;20\nUacute=62;1w\nUcirc=63;1x\nUgrave=61;1v\nUuml=64;1y\nYacute=65;1z\naacute=69;23\nacirc=6a;24\nacute=50;u\naelig=6e;28\nagrave=68;22\namp=12;3\naring=6d;27\natilde=6b;25\nauml=6c;26\nbrvbar=4m;e\nccedil=6f;29\ncedil=54;y\ncent=4i;a\ncopy=4p;i\ncurren=4k;c\ndeg=4w;q\ndivide=6v;2p\neacute=6h;2b\necirc=6i;2c\negrave=6g;2a\neth=6o;2i\neuml=6j;2d\nfrac12=59;13\nfrac14=58;12\nfrac34=5a;14\ngt=1q;7\niacute=6l;2f\nicirc=6m;2g\niexcl=4h;9\nigrave=6k;2e\niquest=5b;15\niuml=6n;2h\nlaquo=4r;k\nlt=1o;5\nmacr=4v;p\nmicro=51;v\nmiddot=53;x\nnbsp=4g;8\nnot=4s;l\nntilde=6p;2j\noacute=6r;2l\nocirc=6s;2m\nograve=6q;2k\nordf=4q;j\nordm=56;10\noslash=6w;2q\notilde=6t;2n\nouml=6u;2o\npara=52;w\nplusmn=4x;r\npound=4j;b\nquot=y;1\nraquo=57;11\nreg=4u;o\nsect=4n;f\nshy=4t;m\nsup1=55;z\nsup2=4y;s\nsup3=4z;t\nszlig=67;21\nthorn=72;2w\ntimes=5z;1t\nuacute=6y;2s\nucirc=6z;2t\nugrave=6x;2r\numl=4o;g\nuuml=70;2u\nyacute=71;2v\nyen=4l;d\nyuml=73;2x".utf8Array
@@ -418,23 +416,23 @@ public class Entities {
 final class MutexLock: NSLocking {
     
     private let locker: NSLocking
-
+    
     init() {
-        #if os(iOS) || os(macOS) || os(watchOS) || os(tvOS)
+#if os(iOS) || os(macOS) || os(watchOS) || os(tvOS)
         if #available(iOS 10.0, macOS 10.12, watchOS 3.0, tvOS 10.0, *) {
             locker = UnfairLock()
         } else {
             locker = Mutex()
         }
-        #else
+#else
         locker = Mutex()
-        #endif
+#endif
     }
-
+    
     func lock() {
         locker.lock()
     }
-
+    
     func unlock() {
         locker.unlock()
     }

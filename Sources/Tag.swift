@@ -99,10 +99,12 @@ open class Tag: Hashable {
      * @param tagName Name of tag, e.g. "p". <b>Case sensitive</b>.
      * @return The tag, either defined or new generic.
      */
+    @inline(__always)
     public static func valueOf(_ tagName: String) throws -> Tag {
         return try valueOf(tagName.utf8Array)
     }
     
+    @inline(__always)
     public static func valueOf(_ tagName: [UInt8]) throws -> Tag {
         return try valueOf(tagName, ParseSettings.preserveCase)
     }
@@ -112,6 +114,7 @@ open class Tag: Hashable {
      *
      * @return if block tag
      */
+    @inline(__always)
     open func isBlock() -> Bool {
         return _isBlock
     }
@@ -121,6 +124,7 @@ open class Tag: Hashable {
      *
      * @return if should be formatted as block or inline
      */
+    @inline(__always)
     open func formatAsBlock() -> Bool {
         return _formatAsBlock
     }
@@ -130,6 +134,7 @@ open class Tag: Hashable {
      *
      * @return if tag can contain block tags
      */
+    @inline(__always)
     open func canContainBlock() -> Bool {
         return _canContainBlock
     }
@@ -139,6 +144,7 @@ open class Tag: Hashable {
      *
      * @return if this tag is an inline tag.
      */
+    @inline(__always)
     open func isInline() -> Bool {
         return !_isBlock
     }
@@ -148,6 +154,7 @@ open class Tag: Hashable {
      *
      * @return if this tag is a data only tag
      */
+    @inline(__always)
     open func isData() -> Bool {
         return !_canContainInline && !isEmpty()
     }
@@ -157,6 +164,7 @@ open class Tag: Hashable {
      *
      * @return if this is an empty tag
      */
+    @inline(__always)
     open func isEmpty() -> Bool {
         return _empty
     }
@@ -166,6 +174,7 @@ open class Tag: Hashable {
      *
      * @return if this tag should be output as self closing.
      */
+    @inline(__always)
     open func isSelfClosing() -> Bool {
         return _empty || _selfClosing
     }
@@ -175,6 +184,7 @@ open class Tag: Hashable {
      *
      * @return if a known tag
      */
+    @inline(__always)
     open func isKnownTag() -> Bool {
         return Tag.tags[_tagName] != nil
     }
@@ -185,6 +195,7 @@ open class Tag: Hashable {
      * @param tagName name of tag
      * @return if known HTML tag
      */
+    @inline(__always)
     public static func isKnownTag(_ tagName: [UInt8]) -> Bool {
         return Tag.tags[tagName] != nil
     }
@@ -194,6 +205,7 @@ open class Tag: Hashable {
      *
      * @return if preserve whitepace
      */
+    @inline(__always)
     public func preserveWhitespace() -> Bool {
         return _preserveWhitespace
     }
@@ -202,6 +214,7 @@ open class Tag: Hashable {
      * Get if this tag represents a control associated with a form. E.g. input, textarea, output
      * @return if associated with a form
      */
+    @inline(__always)
     public func isFormListed() -> Bool {
         return _formList
     }
@@ -210,10 +223,12 @@ open class Tag: Hashable {
      * Get if this tag represents an element that should be submitted with a form. E.g. input, option
      * @return if submittable with a form
      */
+    @inline(__always)
     public func isFormSubmittable() -> Bool {
         return _formSubmit
     }
 
+    @inline(__always)
     @discardableResult
     func setSelfClosing() -> Tag {
         _selfClosing = true
@@ -269,6 +284,7 @@ open class Tag: Hashable {
         hasher.combine(_formSubmit)
     }
 
+    @inline(__always)
     open func toString() -> String {
         return String(decoding: _tagName, as: UTF8.self)
     }

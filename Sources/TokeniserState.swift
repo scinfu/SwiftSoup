@@ -31,6 +31,7 @@ public class TokeniserStateVars {
     static let replacementStr: [UInt8] = Array(Tokeniser.replacementChar.utf8)
     static let eof: UnicodeScalar = CharacterReader.EOF
     static let eofUTF8 = String(CharacterReader.EOF).utf8Array
+    @usableFromInline
     static let eofUTF8Slice = ArraySlice(String(CharacterReader.EOF).utf8Array)
 }
 
@@ -1640,7 +1641,7 @@ enum TokeniserState: TokeniserStateProtocol {
         let c = r.consume()
         switch (c) {
         case UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", ">":
-            if (t.dataBuffer.buffer == UTF8Arrays.script) {
+            if (t.dataBuffer.buffer == ArraySlice(UTF8Arrays.script)) {
             t.transition(primary)
             } else {
             t.transition(fallback)

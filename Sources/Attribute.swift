@@ -10,19 +10,19 @@ import Foundation
 open class Attribute {
     /// The element type of a dictionary: a tuple containing an individual
     /// key-value pair.
-
+    
     static let booleanAttributes = ParsingStrings([
         "allowfullscreen", "async", "autofocus", "checked", "compact", "controls", "declare", "default", "defer",
         "disabled", "formnovalidate", "hidden", "inert", "ismap", "itemscope", "multiple", "muted", "nohref",
         "noresize", "noshade", "novalidate", "nowrap", "open", "readonly", "required", "reversed", "seamless",
         "selected", "sortable", "truespeed", "typemustmatch"
     ])
-
+    
     @usableFromInline
     var key: [UInt8]
     @usableFromInline
     var value: [UInt8]
-
+    
     public init(key: [UInt8], value: [UInt8]) throws {
         try Validate.notEmpty(string: key)
         self.key = key.trim()
@@ -32,7 +32,7 @@ open class Attribute {
     public convenience init(key: String, value: String) throws {
         try self.init(key: key.utf8Array, value: value.utf8Array)
     }
-
+    
     /**
      Get the attribute key.
      @return the attribute key
@@ -44,7 +44,7 @@ open class Attribute {
     open func getKeyUTF8() -> [UInt8] {
         return key
     }
-
+    
     /**
      Set the attribute key; case is preserved.
      @param key the new key; must not be null
@@ -57,7 +57,7 @@ open class Attribute {
     open func setKey(key: String) throws {
         try setKey(key: key.utf8Array)
     }
-
+    
     /**
      Get the attribute value.
      @return the attribute value
@@ -69,7 +69,7 @@ open class Attribute {
     open func getValueUTF8() -> [UInt8] {
         return value
     }
-
+    
     /**
      Set the attribute value.
      @param value the new attribute value; must not be null
@@ -80,14 +80,14 @@ open class Attribute {
         self.value = value
         return old
     }
-
+    
     /**
      Get the HTML representation of this attribute; e.g. {@code href="index.html"}.
      @return HTML
      */
     public func html() -> String {
         let accum = StringBuilder()
-		html(accum: accum, out: (Document([])).outputSettings())
+        html(accum: accum, out: (Document([])).outputSettings())
         return accum.toString()
     }
     
@@ -96,11 +96,11 @@ open class Attribute {
         accum.append(key)
         if (!shouldCollapseAttribute(out: out)) {
             accum.append(UTF8Arrays.attributeEqualsQuoteMark)
-            Entities.escape(&accum.buffer, value, out, true, false, false)
+            Entities.escape(accum, value, out, true, false, false)
             accum.append(UTF8Arrays.quoteMark)
         }
     }
-
+    
     /**
      Get the string representation of this attribute, implemented as {@link #html()}.
      @return string
@@ -108,7 +108,7 @@ open class Attribute {
     open func toString() -> String {
         return html()
     }
-
+    
     /**
      * Create a new Attribute from an unencoded key and a HTML attribute encoded value.
      * @param unencodedKey assumes the key is not encoded, as can be only run of simple \w chars.
@@ -119,11 +119,11 @@ open class Attribute {
         let value = try Entities.unescape(string: encodedValue, strict: true)
         return try Attribute(key: unencodedKey, value: value)
     }
-
+    
     public func isDataAttribute() -> Bool {
         return key.starts(with: Attributes.dataPrefix) && key.count > Attributes.dataPrefix.count
     }
-
+    
     /**
      * Collapsible if it's a boolean attribute and value is empty or same as name
      *
@@ -132,35 +132,35 @@ open class Attribute {
      */
     public final func shouldCollapseAttribute(out: OutputSettings) -> Bool {
         return (value.isEmpty || value.equalsIgnoreCase(string: key))
-            && out.syntax() == OutputSettings.Syntax.html
-            && isBooleanAttribute()
+        && out.syntax() == OutputSettings.Syntax.html
+        && isBooleanAttribute()
     }
-
+    
     public func isBooleanAttribute() -> Bool {
         return Attribute.booleanAttributes.contains(key.lowercased()[...])
     }
-
+    
     public func hashCode() -> Int {
         var result = key.hashValue
         result = 31 * result + value.hashValue
         return result
     }
-
+    
     public func clone() -> Attribute {
         do {
             return try Attribute(key: key, value: value)
         } catch Exception.Error( _, let  msg) {
             print(msg)
         } catch {
-
+            
         }
         return try! Attribute(key: [], value: [])
     }
 }
 
 extension Attribute: Equatable {
-	static public func == (lhs: Attribute, rhs: Attribute) -> Bool {
-		return lhs.value == rhs.value && lhs.key == rhs.key
-	}
-
+    static public func == (lhs: Attribute, rhs: Attribute) -> Bool {
+        return lhs.value == rhs.value && lhs.key == rhs.key
+    }
+    
 }

@@ -112,20 +112,22 @@ public struct ParsingStrings: Hashable, Equatable {
         return hasher.finalize()
     }
     
+    @inline(__always)
     public static func ==(lhs: ParsingStrings, rhs: ParsingStrings) -> Bool {
         return lhs.multiByteChars == rhs.multiByteChars
     }
     
+    @inline(__always)
     public func hash(into hasher: inout Hasher) {
         hasher.combine(precomputedHash)
     }
     
-    @inlinable
+    @inline(__always)
     public func contains(_ bytes: [UInt8]) -> Bool {
         return contains(ArraySlice(bytes))
     }
     
-    @inlinable
+    @inline(__always)
     public func contains(_ slice: ArraySlice<UInt8>) -> Bool {
         var index = 0
         for byte in slice {
@@ -137,7 +139,7 @@ public struct ParsingStrings: Hashable, Equatable {
         return multiByteSet.contains(slice)
     }
     
-    @inlinable
+    @inline(__always)
     public func contains(_ byte: UInt8) -> Bool {
         let idx = Int(byte >> 6)
         let shift = byte & 63
@@ -155,7 +157,7 @@ public struct ParsingStrings: Hashable, Equatable {
         return (val & (1 << shift)) != 0
     }
     
-    @inlinable
+    @inline(__always)
     public func contains(_ scalar: UnicodeScalar) -> Bool {
         // Fast path for ASCII
         if scalar.value < 0x80 {
@@ -178,6 +180,7 @@ public struct ParsingStrings: Hashable, Equatable {
 extension ParsingStrings {
     /// Checks membership by walking our trie.
     /// Returns true if `slice` exactly matches a terminal path.
+    @inline(__always)
     public func containsTrie(_ slice: ArraySlice<UInt8>) -> Bool {
         // Early single-byte check
         if slice.count == 1 {

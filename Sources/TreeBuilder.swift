@@ -16,12 +16,16 @@ public class TreeBuilder {
     public var currentToken: Token? // currentToken is used only for error tracking.
     public var errors: ParseErrorList // null when not tracking errors
     public var settings: ParseSettings
-
+    
     private let start: Token.StartTag = Token.StartTag() // start tag to process
     private let end: Token.EndTag  = Token.EndTag()
-
+    
+    /// Bulk-build suppression flag
+    @usableFromInline
+    var isBulkBuilding: Bool = false
+    
     public func defaultSettings() -> ParseSettings {preconditionFailure("This method must be overridden")}
-
+    
     public init() {
         doc =  Document([])
         reader = CharacterReader([])
@@ -30,6 +34,16 @@ public class TreeBuilder {
         baseUri = []
         errors = ParseErrorList(0, 0)
         settings = ParseSettings(false, false)
+    }
+    
+    @inline(__always)
+    func beginBulkAppend() {
+        isBulkBuilding = true
+    }
+    
+    @inline(__always)
+    func endBulkAppend() {
+        isBulkBuilding = false
     }
     
     public func initialiseParse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
@@ -42,8 +56,17 @@ public class TreeBuilder {
         self.baseUri = baseUri
     }
     
-    func parse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings)throws->Document {
-		initialiseParse(input, baseUri, errors, settings)
+    func parse(_ input: [UInt8], _ baseUri: [UInt8],
+               _ errors: ParseErrorList,
+               _ settings: ParseSettings) throws -> Document {
+        // Associate builder for node-level checks
+        doc.treeBuilder = self
+        
+        // Suppress per-append index invalidation; rebuild once at end
+        beginBulkAppend()
+        defer { endBulkAppend() }
+        
+        initialiseParse(input, baseUri, errors, settings)
         try runParser()
         return doc
     }
@@ -53,17 +76,19 @@ public class TreeBuilder {
             let token: Token = try tokeniser.read()
             try process(token)
             token.reset()
-
+            
             if (token.type == Token.TokenType.EOF) {
                 break
             }
         }
     }
-
+    
     @discardableResult
+    @inline(__always)
     public func process(_ token: Token)throws->Bool {preconditionFailure("This method must be overridden")}
-
+    
     @discardableResult
+    @inline(__always)
     public func processStartTag(_ name: [UInt8]) throws -> Bool {
         if (currentToken === start) { // don't recycle an in-use token
             return try process(Token.StartTag().name(name))
@@ -72,11 +97,13 @@ public class TreeBuilder {
     }
     
     @discardableResult
+    @inline(__always)
     public func processStartTag(_ name: String) throws -> Bool {
         return try processStartTag(name.utf8Array)
     }
-
+    
     @discardableResult
+    @inline(__always)
     public func processStartTag(_ name: [UInt8], _ attrs: Attributes) throws -> Bool {
         if (currentToken === start) { // don't recycle an in-use token
             return try process(Token.StartTag().nameAttr(name, attrs))
@@ -87,11 +114,13 @@ public class TreeBuilder {
     }
     
     @discardableResult
+    @inline(__always)
     public func processStartTag(_ name: String, _ attrs: Attributes) throws -> Bool {
         return try processStartTag(name.utf8Array, attrs)
     }
-
+    
     @discardableResult
+    @inline(__always)
     public func processEndTag(_ name: [UInt8]) throws -> Bool {
         if (currentToken === end) { // don't recycle an in-use token
             return try process(Token.EndTag().name(name))
@@ -101,10 +130,12 @@ public class TreeBuilder {
     }
     
     @discardableResult
+    @inline(__always)
     public func processEndTag(_ name: String) throws -> Bool {
         return try processEndTag(name.utf8Array)
     }
-
+    
+    @inline(__always)
     public func currentElement() -> Element? {
         let size: Int = stack.count
         return size > 0 ? stack[size-1] : nil

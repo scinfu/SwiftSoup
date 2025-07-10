@@ -24,18 +24,18 @@ class HtmlTreeBuilder: TreeBuilder {
         static let frames = ParsingStrings(["iframe", "noembed", "noframes", "style", "xmp"])
         
         static let special = ParsingStrings(["address", "applet", "area", "article", "aside", "base", "basefont", "bgsound",
-                              "blockquote", "body", "br", "button", "caption", "center", "col", "colgroup", "command", "dd",
-                              "details", "dir", "div", "dl", "dt", "embed", "fieldset", "figcaption", "figure", "footer", "form",
-                              "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html",
-                              "iframe", "img", "input", "isindex", "li", "link", "listing", "marquee", "menu", "meta", "nav",
-                              "noembed", "noframes", "noscript", "object", "ol", "p", "param", "plaintext", "pre", "script",
-                              "section", "select", "style", "summary", "table", "tbody", "td", "textarea", "tfoot", "th", "thead",
-                                  "title", "tr", "ul", "wbr", "xmp"])
+                                             "blockquote", "body", "br", "button", "caption", "center", "col", "colgroup", "command", "dd",
+                                             "details", "dir", "div", "dl", "dt", "embed", "fieldset", "figcaption", "figure", "footer", "form",
+                                             "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html",
+                                             "iframe", "img", "input", "isindex", "li", "link", "listing", "marquee", "menu", "meta", "nav",
+                                             "noembed", "noframes", "noscript", "object", "ol", "p", "param", "plaintext", "pre", "script",
+                                             "section", "select", "style", "summary", "table", "tbody", "td", "textarea", "tfoot", "th", "thead",
+                                             "title", "tr", "ul", "wbr", "xmp"])
     }
-
+    
     private var _state: HtmlTreeBuilderState = HtmlTreeBuilderState.Initial // the current state
     private var _originalState: HtmlTreeBuilderState = HtmlTreeBuilderState.Initial // original / marked state
-
+    
     private var baseUriSetFromDoc: Bool = false
     private var headElement: Element? // the current head element
     private var formElement: FormElement? // the current form element
@@ -43,38 +43,38 @@ class HtmlTreeBuilder: TreeBuilder {
     private var formattingElements: Array<Element?> = Array<Element?>() // active (open) formatting elements
     private var pendingTableCharacters: Array<[UInt8]> =  Array<[UInt8]>() // chars in table to be shifted out
     private var emptyEnd: Token.EndTag = Token.EndTag() // reused empty end tag
-
+    
     private var _framesetOk: Bool = true // if ok to go into frameset
     private var fosterInserts: Bool = false // if next inserts should be fostered
     private var fragmentParsing: Bool = false // if parsing a fragment of html
-
+    
     public override init() {
-		super.init()
+        super.init()
     }
-
+    
     public override func defaultSettings() -> ParseSettings {
         return ParseSettings.htmlDefault
     }
-
+    
     override func parse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) throws -> Document {
         _state = HtmlTreeBuilderState.Initial
         baseUriSetFromDoc = false
         return try super.parse(input, baseUri, errors, settings)
     }
-
+    
     func parseFragment(_ inputFragment: [UInt8], _ context: Element?, _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) throws -> Array<Node> {
         // context may be null
         _state = HtmlTreeBuilderState.Initial
-		initialiseParse(inputFragment, baseUri, errors, settings)
+        initialiseParse(inputFragment, baseUri, errors, settings)
         contextElement = context
         fragmentParsing = true
         var root: Element? = nil
-
+        
         if let context = context {
             if let d = context.ownerDocument() { // quirks setup:
                 doc.quirksMode(d.quirksMode())
             }
-
+            
             // initialise the tokeniser state:
             if TagSets.titleTextarea.contains(context.tagNameUTF8()) || TagSets.frames.contains(context.tagNameUTF8()) {
                 tokeniser.transition(TokeniserState.Rcdata)
@@ -90,13 +90,13 @@ class HtmlTreeBuilder: TreeBuilder {
                     tokeniser.transition(TokeniserState.Data)
                 }
             }
-
+            
             root = try Element(Tag.valueOf(UTF8Arrays.html, settings), baseUri)
             try Validate.notNull(obj: root)
             try doc.appendChild(root!)
             stack.append(root!)
             resetInsertionMode()
-
+            
             // setup form element to nearest form on context (up ancestor chain). ensures form controls are associated
             // with form correctly
             let contextChain: Elements = context.parents()
@@ -108,7 +108,7 @@ class HtmlTreeBuilder: TreeBuilder {
                 }
             }
         }
-
+        
         try runParser()
         if (context != nil && root != nil) {
             return root!.getChildNodes()
@@ -116,56 +116,56 @@ class HtmlTreeBuilder: TreeBuilder {
             return doc.getChildNodes()
         }
     }
-
+    
     @discardableResult
     public override func process(_ token: Token)throws->Bool {
-		currentToken = token
-		return try self._state.process(token, self)
-	}
-
-	@discardableResult
+        currentToken = token
+        return try self._state.process(token, self)
+    }
+    
+    @discardableResult
     func process(_ token: Token, _ state: HtmlTreeBuilderState)throws->Bool {
         currentToken = token
         return try state.process(token, self)
     }
-
+    
     func transition(_ state: HtmlTreeBuilderState) {
         self._state = state
     }
-
+    
     func state() -> HtmlTreeBuilderState {
         return _state
     }
-
+    
     func markInsertionMode() {
         _originalState = _state
     }
-
+    
     func originalState() -> HtmlTreeBuilderState {
         return _originalState
     }
-
+    
     func framesetOk(_ framesetOk: Bool) {
         self._framesetOk = framesetOk
     }
-
+    
     func framesetOk() -> Bool {
         return _framesetOk
     }
-
+    
     func getDocument() -> Document {
         return doc
     }
-
+    
     func getBaseUri() -> [UInt8] {
         return baseUri
     }
-
+    
     func maybeSetBaseUri(_ base: Element) throws {
         if (baseUriSetFromDoc) { // only listen to the first <base href> in parse
             return
         }
-
+        
         let href: [UInt8] = try base.absUrl(UTF8Arrays.href)
         if (href.count != 0) { // ignore <base target> etc
             baseUri = href
@@ -173,21 +173,23 @@ class HtmlTreeBuilder: TreeBuilder {
             try doc.setBaseUri(href) // set on the doc so doc.createElement(Tag) will get updated base, and to update all descendants
         }
     }
-
+    
     func isFragmentParsing() -> Bool {
         return fragmentParsing
     }
-
+    
     func error(_ state: HtmlTreeBuilderState) {
         if (errors.canAddError() && currentToken != nil) {
             errors.add(ParseError(reader.getPos(), "Unexpected token [\(currentToken!.tokenType())] when in state [\(state.rawValue)]"))
         }
     }
-
+    
+    @inlinable
     @discardableResult
     func insert(_ startTag: Token.StartTag) throws -> Element {
         // handle empty unknown tags
         // when the spec expects an empty tag, will directly hit insertEmpty, so won't generate this fake end tag.
+        let skipChildReserve = startTag.isSelfClosing()
         if (startTag.isSelfClosing()) {
             let el: Element = try insertEmpty(startTag)
             stack.append(el)
@@ -197,35 +199,36 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         let el: Element
         if let attributes = startTag._attributes {
-            el = try Element(Tag.valueOf(startTag.name(), settings), baseUri, settings.normalizeAttributes(attributes))
+            el = try Element(Tag.valueOf(startTag.name(), settings), baseUri, settings.normalizeAttributes(attributes), skipChildReserve: skipChildReserve)
         } else {
-            el = try Element(Tag.valueOf(startTag.name(), settings), baseUri)
+            el = try Element(Tag.valueOf(startTag.name(), settings), baseUri, skipChildReserve: skipChildReserve)
         }
         try insert(el)
         return el
     }
-
+    
     @discardableResult
     func insertStartTag(_ startTagName: [UInt8]) throws -> Element {
         let el: Element = try Element(Tag.valueOf(startTagName, settings), baseUri)
         try insert(el)
         return el
     }
-
+    
     @inlinable
     func insert(_ el: Element) throws {
         try insertNode(el)
         stack.append(el)
     }
-
+    
     @discardableResult
     func insertEmpty(_ startTag: Token.StartTag) throws -> Element {
         let tag: Tag = try Tag.valueOf(startTag.name(), settings)
+        let skipChildReserve = startTag.isSelfClosing()
         let el: Element
         if let attributes = startTag._attributes {
-            el = Element(tag, baseUri, attributes)
+            el = Element(tag, baseUri, attributes, skipChildReserve: skipChildReserve)
         } else {
-            el = Element(tag, baseUri)
+            el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
         try insertNode(el)
         if (startTag.isSelfClosing()) {
@@ -239,7 +242,7 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         return el
     }
-
+    
     @discardableResult
     func insertForm(_ startTag: Token.StartTag, _ onStack: Bool) throws -> FormElement {
         let tag: Tag = try Tag.valueOf(startTag.name(), settings)
@@ -256,12 +259,12 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         return el
     }
-
+    
     func insert(_ commentToken: Token.Comment) throws {
         let comment: Comment = Comment(commentToken.getData(), baseUri)
         try insertNode(comment)
     }
-
+    
     @inlinable
     func insert(_ characterToken: Token.Char) throws {
         var node: Node
@@ -276,7 +279,7 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         try currentElement()?.appendChild(node) // doesn't use insertNode, because we don't foster these; and will always have a stack.
     }
-
+    
     @inlinable
     internal func insertNode(_ node: Node) throws {
         // if the stack hasn't been set up yet, elements (doctype, comments) go into the doc
@@ -287,7 +290,7 @@ class HtmlTreeBuilder: TreeBuilder {
         } else {
             try currentElement()?.appendChild(node)
         }
-
+        
         // connect form controls to their form element
         if let n = (node as? Element) {
             if n.tag().isFormListed() {
@@ -297,28 +300,28 @@ class HtmlTreeBuilder: TreeBuilder {
             }
         }
     }
-
+    
     @discardableResult
     func pop() -> Element {
         let size: Int = stack.count
         return stack.remove(at: size-1)
     }
-
+    
     @inlinable
     func push(_ element: Element) {
         stack.append(element)
     }
-
+    
     @inlinable
     func getStack()->Array<Element> {
         return stack
     }
-
+    
     @discardableResult
     func onStack(_ el: Element) -> Bool {
         return isElementInQueue(stack, el)
     }
-
+    
     private func isElementInQueue(_ queue: Array<Element?>, _ element: Element?) -> Bool {
         for pos in (0..<queue.count).reversed() {
             let next: Element? = queue[pos]
@@ -328,7 +331,7 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         return false
     }
-
+    
     func getFromStack(_ elName: [UInt8]) -> Element? {
         for pos in (0..<stack.count).reversed() {
             let next: Element = stack[pos]
@@ -343,7 +346,7 @@ class HtmlTreeBuilder: TreeBuilder {
     func getFromStack(_ elName: String) -> Element? {
         return getFromStack(elName.utf8Array)
     }
-
+    
     @discardableResult
     func removeFromStack(_ el: Element) -> Bool {
         for pos in (0..<stack.count).reversed() {
@@ -355,51 +358,35 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         return false
     }
-
+    
     func popStackToClose(_ elName: [UInt8]) {
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            stack.remove(at: pos)
-            if (next.nodeNameUTF8() == elName) {
-                break
-            }
+        if let index = stack.lastIndex(where: { $0.nodeNameUTF8() == elName }) {
+            stack.removeSubrange(index..<stack.count)
         }
     }
     
     func popStackToClose(_ elName: ParsingStrings) {
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            stack.remove(at: pos)
-            if elName.contains(next.nodeNameUTF8()) {
-                break
-            }
+        if let index = stack.lastIndex(where: { elName.contains($0.nodeNameUTF8()) }) {
+            stack.removeSubrange(index..<stack.count)
         }
     }
-
+    
     func popStackToClose(_ elNames: [UInt8]...) {
-		popStackToClose(elNames)
+        popStackToClose(elNames)
     }
     
     func popStackToClose(_ elNames: [[UInt8]]) {
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            stack.remove(at: pos)
-            if elNames.contains(next.nodeNameUTF8()) {
-                break
-            }
+        if let index = stack.lastIndex(where: { elNames.contains($0.nodeNameUTF8()) }) {
+            stack.removeSubrange(index..<stack.count)
         }
     }
     
-	func popStackToClose(_ elNames: Set<[UInt8]>) {
-		for pos in (0..<stack.count).reversed() {
-			let next: Element = stack[pos]
-			stack.remove(at: pos)
-            if elNames.contains(next.nodeNameUTF8()) {
-				break
-			}
-		}
-	}
-
+    func popStackToClose(_ elNames: Set<[UInt8]>) {
+        if let index = stack.lastIndex(where: { elNames.contains($0.nodeNameUTF8()) }) {
+            stack.removeSubrange(index..<stack.count)
+        }
+    }
+    
     func popStackToBefore(_ elName: [UInt8]) {
         for pos in (0..<stack.count).reversed() {
             let next: Element = stack[pos]
@@ -410,19 +397,19 @@ class HtmlTreeBuilder: TreeBuilder {
             }
         }
     }
-
+    
     func clearStackToTableContext() {
         clearStackToContext(UTF8Arrays.table)
     }
-
+    
     func clearStackToTableBodyContext() {
         clearStackToContext(UTF8Arrays.tbody, UTF8Arrays.tfoot, UTF8Arrays.thead)
     }
-
+    
     func clearStackToTableRowContext() {
         clearStackToContext(UTF8Arrays.tr)
     }
-
+    
     private func clearStackToContext(_ nodeNames: [UInt8]...) {
         clearStackToContext(nodeNames)
     }
@@ -437,7 +424,7 @@ class HtmlTreeBuilder: TreeBuilder {
             }
         }
     }
-
+    
     func aboveOnStack(_ el: Element) -> Element? {
         //assert(onStack(el), "Invalid parameter")
         onStack(el)
@@ -449,17 +436,17 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         return nil
     }
-
+    
     func insertOnStackAfter(_ after: Element, _ input: Element)throws {
         let i: Int = stack.lastIndexOf(after)
         try Validate.isTrue(val: i != -1)
         stack.insert(input, at: i + 1 )
     }
-
+    
     func replaceOnStack(_ out: Element, _ input: Element)throws {
         try stack = replaceInQueue(stack, out, input)
     }
-
+    
     private func replaceInQueue(_ queue: Array<Element>, _ out: Element, _ input: Element)throws->Array<Element> {
         var queue = queue
         let i: Int = queue.lastIndexOf(out)
@@ -467,7 +454,7 @@ class HtmlTreeBuilder: TreeBuilder {
         queue[i] = input
         return queue
     }
-
+    
     private func replaceInQueue(_ queue: Array<Element?>, _ out: Element, _ input: Element)throws->Array<Element?> {
         var queue = queue
         var i: Int = -1
@@ -480,7 +467,7 @@ class HtmlTreeBuilder: TreeBuilder {
         queue[i] = input
         return queue
     }
-
+    
     func resetInsertionMode() {
         var last = false
         for pos in (0..<stack.count).reversed() {
@@ -530,11 +517,11 @@ class HtmlTreeBuilder: TreeBuilder {
             }
         }
     }
-
+    
     private func inSpecificScope(_ targetName: [UInt8], _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
         return try inSpecificScope([targetName], baseTypes, extraTypes)
     }
-
+    
     private func inSpecificScope(_ targetNames: Set<[UInt8]>, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
         for pos in (0..<stack.count).reversed() {
             let el = stack[pos]
@@ -570,8 +557,8 @@ class HtmlTreeBuilder: TreeBuilder {
         try Validate.fail(msg: "Should not be reachable")
         return false
     }
-
-
+    
+    
     func inScope(_ targetNames: ParsingStrings) throws -> Bool {
         return try inSpecificScope(targetNames, TagSets.inScope)
     }
@@ -583,7 +570,7 @@ class HtmlTreeBuilder: TreeBuilder {
     func inScope(_ targetNames: Set<String>) throws -> Bool {
         return try inScope(Set(targetNames.map { $0.utf8Array }))
     }
-
+    
     func inScope(_ targetName: [UInt8], _ extras: ParsingStrings? = nil) throws -> Bool {
         return try inSpecificScope(targetName, TagSets.inScope, extras)
         // todo: in mathml namespace: mi, mo, mn, ms, mtext annotation-xml
@@ -596,11 +583,11 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         return try inScope(targetName.utf8Array)
     }
-
+    
     func inListItemScope(_ targetName: [UInt8]) throws -> Bool {
         return try inScope(targetName, TagSets.list)
     }
-
+    
     func inButtonScope(_ targetName: [UInt8]) throws -> Bool {
         return try inScope(targetName, TagSets.button)
     }
@@ -608,7 +595,7 @@ class HtmlTreeBuilder: TreeBuilder {
     func inButtonScope(_ targetName: String) throws -> Bool {
         return try inButtonScope(targetName.utf8Array)
     }
-
+    
     func inTableScope(_ targetName: [UInt8]) throws -> Bool {
         return try inSpecificScope(targetName, TagSets.tableScope)
     }
@@ -616,7 +603,7 @@ class HtmlTreeBuilder: TreeBuilder {
     func inTableScope(_ targetName: String) throws -> Bool {
         return try inSpecificScope(targetName.utf8Array, TagSets.tableScope)
     }
-
+    
     func inSelectScope(_ targetName: [UInt8]) throws -> Bool {
         for pos in (0..<stack.count).reversed() {
             let elName = stack[pos].nodeNameUTF8()
@@ -630,44 +617,44 @@ class HtmlTreeBuilder: TreeBuilder {
         try Validate.fail(msg: "Should not be reachable")
         return false
     }
-
+    
     func setHeadElement(_ headElement: Element) {
         self.headElement = headElement
     }
-
+    
     func getHeadElement() -> Element? {
         return headElement
     }
-
+    
     @inlinable
     func isFosterInserts() -> Bool {
         return fosterInserts
     }
-
+    
     func setFosterInserts(_ fosterInserts: Bool) {
         self.fosterInserts = fosterInserts
     }
-
+    
     func getFormElement() -> FormElement? {
         return formElement
     }
-
+    
     func setFormElement(_ formElement: FormElement?) {
         self.formElement = formElement
     }
-
+    
     func newPendingTableCharacters() {
         pendingTableCharacters = Array<[UInt8]>()
     }
-
+    
     func getPendingTableCharacters() -> Array<[UInt8]> {
         return pendingTableCharacters
     }
-
+    
     func setPendingTableCharacters(_ pendingTableCharacters: Array<[UInt8]>) {
         self.pendingTableCharacters = pendingTableCharacters
     }
-
+    
     /**
      11.2.5.2 Closing elements that have implied end tags<p/>
      When the steps below require the UA to generate implied end tags, then, while the current node is a dd element, a
@@ -677,7 +664,7 @@ class HtmlTreeBuilder: TreeBuilder {
      @param excludeTag If a step requires the UA to generate implied end tags but lists an element to exclude from the
      process, then the UA must perform the above steps as if that element was not in the above list.
      */
-
+    
     func generateImpliedEndTags(_ excludeTag: [UInt8]? = nil) {
         // Is this correct? I get the sense that something is supposed to happen here
         // even if excludeTag == nil. But the original code doesn't seem to do that. -GS
@@ -694,18 +681,18 @@ class HtmlTreeBuilder: TreeBuilder {
             pop()
         }
     }
-
+    
     func isSpecial(_ el: Element) -> Bool {
         // todo: mathml's mi, mo, mn
         // todo: svg's foreigObject, desc, title
         let name = el.nodeNameUTF8()
         return TagSets.special.contains(name)
     }
-
+    
     func lastFormattingElement() -> Element? {
         return formattingElements.count > 0 ? formattingElements[formattingElements.count-1] : nil
     }
-
+    
     func removeLastFormattingElement() -> Element? {
         let size: Int = formattingElements.count
         if (size > 0) {
@@ -714,7 +701,7 @@ class HtmlTreeBuilder: TreeBuilder {
             return nil
         }
     }
-
+    
     // active formatting elements
     func pushActiveFormattingElements(_ input: Element) {
         var numSeen: Int = 0
@@ -723,11 +710,11 @@ class HtmlTreeBuilder: TreeBuilder {
             if (el == nil) { // marker
                 break
             }
-
+            
             if (isSameFormattingElement(input, el!)) {
                 numSeen += 1
             }
-
+            
             if (numSeen == 3) {
                 formattingElements.remove(at: pos)
                 break
@@ -735,25 +722,25 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         formattingElements.append(input)
     }
-
+    
     private func isSameFormattingElement(_ a: Element, _ b: Element) -> Bool {
         // same if: same namespace, tag, and attributes. Element.equals only checks tag, might in future check children
-		if(a.attributes == nil) {
-			return false
-		}
-
+        if(a.attributes == nil) {
+            return false
+        }
+        
         return a.nodeNameUTF8() == b.nodeNameUTF8() &&
-            // a.namespace().equals(b.namespace()) &&
-            a.getAttributes()!.equals(o: b.getAttributes())
+        // a.namespace().equals(b.namespace()) &&
+        a.getAttributes()!.equals(o: b.getAttributes())
         // todo: namespaces
     }
-
+    
     func reconstructFormattingElements() throws {
         let last: Element? = lastFormattingElement()
         if (last == nil || onStack(last!)) {
             return
         }
-
+        
         var entry: Element? = last
         let size: Int = formattingElements.count
         var pos: Int = size - 1
@@ -775,22 +762,22 @@ class HtmlTreeBuilder: TreeBuilder {
                 entry = formattingElements[pos]
             }
             try Validate.notNull(obj: entry) // should not occur, as we break at last element
-
+            
             // 8. create new element from element, 9 insert into current node, onto stack
             skip = false // can only skip increment from 4.
             let newEl: Element = try insertStartTag(entry!.nodeNameUTF8()) // todo: avoid fostering here?
-            // newEl.namespace(entry.namespace()) // todo: namespaces
+                                                                           // newEl.namespace(entry.namespace()) // todo: namespaces
             newEl.getAttributes()?.addAll(incoming: entry!.getAttributes())
-
+            
             // 10. replace entry with new entry
             formattingElements[pos] = newEl
-
+            
             // 11
             if (pos == size-1) // if not last entry in list, jump to 7
             {break}
         }
     }
-
+    
     func clearFormattingElementsToLastMarker() {
         while (!formattingElements.isEmpty) {
             let el: Element? = removeLastFormattingElement()
@@ -799,7 +786,7 @@ class HtmlTreeBuilder: TreeBuilder {
             }
         }
     }
-
+    
     func removeFromActiveFormattingElements(_ el: Element?) {
         for pos in (0..<formattingElements.count).reversed() {
             let next: Element? = formattingElements[pos]
@@ -809,11 +796,11 @@ class HtmlTreeBuilder: TreeBuilder {
             }
         }
     }
-
+    
     func isInActiveFormattingElements(_ el: Element) -> Bool {
         return isElementInQueue(formattingElements, el)
     }
-
+    
     func getActiveFormattingElement(_ nodeName: [UInt8]) -> Element? {
         for pos in (0..<formattingElements.count).reversed() {
             let next: Element? = formattingElements[pos]
@@ -825,15 +812,15 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         return nil
     }
-
+    
     func replaceActiveFormattingElement(_ out: Element, _ input: Element) throws {
         try formattingElements = replaceInQueue(formattingElements, out, input)
     }
-
+    
     func insertMarkerToFormattingElements() {
         formattingElements.append(nil)
     }
-
+    
     func insertInFosterParent(_ input: Node) throws {
         let fosterParent: Element?
         let lastTable: Element? = getFromStack(UTF8Arrays.table)
@@ -848,7 +835,7 @@ class HtmlTreeBuilder: TreeBuilder {
         } else { // no table == frag
             fosterParent = stack[0]
         }
-
+        
         if (isLastTableParent) {
             try Validate.notNull(obj: lastTable) // last table cannot be null by this point.
             try lastTable!.before(input)

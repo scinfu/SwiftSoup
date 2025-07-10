@@ -21,8 +21,13 @@ public class FormElement: Element {
      * @param baseUri    the base URI
      * @param attributes initial attributes
      */
-    public override init(_ tag: Tag, _ baseUri: [UInt8], _ attributes: Attributes) {
-        super.init(tag, baseUri, attributes)
+    public override init(
+        _ tag: Tag,
+        _ baseUri: [UInt8],
+        _ attributes: Attributes,
+        skipChildReserve: Bool = false
+    ) {
+        super.init(tag, baseUri, attributes, skipChildReserve: skipChildReserve)
     }
     
     /**
@@ -31,8 +36,12 @@ public class FormElement: Element {
      * @param tag        tag of this element
      * @param baseUri    the base URI
      */
-    public override init(_ tag: Tag, _ baseUri: [UInt8]) {
-        super.init(tag, baseUri)
+    public override init(
+        _ tag: Tag,
+        _ baseUri: [UInt8],
+        skipChildReserve: Bool = false
+    ) {
+        super.init(tag, baseUri, skipChildReserve: skipChildReserve)
     }
 
     /**
