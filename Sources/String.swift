@@ -85,10 +85,12 @@ extension Array: Comparable where Element == UInt8 {
         return result
     }
     
+    @inline(__always)
     func uppercased() -> [UInt8] {
         map { $0 >= 97 && $0 <= 122 ? $0 - 32 : $0 }
     }
      
+    @inline(__always)
     func unicodeScalars() -> [UnicodeScalar] {
         var scalars: [UnicodeScalar] = []
         var decoder = UTF8()
@@ -107,6 +109,7 @@ extension Array: Comparable where Element == UInt8 {
         }
     }
     
+    @inline(__always)
     func hasPrefix(_ prefix: [UInt8]) -> Bool {
         guard self.count >= prefix.count else { return false }
         return zip(self, prefix).allSatisfy { $0 == $1 }
@@ -123,10 +126,12 @@ extension Array: Comparable where Element == UInt8 {
         return lhs.count < rhs.count
     }
     
+    @inline(__always)
     func equals(_ string: String) -> Bool {
         return self == string.utf8Array
     }
     
+    @inline(__always)
     func equals(_ string: [UInt8]) -> Bool {
         return self == string
     }
@@ -154,10 +159,12 @@ extension Array: Comparable where Element == UInt8 {
         return trimmed ? Array(self[start..<end]) : self
     }
     
+    @inline(__always)
     func substring(_ beginPrefix: Int) -> [UInt8] {
         return Array(self.dropFirst(beginPrefix))
     }
     
+    @inline(__always)
     func equalsIgnoreCase(string: [UInt8]?) -> Bool {
         guard let string else { return false }
         guard self.count == string.count else { return false }
@@ -173,6 +180,7 @@ extension Array: Comparable where Element == UInt8 {
         return true
     }
     
+    @usableFromInline
     func caseInsensitiveCompare<T: Collection>(_ other: T) -> ComparisonResult where T.Element == UInt8 {
 //    func caseInsensitiveCompare(_ other: [UInt8]) -> ComparisonResult {
         for (byte1, byte2) in zip(self.lazy, other.lazy) {
@@ -200,14 +208,17 @@ extension ArraySlice: Comparable where Element == UInt8 {
         return lhs.count < rhs.count
     }
     
+    @inline(__always)
     func equals(_ string: String) -> Bool {
         return self == string.utf8Array[...]
     }
     
+    @inline(__always)
     func equals(_ string: ArraySlice<UInt8>) -> Bool {
         return self == string
     }
 
+    @inline(__always)
     func toInt(radix: Int) -> Int? {
         if let string = String(bytes: self, encoding: .utf8) {
             return Int(string, radix: radix)
@@ -248,11 +259,13 @@ extension String {
         self = s
     }
 
+    @inline(__always)
 	func unicodeScalar(_ i: Int) -> UnicodeScalar {
         let ix = unicodeScalars.index(unicodeScalars.startIndex, offsetBy: i)
 		return unicodeScalars[ix]
     }
 
+    @inline(__always)
 	func string(_ offset: Int, _ count: Int) -> String {
 		let truncStart = self.unicodeScalars.count-offset
 		return String(self.unicodeScalars.suffix(truncStart).prefix(count))
@@ -269,14 +282,15 @@ extension String {
         #endif
     }
 
-	func isEmptyOrWhitespace() -> Bool {
-
+    @inline(__always)
+    func isEmptyOrWhitespace() -> Bool {
         if(self.isEmpty) {
             return true
         }
         return (self.trimmingCharacters(in: CharacterSet.whitespaces) == "")
     }
 
+    @inline(__always)
 	func startsWith(_ string: String) -> Bool {
         return self.hasPrefix(string)
     }
@@ -301,10 +315,12 @@ extension String {
         return -1
     }
 
+    @inline(__always)
 	func indexOf(_ substring: String) -> Int {
         return self.indexOf(substring, 0)
     }
 
+    @inline(__always)
     public func trim() -> String {
         // trimmingCharacters() in the stdlib is not very efficiently
         // implemented, perhaps because it always creates a new string.
@@ -317,7 +333,7 @@ extension String {
         return self
     }
 
-    @inlinable
+    @inline(__always)
     func equalsIgnoreCase(string: String?) -> Bool {
         if let string {
             return caseInsensitiveCompare(string) == .orderedSame
@@ -325,27 +341,33 @@ extension String {
         return false
     }
 
-    @inlinable
+    @usableFromInline
+    @inline(__always)
     static func toHexString(n: Int) -> String {
         return String(format: "%2x", n)
     }
 
+    @inline(__always)
     func insert(string: String, ind: Int) -> String {
         return  String(self.prefix(ind)) + string + String(self.suffix(self.count-ind))
     }
 
+    @inline(__always)
     func charAt(_ i: Int) -> Character {
         return self[i] as Character
     }
 
+    @inline(__always)
     func utf8ByteAt(_ i: Int) -> UInt8 {
       return self.utf8Array[i]
     }
 
+    @inline(__always)
 	func substring(_ beginIndex: Int) -> String {
         return String.split(self, beginIndex, self.count-beginIndex)
     }
 
+    @inline(__always)
 	func substring(_ beginIndex: Int, _ count: Int) -> String {
         return String.split(self, beginIndex, count)
     }
@@ -377,6 +399,7 @@ extension String {
         return true
     }
 
+    @inline(__always)
     func startsWith(_ input: String, _ offset: Int) -> Bool {
         if ((offset < 0) || (offset > count - input.count)) {
             return false
@@ -389,6 +412,7 @@ extension String {
         return true
     }
 
+    @inline(__always)
     func replaceFirst(of pattern: String, with replacement: String) -> String {
         if let range = self.range(of: pattern) {
             return self.replacingCharacters(in: range, with: replacement)
@@ -408,6 +432,7 @@ extension String {
         }
     }
 
+    @inline(__always)
     func equals(_ s: String?) -> Bool {
 		if(s == nil) {return false}
         return self == s!

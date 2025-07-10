@@ -35,10 +35,12 @@ open class TextNode: Node {
         self.init(text.utf8Array, baseUri?.utf8Array)
     }
 
+    @inline(__always)
     public override func nodeNameUTF8() -> [UInt8] {
         return nodeName().utf8Array
     }
     
+    @inline(__always)
     public override func nodeName() -> String {
         return "#text"
     }
@@ -48,6 +50,7 @@ open class TextNode: Node {
      * @return Unencoded, normalised text.
      * @see TextNode#getWholeText()
      */
+    @inline(__always)
     open func text() -> String {
         return TextNode.normaliseWhitespace(getWholeTextUTF8())
     }
@@ -58,6 +61,7 @@ open class TextNode: Node {
      * @return this, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func text(_ text: String) -> TextNode {
         _text = text.utf8Array
         guard let attributes = attributes else {
@@ -75,10 +79,12 @@ open class TextNode: Node {
      Get the (unencoded) text of this text node, including any newlines and spaces present in the original.
      @return text
      */
+    @inline(__always)
     open func getWholeText() -> String {
         return String(decoding: attributes == nil ? _text : attributes!.get(key: TextNode.TEXT_KEY), as: UTF8.self)
     }
     
+    @inline(__always)
     open func getWholeTextUTF8() -> [UInt8] {
         return attributes == nil ? _text : attributes!.get(key: TextNode.TEXT_KEY)
     }
@@ -87,6 +93,7 @@ open class TextNode: Node {
      Test if this text node is blank -- that is, empty or only whitespace (including newlines).
      @return true if this document is empty or only whitespace, false if it contains any text content.
      */
+    @inline(__always)
     open func isBlank() -> Bool {
         return StringUtil.isBlank(getWholeText())
     }
@@ -138,6 +145,7 @@ open class TextNode: Node {
         Entities.escape(accum, getWholeTextUTF8(), out, false, normaliseWhite, false)
     }
 
+    @inline(__always)
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
     }
 
@@ -152,27 +160,30 @@ open class TextNode: Node {
         return TextNode(text, baseUri.utf8Array)
     }
 
-    @inlinable
+    @inline(__always)
     static public func normaliseWhitespace(_ text: String) -> String {
         return StringUtil.normaliseWhitespace(text)
     }
     
-    @inlinable
+    @inline(__always)
     static public func normaliseWhitespace(_ text: [UInt8]) -> String {
         return StringUtil.normaliseWhitespace(text)
     }
 
+    @inline(__always)
     static public func stripLeadingWhitespace(_ text: String) -> String {
         return text.replaceFirst(of: "^\\s+", with: "")
         //return text.replaceFirst("^\\s+", "")
     }
 
     @inlinable
+    @inline(__always)
     static public func lastCharIsWhitespace(_ sb: StringBuilder) -> Bool {
         return sb.buffer.last == 0x20  // 0x20 is the UTF-8 code for a space character
     }
 
     // attribute fiddling. create on first access.
+    @inline(__always)
     private func ensureAttributes() {
         if (attributes == nil) {
             attributes = Attributes()

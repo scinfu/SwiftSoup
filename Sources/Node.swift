@@ -40,12 +40,6 @@ open class Node: Equatable, Hashable {
     @usableFromInline
     lazy var childNodes: [Node] = []
     
-    @usableFromInline
-    internal var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]]? = nil
-    
-    @usableFromInline
-    internal var isQueryIndexDirty: Bool = false
-    
     /**
      * Get the list index of this node in its node sibling list. I.e. if this is the first node
      * sibling, returns 0.
@@ -883,6 +877,7 @@ open class Node: Equatable, Hashable {
         clone.parentNode = parent // can be null, to create an orphan split
         clone.siblingIndex = parent == nil ? 0 : siblingIndex
         clone.attributes = attributes != nil ? attributes?.clone() : nil
+        clone.attributes?.ownerElement = clone as? SwiftSoup.Element
         clone.baseUri = baseUri
         clone.childNodes = Array<Node>()
         

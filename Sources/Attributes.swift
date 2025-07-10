@@ -31,6 +31,10 @@ open class Attributes: NSCopying {
     @usableFromInline
     internal var lowercasedKeysCache: Set<[UInt8]>? = nil
     
+    // TODO: Delegate would be cleaner...
+    @usableFromInline
+    weak var ownerElement: Element?
+    
     public init() {
         attributes.reserveCapacity(16)
     }
@@ -126,21 +130,29 @@ open class Attributes: NSCopying {
             attributes.append(attribute)
         }
         invalidateLowercasedKeysCache()
+        if key.lowercased() == UTF8Arrays.class_ {
+            ownerElement?.markQueryIndexDirty()
+        }
     }
     
     /**
      Remove an attribute by key. <b>Case sensitive.</b>
      @param key attribute key to remove
      */
+    @inlinable
     open func remove(key: String) throws {
         try remove(key: key.utf8Array)
     }
     
+    @inlinable
     open func remove(key: [UInt8]) throws {
         try Validate.notEmpty(string: key)
         if let ix = attributes.firstIndex(where: { $0.getKeyUTF8() == key }) {
             attributes.remove(at: ix)
             invalidateLowercasedKeysCache()
+            if key.lowercased() == UTF8Arrays.class_ {
+                ownerElement?.markQueryIndexDirty()
+            }
         }
     }
     
@@ -148,11 +160,15 @@ open class Attributes: NSCopying {
      Remove an attribute by key. <b>Case insensitive.</b>
      @param key attribute key to remove
      */
+    @inlinable
     open func removeIgnoreCase(key: [UInt8]) throws {
         try Validate.notEmpty(string: key)
         if let ix = attributes.firstIndex(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame}) {
             attributes.remove(at: ix)
             invalidateLowercasedKeysCache()
+            if key.lowercased() == UTF8Arrays.class_ {
+                ownerElement?.markQueryIndexDirty()
+            }
         }
     }
     
@@ -161,10 +177,12 @@ open class Attributes: NSCopying {
      @param key case-sensitive key to check for
      @return true if key exists, false otherwise
      */
+    @inlinable
     open func hasKey(key: String) -> Bool {
         return hasKey(key: key.utf8Array)
     }
     
+    @inlinable
     open func hasKey(key: [UInt8]) -> Bool {
         return attributes.contains(where: { $0.getKeyUTF8() == key })
     }
