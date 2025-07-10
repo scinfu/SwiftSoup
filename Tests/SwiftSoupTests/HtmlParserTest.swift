@@ -33,6 +33,18 @@ class HtmlParserTest: XCTestCase {
 		XCTAssertEqual("img", img.tagName())
 	}
 
+    func testParsesSimpleDocumentFromData() throws {
+        let data: Data = "<html><head><title>First!</title></head><body><p>First post! <img src=\"foo.png\" /></p></body></html>"
+            .data(using: .utf8)!
+        let doc: Document = try SwiftSoup.parse(data)
+        // need a better way to verify these:
+        let p: Element = doc.body()!.child(0)
+        XCTAssertEqual("p", p.tagName())
+        let img: Element = p.child(0)
+        XCTAssertEqual("foo.png", try img.attr("src"))
+        XCTAssertEqual("img", img.tagName())
+    }
+
     func testParsesMultibyteAttributes() throws {
         let html: String = "<div foo=\"若い\"></div>"
         let doc: Document = try SwiftSoup.parse(html)
@@ -623,6 +635,7 @@ class HtmlParserTest: XCTestCase {
 		return [
             ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
             ("testParsesSimpleDocument", testParsesSimpleDocument),
+            ("testParsesSimpleDocumentFromData", testParsesSimpleDocumentFromData),
 			("testParsesRoughAttributes", testParsesRoughAttributes),
             ("testParsesMultibyteAttributes", testParsesMultibyteAttributes),
 			("testParsesQuiteRoughAttributes", testParsesQuiteRoughAttributes),
