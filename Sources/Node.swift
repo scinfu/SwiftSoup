@@ -29,7 +29,7 @@ open class Node: Equatable, Hashable {
         @inline(__always)
         didSet {
             guard let element = self as? Element, oldValue !== parentNode else { return }
-            element.markQueryIndexDirty()
+            element.markQueryIndexesDirty()
         }
     }
     

@@ -26,14 +26,27 @@ open class Attributes: NSCopying {
     // Stored by lowercased key, but key case is checked against the copy inside
     // the Attribute on retrieval.
     @usableFromInline
-    var attributes: [Attribute] = []
+    var attributes: [Attribute] = [] {
+        didSet {
+            if let lowercasedKeysCache, lowercasedKeysCache.contains(UTF8Arrays.class_) {
+                ownerElement?.markClassQueryIndexDirty()
+                updateLowercasedKeysCache()
+            } else {
+                updateLowercasedKeysCache()
+                if let lowercasedKeysCache, lowercasedKeysCache.contains(UTF8Arrays.class_) {
+                    ownerElement?.markClassQueryIndexDirty()
+                }
+            }
+        }
+    }
+    
     /// Set of lower‑cased UTF‑8 keys for fast O(1) ignore‑case look‑ups
     @usableFromInline
     internal var lowercasedKeysCache: Set<[UInt8]>? = nil
     
     // TODO: Delegate would be cleaner...
     @usableFromInline
-    weak var ownerElement: Element?
+    weak var ownerElement: SwiftSoup.Element?
     
     public init() {
         attributes.reserveCapacity(16)
@@ -131,7 +144,7 @@ open class Attributes: NSCopying {
         }
         invalidateLowercasedKeysCache()
         if key.lowercased() == UTF8Arrays.class_ {
-            ownerElement?.markQueryIndexDirty()
+            ownerElement?.markClassQueryIndexDirty()
         }
     }
     
@@ -151,7 +164,7 @@ open class Attributes: NSCopying {
             attributes.remove(at: ix)
             invalidateLowercasedKeysCache()
             if key.lowercased() == UTF8Arrays.class_ {
-                ownerElement?.markQueryIndexDirty()
+                ownerElement?.markClassQueryIndexDirty()
             }
         }
     }
@@ -167,7 +180,7 @@ open class Attributes: NSCopying {
             attributes.remove(at: ix)
             invalidateLowercasedKeysCache()
             if key.lowercased() == UTF8Arrays.class_ {
-                ownerElement?.markQueryIndexDirty()
+                ownerElement?.markClassQueryIndexDirty()
             }
         }
     }

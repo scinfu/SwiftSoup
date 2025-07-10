@@ -18,7 +18,7 @@ open class Element: Node {
     @usableFromInline
     internal var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]]? = nil
     @usableFromInline
-    internal var isQueryIndexDirty: Bool = false
+    internal var isTagQueryIndexDirty: Bool = false
     
     @usableFromInline
     internal var normalizedClassNameIndex: [[UInt8]: [Weak<Element>]]? = nil
@@ -577,7 +577,7 @@ open class Element: Node {
     @discardableResult
     @inline(__always)
     public func empty() -> Element {
-        updateQueryIndex(for: childNodes, adding: false)
+        markQueryIndexesDirty()
         childNodes.removeAll()
         return self
     }
@@ -759,9 +759,9 @@ open class Element: Node {
         try Validate.notEmpty(string: tagName)
         let normalizedTagName = tagName.lowercased().trim()
         
-        if isQueryIndexDirty || normalizedTagNameIndex == nil {
+        if isTagQueryIndexDirty || normalizedTagNameIndex == nil {
             rebuildQueryIndexesForAllTags()
-            isQueryIndexDirty = false
+            isTagQueryIndexDirty = false
         }
         
         let weakElements = normalizedTagNameIndex?[normalizedTagName] ?? []
@@ -802,9 +802,13 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByClass(_ className: String) throws -> Elements {
-        try Validate.notEmpty(string: className.utf8Array)
-        
-        return try Collector.collect(Evaluator.Class(className), self)
+        let key = className.utf8Array
+        if isClassQueryIndexDirty || normalizedClassNameIndex == nil {
+            rebuildQueryIndexesForAllClasses()
+            isClassQueryIndexDirty = false
+        }
+        let results = normalizedClassNameIndex?[key.lowercased()]?.compactMap { $0.value } ?? []
+        return Elements(results)
     }
     
     /**
@@ -1233,6 +1237,43 @@ open class Element: Node {
      * the backing {@code class} attribute; use the {@link #classNames(java.util.Set)} method to persist them.
      * @return set of classnames, empty if no class attribute
      */
+    public func classNamesUTF8() throws -> OrderedSet<[UInt8]> {
+        let utf8ClassName = try classNameUTF8()
+        let classNames = OrderedSet<[UInt8]>()
+        var currentStartIndex: Int? = nil
+        
+        for (i, byte) in utf8ClassName.enumerated() {
+            if byte.isWhitespace {
+                if let start = currentStartIndex {
+                    let classBytes = utf8ClassName[start..<i]
+                    if !classBytes.isEmpty {
+                        classNames.append(Array(classBytes))
+                    }
+                    currentStartIndex = nil
+                }
+            } else {
+                if currentStartIndex == nil {
+                    currentStartIndex = i
+                }
+            }
+        }
+        
+        if let start = currentStartIndex {
+            let classBytes = utf8ClassName[start..<utf8ClassName.count]
+            if !classBytes.isEmpty {
+                classNames.append(Array(classBytes))
+            }
+        }
+        
+        return classNames
+    }
+    
+    /**
+     * Get all of the element's class names. E.g. on element {@code <div class="header gray">},
+     * returns a set of two elements {@code "header", "gray"}. Note that modifications to this set are not pushed to
+     * the backing {@code class} attribute; use the {@link #classNames(java.util.Set)} method to persist them.
+     * @return set of classnames, empty if no class attribute
+     */
     public func classNames() throws -> OrderedSet<String> {
         let utf8ClassName = try classNameUTF8()
         let classNames = OrderedSet<String>()
@@ -1584,15 +1625,42 @@ open class Element: Node {
 
 internal extension Element {
     @inlinable
-    func markQueryIndexDirty() {
+    func markQueryIndexesDirty() {
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
-            (node as? Element)?.isQueryIndexDirty = true
+            if let el = node as? Element {
+                el.isTagQueryIndexDirty = true
+                el.isClassQueryIndexDirty = true
+            }
             current = node.parentNode
         }
     }
     
+    @inlinable
+    func markTagQueryIndexDirty() {
+        guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
+        var current: Node? = self
+        while let node = current {
+            if let el = node as? Element {
+                el.isTagQueryIndexDirty = true
+            }
+            current = node.parentNode
+        }
+    }
+    
+    @inlinable
+    func markClassQueryIndexDirty() {
+        guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
+        var current: Node? = self
+        while let node = current {
+            if let el = node as? Element {
+                el.isClassQueryIndexDirty = true
+            }
+            current = node.parentNode
+        }
+    }
+
     @usableFromInline
     func rebuildQueryIndexesForAllTags() {
         var newIndex: [[UInt8]: [Weak<Element>]] = [:]
@@ -1616,17 +1684,37 @@ internal extension Element {
         }
         
         normalizedTagNameIndex = newIndex
-        isQueryIndexDirty = false
+        isTagQueryIndexDirty = false
+    }
+    
+    @usableFromInline
+    func rebuildQueryIndexesForAllClasses() {
+        var newIndex: [[UInt8]: [Weak<Element>]] = [:]
+        var queue: [Node] = [self]
+        let childNodeCount = childNodeSize()
+        newIndex.reserveCapacity(childNodeCount * 4)
+        queue.reserveCapacity(childNodeCount)
+        var idx = 0
+        while idx < queue.count {
+            let node = queue[idx]
+            idx += 1
+            if let element = node as? Element {
+                if let classNames = try? element.classNamesUTF8() {
+                    for className in classNames {
+                        newIndex[className, default: []].append(Weak(element))
+                    }
+                }
+            }
+            queue.append(contentsOf: node.childNodes)
+        }
+        normalizedClassNameIndex = newIndex
+        isClassQueryIndexDirty = false
     }
     
     @inlinable
     func rebuildQueryIndexesForThisNodeOnly() {
         normalizedTagNameIndex = nil
-        markQueryIndexDirty()
-    }
-    
-    @inlinable
-    func updateQueryIndex(for nodes: [Node], adding: Bool) {
-        markQueryIndexDirty()
+        markTagQueryIndexDirty()
+        markClassQueryIndexDirty()
     }
 }
