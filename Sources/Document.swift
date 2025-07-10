@@ -106,7 +106,11 @@ open class Document: Element {
      @return new element
      */
     public func createElement(_ tagName: String) throws -> Element {
-        return try Element(Tag.valueOf(tagName.utf8Array, ParseSettings.preserveCase), self.getBaseUriUTF8())
+        let el = try Element(Tag.valueOf(tagName.utf8Array, ParseSettings.preserveCase), self.getBaseUriUTF8())
+        if let treeBuilder {
+            el.treeBuilder = treeBuilder
+        }
+        return el
     }
 
     /**

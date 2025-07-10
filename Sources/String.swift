@@ -182,6 +182,7 @@ extension Array: Comparable where Element == UInt8 {
     }
     
     @usableFromInline
+    @inline(__always)
     func caseInsensitiveCompare<T: Collection>(_ other: T) -> ComparisonResult where T.Element == UInt8 {
 //    func caseInsensitiveCompare(_ other: [UInt8]) -> ComparisonResult {
         for (byte1, byte2) in zip(self.lazy, other.lazy) {

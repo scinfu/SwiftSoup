@@ -27,16 +27,10 @@ open class Attributes: NSCopying {
     // the Attribute on retrieval.
     @usableFromInline
     var attributes: [Attribute] = [] {
+        @inline(__always)
         didSet {
-            if let lowercasedKeysCache, lowercasedKeysCache.contains(UTF8Arrays.class_) {
-                ownerElement?.markClassQueryIndexDirty()
-                updateLowercasedKeysCache()
-            } else {
-                updateLowercasedKeysCache()
-                if let lowercasedKeysCache, lowercasedKeysCache.contains(UTF8Arrays.class_) {
-                    ownerElement?.markClassQueryIndexDirty()
-                }
-            }
+            ownerElement?.markClassQueryIndexDirty()
+            invalidateLowercasedKeysCache()
         }
     }
     
@@ -53,6 +47,7 @@ open class Attributes: NSCopying {
     }
     
     @usableFromInline
+    @inline(__always)
     internal func updateLowercasedKeysCache() {
         lowercasedKeysCache = Set(
             attributes.map { attr in
@@ -62,6 +57,7 @@ open class Attributes: NSCopying {
     }
     
     @usableFromInline
+    @inline(__always)
     internal func invalidateLowercasedKeysCache() {
         lowercasedKeysCache = nil
     }
@@ -72,10 +68,12 @@ open class Attributes: NSCopying {
      @return the attribute value if set; or empty string if not set.
      @see #hasKey(String)
      */
+    @inline(__always)
     open func get(key: String) -> String {
         return String(decoding: get(key: key.utf8Array), as: UTF8.self)
     }
     
+    @inline(__always)
     open func get(key: [UInt8]) -> [UInt8] {
         if let attr = attributes.first(where: { $0.getKeyUTF8() == key }) {
             return attr.getValueUTF8()
@@ -88,12 +86,18 @@ open class Attributes: NSCopying {
      * @param key the attribute name
      * @return the first matching attribute value if set; or empty string if not set.
      */
+    @inline(__always)
     open func getIgnoreCase(key: String) throws -> String {
         return try String(decoding: getIgnoreCase(key: key.utf8Array), as: UTF8.self)
     }
     
+    @inline(__always)
     open func getIgnoreCase(key: [UInt8]) throws -> [UInt8] {
         try Validate.notEmpty(string: key)
+        if lowercasedKeysCache == nil {
+            updateLowercasedKeysCache()
+        }
+        guard lowercasedKeysCache?.contains(key.lowercased()) ?? false else { return [] }
         if let attr = attributes.first(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame }) {
             return attr.getValueUTF8()
         }
@@ -105,13 +109,13 @@ open class Attributes: NSCopying {
      @param key attribute key
      @param value attribute value
      */
-    @inlinable
+    @inline(__always)
     open func put(_ key: [UInt8], _ value: [UInt8]) throws {
         let attr = try Attribute(key: key, value: value)
         put(attribute: attr)
     }
     
-    @inlinable
+    @inline(__always)
     open func put(_ key: String, _ value: String) throws {
         return try put(key.utf8Array, value.utf8Array)
     }
@@ -121,7 +125,7 @@ open class Attributes: NSCopying {
      @param key attribute key
      @param value attribute value
      */
-    @inlinable
+    @inline(__always)
     open func put(_ key: [UInt8], _ value: Bool) throws {
         if (value) {
             try put(attribute: BooleanAttribute(key: key))
@@ -134,7 +138,7 @@ open class Attributes: NSCopying {
      Set a new attribute, or replace an existing one by (case-sensitive) key.
      @param attribute attribute
      */
-    @inlinable
+    @inline(__always)
     open func put(attribute: Attribute) {
         let key = attribute.getKeyUTF8()
         if let ix = attributes.firstIndex(where: { $0.getKeyUTF8() == key }) {
@@ -152,7 +156,7 @@ open class Attributes: NSCopying {
      Remove an attribute by key. <b>Case sensitive.</b>
      @param key attribute key to remove
      */
-    @inlinable
+    @inline(__always)
     open func remove(key: String) throws {
         try remove(key: key.utf8Array)
     }
@@ -190,12 +194,12 @@ open class Attributes: NSCopying {
      @param key case-sensitive key to check for
      @return true if key exists, false otherwise
      */
-    @inlinable
+    @inline(__always)
     open func hasKey(key: String) -> Bool {
         return hasKey(key: key.utf8Array)
     }
     
-    @inlinable
+    @inline(__always)
     open func hasKey(key: [UInt8]) -> Bool {
         return attributes.contains(where: { $0.getKeyUTF8() == key })
     }
@@ -205,7 +209,7 @@ open class Attributes: NSCopying {
      @param key key to check for
      @return true if key exists, false otherwise
      */
-    @inlinable
+    @inline(__always)
     open func hasKeyIgnoreCase(key: String) -> Bool {
         return hasKeyIgnoreCase(key: key.utf8Array)
     }
@@ -237,7 +241,7 @@ open class Attributes: NSCopying {
      Get the number of attributes in this set.
      @return size
      */
-    @inlinable
+    @inline(__always)
     open func size() -> Int {
         return attributes.count
     }
@@ -246,6 +250,7 @@ open class Attributes: NSCopying {
      Add all the attributes from the incoming set to this set.
      @param incoming attributes to add to these attributes.
      */
+    @inline(__always)
     open func addAll(incoming: Attributes?) {
         guard let incoming = incoming else { return }
         for attr in incoming.attributes {
@@ -258,7 +263,7 @@ open class Attributes: NSCopying {
      to keys will not be recognised in the containing set.
      @return an view of the attributes as a List.
      */
-    @inlinable
+    @inline(__always)
     open func asList() -> [Attribute] {
         return attributes
     }
@@ -268,6 +273,7 @@ open class Attributes: NSCopying {
      * starting with {@code data-}.
      * @return map of custom data attributes.
      */
+    @inline(__always)
     open func dataset() -> [String: String] {
         let prefixLength = Attributes.dataPrefix.count
         let pairs = attributes.filter { $0.isDataAttribute() }
@@ -280,6 +286,7 @@ open class Attributes: NSCopying {
      @return HTML
      @throws SerializationException if the HTML representation of the attributes cannot be constructed.
      */
+    @inline(__always)
     open func html() throws -> String {
         let accum = StringBuilder()
         try html(accum: accum, out: Document([]).outputSettings()) // output settings a bit funky, but this html() seldom used
@@ -291,6 +298,7 @@ open class Attributes: NSCopying {
      @return HTML
      @throws SerializationException if the HTML representation of the attributes cannot be constructed.
      */
+    @inline(__always)
     open func htmlUTF8() throws -> [UInt8] {
         let accum = StringBuilder()
         try html(accum: accum, out: Document([]).outputSettings()) // output settings a bit funky, but this html() seldom used
@@ -305,6 +313,7 @@ open class Attributes: NSCopying {
         }
     }
     
+    @inline(__always)
     open func toString()throws -> String {
         return try html()
     }
@@ -314,6 +323,7 @@ open class Attributes: NSCopying {
      * @param o attributes to compare with
      * @return if both sets of attributes have the same content
      */
+    @inline(__always)
     open func equals(o: AnyObject?) -> Bool {
         if(o == nil) {return false}
         if (self === o.self) {return true}
@@ -321,22 +331,26 @@ open class Attributes: NSCopying {
         return (attributes == that.attributes)
     }
     
+    @inline(__always)
     open func lowercaseAllKeys() {
         for ix in attributes.indices {
             attributes[ix].key = attributes[ix].key.lowercased()
         }
     }
     
+    @inline(__always)
     public func copy(with zone: NSZone? = nil) -> Any {
         let clone = Attributes()
         clone.attributes = attributes
         return clone
     }
     
+    @inline(__always)
     open func clone() -> Attributes {
         return self.copy() as! Attributes
     }
     
+    @inline(__always)
     fileprivate static func dataKey(key: [UInt8]) -> [UInt8] {
         return dataPrefix + key
     }

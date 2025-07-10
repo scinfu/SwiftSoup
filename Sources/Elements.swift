@@ -561,6 +561,7 @@ open class Elements: NSCopying {
 	* @param e element to be appended to this list
 	* @return <tt>true</tt> (as specified by {@link Collection#add})
 	*/
+    @inline(__always)
 	open func add(_ e: Element) {
 		this.append(e)
 	}
@@ -568,11 +569,13 @@ open class Elements: NSCopying {
 	/**
 	* Insert the specified element at index.
 	*/
+    @inline(__always)
 	open func add(_ index: Int, _ element: Element) {
 		this.insert(element, at: index)
 	}
 
 	/// Return element at index
+    @inline(__always)
 	open func get(_ i: Int) -> Element {
 		return this[i]
 	}
