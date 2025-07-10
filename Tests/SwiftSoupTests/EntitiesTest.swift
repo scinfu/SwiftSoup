@@ -51,6 +51,7 @@ class EntitiesTest: XCTestCase {
 		XCTAssertEqual("quot", Entities.EscapeMode.xhtml.nameForCodepoint(UnicodeScalar(34)!))
 	}
 
+    @MainActor
 	func testGetByName() {
 		//XCTAssertEqual("≫⃒", Entities.getByName(name: "nGt"));//todo:nabil same codepoint 8811 in java but charachters different
 		//XCTAssertEqual("fj", Entities.getByName(name: "fjlig"));
