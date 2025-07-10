@@ -65,22 +65,22 @@ open class Node: Equatable, Hashable {
      */
     public init(_ baseUri: [UInt8], _ attributes: Attributes) {
         childNodes = Node.EMPTY_NODES
-        childNodes.reserveCapacity(8)
+        if self is Element || self is DocumentType {
+            childNodes.reserveCapacity(32)
+        }
         
         self.baseUri = baseUri.trim()
         self.attributes = attributes
-        
-        rebuildQueryIndexesForThisNodeOnly()
     }
     
     public init(_ baseUri: [UInt8]) {
         childNodes = Node.EMPTY_NODES
-        childNodes.reserveCapacity(8)
+        if self is Element || self is DocumentType {
+            childNodes.reserveCapacity(32)
+        }
         
         self.baseUri = baseUri.trim()
         self.attributes = Attributes()
-        
-        rebuildQueryIndexesForThisNodeOnly()
     }
     
     /**
@@ -88,7 +88,9 @@ open class Node: Equatable, Hashable {
      */
     public init() {
         self.childNodes = Node.EMPTY_NODES
-        childNodes.reserveCapacity(8)
+        if self is Element || self is DocumentType {
+            childNodes.reserveCapacity(32)
+        }
         
         self.attributes = nil
         self.baseUri = nil
@@ -824,24 +826,24 @@ open class Node: Equatable, Hashable {
     }
     
     public func copy(clone: Node) -> Node {
-        let thisClone: Node = copy(clone: clone, parent: nil) // splits for orphan
+        let thisClone = copy(clone: clone, parent: nil) // splits for orphan
         
-        // Queue up nodes that need their children cloned (BFS).
-        var nodesToProcess: Array<Node> = Array<Node>()
-        nodesToProcess.append(thisClone)
-        
-        while (!nodesToProcess.isEmpty) {
-            let currParent: Node = nodesToProcess.removeFirst()
+        // BFS clone using index-based queue
+        var queue: [Node] = [thisClone]
+        var idx = 0
+        while idx < queue.count {
+            let currParent = queue[idx]
+            idx += 1
             
-            for i in 0..<currParent.childNodes.count {
-                let childClone: Node = currParent.childNodes[i].copy(parent: currParent)
-                currParent.childNodes[i] = childClone
-                currParent.rebuildQueryIndexesForThisNodeOnly()
-                nodesToProcess.append(childClone)
+            let originalChildren = currParent.childNodes
+            currParent.childNodes = []
+            for child in originalChildren {
+                let childClone = child.copy(parent: currParent)
+                currParent.childNodes.append(childClone)
+                queue.append(childClone)
             }
+            currParent.rebuildQueryIndexesForThisNodeOnly()
         }
-        
-        thisClone.rebuildQueryIndexesForThisNodeOnly()
         
         return thisClone
     }
@@ -941,8 +943,7 @@ extension Node: CustomDebugStringConvertible {
 internal extension Node {
     @inlinable
     func markQueryIndexDirty() {
-        // Fast-exit during bulk builds; use builder flag instead of static
-        if let b = treeBuilder, b.isBulkBuilding { return }
+        guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
             node.isQueryIndexDirty = true
@@ -976,7 +977,7 @@ internal extension Node {
         isQueryIndexDirty = false
     }
     
-    @usableFromInline
+    @inlinable
     func rebuildQueryIndexesForThisNodeOnly() {
         normalizedTagNameIndex = nil
         markQueryIndexDirty()
