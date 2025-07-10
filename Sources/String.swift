@@ -42,6 +42,29 @@ extension ArraySlice where Element == UInt8 {
         }
         return result
     }
+    
+    public func trim() -> ArraySlice<UInt8> {
+        // Helper function to check if a byte is whitespace
+        func isWhitespace(_ byte: UInt8) -> Bool {
+            return byte == 0x20 || (byte >= 0x09 && byte <= 0x0D)
+        }
+        
+        var start = startIndex
+        var end = endIndex
+        var trimmed = false
+        
+        while start < end, isWhitespace(self[start]) {
+            formIndex(after: &start)
+            trimmed = true
+        }
+        
+        while start < end, isWhitespace(self[index(before: end)]) {
+            formIndex(before: &end)
+            trimmed = true
+        }
+        
+        return trimmed ? self[start..<end] : self
+    }
 }
 
 // TODO: Use @retroactive once supported on Ubuntu (?)

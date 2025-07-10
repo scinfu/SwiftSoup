@@ -62,7 +62,7 @@ open class Token {
         
         @inline(__always)
         func getName() -> [UInt8] {
-            return name.buffer
+            return Array(name.buffer)
         }
         
         @inline(__always)
@@ -72,12 +72,12 @@ open class Token {
         
         @inline(__always)
         func getPublicIdentifier() -> [UInt8] {
-            return publicIdentifier.buffer
+            return Array(publicIdentifier.buffer)
         }
         
         @inline(__always)
         public func getSystemIdentifier() -> [UInt8] {
-            return systemIdentifier.buffer
+            return Array(systemIdentifier.buffer)
         }
         
         @inline(__always)
@@ -123,7 +123,7 @@ open class Token {
                 if _hasPendingAttributeValue {
                     attribute = try Attribute(
                         key: pendingAttr,
-                        value: !_pendingAttributeValue.isEmpty ? _pendingAttributeValue.buffer : Array(_pendingAttributeValueS!)
+                        value: !_pendingAttributeValue.isEmpty ? Array(_pendingAttributeValue.buffer) : Array(_pendingAttributeValueS!)
                     )
                 } else if _hasEmptyAttributeValue {
                     attribute = try Attribute(key: pendingAttr, value: [])
@@ -324,7 +324,7 @@ open class Token {
         
         @inline(__always)
         func getData() -> [UInt8] {
-            return data.buffer
+            return Array(data.buffer)
         }
         
         @inline(__always)

@@ -135,7 +135,7 @@ open class TextNode: Node {
         let par: Element? = parent() as? Element
         let normaliseWhite = out.prettyPrint() && par != nil && !Element.preserveWhitespace(par!)
 
-        Entities.escape(&accum.buffer, getWholeTextUTF8(), out, false, normaliseWhite, false)
+        Entities.escape(accum, getWholeTextUTF8(), out, false, normaliseWhite, false)
     }
 
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {

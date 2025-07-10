@@ -1641,7 +1641,7 @@ enum TokeniserState: TokeniserStateProtocol {
         let c = r.consume()
         switch (c) {
         case UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", ">":
-            if (t.dataBuffer.buffer == UTF8Arrays.script) {
+            if (t.dataBuffer.buffer == ArraySlice(UTF8Arrays.script)) {
             t.transition(primary)
             } else {
             t.transition(fallback)

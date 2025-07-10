@@ -63,6 +63,7 @@ public class XmlTreeBuilder: TreeBuilder {
         return true
     }
     
+    @inline(__always)
     private func insertNode(_ node: Node)throws {
         try currentElement()?.appendChild(node)
     }
@@ -107,11 +108,13 @@ public class XmlTreeBuilder: TreeBuilder {
         try insertNode(insert)
     }
     
+    @inline(__always)
     func insert(_ characterToken: Token.Char)throws {
         let node: Node = TextNode(characterToken.getData()!, baseUri)
         try insertNode(node)
     }
     
+    @inline(__always)
     func insert(_ d: Token.Doctype)throws {
         let doctypeNode = DocumentType(
             settings.normalizeTag(d.getName()),
@@ -129,6 +132,7 @@ public class XmlTreeBuilder: TreeBuilder {
      *
      * @param endTag
      */
+    @inline(__always)
     private func popStackToClose(_ endTag: Token.EndTag) throws {
         let elName = try endTag.name()
         var targetIndex: Int? = nil

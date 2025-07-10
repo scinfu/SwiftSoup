@@ -1021,9 +1021,9 @@ open class Element: Node {
         try NodeTraversor(TextNodeVisitor(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)).traverse(self)
         let text = accum.buffer
         if trimAndNormaliseWhitespace {
-            return text.trim()
+            return Array(text.trim())
         }
-        return text
+        return Array(text)
     }
     
     /**
@@ -1057,7 +1057,7 @@ open class Element: Node {
     public func ownTextUTF8() -> [UInt8] {
         let sb: StringBuilder = StringBuilder()
         ownText(sb)
-        return sb.buffer.trim()
+        return Array(sb.buffer.trim())
     }
     
     private func ownText(_ accum: StringBuilder) {
@@ -1460,7 +1460,7 @@ open class Element: Node {
     public func htmlUTF8() throws -> [UInt8] {
         let accum: StringBuilder = StringBuilder()
         try html2(accum)
-        return getOutputSettings().prettyPrint() ? accum.buffer.trim() : accum.buffer
+        return Array(getOutputSettings().prettyPrint() ? accum.buffer.trim() : accum.buffer)
     }
     
     private func html2(_ accum: StringBuilder) throws {

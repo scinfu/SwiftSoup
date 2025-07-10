@@ -48,7 +48,7 @@ final class Tokeniser {
         }
         
         if !charsBuilder.isEmpty {
-            let str = charsBuilder.buffer
+            let str = Array(charsBuilder.buffer)
             charsBuilder.clear()
             // Clear any pending slices, as the builder takes precedence.
             pendingSlices.removeAll()
@@ -315,6 +315,6 @@ final class Tokeniser {
                 }
             }
         }
-        return builder.buffer
+        return Array(builder.buffer)
     }
 }

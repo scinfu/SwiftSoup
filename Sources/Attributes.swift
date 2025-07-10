@@ -263,7 +263,7 @@ open class Attributes: NSCopying {
     open func htmlUTF8() throws -> [UInt8] {
         let accum = StringBuilder()
         try html(accum: accum, out: Document([]).outputSettings()) // output settings a bit funky, but this html() seldom used
-        return accum.buffer
+        return Array(accum.buffer)
     }
     
     @inlinable
