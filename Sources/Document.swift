@@ -7,7 +7,7 @@
 
 import Foundation
 
-open class Document: Element {
+open class Document: Element, @unchecked Sendable {
     public enum QuirksMode {
         case noQuirks, quirks, limitedQuirks
     }

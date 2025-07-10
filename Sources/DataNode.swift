@@ -10,7 +10,7 @@ import Foundation
 /**
  A data node, for contents of style, script tags etc, where contents should not show in text().
  */
-open class DataNode: Node {
+open class DataNode: Node, @unchecked Sendable {
     private static let DATA_KEY  = "data".utf8Array
 
     /**

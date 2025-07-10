@@ -10,7 +10,7 @@ import Foundation
 /**
  A comment node.
  */
-public class Comment: Node {
+public class Comment: Node, @unchecked Sendable {
     private static let COMMENT_KEY: [UInt8] = UTF8Arrays.comment
 
     /**
