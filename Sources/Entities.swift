@@ -26,7 +26,7 @@ public class Entities {
     
     private static let spaceString: [UInt8] = [0x20]
     
-    public class EscapeMode: Equatable {
+    public class EscapeMode: Equatable, @unchecked Sendable {
         
         /** Restricted entities suitable for XHTML output: lt, gt, amp, and quot only. */
         public static let xhtml: EscapeMode = EscapeMode(string: Entities.xhtml, size: 4, id: 0)

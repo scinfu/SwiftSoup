@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum ExceptionType {
+public enum ExceptionType: Sendable {
     case IllegalArgumentException
     case IOException
     case XmlDeclaration
