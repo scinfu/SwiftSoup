@@ -194,7 +194,7 @@ final class Tokeniser {
             if (!reader.matchConsume(UTF8Arrays.semicolon)) {
                 characterReferenceError("missing semicolon") // missing semi
             }
-            if let points = Entities.codepointsForName(nameRef) {
+            if let points = Entities.codepointsForName(Array(nameRef)) {
                 if points.count > 2 {
                     try Validate.fail(msg: "Unexpected characters returned for \(nameRef) num: \(points.count)")
                 }

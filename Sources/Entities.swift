@@ -86,7 +86,7 @@ public class Entities {
                 
                 if cp2 != empty {
                     multipointsLock.lock()
-                    multipoints[name] = [UnicodeScalar(cp1)!, UnicodeScalar(cp2)!]
+                    multipoints[Array(name)] = [UnicodeScalar(cp1)!, UnicodeScalar(cp2)!]
                     multipointsLock.unlock()
                 }
             }
@@ -146,8 +146,19 @@ public class Entities {
         }
     }
     
-    private static var multipoints: [ArraySlice<UInt8>: [UnicodeScalar]] = [:] // name -> multiple character references
-    private static var multipointsLock = MutexLock()
+    // Singleton for thread-safe multipoints
+    private final class MultipointsRegistry: @unchecked Sendable {
+        static let shared = MultipointsRegistry()
+        let multipointsLock = MutexLock()
+        var multipoints: [[UInt8]: [UnicodeScalar]] = [:]
+        private init() {}
+    }
+
+    private static var multipointsLock: MutexLock { MultipointsRegistry.shared.multipointsLock }
+    private static var multipoints: [[UInt8]: [UnicodeScalar]] {
+        get { MultipointsRegistry.shared.multipoints }
+        set { MultipointsRegistry.shared.multipoints = newValue }
+    }
     
     /**
      * Check if the input is a known named entity
@@ -155,7 +166,7 @@ public class Entities {
      * @return true if a known named entity
      */
     public static func isNamedEntity(_ name: ArraySlice<UInt8>) -> Bool {
-        return (EscapeMode.extended.codepointForName(name) != nil)
+        return (EscapeMode.extended.codepointForName(Array(name)) != nil)
     }
     
     /**
@@ -165,7 +176,7 @@ public class Entities {
      * @see #isNamedEntity(String)
      */
     public static func isBaseNamedEntity(_ name: ArraySlice<UInt8>) -> Bool {
-        return EscapeMode.base.codepointForName(name) != nil
+        return EscapeMode.base.codepointForName(Array(name)) != nil
     }
     
     /**
@@ -173,18 +184,19 @@ public class Entities {
      * @param name entity (e.g. "lt" or "amp")
      * @return the string value of the character(s) represented by this entity, or "" if not defined
      */
+    @MainActor
     public static func getByName(name: String) -> String? {
         return getByName(name: name.utf8ArraySlice)
     }
     
     public static func getByName(name: ArraySlice<UInt8>) -> String? {
-        if let scalars = codepointsForName(name) {
+        if let scalars = codepointsForName(Array(name)) {
             return String(String.UnicodeScalarView(scalars))
         }
         return nil
     }
-    
-    public static func codepointsForName(_ name: ArraySlice<UInt8>) -> [UnicodeScalar]? {
+
+    public static func codepointsForName(_ name: [UInt8]) -> [UnicodeScalar]? {
         multipointsLock.lock()
         if let scalars = multipoints[name] {
             multipointsLock.unlock()
