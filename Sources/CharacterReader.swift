@@ -159,12 +159,12 @@ public final class CharacterReader {
         }
     }
     
-    @inlinable
+    @inline(__always)
     public func consumeToAny(_ chars: ParsingStrings) -> String {
         return String(decoding: consumeToAny(chars), as: UTF8.self)
     }
     
-    @inlinable
+    @inline(__always)
     public func consumeToAny(_ chars: ParsingStrings) -> ArraySlice<UInt8> {
         let start = pos
         
@@ -218,6 +218,7 @@ public final class CharacterReader {
         return consumed
     }
     
+    @inline(__always)
     public func consumeTo(_ seq: String) -> String {
         return String(decoding: consumeTo(seq.utf8Array), as: UTF8.self)
     }
@@ -229,10 +230,12 @@ public final class CharacterReader {
         return consumed
     }
     
+    @inline(__always)
     public func consumeToEnd() -> String {
         return String(decoding: consumeToEndUTF8(), as: UTF8.self)
     }
     
+    @inline(__always)
     public func consumeToEndUTF8() -> ArraySlice<UInt8> {
         let consumed = cacheString(pos, end)
         pos = end
@@ -319,6 +322,7 @@ public final class CharacterReader {
         return cacheString(start, pos)
     }
     
+    @inline(__always)
     public func matches(_ c: UnicodeScalar) -> Bool {
         guard pos < end else { return false }
         
@@ -333,6 +337,7 @@ public final class CharacterReader {
         }
     }
     
+    @inline(__always)
     public func matches(_ seq: String, ignoreCase: Bool = false, consume: Bool = false) -> Bool {
         return matches(seq.utf8Array, ignoreCase: ignoreCase, consume: consume)
     }
@@ -368,10 +373,12 @@ public final class CharacterReader {
         return true
     }
     
+    @inline(__always)
     public func matchesIgnoreCase(_ seq: [UInt8]) -> Bool {
         return matches(seq, ignoreCase: true)
     }
     
+    @inline(__always)
     public func matchesIgnoreCase(_ seq: String) -> Bool {
         return matches(seq.utf8Array, ignoreCase: true)
     }
@@ -502,25 +509,30 @@ public final class CharacterReader {
     }
     
     @discardableResult
+    @inline(__always)
     public func matchConsume(_ seq: [UInt8]) -> Bool {
         return matches(seq, consume: true)
     }
     
     @discardableResult
+    @inline(__always)
     public func matchConsumeIgnoreCase(_ seq: [UInt8]) -> Bool {
         return matches(seq, ignoreCase: true, consume: true)
     }
     
+    @inline(__always)
     public func containsIgnoreCase(_ seq: [UInt8]) -> Bool {
         let loScan = seq.lowercased()
         let hiScan = seq.uppercased()
         return nextIndexOf(loScan) != nil || nextIndexOf(hiScan) != nil
     }
     
+    @inline(__always)
     public func containsIgnoreCase(_ seq: String) -> Bool {
         return containsIgnoreCase(seq.utf8Array)
     }
 
+    @inline(__always)
     public func toString() -> String {
         return String(decoding: input[pos...], as: UTF8.self)
     }
@@ -535,10 +547,12 @@ public final class CharacterReader {
      * Originally intended as a caching mechanism for strings, but caching doesn't
      * seem to improve performance. Now just a stub.
      */
+    @inline(__always)
     private func cacheString(_ start: [UInt8].Index, _ end: [UInt8].Index) -> ArraySlice<UInt8> {
         return input[start..<end]
     }
     
+    @inline(__always)
     public func nextIndexOf(_ c: UnicodeScalar) -> String.UTF8View.Index? {
         let utf8View = String(decoding: input, as: UTF8.self).utf8
         let startIndex = utf8View.index(utf8View.startIndex, offsetBy: getPos())

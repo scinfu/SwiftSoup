@@ -36,7 +36,7 @@ open class StringBuilder {
      Return the current length of the String object
      */
     @inline(__always)
-    open var xlength: Int {
+    open var length: Int {
         return buffer.count
     }
     
