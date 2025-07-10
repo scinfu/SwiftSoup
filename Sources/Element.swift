@@ -1172,7 +1172,7 @@ open class Element: Node {
      */
     public func classNames() throws -> OrderedSet<String> {
         let utf8ClassName = try classNameUTF8()
-        var classNames = OrderedSet<String>()
+        let classNames = OrderedSet<String>()
         var currentStartIndex: Int? = nil
         
         for (i, byte) in utf8ClassName.enumerated() {
