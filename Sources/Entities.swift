@@ -166,7 +166,7 @@ public class Entities {
      * @return true if a known named entity
      */
     public static func isNamedEntity(_ name: ArraySlice<UInt8>) -> Bool {
-        return (EscapeMode.extended.codepointForName(Array(name)) != nil)
+        return (EscapeMode.extended.codepointForName(name) != nil)
     }
     
     /**
@@ -176,7 +176,7 @@ public class Entities {
      * @see #isNamedEntity(String)
      */
     public static func isBaseNamedEntity(_ name: ArraySlice<UInt8>) -> Bool {
-        return EscapeMode.base.codepointForName(Array(name)) != nil
+        return EscapeMode.base.codepointForName(name) != nil
     }
     
     /**
