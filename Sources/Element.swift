@@ -1372,7 +1372,7 @@ open class Element: Node {
     public func hasClass(_ className: String) -> Bool {
         let classAtt: [UInt8]? = attributes?.get(key: Element.classString)
         let len: Int = (classAtt != nil) ? classAtt!.count : 0
-        let wantLen: Int = className.count
+        let wantLen: Int = className.utf8.count
         
         if (len == 0 || len < wantLen) {
             return false
