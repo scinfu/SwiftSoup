@@ -4,10 +4,12 @@
  */
 open class StringBuilder {
     private var internalBuffer: [UInt8] = []
+    
     /// Number of bytes currently used in buffer
     private var size: Int = 0
     
     /// Read-only view of the active buffer contents
+    @inline(__always)
     public var buffer: ArraySlice<UInt8> {
         return internalBuffer[0..<size]
     }
@@ -17,6 +19,7 @@ open class StringBuilder {
      
      :param: string Initial value; defaults to empty string
      */
+    @inline(__always)
     public init(string: String? = nil) {
         if let string, !string.isEmpty {
             internalBuffer.append(contentsOf: string.utf8)
@@ -25,6 +28,7 @@ open class StringBuilder {
         internalBuffer.reserveCapacity(1024)
     }
     
+    @inline(__always)
     public init(_ capacity: Int) {
         internalBuffer = []
         internalBuffer.reserveCapacity(capacity)
@@ -60,8 +64,8 @@ open class StringBuilder {
      
      :return: reference to this StringBuilder instance
      */
-    @inline(__always)
     @discardableResult
+    @inline(__always)
     open func append(_ string: String) -> StringBuilder {
         let bytes = string.utf8
         write(contentsOf: bytes)
@@ -83,7 +87,7 @@ open class StringBuilder {
         appendCodePoint(UnicodeScalar(ch)!)
     }
     
-    @inlinable
+    @inline(__always)
     open func appendCodePoint(_ ch: UnicodeScalar) {
         let val = ch.value
         if val < 0x80 {
