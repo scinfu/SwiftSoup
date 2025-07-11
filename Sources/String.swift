@@ -111,7 +111,7 @@ extension Array: Comparable where Element == UInt8 {
     }
     
     @inline(__always)
-    func hasPrefix(_ prefix: [UInt8]) -> Bool {
+    public func hasPrefix(_ prefix: [UInt8]) -> Bool {
         guard self.count >= prefix.count else { return false }
         return zip(self, prefix).allSatisfy { $0 == $1 }
     }
@@ -137,6 +137,7 @@ extension Array: Comparable where Element == UInt8 {
         return self == string
     }
     
+    @inline(__always)
     public func trim() -> [UInt8] {
         // Helper function to check if a byte is whitespace
         func isWhitespace(_ byte: UInt8) -> Bool {

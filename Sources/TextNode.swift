@@ -155,6 +155,7 @@ open class TextNode: Node {
      * @param baseUri Base uri
      * @return TextNode containing unencoded data (e.g. &lt;)
      */
+    @inline(__always)
     public static func createFromEncoded(_ encodedText: String, _ baseUri: String) throws -> TextNode {
         let text = try Entities.unescape(encodedText.utf8Array)
         return TextNode(text, baseUri.utf8Array)

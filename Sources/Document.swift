@@ -205,8 +205,14 @@ open class Document: Element {
         return nil
     }
 
+    @inline(__always)
     open override func outerHtml() throws -> String {
         return try super.html() // no outer wrapper tag
+    }
+    
+    @inline(__always)
+    open func outerHtmlUTF8() throws -> [UInt8] {
+        return try super.htmlUTF8() // no outer wrapper tag
     }
 
     /**
@@ -215,15 +221,18 @@ open class Document: Element {
      @return this document
      */
     @discardableResult
+    @inline(__always)
     public override func text(_ text: String) throws -> Element {
         try body()?.text(text) // overridden to not nuke doc structure
         return self
     }
 
+    @inline(__always)
     public override func nodeNameUTF8() -> [UInt8] {
         return nodeName().utf8Array
     }
     
+    @inline(__always)
     public override func nodeName() -> String {
         return "#document"
     }
@@ -266,7 +275,8 @@ open class Document: Element {
      *
      * @see OutputSettings#charset()
      */
-    public func charset()->String.Encoding {
+    @inline(__always)
+    public func charset() -> String.Encoding {
         return _outputSettings.charset()
     }
 
@@ -283,6 +293,7 @@ open class Document: Element {
      *
      * @see #charset(java.nio.charset.Charset)
      */
+    @inline(__always)
     public func updateMetaCharsetElement(_ update: Bool) {
         self.updateMetaCharset = update
     }
@@ -295,6 +306,7 @@ open class Document: Element {
      * @return Returns <tt>true</tt> if the element is updated on charset
      * changes, <tt>false</tt> if not
      */
+    @inline(__always)
     public func updateMetaCharsetElement() -> Bool {
         return updateMetaCharset
     }
@@ -373,6 +385,7 @@ open class Document: Element {
      * Get the document's current output settings.
      * @return the document's current output settings.
      */
+    @inline(__always)
     public func outputSettings() -> OutputSettings {
     return _outputSettings
     }
@@ -383,31 +396,37 @@ open class Document: Element {
      * @return this document, for chaining.
      */
     @discardableResult
+    @inline(__always)
     public func outputSettings(_ outputSettings: OutputSettings) -> Document {
         self._outputSettings = outputSettings
         return self
     }
 
+    @inline(__always)
     public func quirksMode()->Document.QuirksMode {
         return _quirksMode
     }
 
     @discardableResult
+    @inline(__always)
     public func quirksMode(_ quirksMode: Document.QuirksMode) -> Document {
         self._quirksMode = quirksMode
         return self
     }
 
+    @inline(__always)
 	public override func copy(with zone: NSZone? = nil) -> Any {
 		let clone = Document(_location)
 		return copy(clone: clone)
 	}
 
+    @inline(__always)
 	public override func copy(parent: Node?) -> Node {
 		let clone = Document(_location)
 		return copy(clone: clone, parent: parent)
 	}
 
+    @inline(__always)
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		let clone = clone as! Document
 		clone._outputSettings = _outputSettings.copy() as! OutputSettings
@@ -443,7 +462,7 @@ public class OutputSettings: NSCopying {
      * The default escape mode is <code>base</code>.
      * @return the document's current escape mode
      */
-    @inlinable
+    @inline(__always)
     public func escapeMode() -> Entities.EscapeMode {
         return _escapeMode
     }
@@ -455,7 +474,7 @@ public class OutputSettings: NSCopying {
      * @return the document's output settings, for chaining
      */
     @discardableResult
-    @inlinable
+    @inline(__always)
     public func escapeMode(_ escapeMode: Entities.EscapeMode) -> OutputSettings {
         self._escapeMode = escapeMode
         return self
@@ -469,11 +488,12 @@ public class OutputSettings: NSCopying {
      * input charset. Otherwise, it defaults to UTF-8.
      * @return the document's current charset.
      */
-    @inlinable
+    @inline(__always)
     public func encoder() -> String.Encoding {
         return _encoder
     }
-    @inlinable
+    
+    @inline(__always)
     public func charset() -> String.Encoding {
         return _encoder
     }
@@ -484,12 +504,14 @@ public class OutputSettings: NSCopying {
      * @return the document's output settings, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func encoder(_ encoder: String.Encoding) -> OutputSettings {
         self._encoder = encoder
         return self
     }
 
     @discardableResult
+    @inline(__always)
     public func charset(_ e: String.Encoding) -> OutputSettings {
         return encoder(e)
     }
@@ -498,6 +520,7 @@ public class OutputSettings: NSCopying {
      * Get the document's current output syntax.
      * @return current syntax
      */
+    @inline(__always)
     public func syntax() -> Syntax {
         return _syntax
     }
@@ -509,6 +532,7 @@ public class OutputSettings: NSCopying {
      * @return the document's output settings, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func syntax(syntax: Syntax) -> OutputSettings {
         _syntax = syntax
         return self
@@ -519,6 +543,7 @@ public class OutputSettings: NSCopying {
      * the output, and the output will generally look like the input.
      * @return if pretty printing is enabled.
      */
+    @inline(__always)
     public func prettyPrint() -> Bool {
         return _prettyPrint
     }
@@ -529,6 +554,7 @@ public class OutputSettings: NSCopying {
      * @return this, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func prettyPrint(pretty: Bool) -> OutputSettings {
         _prettyPrint = pretty
         return self
@@ -539,6 +565,7 @@ public class OutputSettings: NSCopying {
      * all tags as block.
      * @return if outline mode is enabled.
      */
+    @inline(__always)
     public func outline() -> Bool {
         return _outline
     }
@@ -549,6 +576,7 @@ public class OutputSettings: NSCopying {
      * @return this, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func outline(outlineMode: Bool) -> OutputSettings {
         _outline = outlineMode
         return self
@@ -558,6 +586,7 @@ public class OutputSettings: NSCopying {
      * Get the current tag indent amount, used when pretty printing.
      * @return the current indent amount
      */
+    @inline(__always)
     public func indentAmount() -> UInt {
         return _indentAmount
     }
@@ -568,11 +597,13 @@ public class OutputSettings: NSCopying {
      * @return this, for chaining
      */
     @discardableResult
+    @inline(__always)
     public func indentAmount(indentAmount: UInt) -> OutputSettings {
         _indentAmount = indentAmount
         return self
     }
 
+    @inline(__always)
     public func copy(with zone: NSZone? = nil) -> Any {
         let clone: OutputSettings = OutputSettings()
         clone.charset(_encoder) // new charset and charset encoder

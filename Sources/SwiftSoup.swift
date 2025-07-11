@@ -29,9 +29,23 @@ import Foundation
 	@param parser alternate {@link Parser#xmlParser() parser} to use.
 	@return sane HTML
 	*/
-	public  func parse(_ html: String, _ baseUri: String, _ parser: Parser) throws -> Document {
+	public func parse(_ html: String, _ baseUri: String, _ parser: Parser) throws -> Document {
 		return try parser.parseInput(html, baseUri)
 	}
+
+    /**
+     Parse HTML into a Document, using the provided Parser. You can provide an alternate parser, such as a simple XML
+     (non-HTML) parser.
+     
+     @param html    HTML to parse
+     @param baseUri The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs, that occur
+     before the HTML declares a {@code <base href>} tag.
+     @param parser alternate {@link Parser#xmlParser() parser} to use.
+     @return sane HTML
+     */
+    public func parse(_ html: [UInt8], _ baseUri: String, _ parser: Parser) throws -> Document {
+        return try parser.parseInput(html, baseUri)
+    }
 
 	/**
 	Parse HTML into a Document. As no base URI is specified, absolute URL detection relies on the HTML including a
