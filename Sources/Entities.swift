@@ -86,7 +86,7 @@ public class Entities {
                 
                 if cp2 != empty {
                     multipointsLock.lock()
-                    multipoints[Array(name)] = [UnicodeScalar(cp1)!, UnicodeScalar(cp2)!]
+                    multipoints[name] = [UnicodeScalar(cp1)!, UnicodeScalar(cp2)!]
                     multipointsLock.unlock()
                 }
             }
@@ -150,16 +150,16 @@ public class Entities {
     private final class MultipointsRegistry: @unchecked Sendable {
         static let shared = MultipointsRegistry()
         let multipointsLock = MutexLock()
-        var multipoints: [[UInt8]: [UnicodeScalar]] = [:]
+        var multipoints: [ArraySlice<UInt8>: [UnicodeScalar]] = [:]
         private init() {}
     }
 
     private static var multipointsLock: MutexLock { MultipointsRegistry.shared.multipointsLock }
-    private static var multipoints: [[UInt8]: [UnicodeScalar]] {
+    private static var multipoints: [ArraySlice<UInt8>: [UnicodeScalar]] {
         get { MultipointsRegistry.shared.multipoints }
         set { MultipointsRegistry.shared.multipoints = newValue }
     }
-    
+
     /**
      * Check if the input is a known named entity
      * @param name the possible entity name (e.g. "lt" or "amp")
@@ -190,13 +190,13 @@ public class Entities {
     }
     
     public static func getByName(name: ArraySlice<UInt8>) -> String? {
-        if let scalars = codepointsForName(Array(name)) {
+        if let scalars = codepointsForName(name) {
             return String(String.UnicodeScalarView(scalars))
         }
         return nil
     }
 
-    public static func codepointsForName(_ name: [UInt8]) -> [UnicodeScalar]? {
+    public static func codepointsForName(_ name: ArraySlice<UInt8>) -> [UnicodeScalar]? {
         multipointsLock.lock()
         if let scalars = multipoints[name] {
             multipointsLock.unlock()
