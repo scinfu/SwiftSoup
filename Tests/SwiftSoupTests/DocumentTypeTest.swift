@@ -10,15 +10,6 @@ import SwiftSoup
 
 class DocumentTypeTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
 	func testConstructorValidationOkWithBlankName() {
 		let fail: DocumentType? = DocumentType("", "", "", "")
 		XCTAssertTrue(fail != nil)
@@ -47,14 +38,4 @@ class DocumentTypeTest: XCTestCase {
 		let combo = DocumentType("notHtml", "--public", "--system", "")
 		XCTAssertEqual("<!DOCTYPE notHtml PUBLIC \"--public\" \"--system\">", try! combo.outerHtml())
 	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testConstructorValidationOkWithBlankName", testConstructorValidationOkWithBlankName),
-			("testConstructorValidationThrowsExceptionOnNulls", testConstructorValidationThrowsExceptionOnNulls),
-			("testConstructorValidationOkWithBlankPublicAndSystemIds", testConstructorValidationOkWithBlankPublicAndSystemIds),
-			("testOuterHtmlGeneration", testOuterHtmlGeneration)
-		]
-	}()
 }

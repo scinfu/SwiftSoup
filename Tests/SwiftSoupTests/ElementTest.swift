@@ -11,15 +11,6 @@ import XCTest
 class ElementTest: XCTestCase {
 	private let reference = "<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>"
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
 	func testGetElementsByTagName() {
 		let doc: Document = try! SwiftSoup.parse(reference)
 		let divs = try! doc.getElementsByTag("div")
@@ -217,6 +208,7 @@ class ElementTest: XCTestCase {
 		XCTAssertFalse(doc.hasClass("mellow"))
 	}
 
+    @MainActor
     func testHasClassDomMethods() throws {
         let tag: Tag = try Tag.valueOf("a")
         let attribs: Attributes = Attributes()
@@ -372,6 +364,7 @@ class ElementTest: XCTestCase {
 		}
 	}
 
+    @MainActor
 	func testAddBooleanAttribute() throws {
 		let div: Element = try Element(Tag.valueOf("div"), "")
 
@@ -751,6 +744,7 @@ class ElementTest: XCTestCase {
 		}
 	}
 
+    @MainActor
 	func testInsertChildrenAtPosition() throws {
 		let doc: Document = try SwiftSoup.parse("<div id=1>Text1 <p>One</p> Text2 <p>Two</p></div><div id=2>Text3 <p>Three</p></div>")
 		let div1: Element = try doc.select("div").get(0)
@@ -923,6 +917,7 @@ class ElementTest: XCTestCase {
 		XCTAssertEqual("<body><div3>Check</div3><div4></div4><div1></div1><div2></div2></body>", result)
 	}
 
+    @MainActor
 	func testHashcodeIsStableWithContentChanges() throws {
 		let root: Element = try Element(Tag.valueOf("root"), "")
 		let set = OrderedSet<Element>()
@@ -998,82 +993,4 @@ class ElementTest: XCTestCase {
     }
 
 
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testGetElementsByTagName", testGetElementsByTagName),
-            ("testGetNamespacedElementsByTag", testGetNamespacedElementsByTag),
-            ("testGetElementById", testGetElementById),
-            ("testGetText", testGetText),
-            ("testGetChildText", testGetChildText),
-            ("testNormalisesText", testNormalisesText),
-            ("testKeepsPreText", testKeepsPreText),
-            ("testKeepsPreTextInCode", testKeepsPreTextInCode),
-            ("testBrHasSpace", testBrHasSpace),
-            ("testGetSiblings", testGetSiblings),
-            ("testGetSiblingsWithDuplicateContent", testGetSiblingsWithDuplicateContent),
-            ("testGetParents", testGetParents),
-            ("testElementSiblingIndex", testElementSiblingIndex),
-            ("testElementSiblingIndexSameContent", testElementSiblingIndexSameContent),
-            ("testGetElementsWithClass", testGetElementsWithClass),
-            ("testGetElementsWithAttribute", testGetElementsWithAttribute),
-            ("testGetElementsWithAttributeDash", testGetElementsWithAttributeDash),
-            ("testGetElementsWithAttributeValue", testGetElementsWithAttributeValue),
-            ("testClassDomMethods", testClassDomMethods),
-            ("testHasClassDomMethods", testHasClassDomMethods),
-            ("testClassUpdates", testClassUpdates),
-            ("testOuterHtml", testOuterHtml),
-            ("testInnerHtml", testInnerHtml),
-            ("testFormatHtml", testFormatHtml),
-            ("testFormatOutline", testFormatOutline),
-            ("testSetIndent", testSetIndent),
-            ("testNotPretty", testNotPretty),
-            ("testEmptyElementFormatHtml", testEmptyElementFormatHtml),
-            ("testNoIndentOnScriptAndStyle", testNoIndentOnScriptAndStyle),
-            ("testContainerOutput", testContainerOutput),
-            ("testSetText", testSetText),
-            ("testAddNewElement", testAddNewElement),
-            ("testAddBooleanAttribute", testAddBooleanAttribute),
-            ("testAppendRowToTable", testAppendRowToTable),
-            ("testPrependRowToTable", testPrependRowToTable),
-            ("testPrependElement", testPrependElement),
-            ("testAddNewText", testAddNewText),
-            ("testPrependText", testPrependText),
-            ("testAddNewHtml", testAddNewHtml),
-            ("testPrependNewHtml", testPrependNewHtml),
-            ("testSetHtml", testSetHtml),
-            ("testSetHtmlTitle", testSetHtmlTitle),
-            ("testWrap", testWrap),
-            ("testBefore", testBefore),
-            ("testAfter", testAfter),
-            ("testWrapWithRemainder", testWrapWithRemainder),
-            ("testHasText", testHasText),
-            ("testDataset", testDataset),
-            ("testpParentlessToString", testpParentlessToString),
-            ("testClone", testClone),
-            ("testClonesClassnames", testClonesClassnames),
-            ("testTagNameSet", testTagNameSet),
-            ("testHtmlContainsOuter", testHtmlContainsOuter),
-            ("testGetTextNodes", testGetTextNodes),
-            ("testManipulateTextNodes", testManipulateTextNodes),
-            ("testGetDataNodes", testGetDataNodes),
-            ("testElementIsNotASiblingOfItself", testElementIsNotASiblingOfItself),
-            ("testChildThrowsIndexOutOfBoundsOnMissing", testChildThrowsIndexOutOfBoundsOnMissing),
-            ("testMoveByAppend", testMoveByAppend),
-            ("testInsertChildrenArgumentValidation", testInsertChildrenArgumentValidation),
-            ("testInsertChildrenAtPosition", testInsertChildrenAtPosition),
-            ("testInsertChildrenAsCopy", testInsertChildrenAsCopy),
-            ("testCssPath", testCssPath),
-            ("testClassNames", testClassNames),
-            ("testHashAndEqualsAndValue", testHashAndEqualsAndValue),
-            ("testRelativeUrls", testRelativeUrls),
-            ("testAppendMustCorrectlyMoveChildrenInsideOneParentElement", testAppendMustCorrectlyMoveChildrenInsideOneParentElement),
-            ("testHashcodeIsStableWithContentChanges", testHashcodeIsStableWithContentChanges),
-            ("testNamespacedElements", testNamespacedElements),
-            ("testChainedRemoveAttributes", testChainedRemoveAttributes),
-            ("testIs", testIs),
-            ("testGetElementsByTagIndexDuplicatesRegression", testGetElementsByTagIndexDuplicatesRegression),
-            ("testGetElementsByTagIndexRegression", testGetElementsByTagIndexRegression)
-        ]
-	}()
 }

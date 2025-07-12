@@ -10,7 +10,7 @@ import Foundation
 /**
  * A {@code <!DOCTYPE>} node.
  */
-public class DocumentType: Node {
+public class DocumentType: Node, @unchecked Sendable {
     static let PUBLIC_KEY = "PUBLIC".utf8Array
     static let SYSTEM_KEY = "SYSTEM".utf8Array
     private static let NAME = "name".utf8Array

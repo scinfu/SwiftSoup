@@ -26,7 +26,7 @@ public class Entities {
     
     private static let spaceString: [UInt8] = [0x20]
     
-    public class EscapeMode: Equatable {
+    public class EscapeMode: Equatable, @unchecked Sendable {
         
         /** Restricted entities suitable for XHTML output: lt, gt, amp, and quot only. */
         public static let xhtml: EscapeMode = EscapeMode(string: Entities.xhtml, size: 4, id: 0)
@@ -146,9 +146,20 @@ public class Entities {
         }
     }
     
-    private static var multipoints: [ArraySlice<UInt8>: [UnicodeScalar]] = [:] // name -> multiple character references
-    private static var multipointsLock = MutexLock()
-    
+    // Singleton for thread-safe multipoints
+    private final class MultipointsRegistry: @unchecked Sendable {
+        static let shared = MultipointsRegistry()
+        let multipointsLock = MutexLock()
+        var multipoints: [ArraySlice<UInt8>: [UnicodeScalar]] = [:]
+        private init() {}
+    }
+
+    private static var multipointsLock: MutexLock { MultipointsRegistry.shared.multipointsLock }
+    private static var multipoints: [ArraySlice<UInt8>: [UnicodeScalar]] {
+        get { MultipointsRegistry.shared.multipoints }
+        set { MultipointsRegistry.shared.multipoints = newValue }
+    }
+
     /**
      * Check if the input is a known named entity
      * @param name the possible entity name (e.g. "lt" or "amp")
@@ -173,6 +184,7 @@ public class Entities {
      * @param name entity (e.g. "lt" or "amp")
      * @return the string value of the character(s) represented by this entity, or "" if not defined
      */
+    @MainActor
     public static func getByName(name: String) -> String? {
         return getByName(name: name.utf8ArraySlice)
     }
@@ -183,7 +195,7 @@ public class Entities {
         }
         return nil
     }
-    
+
     public static func codepointsForName(_ name: ArraySlice<UInt8>) -> [UnicodeScalar]? {
         multipointsLock.lock()
         if let scalars = multipoints[name] {

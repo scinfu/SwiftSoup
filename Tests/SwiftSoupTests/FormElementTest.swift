@@ -10,15 +10,6 @@ import SwiftSoup
 
 class FormElementTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
 	func testHasAssociatedControls() throws {
 		//"button", "fieldset", "input", "keygen", "object", "output", "select", "textarea"
 		let html = "<form id=1><button id=1><fieldset id=2 /><input id=3><keygen id=4><object id=5><output id=6>" +
@@ -156,13 +147,4 @@ class FormElementTest: XCTestCase {
 //	assertEquals("pass", data.get(1).key());
 //	assertEquals("login", data.get(2).key());
 //	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testHasAssociatedControls", testHasAssociatedControls),
-			("testFormsAddedAfterParseAreFormElements", testFormsAddedAfterParseAreFormElements),
-			("testControlsAddedAfterParseAreLinkedWithForms", testControlsAddedAfterParseAreLinkedWithForms)
-		]
-	}()
 }

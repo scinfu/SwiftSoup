@@ -10,15 +10,6 @@ import SwiftSoup
 
 class TokenQueueTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
     func testChompBalanced() {
         let tq = TokenQueue(":contains(one (two) three) four")
         let pre = tq.consumeTo("(")
@@ -70,17 +61,5 @@ class TokenQueueTest: XCTestCase {
         tq.addFirst("Three")
         XCTAssertEqual("Three Two", tq.remainder())
     }
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testChompBalanced", testChompBalanced),
-			("testChompEscapedBalanced", testChompEscapedBalanced),
-			("testChompBalancedMatchesAsMuchAsPossible", testChompBalancedMatchesAsMuchAsPossible),
-			("testUnescape", testUnescape),
-			("testChompToIgnoreCase", testChompToIgnoreCase),
-			("testAddFirst", testAddFirst)
-			]
-	}()
 
 }

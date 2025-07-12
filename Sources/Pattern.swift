@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct Pattern {
+public struct Pattern: @unchecked Sendable {
     public static let CASE_INSENSITIVE: Int = 0x02
     let pattern: String
 

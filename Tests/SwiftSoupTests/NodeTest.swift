@@ -10,15 +10,7 @@ import SwiftSoup
 
 class NodeTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
+    @MainActor
 	func testHandlesBaseUri() {
 		do {
 			let tag: Tag = try Tag.valueOf("a")
@@ -219,6 +211,7 @@ class NodeTest: XCTestCase {
 		}
 	}
 
+    @MainActor
 	func testBefore() {
 		do {
 			let doc: Document = try SwiftSoup.parse("<p>One <b>two</b> three</p>")
@@ -235,6 +228,7 @@ class NodeTest: XCTestCase {
 		}
 	}
 
+    @MainActor
 	func testAfter() {
 		do {
 			let doc: Document = try SwiftSoup.parse("<p>One <b>two</b> three</p>")
@@ -305,6 +299,7 @@ class NodeTest: XCTestCase {
 		}
 	}
 
+    @MainActor
 	func testOrphanNodeReturnsNullForSiblingElements() {
 		do {
 			let node: Node = Element(try Tag.valueOf("p"), "")
@@ -377,32 +372,4 @@ class NodeTest: XCTestCase {
 			XCTAssertEqual(1, 2)
 		}
 	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testHandlesBaseUri", testHandlesBaseUri),
-			("testSetBaseUriIsRecursive", testSetBaseUriIsRecursive),
-			("testHandlesAbsPrefix", testHandlesAbsPrefix),
-			("testHandlesAbsOnImage", testHandlesAbsOnImage),
-			("testHandlesAbsPrefixOnHasAttr", testHandlesAbsPrefixOnHasAttr),
-			("testLiteralAbsPrefix", testLiteralAbsPrefix),
-			("testHandleAbsOnLocalhostFileUris", testHandleAbsOnLocalhostFileUris),
-			 ("testHandlesAbsOnProtocolessAbsoluteUris", testHandlesAbsOnProtocolessAbsoluteUris),
-			 ("testAbsHandlesRelativeQuery", testAbsHandlesRelativeQuery),
-			 ("testAbsHandlesDotFromIndex", testAbsHandlesDotFromIndex),
-			 ("testRemove", testRemove),
-			 ("testReplace", testReplace),
-			 ("testOwnerDocument", testOwnerDocument),
-			 ("testBefore", testBefore),
-			 ("testAfter", testAfter),
-			 ("testUnwrap", testUnwrap),
-			 ("testUnwrapNoChildren", testUnwrapNoChildren),
-			 ("testTraverse", testTraverse),
-			 ("testOrphanNodeReturnsNullForSiblingElements", testOrphanNodeReturnsNullForSiblingElements),
-			 ("testNodeIsNotASiblingOfItself", testNodeIsNotASiblingOfItself),
-			 ("testChildNodesCopy", testChildNodesCopy),
-			 ("testSupportsClone", testSupportsClone)
-		]
-	}()
 }

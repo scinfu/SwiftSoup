@@ -8,16 +8,6 @@
 import XCTest
 @testable import SwiftSoup
 class AttributeTest: XCTestCase {
-
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
     func testHtml() throws {
         let attr = try Attribute(key: "key", value: "value &")
         XCTAssertEqual("key=\"value &amp;\"", attr.html())
@@ -46,14 +36,4 @@ class AttributeTest: XCTestCase {
         XCTAssertTrue(atteibute.hasKey(key: "tot"))
         XCTAssertFalse(atteibute.hasKey(key: "Tot"))
     }
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-			("testHtml", testHtml),
-			("testWithSupplementaryCharacterInAttributeKeyAndValue", testWithSupplementaryCharacterInAttributeKeyAndValue),
-			("testRemoveCaseSensitive", testRemoveCaseSensitive)
-		]
-	}()
-
 }

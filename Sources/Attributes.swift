@@ -21,7 +21,7 @@ import Foundation
  *
  */
 open class Attributes: NSCopying {
-    public static var dataPrefix: [UInt8] = "data-".utf8Array
+    public static let dataPrefix: [UInt8] = "data-".utf8Array
     
     // Stored by lowercased key, but key case is checked against the copy inside
     // the Attribute on retrieval.

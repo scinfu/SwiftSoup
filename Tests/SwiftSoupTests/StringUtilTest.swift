@@ -30,15 +30,6 @@ class StringUtilTest: XCTestCase {
 //		}
 //	}
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
     func testJoin() {
         XCTAssertEqual("", StringUtil.join([""], sep: " "))
         XCTAssertEqual("one", StringUtil.join(["one"], sep: " "))
@@ -118,19 +109,4 @@ class StringUtilTest: XCTestCase {
         XCTAssertEqual("ftp://example.com/one/two.c", StringUtil.resolve("ftp://example.com/one/", relUrl: "./two.c"))
         XCTAssertEqual("ftp://example.com/one/two.c", StringUtil.resolve("ftp://example.com/one/", relUrl: "two.c"))
     }
-
-    static var allTests = {
-        return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testJoin", testJoin),
-            ("testPadding", testPadding),
-            ("testIsBlank", testIsBlank),
-            ("testIsNumeric", testIsNumeric),
-            ("testIsWhitespace", testIsWhitespace),
-            ("testNormaliseWhiteSpace", testNormaliseWhiteSpace),
-            ("testNormaliseWhiteSpaceHandlesHighSurrogates", testNormaliseWhiteSpaceHandlesHighSurrogates),
-            ("testResolvesRelativeUrls", testResolvesRelativeUrls)
-        ]
-    }()
-
 }
