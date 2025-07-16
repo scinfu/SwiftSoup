@@ -230,6 +230,7 @@ public class Entities {
     
     // this method is ugly, and does a lot. but other breakups cause rescanning and stringbuilder generations
     @usableFromInline
+    @inline(__always)
     static func escape(
         _ accum: StringBuilder,
         _ string: [UInt8],
@@ -240,7 +241,7 @@ public class Entities {
     ) {
         let escapeMode = out.escapeMode()
         let encoder = out.encoder()
-        let encoderKnownToBeAbleToEncode = encoder == .ascii || encoder == .utf8 || encoder == .utf16
+        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .ascii || encoder == .utf16
         let count = string.count
         string.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return }

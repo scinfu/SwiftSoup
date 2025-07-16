@@ -25,10 +25,12 @@ public class Comment: Node, @unchecked Sendable {
         } catch {}
     }
 
+    @inline(__always)
     public override func nodeNameUTF8() -> [UInt8] {
         return nodeName().utf8Array
     }
     
+    @inline(__always)
     public override func nodeName() -> String {
         return "#comment"
     }
@@ -37,14 +39,17 @@ public class Comment: Node, @unchecked Sendable {
      Get the contents of the comment.
      @return comment content
      */
+    @inline(__always)
     public func getData() -> String {
         return String(decoding: getDataUTF8(), as: UTF8.self)
     }
     
+    @inline(__always)
     public func getDataUTF8() -> [UInt8] {
 		return attributes!.get(key: Comment.COMMENT_KEY)
     }
 
+    @inline(__always)
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         if (out.prettyPrint()) {
             indent(accum, depth, out)
@@ -55,18 +60,22 @@ public class Comment: Node, @unchecked Sendable {
             .append("-->")
     }
 
+    @inline(__always)
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {}
 
+    @inline(__always)
 	public override func copy(with zone: NSZone? = nil) -> Any {
 		let clone = Comment(attributes!.get(key: Comment.COMMENT_KEY), baseUri!)
 		return copy(clone: clone)
 	}
 
+    @inline(__always)
 	public override func copy(parent: Node?) -> Node {
 		let clone = Comment(attributes!.get(key: Comment.COMMENT_KEY), baseUri!)
 		return copy(clone: clone, parent: parent)
 	}
 
+    @inline(__always)
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		return super.copy(clone: clone, parent: parent)
 	}

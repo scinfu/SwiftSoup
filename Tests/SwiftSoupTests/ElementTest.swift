@@ -261,6 +261,11 @@ class ElementTest: XCTestCase {
         try attribs.put("class", " abcd efgh raulpismuth ")
         hasClass = el.hasClass("raulpismuth")
         XCTAssertTrue(hasClass)
+
+        let s = String(Character(UnicodeScalar(135361)!))
+        try attribs.put("class", s)
+        hasClass = el.hasClass(s)
+        XCTAssertTrue(hasClass)
     }
 
     func testClassUpdates() throws {

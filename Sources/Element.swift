@@ -1099,6 +1099,16 @@ open class Element: Node, @unchecked Sendable {
         return Array(text)
     }
     
+    public func textUTF8Slice(trimAndNormaliseWhitespace: Bool = true) throws -> ArraySlice<UInt8> {
+        let accum: StringBuilder = StringBuilder()
+        try NodeTraversor(TextNodeVisitor(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)).traverse(self)
+        let text = accum.buffer
+        if trimAndNormaliseWhitespace {
+            return text.trim()
+        }
+        return text
+    }
+
     /**
      * Gets the text owned by this element only; does not get the combined text of all children.
      * <p>
@@ -1245,7 +1255,7 @@ open class Element: Node, @unchecked Sendable {
      * @return set of classnames, empty if no class attribute
      */
     @inlinable
-    internal func unorderedClassNamesUTF8() throws -> [ArraySlice<UInt8>] {
+    public func unorderedClassNamesUTF8() throws -> [ArraySlice<UInt8>] {
         let input = try classNameUTF8()
         var result = [ArraySlice<UInt8>]()
         result.reserveCapacity(Int(ceil(CGFloat(input.underestimatedCount) / 10)))
@@ -1359,51 +1369,9 @@ open class Element: Node, @unchecked Sendable {
      * @return true if it does, false if not
      */
     // performance sensitive
+    @inline(__always)
     public func hasClass(_ className: String) -> Bool {
-        let classAtt: [UInt8]? = attributes?.get(key: Element.classString)
-        let len: Int = (classAtt != nil) ? classAtt!.count : 0
-        let wantLen: Int = className.count
-        
-        if (len == 0 || len < wantLen) {
-            return false
-        }
-        let classAttr = String(decoding: classAtt!, as: UTF8.self)
-        
-        // if both lengths are equal, only need compare the className with the attribute
-        if (len == wantLen) {
-            return className.equalsIgnoreCase(string: classAttr)
-        }
-        
-        // otherwise, scan for whitespace and compare regions (with no string or arraylist allocations)
-        var inClass: Bool = false
-        var start: Int = 0
-        for i in 0..<len {
-            if (classAttr.utf8ByteAt(i).isWhitespace) {
-                if (inClass) {
-                    // white space ends a class name, compare it with the requested one, ignore case
-                    if (i - start == wantLen && classAttr.regionMatches(ignoreCase: true, selfOffset: start,
-                                                                        other: className, otherOffset: 0,
-                                                                        targetLength: wantLen)) {
-                        return true
-                    }
-                    inClass = false
-                }
-            } else {
-                if (!inClass) {
-                    // we're in a class name : keep the start of the substring
-                    inClass = true
-                    start = i
-                }
-            }
-        }
-        
-        // check the last entry
-        if (inClass && len - start == wantLen) {
-            return classAttr.regionMatches(ignoreCase: true, selfOffset: start,
-                                           other: className, otherOffset: 0, targetLength: wantLen)
-        }
-        
-        return false
+        hasClass(className.utf8Array)
     }
     
     /**

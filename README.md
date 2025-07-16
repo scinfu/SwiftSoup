@@ -213,6 +213,8 @@ print(cleanHtml) // Output: <b>Important text</b>
 
 Nabil Chatbi, scinfu@gmail.com
 
+Current maintainer: Alex Ehlke, available for hire for SwiftSoup related work or other iOS projects: alex dot ehlke at gmail
+
 ## Note
 SwiftSoup was ported to Swift from Java [Jsoup](https://jsoup.org/) library.
 

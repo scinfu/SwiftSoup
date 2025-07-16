@@ -742,6 +742,7 @@ open class Node: Equatable, Hashable, @unchecked Sendable {
      * @return this node, for chaining
      */
     @discardableResult
+    @inline(__always)
     open func traverse(_ nodeVisitor: NodeVisitor) throws -> Node {
         let traversor: NodeTraversor = NodeTraversor(nodeVisitor)
         try traversor.traverse(self)
@@ -752,12 +753,14 @@ open class Node: Equatable, Hashable, @unchecked Sendable {
      Get the outer HTML of this node.
      @return HTML
      */
+    @inline(__always)
     open func outerHtml() throws -> String {
         let accum: StringBuilder = StringBuilder(128)
         try outerHtml(accum)
         return accum.toString()
     }
     
+    @inline(__always)
     public func outerHtml(_ accum: StringBuilder) throws {
         try NodeTraversor(OuterHtmlVisitor(accum, getOutputSettings())).traverse(self)
     }
@@ -786,11 +789,13 @@ open class Node: Equatable, Hashable, @unchecked Sendable {
      * @param appendable the {@link Appendable} to write to.
      * @return the supplied {@link Appendable}, for chaining.
      */
+    @inline(__always)
     open func html(_ appendable: StringBuilder)throws -> StringBuilder {
         try outerHtml(appendable)
         return appendable
     }
     
+    @inline(__always)
     public func indent(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         accum.append(UnicodeScalar.BackslashN).append(StringUtil.padding(depth * Int(out.indentAmount())))
     }
@@ -929,6 +934,7 @@ open class Node: Equatable, Hashable, @unchecked Sendable {
     /// - Parameters:
     ///   - lhs: A value to compare.
     ///   - rhs: Another value to compare.
+    @inline(__always)
     public static func ==(lhs: Node, rhs: Node) -> Bool {
         return lhs === rhs
     }
@@ -937,6 +943,7 @@ open class Node: Equatable, Hashable, @unchecked Sendable {
     ///
     /// Hash values are not guaranteed to be equal across different executions of
     /// your program. Do not save hash values to use during a future execution.
+    @inline(__always)
     public func hash(into hasher: inout Hasher) {
         hasher.combine(description)
         hasher.combine(baseUri)
@@ -944,6 +951,7 @@ open class Node: Equatable, Hashable, @unchecked Sendable {
 }
 
 extension Node: CustomStringConvertible {
+    @inline(__always)
     public var description: String {
         do {
             return try outerHtml()

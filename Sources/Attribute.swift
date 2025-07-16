@@ -37,10 +37,12 @@ open class Attribute {
      Get the attribute key.
      @return the attribute key
      */
+    @inline(__always)
     open func getKey() -> String {
         return String(decoding: getKeyUTF8(), as: UTF8.self)
     }
     
+    @inline(__always)
     open func getKeyUTF8() -> [UInt8] {
         return key
     }
@@ -49,11 +51,13 @@ open class Attribute {
      Set the attribute key; case is preserved.
      @param key the new key; must not be null
      */
+    @inline(__always)
     open func setKey(key: [UInt8]) throws {
         try Validate.notEmpty(string: key)
         self.key = key.trim()
     }
     
+    @inline(__always)
     open func setKey(key: String) throws {
         try setKey(key: key.utf8Array)
     }
@@ -62,10 +66,12 @@ open class Attribute {
      Get the attribute value.
      @return the attribute value
      */
+    @inline(__always)
     open func getValue() -> String {
         return String(decoding: getValueUTF8(), as: UTF8.self)
     }
     
+    @inline(__always)
     open func getValueUTF8() -> [UInt8] {
         return value
     }
@@ -75,6 +81,7 @@ open class Attribute {
      @param value the new attribute value; must not be null
      */
     @discardableResult
+    @inline(__always)
     open func setValue(value: [UInt8]) -> [UInt8] {
         let old = self.value
         self.value = value
@@ -85,13 +92,14 @@ open class Attribute {
      Get the HTML representation of this attribute; e.g. {@code href="index.html"}.
      @return HTML
      */
+    @inline(__always)
     public func html() -> String {
         let accum = StringBuilder()
         html(accum: accum, out: (Document([])).outputSettings())
         return accum.toString()
     }
     
-    @inlinable
+    @inline(__always)
     public func html(accum: StringBuilder, out: OutputSettings) {
         accum.append(key)
         if (!shouldCollapseAttribute(out: out)) {
@@ -105,6 +113,7 @@ open class Attribute {
      Get the string representation of this attribute, implemented as {@link #html()}.
      @return string
      */
+    @inline(__always)
     open func toString() -> String {
         return html()
     }
@@ -115,11 +124,13 @@ open class Attribute {
      * @param encodedValue HTML attribute encoded value
      * @return attribute
      */
+    @inline(__always)
     public static func createFromEncoded(unencodedKey: [UInt8], encodedValue: [UInt8]) throws -> Attribute {
         let value = try Entities.unescape(string: encodedValue, strict: true)
         return try Attribute(key: unencodedKey, value: value)
     }
     
+    @inline(__always)
     public func isDataAttribute() -> Bool {
         return key.starts(with: Attributes.dataPrefix) && key.count > Attributes.dataPrefix.count
     }
@@ -130,22 +141,26 @@ open class Attribute {
      * @param out Outputsettings
      * @return  Returns whether collapsible or not
      */
+    @inline(__always)
     public final func shouldCollapseAttribute(out: OutputSettings) -> Bool {
         return (value.isEmpty || value.equalsIgnoreCase(string: key))
         && out.syntax() == OutputSettings.Syntax.html
         && isBooleanAttribute()
     }
     
+    @inline(__always)
     public func isBooleanAttribute() -> Bool {
         return Attribute.booleanAttributes.contains(key.lowercased()[...])
     }
     
+    @inline(__always)
     public func hashCode() -> Int {
         var result = key.hashValue
         result = 31 * result + value.hashValue
         return result
     }
     
+    @inline(__always)
     public func clone() -> Attribute {
         do {
             return try Attribute(key: key, value: value)
@@ -159,6 +174,7 @@ open class Attribute {
 }
 
 extension Attribute: Equatable {
+    @inline(__always)
     static public func == (lhs: Attribute, rhs: Attribute) -> Bool {
         return lhs.value == rhs.value && lhs.key == rhs.key
     }

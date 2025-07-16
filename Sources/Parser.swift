@@ -36,6 +36,10 @@ public class Parser {
     public func parseInput(_ html: String, _ baseUri: String) throws -> Document {
         return try parseInput(html.utf8Array, baseUri.utf8Array)
     }
+    
+    public func parseInput(_ html: [UInt8], _ baseUri: String) throws -> Document {
+        return try parseInput(html, baseUri.utf8Array)
+    }
 
 	// gets & sets
 	/**

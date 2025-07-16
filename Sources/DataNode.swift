@@ -26,10 +26,12 @@ open class DataNode: Node, @unchecked Sendable {
 
     }
 
+    @inline(__always)
     open override func nodeNameUTF8() -> [UInt8] {
         return nodeName().utf8Array
     }
     
+    @inline(__always)
     open override func nodeName() -> String {
         return "#data"
     }
@@ -38,10 +40,12 @@ open class DataNode: Node, @unchecked Sendable {
      Get the data contents of this node. Will be unescaped and with original new lines, space etc.
      @return data
      */
+    @inline(__always)
     open func getWholeData() -> String {
         return String(decoding: getWholeDataUTF8(), as: UTF8.self)
     }
     
+    @inline(__always)
     open func getWholeDataUTF8() -> [UInt8] {
         return attributes!.get(key: DataNode.DATA_KEY)
     }
@@ -52,6 +56,7 @@ open class DataNode: Node, @unchecked Sendable {
      * @return this node, for chaining
      */
     @discardableResult
+    @inline(__always)
     open func setWholeData(_ data: String) -> DataNode {
         do {
             try attributes?.put(DataNode.DATA_KEY, data.utf8Array)
@@ -59,10 +64,12 @@ open class DataNode: Node, @unchecked Sendable {
         return self
     }
 
+    @inline(__always)
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings)throws {
         accum.append(getWholeData()) // data is not escaped in return from data nodes, so " in script, style is plain
     }
 
+    @inline(__always)
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {}
 
     /**
@@ -71,21 +78,25 @@ open class DataNode: Node, @unchecked Sendable {
      @param baseUri bass URI
      @return new DataNode
      */
+    @inline(__always)
     public static func createFromEncoded(_ encodedData: String, _ baseUri: String) throws -> DataNode {
         let data = try Entities.unescape(encodedData.utf8Array)
         return DataNode(data, baseUri.utf8Array)
     }
 
+    @inline(__always)
 	public override func copy(with zone: NSZone? = nil) -> Any {
 		let clone = DataNode(attributes!.get(key: DataNode.DATA_KEY), baseUri!)
 		return copy(clone: clone)
 	}
 
+    @inline(__always)
 	public override func copy(parent: Node?) -> Node {
 		let clone = DataNode(attributes!.get(key: DataNode.DATA_KEY), baseUri!)
 		return copy(clone: clone, parent: parent)
 	}
 
+    @inline(__always)
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		return super.copy(clone: clone, parent: parent)
 	}
