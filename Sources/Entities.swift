@@ -184,7 +184,6 @@ public class Entities {
      * @param name entity (e.g. "lt" or "amp")
      * @return the string value of the character(s) represented by this entity, or "" if not defined
      */
-    @MainActor
     public static func getByName(name: String) -> String? {
         return getByName(name: name.utf8ArraySlice)
     }

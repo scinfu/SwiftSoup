@@ -10,7 +10,6 @@ import SwiftSoup
 
 class NodeTest: XCTestCase {
 
-    @MainActor
 	func testHandlesBaseUri() {
 		do {
 			let tag: Tag = try Tag.valueOf("a")
@@ -211,7 +210,6 @@ class NodeTest: XCTestCase {
 		}
 	}
 
-    @MainActor
 	func testBefore() {
 		do {
 			let doc: Document = try SwiftSoup.parse("<p>One <b>two</b> three</p>")
@@ -228,7 +226,6 @@ class NodeTest: XCTestCase {
 		}
 	}
 
-    @MainActor
 	func testAfter() {
 		do {
 			let doc: Document = try SwiftSoup.parse("<p>One <b>two</b> three</p>")
@@ -299,7 +296,6 @@ class NodeTest: XCTestCase {
 		}
 	}
 
-    @MainActor
 	func testOrphanNodeReturnsNullForSiblingElements() {
 		do {
 			let node: Node = Element(try Tag.valueOf("p"), "")

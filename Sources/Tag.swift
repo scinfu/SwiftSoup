@@ -79,7 +79,7 @@ open class Tag: Hashable, @unchecked Sendable {
      * @param settings used to control tag name sensitivity
      * @return The tag, either defined or new generic.
      */
-    @MainActor public static func valueOf(_ tagName: String, _ settings: ParseSettings) throws -> Tag {
+    public static func valueOf(_ tagName: String, _ settings: ParseSettings) throws -> Tag {
         return try valueOf(tagName.utf8Array, settings)
     }
     
@@ -117,7 +117,7 @@ open class Tag: Hashable, @unchecked Sendable {
      * @return The tag, either defined or new generic.
      */
     @inline(__always)
-    @MainActor public static func valueOf(_ tagName: String) throws -> Tag {
+    public static func valueOf(_ tagName: String) throws -> Tag {
         return try valueOf(tagName.utf8Array)
     }
     
@@ -216,7 +216,7 @@ open class Tag: Hashable, @unchecked Sendable {
      * @return if known HTML tag
      */
     @inline(__always)
-    @MainActor public static func isKnownTag(_ tagName: [UInt8]) -> Bool {
+    public static func isKnownTag(_ tagName: [UInt8]) -> Bool {
         Tag.tagsLock.lock()
         let result2 = Tag.tags[tagName] != nil
         Tag.tagsLock.unlock()

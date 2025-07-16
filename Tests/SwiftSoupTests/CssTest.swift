@@ -187,7 +187,6 @@ class CssTest: XCTestCase {
 		}
 	}
 
-    @MainActor
 	func testRoot() throws {
 		let sel: Elements = try html.select(":root")
 		XCTAssertEqual(1, sel.size())

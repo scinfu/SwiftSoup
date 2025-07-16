@@ -8,7 +8,6 @@
 import XCTest
 import SwiftSoup
 
-@MainActor
 class TagTest: XCTestCase {
 
     func testIsCaseSensitive() throws {

@@ -208,7 +208,6 @@ class ElementTest: XCTestCase {
 		XCTAssertFalse(doc.hasClass("mellow"))
 	}
 
-    @MainActor
     func testHasClassDomMethods() throws {
         let tag: Tag = try Tag.valueOf("a")
         let attribs: Attributes = Attributes()
@@ -364,7 +363,6 @@ class ElementTest: XCTestCase {
 		}
 	}
 
-    @MainActor
 	func testAddBooleanAttribute() throws {
 		let div: Element = try Element(Tag.valueOf("div"), "")
 
@@ -744,7 +742,6 @@ class ElementTest: XCTestCase {
 		}
 	}
 
-    @MainActor
 	func testInsertChildrenAtPosition() throws {
 		let doc: Document = try SwiftSoup.parse("<div id=1>Text1 <p>One</p> Text2 <p>Two</p></div><div id=2>Text3 <p>Three</p></div>")
 		let div1: Element = try doc.select("div").get(0)
@@ -917,7 +914,6 @@ class ElementTest: XCTestCase {
 		XCTAssertEqual("<body><div3>Check</div3><div4></div4><div1></div1><div2></div2></body>", result)
 	}
 
-    @MainActor
 	func testHashcodeIsStableWithContentChanges() throws {
 		let root: Element = try Element(Tag.valueOf("root"), "")
 		let set = OrderedSet<Element>()
