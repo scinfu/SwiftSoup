@@ -1,0 +1,29 @@
+name: Ubuntu Swift
+
+
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    name: Swift ${{ matrix.swift }} on ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04]
+        swift: ["6.1", "6.0"]
+        
+    runs-on: ${{ matrix.os }}
+
+    container: 
+      image: swift:${{ matrix.swift }}
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build
+      run: swift build -v
+    - name: Run tests
+      run: swift test -v

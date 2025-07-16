@@ -34,7 +34,8 @@ final class TrieNode {
     var isTerminal: Bool = false
 }
 
-public struct ParsingStrings: Hashable, Equatable {
+public struct ParsingStrings: Hashable, Equatable, @unchecked Sendable {
+    // root is not Sendable, so we must mark it as @unchecked Sendable
     let multiByteChars: [[UInt8]]
     let multiByteCharLengths: [Int]
     public let multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)]

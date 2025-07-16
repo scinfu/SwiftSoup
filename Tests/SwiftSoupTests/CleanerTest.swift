@@ -10,15 +10,6 @@ import XCTest
 
 class CleanerTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
     func testHandlesCustomProtocols() throws {
         let html = "<img src='cid:12345' /> <img src='data:gzzt' />"
         //        let dropped = try SwiftSoup.clean(html, Whitelist.basicWithImages())
@@ -303,39 +294,4 @@ class CleanerTest: XCTestCase {
 //        
 //    }
 //    
-    static var allTests = {
-        return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testHandlesCustomProtocols", testHandlesCustomProtocols),
-            ("testSimpleBehaviourTest", testSimpleBehaviourTest),
-            ("testSimpleBehaviourTest2", testSimpleBehaviourTest2),
-            ("testBasicBehaviourTest", testBasicBehaviourTest),
-            ("testBasicWithImagesTest", testBasicWithImagesTest),
-            ("testRelaxed", testRelaxed),
-            ("testRemoveTags", testRemoveTags),
-            ("testRemoveAttributes", testRemoveAttributes),
-            ("testRemoveEnforcedAttributes", testRemoveEnforcedAttributes),
-            ("testRemoveProtocols", testRemoveProtocols),
-            ("testDropComments", testDropComments),
-            ("testDropXmlProc", testDropXmlProc),
-            ("testDropScript", testDropScript),
-            ("testDropImageScript", testDropImageScript),
-            ("testCleanJavascriptHref", testCleanJavascriptHref),
-            ("testCleanAnchorProtocol", testCleanAnchorProtocol),
-            ("testDropsUnknownTags", testDropsUnknownTags),
-            ("testtestHandlesEmptyAttributes", testtestHandlesEmptyAttributes),
-            ("testIsValid", testIsValid),
-            ("testResolvesRelativeLinks", testResolvesRelativeLinks),
-            ("testPreservesRelativeLinksIfConfigured", testPreservesRelativeLinksIfConfigured),
-            ("testDropsUnresolvableRelativeLinks", testDropsUnresolvableRelativeLinks),
-            ("testHandlesAllPseudoTag", testHandlesAllPseudoTag),
-            ("testAddsTagOnAttributesIfNotSet", testAddsTagOnAttributesIfNotSet),
-            ("testHandlesFramesets", testHandlesFramesets),
-            ("testCleansInternationalText", testCleansInternationalText),
-            ("testScriptTagInWhiteList", testScriptTagInWhiteList),
-            ("testCleanHeadAndBody", testCleanHeadAndBody)
-            
-        ]
-    }()
-
 }

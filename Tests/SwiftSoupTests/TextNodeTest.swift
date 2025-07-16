@@ -10,15 +10,6 @@ import XCTest
 
 class TextNodeTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
 	func testBlank() {
 		let one = TextNode("", "")
 		let two = TextNode("     ", "")
@@ -82,15 +73,4 @@ class TextNodeTest: XCTestCase {
 			XCTAssertEqual(String(Character(UnicodeScalar(135361)!)), try t.outerHtml().trim())
 		#endif
 	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testBlank", testBlank),
-			("testTextBean", testTextBean),
-			("testSplitText", testSplitText),
-			("testSplitAnEmbolden", testSplitAnEmbolden),
-			("testWithSupplementaryCharacter", testWithSupplementaryCharacter)
-			]
-	}()
 }

@@ -11,15 +11,6 @@ import SwiftSoup
 
 class EntitiesTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
 	func testEscape() throws {
 		let text = "Hello &<> Å å π 新 there ¾ © »"
 
@@ -150,23 +141,4 @@ class EntitiesTest: XCTestCase {
 		doc.outputSettings().escapeMode(Entities.EscapeMode.xhtml)
 		XCTAssertEqual("<a title=\"&lt;p>One&lt;/p>\">One</a>", try  element.outerHtml())
 	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testEscape", testEscape),
-			("testXhtml", testXhtml),
-			("testGetByName", testGetByName),
-			("testEscapeSupplementaryCharacter", testEscapeSupplementaryCharacter),
-			("testNotMissingMultis", testNotMissingMultis),
-			("testnotMissingSupplementals", testnotMissingSupplementals),
-			("testUnescape", testUnescape),
-			("testStrictUnescape", testStrictUnescape),
-			("testCaseSensitive", testCaseSensitive),
-			("testQuoteReplacements", testQuoteReplacements),
-			("testLetterDigitEntities", testLetterDigitEntities),
-			("testNoSpuriousDecodes", testNoSpuriousDecodes),
-			("testUscapesGtInXmlAttributesButNotInHtml", testUscapesGtInXmlAttributesButNotInHtml)
-		]
-	}()
 }

@@ -10,15 +10,6 @@ import SwiftSoup
 
 class SelectorTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
 	func testByTag() throws {
 		// should be case insensitive
 		let els: Elements = try SwiftSoup.parse("<div id=1><div id=2><p>Hello</p></div></div><DIV id=3>").select("DIV")
@@ -700,63 +691,4 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("One", try doc.select("div[data=\"End]\"").first()?.text())
 		XCTAssertEqual("Two", try doc.select("div[data=\"[Another)]]\"").first()?.text())
 	}
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testByTag", testByTag),
-			("testById", testById),
-			("testByClass", testByClass),
-			("testByAttribute", testByAttribute),
-			("testNamespacedTag", testNamespacedTag),
-			("testWildcardNamespacedTag", testWildcardNamespacedTag),
-			("testByAttributeStarting", testByAttributeStarting),
-			("testByAttributeRegex", testByAttributeRegex),
-			("testByAttributeRegexCharacterClass", testByAttributeRegexCharacterClass),
-			("testByAttributeRegexCombined", testByAttributeRegexCombined),
-			("testCombinedWithContains", testCombinedWithContains),
-			("testAllElements", testAllElements),
-			("testAllWithClass", testAllWithClass),
-			("testGroupOr", testGroupOr),
-			("testGroupOrAttribute", testGroupOrAttribute),
-			("testDescendant", testDescendant),
-			("testAnd", testAnd),
-			("testDeeperDescendant", testDeeperDescendant),
-			("testParentChildElement", testParentChildElement),
-			("testParentWithClassChild", testParentWithClassChild),
-			("testParentChildStar", testParentChildStar),
-			("testMultiChildDescent", testMultiChildDescent),
-			("testCaseInsensitive", testCaseInsensitive),
-			("testAdjacentSiblings", testAdjacentSiblings),
-			("testAdjacentSiblingsWithId", testAdjacentSiblingsWithId),
-			("testNotAdjacent", testNotAdjacent),
-			("testMixCombinator", testMixCombinator),
-			("testMixCombinatorGroup", testMixCombinatorGroup),
-			("testGeneralSiblings", testGeneralSiblings),
-			("testCharactersInIdAndClass", testCharactersInIdAndClass),
-			("testSupportsLeadingCombinator", testSupportsLeadingCombinator),
-			("testPseudoLessThan", testPseudoLessThan),
-			("testPseudoGreaterThan", testPseudoGreaterThan),
-			("testPseudoEquals", testPseudoEquals),
-			("testPseudoBetween", testPseudoBetween),
-			("testPseudoCombined", testPseudoCombined),
-			("testPseudoHas", testPseudoHas),
-			("testNestedHas", testNestedHas),
-			("testPseudoContains", testPseudoContains),
-			("testPsuedoContainsWithParentheses", testPsuedoContainsWithParentheses),
-			("testContainsOwn", testContainsOwn),
-			("testMatches", testMatches),
-			("testMatchesOwn", testMatchesOwn),
-			("testRelaxedTags", testRelaxedTags),
-			("testNotParas", testNotParas),
-			("testNotAll", testNotAll),
-			("testNotClass", testNotClass),
-			("testHandlesCommasInSelector", testHandlesCommasInSelector),
-			("testSelectSupplementaryCharacter", testSelectSupplementaryCharacter),
-			("testSelectClassWithSpace", testSelectClassWithSpace),
-			("testSelectSameElements", testSelectSameElements),
-			("testAttributeWithBrackets", testAttributeWithBrackets)
-		]
-	}()
-
 }
