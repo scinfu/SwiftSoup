@@ -7,16 +7,28 @@
 
 import Foundation
 
-open class Tag: Hashable {
-    // map of known tags
-    static var tags: Dictionary<[UInt8], Tag> = {
-        do {
-            return try Tag.initializeMaps()
-        } catch {
-            preconditionFailure("This method must be overridden")
+open class Tag: Hashable, @unchecked Sendable {
+    // Removed duplicate == and hash(into:) to fix redeclaration errors
+    // Singleton for thread-safe tag map
+    private final class TagRegistry: @unchecked Sendable {
+        static let shared = TagRegistry()
+        let tagsLock = NSLock()
+        var tags: Dictionary<[UInt8], Tag>
+        private init() {
+            do {
+                self.tags = try Tag.initializeMaps()
+            } catch {
+                preconditionFailure("This method must be overridden")
+            }
         }
-        return Dictionary<[UInt8], Tag>()
-    }()
+    }
+
+    // Helper to access the singleton
+    private static var tagsLock: NSLock { TagRegistry.shared.tagsLock }
+    private static var tags: Dictionary<[UInt8], Tag> {
+        get { TagRegistry.shared.tags }
+        set { TagRegistry.shared.tags = newValue }
+    }
 
     fileprivate var _tagName: [UInt8]
     fileprivate var _tagNameNormal: [UInt8]
@@ -73,12 +85,17 @@ open class Tag: Hashable {
     
     public static func valueOf(_ tagName: [UInt8], _ settings: ParseSettings) throws -> Tag {
         var tagName = tagName
-        var tag: Tag? = Tag.tags[tagName]
+        var tag: Tag?
+        Tag.tagsLock.lock()
+        tag = Tag.tags[tagName]
+        Tag.tagsLock.unlock()
 
         if (tag == nil) {
             tagName = settings.normalizeTag(tagName)
             try Validate.notEmpty(string: tagName)
+            Tag.tagsLock.lock()
             tag = Tag.tags[tagName]
+            Tag.tagsLock.unlock()
 
             if (tag == nil) {
                 // not defined: create default; go anywhere, do anything! (incl be inside a <p>)
@@ -186,7 +203,10 @@ open class Tag: Hashable {
      */
     @inline(__always)
     open func isKnownTag() -> Bool {
-        return Tag.tags[_tagName] != nil
+        Tag.tagsLock.lock()
+        let result = Tag.tags[_tagName] != nil
+        Tag.tagsLock.unlock()
+        return result
     }
 
     /**
@@ -197,7 +217,10 @@ open class Tag: Hashable {
      */
     @inline(__always)
     public static func isKnownTag(_ tagName: [UInt8]) -> Bool {
-        return Tag.tags[tagName] != nil
+        Tag.tagsLock.lock()
+        let result2 = Tag.tags[tagName] != nil
+        Tag.tagsLock.unlock()
+        return result2
     }
 
     /**

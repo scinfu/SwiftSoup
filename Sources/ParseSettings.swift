@@ -7,7 +7,7 @@
 
 import Foundation
 
-open class ParseSettings {
+open class ParseSettings: @unchecked Sendable {
     /**
      * HTML default settings: both tag and attribute names are lower-cased during parsing.
      */

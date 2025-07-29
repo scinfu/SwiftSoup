@@ -363,7 +363,7 @@ open class Token {
         @inline(__always)
         public override func toString() throws -> String {
             try Validate.notNull(obj: data)
-            return String(decoding: getData()!, as: UTF8.self) ?? ""
+            return String(decoding: getData()!, as: UTF8.self)
         }
     }
     

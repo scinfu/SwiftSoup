@@ -10,15 +10,6 @@ import SwiftSoup
 
 class XmlTreeBuilderTest: XCTestCase {
 
-    func testLinuxTestSuiteIncludesAllTests() {
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-            let thisClass = type(of: self)
-            let linuxCount = thisClass.allTests.count
-            let darwinCount = Int(thisClass.defaultTestSuite.testCaseCount)
-            XCTAssertEqual(linuxCount, darwinCount, "\(darwinCount - linuxCount) tests are missing from allTests")
-        #endif
-    }
-
 	func testSimpleXmlParse() throws {
 		let xml = "<doc id=2 href='/bar'>Foo <br /><link>One</link><link>Two</link></doc>"
 		let treeBuilder: XmlTreeBuilder = XmlTreeBuilder()
@@ -174,26 +165,5 @@ class XmlTreeBuilderTest: XCTestCase {
         let html: String = "<TABLE><TBODY><TR><TD></TD><TD><FONT color=#000000 size=1><I><FONT size=5><P align=center></FONT></I></FONT>&nbsp;</P></TD></TR></TBODY></TABLE></TD></TR></TBODY></TABLE></DIV></DIV></DIV><BLOCKQUOTE></BLOCKQUOTE><DIV style=\"FONT: 10pt Courier New\"><BR><BR>&nbsp;</DIV></BODY></HTML>"
         _ = try SwiftSoup.parse(html)
     }
-
-	static var allTests = {
-		return [
-            ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
-            ("testSimpleXmlParse", testSimpleXmlParse),
-			("testPopToClose", testPopToClose),
-			("testCommentAndDocType", testCommentAndDocType),
-			("testSupplyParserToJsoupClass", testSupplyParserToJsoupClass),
-			("testDoesNotForceSelfClosingKnownTags", testDoesNotForceSelfClosingKnownTags),
-			("testHandlesXmlDeclarationAsDeclaration", testHandlesXmlDeclarationAsDeclaration),
-			("testXmlFragment", testXmlFragment),
-			("testXmlParseDefaultsToHtmlOutputSyntax", testXmlParseDefaultsToHtmlOutputSyntax),
-			("testDoesHandleEOFInTag", testDoesHandleEOFInTag),
-			("testParseDeclarationAttributes", testParseDeclarationAttributes),
-			("testCaseSensitiveDeclaration", testCaseSensitiveDeclaration),
-			("testCreatesValidProlog", testCreatesValidProlog),
-			("testPreservesCaseByDefault", testPreservesCaseByDefault),
-			("testCanNormalizeCase", testCanNormalizeCase),
-            ("testNilReplaceInQueue", testNilReplaceInQueue)
-		]
-	}()
 
 }
