@@ -1733,7 +1733,7 @@ internal extension Element {
             if let element = node as? Element {
                 if let classNames = try? element.unorderedClassNamesUTF8() {
                     for className in classNames {
-                        newIndex[Array(className), default: []].append(Weak(element))
+                        newIndex[Array(className.lowercased()), default: []].append(Weak(element))
                     }
                 }
             }

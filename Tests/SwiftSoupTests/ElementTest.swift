@@ -988,5 +988,10 @@ class ElementTest: XCTestCase {
         XCTAssertEqual(1, els.size())
     }
 
-
+    func testGetElementsByClassNormalizationRegression() throws {
+        let document = try SwiftSoup.parse(#"<div class="ClassWithUppercase">Text</div>"#)
+        let elements = try document.getElementsByClass("ClassWithUppercase")
+        XCTAssertEqual(elements.count, 1)
+        XCTAssertEqual(elements.get(0).tagName(), "div")
+    }
 }
