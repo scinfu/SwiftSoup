@@ -268,8 +268,6 @@ public class Entities {
                     switch b {
                     case 0x26:
                         accum.append(ampEntityUTF8)
-                    case 0xA0:
-                        accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
                     case 0x3C:
                         if !inAttribute || escapeMode == .xhtml {
                             accum.append(ltEntityUTF8)
@@ -303,7 +301,10 @@ public class Entities {
                     for j in i..<end {
                         charBytes.append(base[j])
                     }
-                    if canEncode(bytes: charBytes, encoder: encoder) {
+                    if charBytes == [0xC2, 0xA0] {
+                        // UTF-8 encoding of "\u{A0}"
+                        accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
+                    } else if canEncode(bytes: charBytes, encoder: encoder) {
                         accum.append(charBytes)
                     } else {
                         appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
