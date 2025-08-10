@@ -13,7 +13,6 @@ import Foundation
 public class CombiningEvaluator: Evaluator {
 
     public private(set) var evaluators: Array<Evaluator>
-    var num: Int = 0
 
     public override init() {
         evaluators = Array<Evaluator>()
@@ -23,40 +22,25 @@ public class CombiningEvaluator: Evaluator {
     public init(_ evaluators: Array<Evaluator>) {
         self.evaluators = evaluators
         super.init()
-        updateNumEvaluators()
     }
 
     public init(_ evaluators: Evaluator...) {
         self.evaluators = evaluators
         super.init()
-        updateNumEvaluators()
     }
 
     func rightMostEvaluator() -> Evaluator? {
-        return num > 0 && evaluators.count > 0 ? evaluators[num - 1] : nil
+        return evaluators.last
     }
 
     func replaceRightMostEvaluator(_ replacement: Evaluator) {
-        evaluators[num - 1] = replacement
-    }
-
-    func updateNumEvaluators() {
-        // used so we don't need to bash on size() for every match test
-        num = evaluators.count
+        evaluators[evaluators.count - 1] = replacement
     }
 
     public final class And: CombiningEvaluator {
-        public override init(_ evaluators: [Evaluator]) {
-            super.init(evaluators)
-        }
-
-        public override init(_ evaluators: Evaluator...) {
-            super.init(evaluators)
-        }
-
+        
         public override func matches(_ root: Element, _ node: Element) -> Bool {
-            for index in 0..<num {
-                let evaluator = evaluators[index]
+            for evaluator in self.evaluators {
                 do {
                     if (try !evaluator.matches(root, node)) {
                         return false
@@ -74,42 +58,13 @@ public class CombiningEvaluator: Evaluator {
     }
 
     public final class Or: CombiningEvaluator {
-        /**
-         * Create a new Or evaluator. The initial evaluators are ANDed together and used as the first clause of the OR.
-         * @param evaluators initial OR clause (these are wrapped into an AND evaluator).
-         */
-        public override init(_ evaluators: [Evaluator]) {
-            super.init()
-            if num > 1 {
-                self.evaluators.append(And(evaluators))
-            } else { // 0 or 1
-                self.evaluators.append(contentsOf: evaluators)
-            }
-            updateNumEvaluators()
-        }
-
-        override init(_ evaluators: Evaluator...) {
-            super.init()
-            if num > 1 {
-                self.evaluators.append(And(evaluators))
-            } else { // 0 or 1
-                self.evaluators.append(contentsOf: evaluators)
-            }
-            updateNumEvaluators()
-        }
-
-        override init() {
-            super.init()
-        }
-
+        
         public func add(_ evaluator: Evaluator) {
             evaluators.append(evaluator)
-            updateNumEvaluators()
         }
 
         public override func matches(_ root: Element, _ node: Element) -> Bool {
-            for index in 0..<num {
-                let evaluator: Evaluator = evaluators[index]
+            for evaluator in self.evaluators {
                 do {
                     if (try evaluator.matches(root, node)) {
                         return true
