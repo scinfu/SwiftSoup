@@ -319,11 +319,7 @@ open class Node: Equatable, Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func childNodesCopy() -> Array<Node> {
-        var children: Array<Node> = Array<Node>()
-        for node: Node in childNodes {
-            children.append(node.copy() as! Node)
-        }
-        return children
+        return childNodes.map { $0.copy() as! Node }
     }
     
     /**
@@ -683,10 +679,9 @@ open class Node: Equatable, Hashable, @unchecked Sendable {
         
         let nodes: Array<Node> = parentNode!.childNodes
         var siblings: Array<Node> = Array<Node>()
-        for node in nodes {
-            if (node !== self) {
-                siblings.append(node)
-            }
+        siblings.reserveCapacity(nodes.count - 1)
+        for node in nodes where node !== self {
+            siblings.append(node)
         }
         
         return siblings
@@ -883,11 +878,7 @@ open class Node: Equatable, Hashable, @unchecked Sendable {
         clone.attributes = attributes != nil ? attributes?.clone() : nil
         clone.attributes?.ownerElement = clone as? SwiftSoup.Element
         clone.baseUri = baseUri
-        clone.childNodes = Array<Node>()
-        
-        for child in childNodes {
-            clone.childNodes.append(child)
-        }
+        clone.childNodes = childNodes
         
         if let cloneElement = clone as? Element {
             cloneElement.rebuildQueryIndexesForThisNodeOnly()

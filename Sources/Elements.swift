@@ -215,13 +215,7 @@ open class Elements: NSCopying {
      * @see #text()
      */
     public func eachText()throws->Array<String> {
-        var texts: Array<String> = Array()
-        for el: Element in this {
-            if (el.hasText()){
-                texts.append(try el.text())
-            }
-        }
-        return texts;
+        return try this.compactMap { $0.hasText() ? try $0.text() : nil }
     }
 
 	/**
@@ -546,13 +540,7 @@ open class Elements: NSCopying {
 	* no forms.
 	*/
 	open func forms()->Array<FormElement> {
-		var forms: Array<FormElement> = Array<FormElement>()
-		for el: Element in this {
-			if let el = el as? FormElement {
-				forms.append(el)
-			}
-		}
-		return forms
+        return this.compactMap { $0 as? FormElement }
 	}
 
 	/**
