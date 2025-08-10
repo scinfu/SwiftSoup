@@ -168,7 +168,7 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         
         let href: [UInt8] = try base.absUrl(UTF8Arrays.href)
-        if (href.count != 0) { // ignore <base target> etc
+        if (!href.isEmpty) { // ignore <base target> etc
             baseUri = href
             baseUriSetFromDoc = true
             try doc.setBaseUri(href) // set on the doc so doc.createElement(Tag) will get updated base, and to update all descendants
@@ -296,19 +296,14 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         
         // connect form controls to their form element
-        if let n = (node as? Element) {
-            if n.tag().isFormListed() {
-                if formElement != nil {
-                    formElement!.addElement(n)
-                }
-            }
+        if let n = (node as? Element), n.tag().isFormListed() {
+            formElement?.addElement(n)
         }
     }
     
     @discardableResult
     func pop() -> Element {
-        let size: Int = stack.count
-        return stack.remove(at: size-1)
+        return stack.removeLast()
     }
     
     @inlinable
@@ -327,23 +322,11 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func isElementInQueue(_ queue: Array<Element?>, _ element: Element?) -> Bool {
-        for pos in (0..<queue.count).reversed() {
-            let next: Element? = queue[pos]
-            if (next == element) {
-                return true
-            }
-        }
-        return false
+        return queue.reversed().contains(element)
     }
     
     func getFromStack(_ elName: [UInt8]) -> Element? {
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            if next.nodeNameUTF8() == elName {
-                return next
-            }
-        }
-        return nil
+        return stack.last { $0.nodeNameUTF8() == elName }
     }
     
     @inlinable
@@ -353,12 +336,9 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     func removeFromStack(_ el: Element) -> Bool {
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            if (next == el) {
-                stack.remove(at: pos)
-                return true
-            }
+        if let index = stack.lastIndex(of: el) {
+            stack.remove(at: index)
+            return true
         }
         return false
     }
@@ -417,34 +397,44 @@ class HtmlTreeBuilder: TreeBuilder {
     private func clearStackToContext(_ nodeNames: [UInt8]...) {
         clearStackToContext(nodeNames)
     }
+    
     private func clearStackToContext(_ nodeNames: [[UInt8]]) {
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            let nextName = next.nodeNameUTF8()
-            if nodeNames.contains(nextName) || nextName == UTF8Arrays.html {
-                break
-            } else {
-                stack.remove(at: pos)
-            }
+        let index = stack.lastIndex {
+            let nextName = $0.nodeNameUTF8()
+            return nodeNames.contains(nextName) || nextName == UTF8Arrays.html
         }
+        
+        guard let index else {
+            stack.removeAll()
+            return
+        }
+        
+        stack.removeSubrange(stack.index(after: index) ..< stack.endIndex)
     }
     
     func aboveOnStack(_ el: Element) -> Element? {
         //assert(onStack(el), "Invalid parameter")
         onStack(el)
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            if (next == el) {
-                return stack[pos-1]
-            }
+        
+        guard let index = stack.lastIndex(of: el) else {
+            return nil
         }
-        return nil
+        
+        let before = stack.index(before: index)
+        guard before >= stack.startIndex else {
+            return nil
+        }
+        
+        return stack[before]
     }
     
     func insertOnStackAfter(_ after: Element, _ input: Element)throws {
-        let i: Int = stack.lastIndexOf(after)
-        try Validate.isTrue(val: i != -1)
-        stack.insert(input, at: i + 1 )
+        guard let index = stack.lastIndex(of: after) else {
+            try Validate.fail(msg: "Element not found")
+            return
+        }
+        
+        stack.insert(input, at: stack.index(after: index))
     }
     
     func replaceOnStack(_ out: Element, _ input: Element)throws {
@@ -452,24 +442,25 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func replaceInQueue(_ queue: Array<Element>, _ out: Element, _ input: Element)throws->Array<Element> {
+        guard let index = queue.lastIndex(of: out) else {
+            try Validate.fail(msg: "Element not found")
+            return [] // Not reached
+        }
+
         var queue = queue
-        let i: Int = queue.lastIndexOf(out)
-        try Validate.isTrue(val: i != -1)
-        queue[i] = input
+        queue[index] = input
         return queue
     }
     
     private func replaceInQueue(_ queue: Array<Element?>, _ out: Element, _ input: Element)throws->Array<Element?> {
         var queue = queue
-        var i: Int = -1
-        for index in 0..<queue.count {
-            if(out == queue[index]) {
-                i = index
-            }
+        if let index = queue.lastIndex(of: out) {
+            queue[index] = input
+            return queue
+        } else {
+            try Validate.fail(msg: "Element to replace not found")
+            return queue
         }
-        try Validate.isTrue(val: i != -1)
-        queue[i] = input
-        return queue
     }
     
     func resetInsertionMode() {
@@ -527,8 +518,7 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func inSpecificScope(_ targetNames: Set<[UInt8]>, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
-        for pos in (0..<stack.count).reversed() {
-            let el = stack[pos]
+        for el in stack.reversed() {
             let elName = el.nodeNameUTF8()
             if targetNames.contains(elName) {
                 return true
@@ -545,8 +535,7 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func inSpecificScope(_ targetNames: ParsingStrings, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
-        for pos in (0..<stack.count).reversed() {
-            let el = stack[pos]
+        for el in stack.reversed() {
             let elName = el.nodeNameUTF8()
             if targetNames.contains(elName) {
                 return true
@@ -609,8 +598,8 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func inSelectScope(_ targetName: [UInt8]) throws -> Bool {
-        for pos in (0..<stack.count).reversed() {
-            let elName = stack[pos].nodeNameUTF8()
+        for el in stack.reversed() {
+            let elName = el.nodeNameUTF8()
             if elName == targetName {
                 return true
             }
@@ -694,16 +683,11 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func lastFormattingElement() -> Element? {
-        return formattingElements.count > 0 ? formattingElements[formattingElements.count-1] : nil
+        return formattingElements.last ?? nil
     }
     
     func removeLastFormattingElement() -> Element? {
-        let size: Int = formattingElements.count
-        if (size > 0) {
-            return formattingElements.remove(at: size-1)
-        } else {
-            return nil
-        }
+        return formattingElements.removeLast()
     }
     
     // active formatting elements
@@ -792,13 +776,11 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func removeFromActiveFormattingElements(_ el: Element?) {
-        for pos in (0..<formattingElements.count).reversed() {
-            let next: Element? = formattingElements[pos]
-            if (next == el) {
-                formattingElements.remove(at: pos)
-                break
-            }
+        guard let index = formattingElements.lastIndex(of: el) else {
+            return
         }
+        
+        formattingElements.remove(at: index)
     }
     
     func isInActiveFormattingElements(_ el: Element) -> Bool {
@@ -806,8 +788,7 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func getActiveFormattingElement(_ nodeName: [UInt8]) -> Element? {
-        for pos in (0..<formattingElements.count).reversed() {
-            let next: Element? = formattingElements[pos]
+        for next in formattingElements.reversed() {
             if (next == nil) { // scope marker
                 break
             } else if next!.nodeNameUTF8() == nodeName {

@@ -612,7 +612,7 @@ open class Element: Node, @unchecked Sendable {
      */
     public func cssSelector() throws -> String {
         let elementId = id()
-        if (elementId.count > 0) {
+        if !elementId.isEmpty {
             return "#" + elementId
         }
         
@@ -621,7 +621,7 @@ open class Element: Node, @unchecked Sendable {
         var selector: String = tagName
         let cl = try classNames()
         let classes: String = cl.joined(separator: ".")
-        if (classes.count > 0) {
+        if !classes.isEmpty {
             selector.append(".")
             selector.append(classes)
         }
@@ -732,15 +732,7 @@ open class Element: Node, @unchecked Sendable {
     
     private static func indexInList(_ search: Element, _ elements: Array<Element>?)throws->Int? {
         try Validate.notNull(obj: elements)
-        if let elements = elements {
-            for i in  0..<elements.count {
-                let element: Element = elements[i]
-                if (element == search) {
-                    return i
-                }
-            }
-        }
-        return nil
+        return elements?.firstIndex(of: search)
     }
     
     // DOM type methods
@@ -788,7 +780,7 @@ open class Element: Node, @unchecked Sendable {
         try Validate.notEmpty(string: id.utf8Array)
         
         let elements: Elements = try Collector.collect(Evaluator.Id(id), self)
-        if (elements.array().count > 0) {
+        if !elements.array().isEmpty {
             return elements.get(0)
         } else {
             return nil

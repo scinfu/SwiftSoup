@@ -242,7 +242,7 @@ public class Whitelist {
     @discardableResult
     open func addAttributes(_ tag: String, _ keys: String...)throws->Whitelist {
         try Validate.notEmpty(string: tag)
-        try Validate.isTrue(val: keys.count > 0, msg: "No attributes supplied.")
+        try Validate.isTrue(val: !keys.isEmpty, msg: "No attributes supplied.")
 
         let tagName = TagName.valueOf(tag)
         if (!tagNames.contains(tagName)) {
@@ -284,7 +284,7 @@ public class Whitelist {
     @discardableResult
     open func removeAttributes(_ tag: String, _ keys: String...)throws->Whitelist {
         try Validate.notEmpty(string: tag)
-        try Validate.isTrue(val: keys.count > 0, msg: "No attributes supplied.")
+        try Validate.isTrue(val: !keys.isEmpty, msg: "No attributes supplied.")
 
         let tagName: TagName = TagName.valueOf(tag)
         var attributeSet = Set<AttributeKey>()

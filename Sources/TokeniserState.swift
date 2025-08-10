@@ -776,10 +776,10 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .AttributeValue_doubleQuoted:
             let value: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.attributeDoubleValueChars)
-            if (value.count > 0) {
-            t.tagPending.appendAttributeValue(value)
+            if !value.isEmpty {
+                t.tagPending.appendAttributeValue(value)
             } else {
-            t.tagPending.setEmptyAttributeValue()
+                t.tagPending.setEmptyAttributeValue()
             }
 
             let c = r.consume()
@@ -810,10 +810,10 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .AttributeValue_singleQuoted:
             let value: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.attributeSingleValueChars)
-            if (value.count > 0) {
-            t.tagPending.appendAttributeValue(value)
+            if !value.isEmpty {
+                t.tagPending.appendAttributeValue(value)
             } else {
-            t.tagPending.setEmptyAttributeValue()
+                t.tagPending.setEmptyAttributeValue()
             }
 
             let c = r.consume()
@@ -844,7 +844,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .AttributeValue_unquoted:
             let value: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.attributeValueUnquoted)
-            if (value.count > 0) {
+            if !value.isEmpty {
                 t.tagPending.appendAttributeValue(value)
             }
 
@@ -855,9 +855,9 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             case UnicodeScalar.Ampersand:
                 if let ref = try t.consumeCharacterReference(">", true) {
-                t.tagPending.appendAttributeValue(ref)
+                    t.tagPending.appendAttributeValue(ref)
                 } else {
-                t.tagPending.appendAttributeValue(UnicodeScalar.Ampersand)
+                    t.tagPending.appendAttributeValue(UnicodeScalar.Ampersand)
                 }
                 break
             case ">":

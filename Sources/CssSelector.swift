@@ -148,17 +148,8 @@ open class CssSelector {
     // exclude set. package open so that Elements can implement .not() selector.
     static func filterOut(_ elements: Array<Element>, _ outs: Array<Element>) -> Elements {
         let output: Elements = Elements()
-        for el: Element in elements {
-            var found: Bool = false
-            for out: Element in outs {
-                if (el.equals(out)) {
-                    found = true
-                    break
-                }
-            }
-            if (!found) {
-                output.add(el)
-            }
+        for el: Element in elements where !outs.contains(el) {
+            output.add(el)
         }
         return output
     }

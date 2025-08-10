@@ -290,8 +290,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             func anyOtherEndTag(_ t: Token, _ tb: HtmlTreeBuilder) -> Bool {
                 let name = t.asEndTag().normalName()
                 let stack: Array<Element> = tb.getStack()
-                for pos in (0..<stack.count).reversed() {
-                    let node: Element = stack[pos]
+                for node in stack.reversed() {
                     if (name != nil && node.nodeNameUTF8() == name!) {
                         tb.generateImpliedEndTags(name)
                         if (name! != (tb.currentElement()?.nodeNameUTF8())!) {
@@ -365,8 +364,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     } else if name == UTF8Arrays.li {
                         tb.framesetOk(false)
                         let stack: Array<Element> = tb.getStack()
-                        for i in (0..<stack.count).reversed() {
-                            let el: Element = stack[i]
+                        for el in stack.reversed() {
                             if el.nodeNameUTF8() == UTF8Arrays.li {
                                 try tb.processEndTag(UTF8Arrays.li)
                                 break
@@ -420,7 +418,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             }
                             // pop up to html element
                             while (stack.count > 1) {
-                                stack.remove(at: stack.count-1)
+                                stack.removeLast()
                             }
                             try tb.insert(startTag)
                             tb.transition(.InFrameset)
@@ -990,7 +988,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 break
             default:
                 // todo - don't really like the way these table character data lists are built
-                if (tb.getPendingTableCharacters().count > 0) {
+                if (!tb.getPendingTableCharacters().isEmpty) {
                     for character in tb.getPendingTableCharacters() {
                         if (!HtmlTreeBuilderState.isWhitespace(character)) {
                             // InTable anything else section:

@@ -244,11 +244,11 @@ public class QueryParser {
         } else if ("even"==argS) {
             a = 2
             b = 0
-        } else if (mAB.matches.count > 0) {
+        } else if (!mAB.matches.isEmpty) {
 			mAB.find()
             a = mAB.group(3) != nil ? Int(mAB.group(1)!.replaceFirst(of: "^\\+", with: ""))! : 1
             b = mAB.group(4) != nil ? Int(mAB.group(4)!.replaceFirst(of: "^\\+", with: ""))! : 0
-        } else if (mB.matches.count > 0) {
+        } else if (!mB.matches.isEmpty) {
             a = 0
 			mB.find()
             b = Int(mB.group()!.replaceFirst(of: "^\\+", with: ""))!
