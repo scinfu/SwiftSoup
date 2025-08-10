@@ -402,28 +402,35 @@ class HtmlTreeBuilder: TreeBuilder {
     private func clearStackToContext(_ nodeNames: [UInt8]...) {
         clearStackToContext(nodeNames)
     }
+    
     private func clearStackToContext(_ nodeNames: [[UInt8]]) {
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            let nextName = next.nodeNameUTF8()
-            if nodeNames.contains(nextName) || nextName == UTF8Arrays.html {
-                break
-            } else {
-                stack.remove(at: pos)
-            }
+        let index = stack.lastIndex {
+            let nextName = $0.nodeNameUTF8()
+            return nodeNames.contains(nextName) || nextName == UTF8Arrays.html
         }
+        
+        guard let index else {
+            stack.removeAll()
+            return
+        }
+        
+        stack.removeSubrange(stack.index(after: index) ..< stack.endIndex)
     }
     
     func aboveOnStack(_ el: Element) -> Element? {
         //assert(onStack(el), "Invalid parameter")
         onStack(el)
-        for pos in (0..<stack.count).reversed() {
-            let next: Element = stack[pos]
-            if (next == el) {
-                return stack[pos-1]
-            }
+        
+        guard let index = stack.lastIndex(of: el) else {
+            return nil
         }
-        return nil
+        
+        let before = stack.index(before: index)
+        guard before >= stack.startIndex else {
+            return nil
+        }
+        
+        return stack[before]
     }
     
     func insertOnStackAfter(_ after: Element, _ input: Element)throws {
@@ -452,15 +459,13 @@ class HtmlTreeBuilder: TreeBuilder {
     
     private func replaceInQueue(_ queue: Array<Element?>, _ out: Element, _ input: Element)throws->Array<Element?> {
         var queue = queue
-        var i: Int = -1
-        for index in 0..<queue.count {
-            if(out == queue[index]) {
-                i = index
-            }
+        if let index = queue.lastIndex(of: out) {
+            queue[index] = input
+            return queue
+        } else {
+            try Validate.fail(msg: "Element to replace not found")
+            return queue
         }
-        try Validate.isTrue(val: i != -1)
-        queue[i] = input
-        return queue
     }
     
     func resetInsertionMode() {
