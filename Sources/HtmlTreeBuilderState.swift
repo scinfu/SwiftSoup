@@ -290,8 +290,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             func anyOtherEndTag(_ t: Token, _ tb: HtmlTreeBuilder) -> Bool {
                 let name = t.asEndTag().normalName()
                 let stack: Array<Element> = tb.getStack()
-                for pos in (0..<stack.count).reversed() {
-                    let node: Element = stack[pos]
+                for node in stack.reversed() {
                     if (name != nil && node.nodeNameUTF8() == name!) {
                         tb.generateImpliedEndTags(name)
                         if (name! != (tb.currentElement()?.nodeNameUTF8())!) {
@@ -365,8 +364,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     } else if name == UTF8Arrays.li {
                         tb.framesetOk(false)
                         let stack: Array<Element> = tb.getStack()
-                        for i in (0..<stack.count).reversed() {
-                            let el: Element = stack[i]
+                        for el in stack.reversed() {
                             if el.nodeNameUTF8() == UTF8Arrays.li {
                                 try tb.processEndTag(UTF8Arrays.li)
                                 break

@@ -649,8 +649,7 @@ open class Node: Equatable, Hashable, @unchecked Sendable {
     
     @inline(__always)
     public func addChildren(_ index: Int, _ children: [Node]) throws {
-        for i in (0..<children.count).reversed() {
-            let input: Node = children[i]
+        for input in children.reversed() {
             try reparentChild(input)
             childNodes.insert(input, at: index)
             reindexChildren(index)
