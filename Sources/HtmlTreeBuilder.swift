@@ -168,7 +168,7 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         
         let href: [UInt8] = try base.absUrl(UTF8Arrays.href)
-        if (href.count != 0) { // ignore <base target> etc
+        if (!href.isEmpty) { // ignore <base target> etc
             baseUri = href
             baseUriSetFromDoc = true
             try doc.setBaseUri(href) // set on the doc so doc.createElement(Tag) will get updated base, and to update all descendants

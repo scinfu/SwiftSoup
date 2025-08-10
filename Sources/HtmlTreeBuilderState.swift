@@ -988,7 +988,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 break
             default:
                 // todo - don't really like the way these table character data lists are built
-                if (tb.getPendingTableCharacters().count > 0) {
+                if (!tb.getPendingTableCharacters().isEmpty) {
                     for character in tb.getPendingTableCharacters() {
                         if (!HtmlTreeBuilderState.isWhitespace(character)) {
                             // InTable anything else section:
