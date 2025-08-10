@@ -732,15 +732,7 @@ open class Element: Node, @unchecked Sendable {
     
     private static func indexInList(_ search: Element, _ elements: Array<Element>?)throws->Int? {
         try Validate.notNull(obj: elements)
-        if let elements = elements {
-            for i in  0..<elements.count {
-                let element: Element = elements[i]
-                if (element == search) {
-                    return i
-                }
-            }
-        }
-        return nil
+        return elements?.firstIndex(of: search)
     }
     
     // DOM type methods

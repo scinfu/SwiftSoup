@@ -137,7 +137,6 @@ public class TreeBuilder {
     
     @inline(__always)
     public func currentElement() -> Element? {
-        let size: Int = stack.count
-        return size > 0 ? stack[size-1] : nil
+        return stack.last
     }
 }

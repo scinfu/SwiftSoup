@@ -418,7 +418,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             }
                             // pop up to html element
                             while (stack.count > 1) {
-                                stack.remove(at: stack.count-1)
+                                stack.removeLast()
                             }
                             try tb.insert(startTag)
                             tb.transition(.InFrameset)

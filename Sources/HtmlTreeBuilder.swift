@@ -296,19 +296,14 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         
         // connect form controls to their form element
-        if let n = (node as? Element) {
-            if n.tag().isFormListed() {
-                if formElement != nil {
-                    formElement!.addElement(n)
-                }
-            }
+        if let n = (node as? Element), n.tag().isFormListed() {
+            formElement?.addElement(n)
         }
     }
     
     @discardableResult
     func pop() -> Element {
-        let size: Int = stack.count
-        return stack.remove(at: size-1)
+        return stack.removeLast()
     }
     
     @inlinable
@@ -688,16 +683,11 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func lastFormattingElement() -> Element? {
-        return formattingElements.count > 0 ? formattingElements[formattingElements.count-1] : nil
+        return formattingElements.last ?? nil
     }
     
     func removeLastFormattingElement() -> Element? {
-        let size: Int = formattingElements.count
-        if (size > 0) {
-            return formattingElements.remove(at: size-1)
-        } else {
-            return nil
-        }
+        return formattingElements.removeLast()
     }
     
     // active formatting elements
