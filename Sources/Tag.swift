@@ -9,26 +9,20 @@ import Foundation
 
 open class Tag: Hashable, @unchecked Sendable {
     // Removed duplicate == and hash(into:) to fix redeclaration errors
-    // Singleton for thread-safe tag map
-    private final class TagRegistry: @unchecked Sendable {
-        static let shared = TagRegistry()
-        let tagsLock = NSLock()
-        var tags: Dictionary<[UInt8], Tag>
-        private init() {
-            do {
-                self.tags = try Tag.initializeMaps()
-            } catch {
-                preconditionFailure("This method must be overridden")
-            }
+    
+    private static let knownTags: Dictionary<[UInt8], Tag> = {
+        do {
+            return try initializeMaps()
+        } catch {
+            preconditionFailure("Cannot initialize known tags: \(error)")
         }
-    }
-
-    // Helper to access the singleton
-    private static var tagsLock: NSLock { TagRegistry.shared.tagsLock }
-    private static var tags: Dictionary<[UInt8], Tag> {
-        get { TagRegistry.shared.tags }
-        set { TagRegistry.shared.tags = newValue }
-    }
+    }()
+    
+    #if DEBUG
+    /// Compile-time check that the ``knownTags`` dictionary really is `Sendable`.
+    private static let sendableCheck: any Sendable = knownTags
+    #endif
+    
     
     /// Tag traits.
     internal struct Traits: Sendable, Hashable {
@@ -112,28 +106,22 @@ open class Tag: Hashable, @unchecked Sendable {
     }
     
     internal static func valueOf(_ tagName: [UInt8], _ settings: ParseSettings, isSelfClosing: Bool) throws -> Tag {
-        var tagName = tagName
-        var tag: Tag?
-        Tag.tagsLock.lock()
-        tag = Tag.tags[tagName]
-        Tag.tagsLock.unlock()
-
-        if (tag == nil) {
-            tagName = settings.normalizeTag(tagName)
-            try Validate.notEmpty(string: tagName)
-            Tag.tagsLock.lock()
-            tag = Tag.tags[tagName]
-            Tag.tagsLock.unlock()
-
-            if (tag == nil) {
-                // not defined: create default; go anywhere, do anything! (incl be inside a <p>)
-                var traits = Traits.forBlockTag
-                traits.isBlock = false
-                traits.selfClosing = isSelfClosing
-                tag = Tag(tagName, traits: traits)
-            }
+        if let tag = Self.knownTags[tagName] {
+            return tag
         }
-        return tag!
+        
+        let normalizedTagName = settings.normalizeTag(tagName)
+        try Validate.notEmpty(string: normalizedTagName)
+        
+        if let tag = Self.knownTags[normalizedTagName] {
+            return tag
+        }
+        
+        // not defined: create default; go anywhere, do anything! (incl be inside a <p>)
+        var traits = Traits.forBlockTag
+        traits.isBlock = false
+        traits.selfClosing = isSelfClosing
+        return Tag(normalizedTagName, traits: traits)
     }
 
     /**
@@ -232,10 +220,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func isKnownTag() -> Bool {
-        Tag.tagsLock.lock()
-        let result = Tag.tags[_tagName] != nil
-        Tag.tagsLock.unlock()
-        return result
+        return Self.knownTags[_tagName] != nil
     }
 
     /**
@@ -246,10 +231,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     public static func isKnownTag(_ tagName: [UInt8]) -> Bool {
-        Tag.tagsLock.lock()
-        let result2 = Tag.tags[tagName] != nil
-        Tag.tagsLock.unlock()
-        return result2
+        return Self.knownTags[tagName] != nil
     }
 
     /**
