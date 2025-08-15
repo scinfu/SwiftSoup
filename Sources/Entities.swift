@@ -12,7 +12,7 @@ import Foundation
  * Source: <a href="http://www.w3.org/TR/html5/named-character-references.html#named-character-references">W3C HTML
  * named character references</a>.
  */
-public class Entities {
+public final class Entities: Sendable {
     private static let empty = -1
     private static let emptyName = ""
     private static let codepointRadix: Int = 36
@@ -26,14 +26,31 @@ public class Entities {
     
     private static let spaceString: [UInt8] = [0x20]
     
-    public class EscapeMode: Equatable, @unchecked Sendable {
+    public final class EscapeMode: Equatable, Sendable {
+        /// Helper struct to gather static read-only data.
+        fileprivate struct StaticData: Sendable {
+            let xhtml: EscapeMode
+            let base: EscapeMode
+            let extended: EscapeMode
+            let multipoints: Dictionary<ArraySlice<UInt8>, [UnicodeScalar]>
+        }
+        
+        fileprivate static let staticData: StaticData = {
+            var multipoints: Dictionary<ArraySlice<UInt8>, [UnicodeScalar]> = [:]
+            let xhtml: EscapeMode = EscapeMode(string: Entities.xhtml, size: 4, id: 0, multipoints: &multipoints)
+            let base: EscapeMode = EscapeMode(string: Entities.base, size: 106, id: 1, multipoints: &multipoints)
+            let extended: EscapeMode = EscapeMode(string: Entities.full, size: 2125, id: 2, multipoints: &multipoints)
+            
+            return StaticData(xhtml: xhtml, base: base, extended: extended, multipoints: multipoints)
+        }()
+        
         
         /** Restricted entities suitable for XHTML output: lt, gt, amp, and quot only. */
-        public static let xhtml: EscapeMode = EscapeMode(string: Entities.xhtml, size: 4, id: 0)
+        public static var xhtml: EscapeMode { staticData.xhtml }
         /** Default HTML output entities. */
-        public static let base: EscapeMode = EscapeMode(string: Entities.base, size: 106, id: 1)
+        public static var base: EscapeMode { staticData.base }
         /** Complete HTML entities. */
-        public static let extended: EscapeMode = EscapeMode(string: Entities.full, size: 2125, id: 2)
+        public static var extended: EscapeMode { staticData.extended }
         
         fileprivate let value: Int
         
@@ -44,12 +61,10 @@ public class Entities {
         
         // Array of named references, sorted by name for binary search. built by BuildEntities.
         // The few entities that map to a multi-codepoint sequence go into multipoints.
-        fileprivate var entitiesByName: [NamedCodepoint] = []
+        fileprivate let entitiesByName: [NamedCodepoint]
         
-        // Array of entities in first-codepoint order. We don't currently support
-        // multicodepoints to single named value currently. Lazy because this index
-        // is used only when generating HTML text.
-        fileprivate lazy var entitiesByCodepoint = entitiesByName.sorted() { a, b in a.scalar < b.scalar }
+        // Array of entities in first-codepoint order.
+        fileprivate let entitiesByCodepoint: [NamedCodepoint]
         
         public static func == (left: EscapeMode, right: EscapeMode) -> Bool {
             return left.value == right.value
@@ -61,10 +76,11 @@ public class Entities {
         
         private static let codeDelims = ParsingStrings([",", ";"])
         
-        init(string: [UInt8], size: Int, id: Int) {
+        init(string: [UInt8], size: Int, id: Int, multipoints: inout Dictionary<ArraySlice<UInt8>, [UnicodeScalar]>) {
             value = id
             let reader: CharacterReader = CharacterReader(string)
             
+            var entitiesByName: [NamedCodepoint] = []
             entitiesByName.reserveCapacity(size)
             while !reader.isEmpty() {
                 let name: ArraySlice<UInt8> = reader.consumeTo("=")
@@ -85,13 +101,14 @@ public class Entities {
                 entitiesByName.append(NamedCodepoint(scalar: UnicodeScalar(cp1)!, name: name))
                 
                 if cp2 != empty {
-                    multipointsLock.lock()
                     multipoints[name] = [UnicodeScalar(cp1)!, UnicodeScalar(cp2)!]
-                    multipointsLock.unlock()
                 }
             }
             // Entities should start in name order, but better safe than sorry...
             entitiesByName.sort() { a, b in a.name < b.name }
+            
+            self.entitiesByName = entitiesByName
+            self.entitiesByCodepoint = entitiesByName.sorted() { a, b in a.scalar < b.scalar }
         }
         
         // Only returns the first of potentially multiple codepoints
@@ -146,20 +163,6 @@ public class Entities {
         }
     }
     
-    // Singleton for thread-safe multipoints
-    private final class MultipointsRegistry: @unchecked Sendable {
-        static let shared = MultipointsRegistry()
-        let multipointsLock = MutexLock()
-        var multipoints: [ArraySlice<UInt8>: [UnicodeScalar]] = [:]
-        private init() {}
-    }
-
-    private static var multipointsLock: MutexLock { MultipointsRegistry.shared.multipointsLock }
-    private static var multipoints: [ArraySlice<UInt8>: [UnicodeScalar]] {
-        get { MultipointsRegistry.shared.multipoints }
-        set { MultipointsRegistry.shared.multipoints = newValue }
-    }
-
     /**
      * Check if the input is a known named entity
      * @param name the possible entity name (e.g. "lt" or "amp")
@@ -196,12 +199,9 @@ public class Entities {
     }
 
     public static func codepointsForName(_ name: ArraySlice<UInt8>) -> [UnicodeScalar]? {
-        multipointsLock.lock()
-        if let scalars = multipoints[name] {
-            multipointsLock.unlock()
+        if let scalars = EscapeMode.staticData.multipoints[name] {
             return scalars
         }
-        multipointsLock.unlock()
         
         if let scalar = EscapeMode.extended.codepointForName(name) {
             return [scalar]
