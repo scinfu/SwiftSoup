@@ -337,25 +337,25 @@ open class Tag: Hashable, @unchecked Sendable {
         var dict = Dictionary<[UInt8], Tag>()
         
         func traits(for tagName: [UInt8], basedOn: Traits) -> Traits {
-            var traits = basedOn
+            var result = basedOn
             if emptyTags.contains(tagName) {
-                traits.canContainBlock = false
-                traits.canContainInline = false
-                traits.empty = true
+                result.canContainBlock = false
+                result.canContainInline = false
+                result.empty = true
             }
             if formatAsInlineTags.contains(tagName) {
-                traits.formatAsBlock = false
+                result.formatAsBlock = false
             }
             if preserveWhitespaceTags.contains(tagName) {
-                traits.preserveWhitespace = true
+                result.preserveWhitespace = true
             }
             if formListedTags.contains(tagName) {
-                traits.formList = true
+                result.formList = true
             }
             if formSubmitTags.contains(tagName) {
-                traits.formSubmit = true
+                result.formSubmit = true
             }
-            return traits
+            return result
         }
         
         for tagName in blockTags {
