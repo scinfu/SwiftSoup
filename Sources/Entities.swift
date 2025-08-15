@@ -80,8 +80,8 @@ public final class Entities: Sendable {
             value = id
             let reader: CharacterReader = CharacterReader(string)
             
-            var entitiesByName: [NamedCodepoint] = []
-            entitiesByName.reserveCapacity(size)
+            var entitiesByNameMap: [NamedCodepoint] = []
+            entitiesByNameMap.reserveCapacity(size)
             while !reader.isEmpty() {
                 let name: ArraySlice<UInt8> = reader.consumeTo("=")
                 reader.advance()
@@ -98,17 +98,17 @@ public final class Entities: Sendable {
                 let _ = reader.consumeTo("\n".utf8Array).toInt(radix: codepointRadix) ?? 0
                 reader.advance()
                 
-                entitiesByName.append(NamedCodepoint(scalar: UnicodeScalar(cp1)!, name: name))
+                entitiesByNameMap.append(NamedCodepoint(scalar: UnicodeScalar(cp1)!, name: name))
                 
                 if cp2 != empty {
                     multipoints[name] = [UnicodeScalar(cp1)!, UnicodeScalar(cp2)!]
                 }
             }
             // Entities should start in name order, but better safe than sorry...
-            entitiesByName.sort() { a, b in a.name < b.name }
+            entitiesByNameMap.sort() { a, b in a.name < b.name }
             
-            self.entitiesByName = entitiesByName
-            self.entitiesByCodepoint = entitiesByName.sorted() { a, b in a.scalar < b.scalar }
+            self.entitiesByName = entitiesByNameMap
+            self.entitiesByCodepoint = entitiesByNameMap.sorted() { a, b in a.scalar < b.scalar }
         }
         
         // Only returns the first of potentially multiple codepoints

@@ -51,9 +51,9 @@ open class Tag: Hashable, @unchecked Sendable {
 
     }
 
-    fileprivate let _tagName: [UInt8]
-    fileprivate let _tagNameNormal: [UInt8]
-    fileprivate let _traits: Traits
+    fileprivate let tagName: [UInt8]
+    fileprivate let tagNameNormal: [UInt8]
+    fileprivate let traits: Traits
 
     public convenience init(_ tagName: [UInt8]) {
         self.init(tagName, traits: .forBlockTag)
@@ -64,9 +64,9 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     private init(_ tagName: [UInt8], traits: Traits) {
-        self._tagName = tagName
-        self._tagNameNormal = tagName.lowercased()
-        self._traits = traits
+        self.tagName = tagName
+        self.tagNameNormal = tagName.lowercased()
+        self.traits = traits
     }
     
     /**
@@ -75,16 +75,16 @@ open class Tag: Hashable, @unchecked Sendable {
      * @return the tag's name
      */
     open func getName() -> String {
-        return String(decoding: self._tagName, as: UTF8.self)
+        return String(decoding: self.tagName, as: UTF8.self)
     }
     open func getNameNormal() -> String {
-        return String(decoding: self._tagNameNormal, as: UTF8.self)
+        return String(decoding: self.tagNameNormal, as: UTF8.self)
     }
     open func getNameUTF8() -> [UInt8] {
-        return self._tagName
+        return self.tagName
     }
     open func getNameNormalUTF8() -> [UInt8] {
-        return self._tagNameNormal
+        return self.tagNameNormal
     }
 
     /**
@@ -150,7 +150,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func isBlock() -> Bool {
-        return _traits.isBlock
+        return traits.isBlock
     }
 
     /**
@@ -160,7 +160,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func formatAsBlock() -> Bool {
-        return _traits.formatAsBlock
+        return traits.formatAsBlock
     }
 
     /**
@@ -170,7 +170,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func canContainBlock() -> Bool {
-        return _traits.canContainBlock
+        return traits.canContainBlock
     }
 
     /**
@@ -180,7 +180,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func isInline() -> Bool {
-        return !_traits.isBlock
+        return !traits.isBlock
     }
 
     /**
@@ -190,7 +190,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func isData() -> Bool {
-        return !_traits.canContainInline && !isEmpty()
+        return !traits.canContainInline && !isEmpty()
     }
 
     /**
@@ -200,7 +200,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func isEmpty() -> Bool {
-        return _traits.empty
+        return traits.empty
     }
 
     /**
@@ -210,7 +210,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func isSelfClosing() -> Bool {
-        return _traits.empty || _traits.selfClosing
+        return traits.empty || traits.selfClosing
     }
 
     /**
@@ -220,7 +220,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func isKnownTag() -> Bool {
-        return Self.knownTags[_tagName] != nil
+        return Self.knownTags[tagName] != nil
     }
 
     /**
@@ -241,7 +241,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     public func preserveWhitespace() -> Bool {
-        return _traits.preserveWhitespace
+        return traits.preserveWhitespace
     }
 
     /**
@@ -250,7 +250,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     public func isFormListed() -> Bool {
-        return _traits.formList
+        return traits.formList
     }
 
     /**
@@ -259,7 +259,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     public func isFormSubmittable() -> Bool {
-        return _traits.formSubmit
+        return traits.formSubmit
     }
 
     /// Returns a Boolean value indicating whether two values are equal.
@@ -271,8 +271,10 @@ open class Tag: Hashable, @unchecked Sendable {
     ///   - lhs: A value to compare.
     ///   - rhs: Another value to compare.
     static public func ==(lhs: Tag, rhs: Tag) -> Bool {
-        if lhs === rhs { return true }
-        return lhs._tagName == rhs._tagName && lhs._traits == rhs._traits
+        if lhs === rhs {
+            return true
+        }
+        return lhs.tagName == rhs.tagName && lhs.traits == rhs.traits
     }
     
     public func equals(_ tag: Tag) -> Bool {
@@ -284,13 +286,13 @@ open class Tag: Hashable, @unchecked Sendable {
     /// Hash values are not guaranteed to be equal across different executions of
     /// your program. Do not save hash values to use during a future execution.
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(_tagName)
-        hasher.combine(_traits)
+        hasher.combine(tagName)
+        hasher.combine(traits)
     }
 
     @inline(__always)
     open func toString() -> String {
-        return String(decoding: _tagName, as: UTF8.self)
+        return String(decoding: tagName, as: UTF8.self)
     }
 
     // internal static initialisers:
@@ -358,11 +360,11 @@ open class Tag: Hashable, @unchecked Sendable {
         
         for tagName in blockTags {
             let tag = Tag(tagName, traits: traits(for: tagName, basedOn: .forBlockTag))
-            dict[tag._tagName] = tag
+            dict[tag.tagName] = tag
         }
         for tagName in inlineTags {
             let tag = Tag(tagName, traits: traits(for: tagName, basedOn: .forInlineTag))
-            dict[tag._tagName] = tag
+            dict[tag.tagName] = tag
         }
         
         return dict
