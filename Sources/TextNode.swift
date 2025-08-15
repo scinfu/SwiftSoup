@@ -10,7 +10,7 @@ import Foundation
 /**
  A text node.
  */
-open class TextNode: Node, @unchecked Sendable {
+open class TextNode: Node {
     /*
      TextNode is a node, and so by default comes with attributes and children. The attributes are seldom used, but use
      memory, and the child nodes are never used. So we don't have them, and override accessors to attributes to create

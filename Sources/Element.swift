@@ -7,7 +7,7 @@
 
 import Foundation
 
-open class Element: Node, @unchecked Sendable {
+open class Element: Node {
     var _tag: Tag
     
     private static let classString = "class".utf8Array

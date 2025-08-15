@@ -10,7 +10,7 @@ import Foundation
 /**
  An XML Declaration.
   */
-public class XmlDeclaration: Node, @unchecked Sendable {
+public class XmlDeclaration: Node {
     private let _name: [UInt8]
     private let isProcessingInstruction: Bool // <! if true, <? if false, declaration (and last data char should be ?)
 

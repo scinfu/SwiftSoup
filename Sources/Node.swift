@@ -20,7 +20,7 @@ internal final class Weak<T: AnyObject> {
     }
 }
 
-open class Node: Equatable, Hashable, @unchecked Sendable {
+open class Node: Equatable, Hashable {
     var baseUri: [UInt8]?
     var attributes: Attributes?
     
