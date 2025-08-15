@@ -225,7 +225,8 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     func insertEmpty(_ startTag: Token.StartTag) throws -> Element {
-        let tag: Tag = try Tag.valueOf(startTag.name(), settings)
+        // For unknown tags, remember this is self closing for output
+        let tag: Tag = try Tag.valueOf(startTag.name(), settings, isSelfClosing: startTag.isSelfClosing())
         let skipChildReserve = startTag.isSelfClosing()
         let el: Element
         if let attributes = startTag._attributes {
@@ -235,14 +236,9 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         el.treeBuilder = self
         try insertNode(el)
-        if (startTag.isSelfClosing()) {
-            if (tag.isKnownTag()) {
-                if (tag.isSelfClosing()) {tokeniser.acknowledgeSelfClosingFlag()} // if not acked, promulagates error
-            } else {
-                // unknown tag, remember this is self closing for output
-                tag.setSelfClosing()
-                tokeniser.acknowledgeSelfClosingFlag() // not an distinct error
-            }
+        if startTag.isSelfClosing(), tag.isSelfClosing() {
+            // if not acked, promulagates error
+            tokeniser.acknowledgeSelfClosingFlag()
         }
         return el
     }

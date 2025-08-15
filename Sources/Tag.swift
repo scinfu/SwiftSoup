@@ -29,28 +29,52 @@ open class Tag: Hashable, @unchecked Sendable {
         get { TagRegistry.shared.tags }
         set { TagRegistry.shared.tags = newValue }
     }
+    
+    /// Tag traits.
+    internal struct Traits: Sendable, Hashable {
+        /// block or inline
+        var isBlock: Bool
+        /// should be formatted as a block
+        var formatAsBlock: Bool
+        /// Can this tag hold block level tags?
+        var canContainBlock: Bool
+        /// only pcdata if not
+        var canContainInline: Bool
+        /// can hold nothing e.g. img
+        var empty: Bool
+        /// can self close (<foo />). used for unknown tags that self close, without forcing them as empty.
+        var selfClosing: Bool
+        /// for pre, textarea, script etc
+        var preserveWhitespace: Bool
+        /// a control that appears in forms: input, textarea, output etc
+        var formList: Bool
+        /// a control that can be submitted in a form: input etc
+        var formSubmit: Bool
+        
+        static let forBlockTag = Traits(isBlock: true, formatAsBlock: true, canContainBlock: true, canContainInline: true, empty: false, selfClosing: false, preserveWhitespace: false, formList: false, formSubmit: false)
+        
+        static let forInlineTag = Traits(isBlock: false, formatAsBlock: false, canContainBlock: false, canContainInline: true, empty: false, selfClosing: false, preserveWhitespace: false, formList: false, formSubmit: false)
 
-    fileprivate var _tagName: [UInt8]
-    fileprivate var _tagNameNormal: [UInt8]
-    fileprivate var _isBlock: Bool = true // block or inline
-    fileprivate var _formatAsBlock: Bool = true // should be formatted as a block
-    fileprivate var _canContainBlock: Bool = true // Can this tag hold block level tags?
-    fileprivate var _canContainInline: Bool = true // only pcdata if not
-    fileprivate var _empty: Bool = false // can hold nothing e.g. img
-    fileprivate var _selfClosing: Bool = false // can self close (<foo />). used for unknown tags that self close, without forcing them as empty.
-    fileprivate var _preserveWhitespace: Bool = false // for pre, textarea, script etc
-    fileprivate var _formList: Bool = false // a control that appears in forms: input, textarea, output etc
-    fileprivate var _formSubmit: Bool = false // a control that can be submitted in a form: input etc
+    }
 
-    public init(_ tagName: [UInt8]) {
-        self._tagName = tagName
-        self._tagNameNormal = tagName.lowercased()
+    fileprivate let _tagName: [UInt8]
+    fileprivate let _tagNameNormal: [UInt8]
+    fileprivate let _traits: Traits
+
+    public convenience init(_ tagName: [UInt8]) {
+        self.init(tagName, traits: .forBlockTag)
     }
     
     public convenience init(_ tagName: String) {
-        self.init(tagName.utf8Array)
+        self.init(tagName.utf8Array, traits: .forBlockTag)
     }
 
+    private init(_ tagName: [UInt8], traits: Traits) {
+        self._tagName = tagName
+        self._tagNameNormal = tagName.lowercased()
+        self._traits = traits
+    }
+    
     /**
      * Get this tag's name.
      *
@@ -80,10 +104,14 @@ open class Tag: Hashable, @unchecked Sendable {
      * @return The tag, either defined or new generic.
      */
     public static func valueOf(_ tagName: String, _ settings: ParseSettings) throws -> Tag {
-        return try valueOf(tagName.utf8Array, settings)
+        return try valueOf(tagName.utf8Array, settings, isSelfClosing: false)
     }
     
     public static func valueOf(_ tagName: [UInt8], _ settings: ParseSettings) throws -> Tag {
+        return try valueOf(tagName, settings, isSelfClosing: false)
+    }
+    
+    internal static func valueOf(_ tagName: [UInt8], _ settings: ParseSettings, isSelfClosing: Bool) throws -> Tag {
         var tagName = tagName
         var tag: Tag?
         Tag.tagsLock.lock()
@@ -99,9 +127,10 @@ open class Tag: Hashable, @unchecked Sendable {
 
             if (tag == nil) {
                 // not defined: create default; go anywhere, do anything! (incl be inside a <p>)
-                tag = Tag(tagName)
-                tag!._isBlock = false
-                tag!._canContainBlock = true
+                var traits = Traits.forBlockTag
+                traits.isBlock = false
+                traits.selfClosing = isSelfClosing
+                tag = Tag(tagName, traits: traits)
             }
         }
         return tag!
@@ -133,7 +162,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func isBlock() -> Bool {
-        return _isBlock
+        return _traits.isBlock
     }
 
     /**
@@ -143,7 +172,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func formatAsBlock() -> Bool {
-        return _formatAsBlock
+        return _traits.formatAsBlock
     }
 
     /**
@@ -153,7 +182,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func canContainBlock() -> Bool {
-        return _canContainBlock
+        return _traits.canContainBlock
     }
 
     /**
@@ -163,7 +192,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func isInline() -> Bool {
-        return !_isBlock
+        return !_traits.isBlock
     }
 
     /**
@@ -173,7 +202,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func isData() -> Bool {
-        return !_canContainInline && !isEmpty()
+        return !_traits.canContainInline && !isEmpty()
     }
 
     /**
@@ -183,7 +212,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func isEmpty() -> Bool {
-        return _empty
+        return _traits.empty
     }
 
     /**
@@ -193,7 +222,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     open func isSelfClosing() -> Bool {
-        return _empty || _selfClosing
+        return _traits.empty || _traits.selfClosing
     }
 
     /**
@@ -230,7 +259,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     public func preserveWhitespace() -> Bool {
-        return _preserveWhitespace
+        return _traits.preserveWhitespace
     }
 
     /**
@@ -239,7 +268,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     public func isFormListed() -> Bool {
-        return _formList
+        return _traits.formList
     }
 
     /**
@@ -248,14 +277,7 @@ open class Tag: Hashable, @unchecked Sendable {
      */
     @inline(__always)
     public func isFormSubmittable() -> Bool {
-        return _formSubmit
-    }
-
-    @inline(__always)
-    @discardableResult
-    func setSelfClosing() -> Tag {
-        _selfClosing = true
-        return self
+        return _traits.formSubmit
     }
 
     /// Returns a Boolean value indicating whether two values are equal.
@@ -267,25 +289,10 @@ open class Tag: Hashable, @unchecked Sendable {
     ///   - lhs: A value to compare.
     ///   - rhs: Another value to compare.
     static public func ==(lhs: Tag, rhs: Tag) -> Bool {
-        let this = lhs
-        let o = rhs
-        if (this === o) {return true}
-        if (type(of: this) != type(of: o)) {return false}
-
-        let tag: Tag = o
-
-        if (lhs._tagName != tag._tagName) {return false}
-        if (lhs._canContainBlock != tag._canContainBlock) {return false}
-        if (lhs._canContainInline != tag._canContainInline) {return false}
-        if (lhs._empty != tag._empty) {return false}
-        if (lhs._formatAsBlock != tag._formatAsBlock) {return false}
-        if (lhs._isBlock != tag._isBlock) {return false}
-        if (lhs._preserveWhitespace != tag._preserveWhitespace) {return false}
-        if (lhs._selfClosing != tag._selfClosing) {return false}
-        if (lhs._formList != tag._formList) {return false}
-        return lhs._formSubmit == tag._formSubmit
+        if lhs === rhs { return true }
+        return lhs._tagName == rhs._tagName && lhs._traits == rhs._traits
     }
-
+    
     public func equals(_ tag: Tag) -> Bool {
         return self == tag
     }
@@ -296,15 +303,7 @@ open class Tag: Hashable, @unchecked Sendable {
     /// your program. Do not save hash values to use during a future execution.
     public func hash(into hasher: inout Hasher) {
         hasher.combine(_tagName)
-        hasher.combine(_isBlock)
-        hasher.combine(_formatAsBlock)
-        hasher.combine(_canContainBlock)
-        hasher.combine(_canContainInline)
-        hasher.combine(_empty)
-        hasher.combine(_selfClosing)
-        hasher.combine(_preserveWhitespace)
-        hasher.combine(_formList)
-        hasher.combine(_formSubmit)
+        hasher.combine(_traits)
     }
 
     @inline(__always)
@@ -330,74 +329,60 @@ open class Tag: Hashable, @unchecked Sendable {
         "summary", "command", "device", "area", "basefont", "bgsound", "menuitem", "param", "source", "track",
         "data", "bdi"
     ].map { $0.utf8Array }
-    private static let emptyTags: [[UInt8]] = [
+    private static let emptyTags: Set<[UInt8]> = Set([
         "meta", "link", "base", "frame", "img", "br", "wbr", "embed", "hr", "input", "keygen", "col", "command",
         "device", "area", "basefont", "bgsound", "menuitem", "param", "source", "track"
-    ].map { $0.utf8Array }
-    private static let formatAsInlineTags: [[UInt8]] = [
+    ].map { $0.utf8Array })
+    private static let formatAsInlineTags: Set<[UInt8]> = Set([
         "title", "a", "p", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "address", "li", "th", "td", "script", "style",
         "ins", "del", "s"
-    ].map { $0.utf8Array }
-    private static let preserveWhitespaceTags: [[UInt8]] = [
+    ].map { $0.utf8Array })
+    private static let preserveWhitespaceTags: Set<[UInt8]> = Set([
         "pre", "plaintext", "title", "textarea"
         // script is not here as it is a data node, which always preserve whitespace
-    ].map { $0.utf8Array }
+    ].map { $0.utf8Array })
     // todo: I think we just need submit tags, and can scrub listed
-    private static let formListedTags: [[UInt8]] = [
+    private static let formListedTags: Set<[UInt8]> = Set([
         "button", "fieldset", "input", "keygen", "object", "output", "select", "textarea"
-    ].map { $0.utf8Array }
-    private static let formSubmitTags: [[UInt8]] = [
+    ].map { $0.utf8Array })
+    private static let formSubmitTags: Set<[UInt8]> = Set([
         "input", "keygen", "object", "select", "textarea"
-    ].map { $0.utf8Array }
+    ].map { $0.utf8Array })
 
     static private func initializeMaps() throws -> Dictionary<[UInt8], Tag> {
         var dict = Dictionary<[UInt8], Tag>()
-
-        // creates
+        
+        func traits(for tagName: [UInt8], basedOn: Traits) -> Traits {
+            var traits = basedOn
+            if emptyTags.contains(tagName) {
+                traits.canContainBlock = false
+                traits.canContainInline = false
+                traits.empty = true
+            }
+            if formatAsInlineTags.contains(tagName) {
+                traits.formatAsBlock = false
+            }
+            if preserveWhitespaceTags.contains(tagName) {
+                traits.preserveWhitespace = true
+            }
+            if formListedTags.contains(tagName) {
+                traits.formList = true
+            }
+            if formSubmitTags.contains(tagName) {
+                traits.formSubmit = true
+            }
+            return traits
+        }
+        
         for tagName in blockTags {
-            let tag = Tag(tagName)
+            let tag = Tag(tagName, traits: traits(for: tagName, basedOn: .forBlockTag))
             dict[tag._tagName] = tag
         }
         for tagName in inlineTags {
-            let tag = Tag(tagName)
-            tag._isBlock = false
-            tag._canContainBlock = false
-            tag._formatAsBlock = false
+            let tag = Tag(tagName, traits: traits(for: tagName, basedOn: .forInlineTag))
             dict[tag._tagName] = tag
         }
-
-        // mods:
-        for tagName in emptyTags {
-            let tag = dict[tagName]
-            try Validate.notNull(obj: tag)
-            tag?._canContainBlock = false
-            tag?._canContainInline = false
-            tag?._empty = true
-        }
-
-        for tagName in formatAsInlineTags {
-            let tag = dict[tagName]
-            try Validate.notNull(obj: tag)
-            tag?._formatAsBlock = false
-        }
-
-        for tagName in preserveWhitespaceTags {
-            let tag = dict[tagName]
-            try Validate.notNull(obj: tag)
-            tag?._preserveWhitespace = true
-        }
-
-        for tagName in formListedTags {
-            let tag = dict[tagName]
-            try Validate.notNull(obj: tag)
-            tag?._formList = true
-        }
-
-        for tagName in formSubmitTags {
-            let tag = dict[tagName]
-            try Validate.notNull(obj: tag)
-            tag?._formSubmit = true
-        }
+        
         return dict
     }
 }
