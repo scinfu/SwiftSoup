@@ -11,7 +11,7 @@ import SwiftSoup
 class ParserBenchmark: XCTestCase {
     
     enum Const {
-        static var corpusHTMLData: [String] = []
+        nonisolated(unsafe) static var corpusHTMLData: [String] = []
         static let repetitions = 5
     }
 

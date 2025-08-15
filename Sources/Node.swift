@@ -51,7 +51,6 @@ open class Node: Equatable, Hashable {
     private static let abs = "abs:".utf8Array
     private static let absCount = abs.count
     fileprivate static let empty = "".utf8Array
-    private static let EMPTY_NODES: Array<Node> = Array<Node>()
     
     /**
      Create a new Node.
@@ -63,7 +62,7 @@ open class Node: Equatable, Hashable {
         _ attributes: Attributes,
         skipChildReserve: Bool = false
     ) {
-        childNodes = Node.EMPTY_NODES
+        childNodes = []
         if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
@@ -76,7 +75,7 @@ open class Node: Equatable, Hashable {
         _ baseUri: [UInt8],
         skipChildReserve: Bool = false
     ) {
-        childNodes = Node.EMPTY_NODES
+        childNodes = []
         if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
@@ -91,7 +90,7 @@ open class Node: Equatable, Hashable {
     public init(
         skipChildReserve: Bool = false
     ) {
-        self.childNodes = Node.EMPTY_NODES
+        self.childNodes = []
         if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
