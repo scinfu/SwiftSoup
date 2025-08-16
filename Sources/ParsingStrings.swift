@@ -26,24 +26,44 @@ public func testBit(_ mask: (UInt64, UInt64, UInt64, UInt64), _ b: UInt8) -> Boo
     return (val & (1 << shift)) != 0
 }
 
-final class TrieNode {
+final class TrieNode: Sendable {
     // For fastest lookup: a 256-element array for direct indexing by byte
-    var children: [TrieNode?] = .init(repeating: nil, count: 256)
+    let children: [TrieNode?]
+    
+    // Mark that a path ending at this node represents a complete string
+    let isTerminal: Bool
+    
+    init(children: [TrieNode?], isTerminal: Bool) {
+        assert(children.count == 256)
+        self.children = children
+        self.isTerminal = isTerminal
+    }
+}
+
+class MutableTrieNode {
+    // For fastest lookup: a 256-element array for direct indexing by byte
+    var children: [MutableTrieNode?] = .init(repeating: nil, count: 256)
     
     // Mark that a path ending at this node represents a complete string
     var isTerminal: Bool = false
+    
+    func makeImmutable() -> TrieNode {
+        return TrieNode.init(
+            children: self.children.map { $0?.makeImmutable() },
+            isTerminal: self.isTerminal
+        )
+    }
 }
 
-public struct ParsingStrings: Hashable, Equatable, @unchecked Sendable {
-    // root is not Sendable, so we must mark it as @unchecked Sendable
+public struct ParsingStrings: Hashable, Equatable, Sendable {
     let multiByteChars: [[UInt8]]
     let multiByteCharLengths: [Int]
     public let multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)]
     public let multiByteSet: Set<ArraySlice<UInt8>>
     public let multiByteByteLookupsCount: Int
-    public var singleByteMask: (UInt64, UInt64, UInt64, UInt64) = (0, 0, 0, 0) // Precomputed set for single-byte lookups
+    public let singleByteMask: (UInt64, UInt64, UInt64, UInt64) // Precomputed set for single-byte lookups
     private let precomputedHash: Int
-    private let root = TrieNode()
+    private let root: TrieNode
     
     public init(_ strings: [String]) {
         self.init(strings.map { $0.utf8Array })
@@ -56,22 +76,25 @@ public struct ParsingStrings: Hashable, Equatable, @unchecked Sendable {
         
         var multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)] = Array(repeating: (0,0,0,0), count: maxLen)
         
+        let trieRoot = MutableTrieNode()
         for bytes in strings {
             guard !bytes.isEmpty else { continue }
             
-            var current = root
+            var current = trieRoot
             for b in bytes {
                 if current.children[Int(b)] == nil {
-                    current.children[Int(b)] = TrieNode()
+                    current.children[Int(b)] = MutableTrieNode()
                 }
                 current = current.children[Int(b)]!
             }
             current.isTerminal = true
         }
+        self.root = trieRoot.makeImmutable()
         
+        var byteMask: (UInt64, UInt64, UInt64, UInt64) = (0, 0, 0, 0)
         for char in multiByteChars {
             if char.count == 1 {
-                setBit(in: &singleByteMask, forByte: char[0])
+                setBit(in: &byteMask, forByte: char[0])
             }
             for (i, byte) in char.enumerated() {
                 var mask = multiByteByteLookups[i]
@@ -79,6 +102,8 @@ public struct ParsingStrings: Hashable, Equatable, @unchecked Sendable {
                 multiByteByteLookups[i] = mask
             }
         }
+        self.singleByteMask = byteMask
+        
         self.multiByteByteLookups = multiByteByteLookups
         multiByteByteLookupsCount = multiByteByteLookups.count
         

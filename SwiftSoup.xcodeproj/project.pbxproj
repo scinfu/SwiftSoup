@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		492E7FE92E4FBB6A001B5BEB /* MutexLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492E7FE82E4FBB6A001B5BEB /* MutexLock.swift */; };
+		492E7FEA2E4FBB6A001B5BEB /* MutexLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492E7FE82E4FBB6A001B5BEB /* MutexLock.swift */; };
+		492E7FEB2E4FBB6A001B5BEB /* MutexLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492E7FE82E4FBB6A001B5BEB /* MutexLock.swift */; };
+		492E7FEC2E4FBB6A001B5BEB /* MutexLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492E7FE82E4FBB6A001B5BEB /* MutexLock.swift */; };
 		6710742C27F57FA60048E7C1 /* UnfairLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6710742B27F57FA60048E7C1 /* UnfairLock.swift */; };
 		6710742D27F57FA60048E7C1 /* UnfairLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6710742B27F57FA60048E7C1 /* UnfairLock.swift */; };
 		6710742E27F57FA60048E7C1 /* UnfairLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6710742B27F57FA60048E7C1 /* UnfairLock.swift */; };
@@ -296,6 +300,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		492E7FE82E4FBB6A001B5BEB /* MutexLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MutexLock.swift; sourceTree = "<group>"; };
 		6710742B27F57FA60048E7C1 /* UnfairLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnfairLock.swift; sourceTree = "<group>"; };
 		6710743027F580530048E7C1 /* Mutex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mutex.swift; sourceTree = "<group>"; };
 		8C19C82E1DB7E5D200B8FC22 /* Tokeniser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Tokeniser.swift; sourceTree = "<group>"; };
@@ -474,6 +479,7 @@
 				8C73DB4A1DDA605900233A68 /* UnicodeScalar.swift */,
 				6710742B27F57FA60048E7C1 /* UnfairLock.swift */,
 				6710743027F580530048E7C1 /* Mutex.swift */,
+				492E7FE82E4FBB6A001B5BEB /* MutexLock.swift */,
 			);
 			name = shared;
 			sourceTree = "<group>";
@@ -957,6 +963,7 @@
 				BD54CAF92D8421D000736564 /* UTF8Arrays.swift in Sources */,
 				8CC2FD8D1DB12382002CB469 /* Whitelist.swift in Sources */,
 				8C19C82F1DB7E5D200B8FC22 /* Tokeniser.swift in Sources */,
+				492E7FEA2E4FBB6A001B5BEB /* MutexLock.swift in Sources */,
 				8CD4E8F01E12B0FF0039B951 /* Pattern.swift in Sources */,
 				6710743127F580530048E7C1 /* Mutex.swift in Sources */,
 				BD54CB042D8421FA00736564 /* ParsingStrings.swift in Sources */,
@@ -1061,6 +1068,7 @@
 				BD54CAFA2D8421D000736564 /* UTF8Arrays.swift in Sources */,
 				BD3B5B6B1FBED933001FDB3B /* Whitelist.swift in Sources */,
 				BD3B5B6C1FBED933001FDB3B /* Tokeniser.swift in Sources */,
+				492E7FEC2E4FBB6A001B5BEB /* MutexLock.swift in Sources */,
 				BD3B5B6D1FBED933001FDB3B /* Pattern.swift in Sources */,
 				6710743227F580530048E7C1 /* Mutex.swift in Sources */,
 				BD54CAFF2D8421FA00736564 /* ParsingStrings.swift in Sources */,
@@ -1126,6 +1134,7 @@
 				BD54CAFC2D8421D000736564 /* UTF8Arrays.swift in Sources */,
 				BD3B5BAE1FC063BD001FDB3B /* Whitelist.swift in Sources */,
 				BD3B5BAF1FC063BD001FDB3B /* Tokeniser.swift in Sources */,
+				492E7FE92E4FBB6A001B5BEB /* MutexLock.swift in Sources */,
 				BD3B5BB01FC063BD001FDB3B /* Pattern.swift in Sources */,
 				6710743327F580530048E7C1 /* Mutex.swift in Sources */,
 				BD54CB032D8421FA00736564 /* ParsingStrings.swift in Sources */,
@@ -1191,6 +1200,7 @@
 				BD54CAF82D8421D000736564 /* UTF8Arrays.swift in Sources */,
 				BD3B5BF11FC06423001FDB3B /* Whitelist.swift in Sources */,
 				BD3B5BF21FC06423001FDB3B /* Tokeniser.swift in Sources */,
+				492E7FEB2E4FBB6A001B5BEB /* MutexLock.swift in Sources */,
 				BD3B5BF31FC06423001FDB3B /* Pattern.swift in Sources */,
 				6710743427F580530048E7C1 /* Mutex.swift in Sources */,
 				BD54CB022D8421FA00736564 /* ParsingStrings.swift in Sources */,

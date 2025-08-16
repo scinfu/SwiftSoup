@@ -11,7 +11,7 @@ import Foundation
  * A HTML Form Element provides ready access to the form fields/controls that are associated with it. It also allows a
  * form to easily be submitted.
  */
-public class FormElement: Element, @unchecked Sendable {
+public class FormElement: Element {
     private let _elements: Elements = Elements()
 
     /**
