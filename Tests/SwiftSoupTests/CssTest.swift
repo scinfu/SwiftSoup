@@ -48,6 +48,56 @@ class CssTest: XCTestCase {
 	func testFirstChild() throws {
 		try check(html.select("#pseudo :first-child"), "1")
 		try check(html.select("html:first-child"))
+		
+		// See issue #274. Tests whether `:first-child` returns the correct number of nodes.
+		let html = """
+<div class="models">
+	<a class="model" href="https://cat.com">
+		<img title="" data-original-title="NAME-A">
+	</a>
+	<a class="model" href="https://duck.com">
+		<span title="" data-original-title="NAME-B">
+	</a>
+	<a class="model" href="https://example.com">
+		<span title="" data-original-title="NAME-C">
+			<span title="" data-original-title="NAME-D"></span>
+			<span title="" data-original-title="NAME-E"></span>
+		</span>
+		<span data-original-title="NAME-F"></span>
+	</a>
+</div>
+"""
+		
+		let doc: Document = try SwiftSoup.parse(html)
+		let creatives = try doc.select(".models .model")
+		var count = 0
+		for creative in creatives {
+			let collection = try creative.select(":first-child")
+			let first = try creative.select(":first-child").first()!
+			
+			switch count {
+			case 0:
+				XCTAssertEqual(collection.count, 1, "The `:first-child` selector should return exactly one element here")
+				XCTAssertEqual(try collection.attr("data-original-title"), "NAME-A")
+				XCTAssertEqual(try first.attr("data-original-title"), "NAME-A")
+
+			case 1:
+				XCTAssertEqual(collection.count, 1, "The `:first-child` selector should return exactly one element here")
+				XCTAssertEqual(try collection.attr("data-original-title"), "NAME-B")
+				XCTAssertEqual(try first.attr("data-original-title"), "NAME-B")
+				
+			case 2:
+				XCTAssertEqual(collection.count, 2, "The `:first-child` selector should return exactly two elements here")
+				XCTAssertEqual(try collection.attr("data-original-title"), "NAME-C") // First match, first level below the anchor
+				XCTAssertEqual(try first.attr("data-original-title"), "NAME-C")
+				XCTAssertEqual(try collection.last()?.attr("data-original-title"), "NAME-D")
+				
+			default:
+				XCTFail("Too many iterations")
+			}
+			
+			count += 1
+		}
 	}
 
 	func testLastChild() throws {

@@ -564,7 +564,7 @@ open class Evaluator {
     public final class IsFirstChild: Evaluator {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             let p = element.parent()
-            if(p != nil && !(((p as? Document) != nil))) {
+            if element !== root, p != nil, !(p is Document) {
                 return (try element.elementSiblingIndex()) == 0
             }
             return false
