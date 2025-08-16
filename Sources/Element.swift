@@ -677,7 +677,8 @@ open class Element: Node {
             if (siblings.count > index!+1) {
                 return siblings[index!+1]
             } else {
-                return nil}
+                return nil
+            }
         }
         return nil
     }
