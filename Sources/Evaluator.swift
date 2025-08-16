@@ -390,10 +390,8 @@ open class Evaluator {
      */
     public final class IsLastChild: Evaluator {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-
-            if let parent = element.parent() {
-                let index = try element.elementSiblingIndex()
-                return !(parent is Document) && index == (parent.getChildNodes().count - 1)
+            if let parent = element.parent(), !(parent is Document), element !== root {
+                return (try element.nextElementSibling()) == nil
             }
             return false
         }

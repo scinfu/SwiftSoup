@@ -101,8 +101,36 @@ class CssTest: XCTestCase {
 	}
 
 	func testLastChild() throws {
-        try! check(html.select("#pseudo :last-child"), "10")
-        try! check(html.select("html:last-child"))
+		try check(html.select("#pseudo :last-child"), "10")
+		try check(html.select("html:last-child"))
+		
+		let html = """
+		<div class="info-wrap">
+			<div>
+				<p>Author (s): </p>
+				<p>
+					<a href="###">John Doe</a>
+				</p>
+			</div>
+		</div>
+		"""
+		
+		let doc: Document = try SwiftSoup.parse(html)
+		let elementArray = try doc.select("div.info-wrap > div")
+		XCTAssertEqual(elementArray.count, 1)
+		
+		let div = elementArray.first()!
+		let label = try div.select("> p:first-child").text()
+		XCTAssertEqual(label, "Author (s):")
+		
+		let value = try div.select("> p:last-child").text()
+		XCTAssertEqual(value, "John Doe")
+		
+		// Should match the second `p` and its `a` since the later is also a last child. The `div` itself should not get matched.
+		let matched = try div.select(":last-child")
+		XCTAssertEqual(matched.count, 2)
+		XCTAssertEqual(matched.first()?.tagName(), "p")
+		XCTAssertEqual(matched.last?.tagName(), "a")
 	}
 
 	func testNthChild_simple() throws {
