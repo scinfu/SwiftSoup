@@ -287,7 +287,7 @@ open class StringUtil {
         let base = URL(string: baseUrl)
         
         if base == nil || base?.scheme == nil {
-            let abs = URLFromString(relUrl)
+            let abs = urlFromString(relUrl)
             return abs != nil && abs?.scheme != nil ? abs!.absoluteURL.absoluteString : empty
         } else {
             if let url = resolve(base!, relUrl: relUrl) {
@@ -303,7 +303,7 @@ open class StringUtil {
     }
     
     
-    private static func URLFromString(_ input: String) -> URL? {
+    private static func urlFromString(_ input: String) -> URL? {
         // Works around escaping issues in Apple's URL string parsing. As soon as there's one invalid character
         // in a query, _all_ characters get escaped. This results in `abc%20def[` to get encoded as `abc%2520def%5B`,
         // thus double-escaping the space `%20`.
