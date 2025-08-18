@@ -121,8 +121,8 @@ extension Cleaner {
 
             if let sourceAttrs = sourceEl.getAttributes() {
                 for sourceAttr in sourceAttrs {
-                    if try whitelist.isSafeAttribute(sourceTag, sourceEl, sourceAttr) {
-                        destAttrs.put(attribute: sourceAttr)
+                    if let destAttr = try whitelist.safeAttribute(sourceTag, sourceEl, sourceAttr) {
+                        destAttrs.put(attribute: destAttr)
                     } else {
                         numDiscarded += 1
                     }
