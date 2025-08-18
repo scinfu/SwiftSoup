@@ -109,4 +109,14 @@ class StringUtilTest: XCTestCase {
         XCTAssertEqual("ftp://example.com/one/two.c", StringUtil.resolve("ftp://example.com/one/", relUrl: "./two.c"))
         XCTAssertEqual("ftp://example.com/one/two.c", StringUtil.resolve("ftp://example.com/one/", relUrl: "two.c"))
     }
+    
+    func testResolveEscaping() {
+        let source1 = "mailto:mail@example.com?subject=Job%20Requisition[NID]"
+        let source2 = "https://example.com?foo=one%20two["
+        
+        // Ideally, the `mailto` example would resolve it its input (preserving `[` and `]`).
+        // See https://github.com/scinfu/SwiftSoup/issues/268
+        XCTAssertEqual("mailto:mail@example.com?subject=Job%20Requisition%5BNID%5D", StringUtil.resolve("", relUrl: source1))
+        XCTAssertEqual("https://example.com?foo=one%20two%5B", StringUtil.resolve("", relUrl: source2))
+    }
 }

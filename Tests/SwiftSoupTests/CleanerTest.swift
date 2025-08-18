@@ -256,42 +256,41 @@ class CleanerTest: XCTestCase {
         try whitelist.addTags( "script" )
         XCTAssertTrue( try SwiftSoup.isValid("Hello<script>alert('Doh')</script>World !", whitelist ) )
     }
+    
+    func testEscapingInAttributeURLs() throws {
+        // See https://github.com/scinfu/SwiftSoup/issues/268 for discussions about the issues tested here.
+        
+        let html = #"<a href="mailto:mail@example.com?subject=Job%20Requisition[NID]">Send</a></body></html>"#
+        let document = try SwiftSoup.parse(html)
+        
+        let customWhitelist = Whitelist.none()
+        try customWhitelist
+            .addTags("a")
+            .addAttributes("a", "href")
+            .addProtocols("a", "href", "mailto")
+        
+        // Get the link text before any processing.
+        let originalLink = try document.select("a").first()?.attr("href")
+        
+        // Clean it.
+        let cleanedFirst = try Cleaner(headWhitelist: customWhitelist, bodyWhitelist: customWhitelist).clean(document)
+        
+        // Check the link text from the source document after processing. There was a bug where this was modified.
+        let originalLinkAfterClean = try document.select("a").first()?.attr("href")
+        XCTAssertNotNil(originalLink)
+        XCTAssertEqual(originalLinkAfterClean, originalLink)
+        
+        // Due to Apple parsing issues, the `[` and `]` do get escaped. But the `%20` should not get escaped again.
+        // Ideally this should return the `originalLink` but for now, no double-escaping is already an improvement.
+        let cleanedLinkFirst = try cleanedFirst.select("a").first()?.attr("href")
+        XCTAssertNotNil(cleanedLinkFirst)
+        XCTAssertEqual("mailto:mail@example.com?subject=Job%20Requisition%5BNID%5D", cleanedLinkFirst)
+        
+        // Try again with `.preserveRelativeLinks(true)` which should not modify the link at all.
+        customWhitelist.preserveRelativeLinks(true)
+        let cleanedSecond = try Cleaner(headWhitelist: customWhitelist, bodyWhitelist: customWhitelist).clean(document)
+        let cleanedLinkSecond = try cleanedSecond.select("a").first()?.attr("href")
+        XCTAssertEqual(originalLink, cleanedLinkSecond)
+    }
 
-//    func testHandlesFramesetsw()throws{
-//        
-//        
-//        while true {
-//            
-//            do{
-//                let myURLString = "https://www.discuvver.com/jump2.php"
-//                guard let myURL = URL(string: myURLString) else {
-//                    print("Error: \(myURLString) doesn't seem to be a valid URL")
-//                    continue
-//                }
-//                var dirty = ""
-//                dirty = try String(contentsOf: myURL, encoding: .utf8)
-//                print(dirty)
-//                
-//                let doc = try SwiftSoup.parse(dirty)
-//                _ = try doc.select("div")
-//                _ = try doc.select("var")
-//                _ = doc.body()
-//                _ = doc.copy()
-//                _ = try doc.createElement("ddd")
-//                _ = try doc.select("ddd")
-//                _ = try doc.text()
-//                _ = try doc.outerHtml()
-//                _ =  try SwiftSoup.clean(dirty, Whitelist.basic())
-//            }catch{
-//                
-//            }
-//            
-//            
-//            
-//            sleep(4)
-//        }
-//        
-//        
-//    }
-//    
 }

@@ -284,40 +284,52 @@ open class StringUtil {
      * @return an absolute URL if one was able to be generated, or the empty string if not
      */
     public static func resolve(_ baseUrl: String, relUrl: String ) -> String {
-
         let base = URL(string: baseUrl)
-
-        if(base == nil || base?.scheme == nil) {
-            let abs = URL(string: relUrl)
-			return abs != nil && abs?.scheme != nil ? abs!.absoluteURL.absoluteString : empty
+        
+        if base == nil || base?.scheme == nil {
+            let abs = URLFromString(relUrl)
+            return abs != nil && abs?.scheme != nil ? abs!.absoluteURL.absoluteString : empty
         } else {
-            let url = resolve(base!, relUrl: relUrl)
-            if(url != nil) {
-                let ext = url!.absoluteURL.absoluteString
-                return ext
+            if let url = resolve(base!, relUrl: relUrl) {
+                return url.absoluteURL.absoluteString
             }
-
-            if(base != nil && base?.scheme != nil) {
-                let ext = base!.absoluteString
-                return ext
+            
+            if base?.scheme != nil {
+                return base!.absoluteString
             }
-
+            
             return empty
         }
-
-//        try {
-//            try {
-//                    base = new URL(baseUrl)
-//                } catch (MalformedURLException e) {
-//                        // the base is unsuitable, but the attribute/rel may be abs on its own, so try that
-//                        URL abs = new URL(relUrl)
-//                        return abs.toExternalForm()
-//                }
-//            return resolve(base, relUrl).toExternalForm()
-//        } catch (MalformedURLException e) {
-//            return ""
-//        }
-
+    }
+    
+    
+    private static func URLFromString(_ input: String) -> URL? {
+        // Works around escaping issues in Apple's URL string parsing. As soon as there's one invalid character
+        // in a query, _all_ characters get escaped. This results in `abc%20def[` to get encoded as `abc%2520def%5B`,
+        // thus double-escaping the space `%20`.
+        //
+        // For details see https://github.com/scinfu/SwiftSoup/issues/268
+        
+#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+        // On Apple platforms, simply go with CFURL's parsing which doesn't do the double-escaping (it still escapes
+        // the `[` and `]` in queries, though).
+        return CFURLCreateWithString(nil, input as CFString, nil) as URL?
+#else
+        // On non-Apple platforms use a more manual approach using URL components.
+        guard let queryIndex = input.firstIndex(of: "?") else {
+            return URL(string: input)
+        }
+        
+        guard var components = URLComponents(string: String(input.prefix(upTo: queryIndex))) else {
+            return nil
+        }
+        
+        // The `.query` property escapes/unescapes. So we first need to manually un-escape.
+        let rawQuery = String(input.suffix(from: input.index(after: queryIndex)))
+        let unescapedQuery = rawQuery.removingPercentEncoding
+        components.query = unescapedQuery ?? rawQuery
+        return components.url
+#endif
     }
 
 }
