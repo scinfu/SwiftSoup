@@ -180,3 +180,18 @@ extension Attribute: Equatable {
     }
     
 }
+
+
+extension Attribute: CustomStringConvertible {
+    @inline(__always)
+    public var description: String {
+        return "\(getKey())=\"\(getValue())\""
+    }
+}
+
+extension Attribute: CustomDebugStringConvertible {
+    private static let space = " "
+    public var debugDescription: String {
+        return "<\(String(describing: type(of: self))): \(Unmanaged.passUnretained(self).toOpaque()) \(self.description)>"
+    }
+}
