@@ -518,19 +518,44 @@ public class Whitelist {
         let tag: TagName = TagName.valueOf(tagName)
         let key: AttributeKey = AttributeKey.valueOf(attr.getKey())
 
-        if (attributes[tag] != nil) {
-            if (attributes[tag]?.contains(key))! {
-                if (protocols[tag] != nil) {
-                    let attrProts: Dictionary<AttributeKey, Set<Protocol>> = protocols[tag]!
-                    // ok if not defined protocol; otherwise test
-                    return try (attrProts[key] == nil) || testValidProtocol(el, attr, attrProts[key]!)
-                } else { // attribute found, no protocols defined, so OK
+        if attributes[tag]?.contains(key) ?? false {
+            if let attrProts = protocols[tag] {
+                if let protocols = attrProts[key] {
+                    // test
+                    return try testValidProtocol(el, attr, protocols)
+                } else {
+                    // ok if not defined protocol
                     return true
                 }
+            } else { // attribute found, no protocols defined, so OK
+                return true
             }
         }
         // no attributes defined for tag, try :all tag
-        return try !(tagName == ":all") && isSafeAttribute(":all", el, attr)
+        return try (tagName != ":all") && isSafeAttribute(":all", el, attr)
+    }
+    
+    /**
+     * Test if the supplied attribute is allowed by this whitelist for this tag
+     * @param tagName tag to consider allowing the attribute in
+     * @param el element under test, to confirm protocol
+     * @param attr attribute under test
+     * @return A clone of the passed attribute if it's allowed. The clone may have its value altered depending
+     *         on whitelist settings like ``preserveRelativeLinks(_:)``.
+     */
+    public func safeAttribute(_ tagName: String, _ el: Element, _ attr: Attribute)throws -> Attribute? {
+        guard try isSafeAttribute(tagName, el, attr) else {
+            return nil
+        }
+        
+        let clonedAttr = attr.clone()
+        if !preserveRelativeLinks {
+            let value: [UInt8] = try el.absUrl(attr.getKeyUTF8())
+            if !value.isEmpty {
+                clonedAttr.setValue(value: value)
+            }
+        }
+        return clonedAttr
     }
 
     private func testValidProtocol(_ el: Element, _ attr: Attribute, _ protocols: Set<Protocol>) throws -> Bool {
@@ -540,15 +565,12 @@ public class Whitelist {
         if value.isEmpty {
             value = attr.getValueUTF8()
         }// if it could not be made abs, run as-is to allow custom unknown protocols
-        if (!preserveRelativeLinks) {
-            attr.setValue(value: value)
-        }
 
-        for  ptl in protocols {
+        for ptl in protocols {
             var prot: String = ptl.toString()
 
-            if (prot == "#") { // allows anchor links
-                if (isValidAnchor(value)) {
+            if prot == "#" { // allows anchor links
+                if isValidAnchor(value) {
                     return true
                 } else {
                     continue
@@ -557,7 +579,7 @@ public class Whitelist {
 
             prot += ":"
 
-            if (value.lowercased().hasPrefix(prot.utf8Array)) {
+            if value.lowercased().hasPrefix(prot.utf8Array) {
                 return true
             }
 
