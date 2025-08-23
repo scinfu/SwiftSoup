@@ -207,6 +207,19 @@ print(cleanHtml) // Output: <b>Important text</b>
 - `:only-child`: selects elements that are the only child of their parent; e.g. `div:only-child`
 - `:only-of-type`: selects elements that are the only element of their type among their siblings; e.g. `span:only-of-type`
 
+#### Optimize repeated queries
+
+To speed up queries that are done repeatedly, consider parsing the query upfront and passing an `Evaluator` instead of query string.
+Since `Evaluator` instances are immutable they are safe to store in (static) properties or pass across isolation boundaries. 
+
+```swift
+let elements: Elements = …
+let eval = try QueryParser.parse("div > p")
+for element in elements {
+    print(try element.select(eval).text())
+}
+```
+
 ---
 
 ## Author
