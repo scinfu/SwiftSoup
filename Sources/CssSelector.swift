@@ -125,6 +125,18 @@ open class CssSelector {
     public static func select(_ query: String, _ roots: Array<Element>)throws->Elements {
         try Validate.notEmpty(string: query.utf8Array)
         let evaluator: Evaluator = try QueryParser.parse(query)
+        return try self.select(evaluator, roots)
+    }
+
+    /**
+     * Find elements matching an evaluator.
+     *
+     * @param evaluator Query evaluator
+     * @param roots root elements to descend into
+     * @see {@link QueryParser}
+     * @return matching elements, empty if none
+     */
+    public static func select(_ evaluator: Evaluator, _ roots: Array<Element>)throws->Elements {
         var elements: Array<Element> = Array<Element>()
         var seenElements: Array<Element> = Array<Element>()
         // dedupe elements by identity, not equality

@@ -283,7 +283,7 @@
 		8C73DB4A1DDA605900233A68 /* UnicodeScalar.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UnicodeScalar.swift; sourceTree = "<group>"; };
 		8C74BC591E7AE5E5000032AF /* CleanerTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CleanerTest.swift; path = SwiftSoupTests/CleanerTest.swift; sourceTree = "<group>"; };
 		8C7D44D71DB018D500A815E0 /* TokenQueue.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TokenQueue.swift; sourceTree = "<group>"; };
-		8C80628F1DB9560C0064EC33 /* Elements.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Elements.swift; sourceTree = "<group>"; };
+		8C80628F1DB9560C0064EC33 /* Elements.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Elements.swift; sourceTree = "<group>"; usesTabs = 1; };
 		8C84C43C1DB516C700D63B0D /* NodeTraversor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NodeTraversor.swift; sourceTree = "<group>"; };
 		8C89785B1DBCBC5600B1C024 /* StructuralEvaluator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StructuralEvaluator.swift; sourceTree = "<group>"; };
 		8C89785D1DBCDB0D00B1C024 /* CombiningEvaluator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CombiningEvaluator.swift; sourceTree = "<group>"; };
@@ -296,7 +296,7 @@
 		8CC142191E092E89002F536D /* AttributeTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AttributeTest.swift; path = SwiftSoupTests/AttributeTest.swift; sourceTree = "<group>"; };
 		8CC1421A1E092E89002F536D /* BuildEntities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = BuildEntities.swift; path = SwiftSoupTests/BuildEntities.swift; sourceTree = "<group>"; };
 		8CC1421B1E092E89002F536D /* CharacterReaderTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CharacterReaderTest.swift; path = SwiftSoupTests/CharacterReaderTest.swift; sourceTree = "<group>"; };
-		8CC1421C1E092E89002F536D /* CssTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CssTest.swift; path = SwiftSoupTests/CssTest.swift; sourceTree = "<group>"; };
+		8CC1421C1E092E89002F536D /* CssTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CssTest.swift; path = SwiftSoupTests/CssTest.swift; sourceTree = "<group>"; usesTabs = 1; };
 		8CC1421D1E092E89002F536D /* DocumentTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DocumentTest.swift; path = SwiftSoupTests/DocumentTest.swift; sourceTree = "<group>"; };
 		8CC1421E1E092E89002F536D /* DocumentTypeTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DocumentTypeTest.swift; path = SwiftSoupTests/DocumentTypeTest.swift; sourceTree = "<group>"; };
 		8CC1421F1E092E89002F536D /* ElementsTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ElementsTest.swift; path = SwiftSoupTests/ElementsTest.swift; sourceTree = "<group>"; };

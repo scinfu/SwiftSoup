@@ -276,4 +276,26 @@ class CssTest: XCTestCase {
 		XCTAssertNotNil(sel2.get(0))
 		try XCTAssertEqual(Tag.valueOf("body"), sel2.get(0).tag())
 	}
+	
+	func testEvaluators() throws {
+		let query1 = "#type > p"
+		let eval1 = try QueryParser.parse(query1)
+		XCTAssertEqual(try html.select(query1).count, 10)
+		XCTAssertEqual(try html.select(eval1).count, 10)
+		
+		let query2 = "div"
+		let eval2 = try QueryParser.parse(query2)
+		let query3 = "p"
+		let eval3 = try QueryParser.parse(query3)
+		
+		let elements2a = try html.select(query2)
+		let elements2b = try html.select(eval2)
+		XCTAssertEqual(elements2a.count, 3)
+		XCTAssertEqual(elements2a, elements2b)
+		
+		let elements3a = try elements2a.select(query3)
+		let elements3b = try elements2b.select(eval3)
+		XCTAssertEqual(elements3a.count, 20)
+		XCTAssertEqual(elements3a, elements3b)
+	}
 }
