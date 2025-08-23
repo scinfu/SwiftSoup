@@ -351,6 +351,22 @@ open class Element: Node {
     }
     
     /**
+     * Find elements that match the {@link Evaluator} with a {@link CssSelector} query, with this element as the starting context.
+     * Matched elements may include this element, or any of its children.
+     *
+     * This method is more efficient for repeated queries since it avoids repeated query parsing.
+     *
+     * @param evaluator a {@link Evaluator} to use for the query
+     * @return elements that match the query (empty if none match)
+     * @see Evaluator
+     * @see CssSelector
+     */
+    @inline(__always)
+    public func select(_ evaluator: Evaluator)throws->Elements {
+        return try CssSelector.select(evaluator, self)
+    }
+    
+    /**
      * Check if this element matches the given {@link CssSelector} CSS query.
      * @param cssQuery a {@link CssSelector} CSS query
      * @return if this element matches the query

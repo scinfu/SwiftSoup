@@ -439,6 +439,16 @@ open class Elements: NSCopying {
 	}
 
 	/**
+	* Find matching elements within this element list.
+	* @param query A {@link CssSelector} query
+	* @see {@link QueryParser}
+	* @return the filtered list of elements, or an empty list if none match.
+	*/
+	open func select(_ evaluator: Evaluator)throws->Elements {
+		return try CssSelector.select(evaluator, this)
+	}
+
+	/**
 	* Remove elements from this list that match the {@link CssSelector} query.
 	* <p>
 	* E.g. HTML: {@code <div class=logo>One</div> <div>Two</div>}<br>
@@ -450,6 +460,17 @@ open class Elements: NSCopying {
 	*/
 	open func not(_ query: String)throws->Elements {
 		let out: Elements = try CssSelector.select(query, this)
+		return CssSelector.filterOut(this, out.this)
+	}
+
+	/**
+	* Remove elements from this list that match the {@link Evaluator}.
+	* @param evaluator the evaluator for the CSS selector query whose results should be removed from these elements
+	* @see {@link QueryParser}
+	* @return a new elements list that contains only the filtered results
+	*/
+	open func not(_ evaluator: Evaluator)throws->Elements {
+		let out: Elements = try CssSelector.select(evaluator, this)
 		return CssSelector.filterOut(this, out.this)
 	}
 
@@ -469,17 +490,30 @@ open class Elements: NSCopying {
 	* @param query A selector
 	* @return true if at least one element in the list matches the query.
 	*/
-    open func iS(_ query: String)throws->Bool {
-        let eval: Evaluator = try QueryParser.parse(query)
-        for  e: Element in this {
-            if (try e.iS(eval)) {
-                return true
-            }
-        }
-        return false
-
-    }
-
+	open func iS(_ query: String)throws->Bool {
+		let eval: Evaluator = try QueryParser.parse(query)
+		for  e: Element in this {
+			if (try e.iS(eval)) {
+				return true
+			}
+		}
+		return false
+	}
+	
+	/**
+	* Test if any of the matched elements match the supplied query.
+	* @param query A selector
+	* @return true if at least one element in the list matches the query.
+	*/
+	open func iS(_ eval: Evaluator)throws->Bool {
+		for  e: Element in this {
+			if (try e.iS(eval)) {
+				return true
+			}
+		}
+		return false
+	}
+	
 	/**
 	* Get all of the parents and ancestor elements of the matched elements.
 	* @return all of the parents and ancestor elements of the matched elements
