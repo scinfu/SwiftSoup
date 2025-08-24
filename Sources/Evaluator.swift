@@ -705,7 +705,7 @@ open class Evaluator: @unchecked Sendable {
     /**
      * Evaluator for matching Element's own text with regex
      */
-    public final class MatchesOwn: Evaluator {
+    public final class MatchesOwn: Evaluator, @unchecked Sendable {
         private let pattern: Pattern
 
         public init(_ pattern: Pattern) {
