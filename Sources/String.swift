@@ -493,7 +493,7 @@ extension String.Encoding {
         }
     }
 
-    /// Errors that are thrown when a ``String.Encoding`` fails to be represented as a MIME type.
+    /// Errors that are thrown when a `String.Encoding` fails to be represented as a MIME type.
     public enum EncodingMIMETypeError: Error, LocalizedError {
         /// There is no IANA equivalent of the provided string encoding.
         case noIANAEquivalent(String.Encoding)

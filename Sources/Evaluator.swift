@@ -7,19 +7,16 @@
 
 import Foundation
 
-/**
- * Evaluates that an element matches the selector.
- */
+/// Evaluates that an element matches the selector.
 open class Evaluator: @unchecked Sendable {
     public init () {}
 
     /**
-     * Test if the element meets the evaluator's requirements.
-     *
-     * @param root    Root of the matching subtree
-     * @param element tested element
-     * @return Returns <tt>true</tt> if the requirements are met or
-     * <tt>false</tt> otherwise
+     Test if the element meets the evaluator's requirements.
+     
+     - parameter root:    Root of the matching subtree
+     - parameter element: tested element
+     - returns: Returns `true` if the requirements are met or `false` otherwise.
      */
     open func matches(_ root: Element, _ element: Element)throws->Bool {
         preconditionFailure("self method must be overridden")
@@ -58,7 +55,7 @@ open class Evaluator: @unchecked Sendable {
     }
 
     /**
-     * Evaluator for tag name that ends with
+     * Evaluator for tag name that ends with the given suffix.
      */
     public final class TagEndsWith: Evaluator, @unchecked Sendable {
         private let tagName: String
@@ -332,7 +329,7 @@ open class Evaluator: @unchecked Sendable {
     }
 
     /**
-     * Evaluator for matching by sibling index number (e {@literal <} idx)
+     * Evaluator for matching by sibling index number (`e < idx`).
      */
     public final class IndexLessThan: IndexEvaluator, @unchecked Sendable {
         public override init(_ index: Int) {
@@ -350,7 +347,7 @@ open class Evaluator: @unchecked Sendable {
     }
 
     /**
-     * Evaluator for matching by sibling index number (e {@literal >} idx)
+     * Evaluator for matching by sibling index number (`e > idx`).
      */
     public final class IndexGreaterThan: IndexEvaluator, @unchecked Sendable {
         public override init(_ index: Int) {
@@ -368,7 +365,7 @@ open class Evaluator: @unchecked Sendable {
     }
 
     /**
-     * Evaluator for matching by sibling index number (e = idx)
+     * Evaluator for matching by sibling index number (`e == idx`)
      */
     public final class IndexEquals: IndexEvaluator, @unchecked Sendable {
         public override init(_ index: Int) {
@@ -386,7 +383,7 @@ open class Evaluator: @unchecked Sendable {
     }
 
     /**
-     * Evaluator for matching the last sibling (css :last-child)
+     * Evaluator for matching the last sibling (CSS `:last-child`)
      */
     public final class IsLastChild: Evaluator, @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
@@ -461,9 +458,9 @@ open class Evaluator: @unchecked Sendable {
     }
 
     /**
-     * css-compatible Evaluator for :eq (css :nth-child)
-     *
-     * @see IndexEquals
+     CSS-compatible Evaluator for `:eq` (CSS `:nth-child`)
+     
+     - seealso: ``IndexEquals``
      */
     public final class IsNthChild: CssNthEvaluator, @unchecked Sendable {
 
@@ -481,9 +478,9 @@ open class Evaluator: @unchecked Sendable {
     }
 
     /**
-     * css pseudo class :nth-last-child)
-     *
-     * @see IndexEquals
+     CSS pseudo class `:nth-last-child`
+     
+     - seealso: ``IndexEquals``
      */
     public final class IsNthLastChild: CssNthEvaluator, @unchecked Sendable {
         public override init(_ a: Int, _ b: Int) {
@@ -505,8 +502,7 @@ open class Evaluator: @unchecked Sendable {
     }
 
     /**
-     * css pseudo class nth-of-type
-     *
+     CSS pseudo class `:nth-of-type`
      */
     public class IsNthOfType: CssNthEvaluator, @unchecked Sendable {
         public override init(_ a: Int, _ b: Int) {
@@ -557,7 +553,7 @@ open class Evaluator: @unchecked Sendable {
     }
 
     /**
-     * Evaluator for matching the first sibling (css :first-child)
+     * Evaluator for matching the first sibling (CSS `:first-child`)
      */
     public final class IsFirstChild: Evaluator, @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
@@ -574,9 +570,9 @@ open class Evaluator: @unchecked Sendable {
     }
 
     /**
-     * css3 pseudo-class :root
-     * @see <a href="http://www.w3.org/TR/selectors/#root-pseudo">:root selector</a>
-     *
+     CSS3 pseudo-class `:root`
+     
+     - seealso: [`:root` selector](https://www.w3.org/TR/selectors/#root-pseudo)
      */
     public final class IsRoot: Evaluator, @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
@@ -633,8 +629,6 @@ open class Evaluator: @unchecked Sendable {
 
     /**
      * Abstract evaluator for sibling index matching
-     *
-     * @author ant
      */
     public class IndexEvaluator: Evaluator, @unchecked Sendable {
         let index: Int

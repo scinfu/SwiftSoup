@@ -8,18 +8,19 @@
 import Foundation
 
 /**
- * A HTML Form Element provides ready access to the form fields/controls that are associated with it. It also allows a
- * form to easily be submitted.
+ A HTML Form Element provides ready access to the form fields/controls that are associated with it. It also allows a
+ form to easily be submitted.
  */
 public class FormElement: Element {
     private let _elements: Elements = Elements()
 
     /**
-     * Create a new, standalone form element.
-     *
-     * @param tag        tag of this element
-     * @param baseUri    the base URI
-     * @param attributes initial attributes
+     Create a new, standalone form element.
+     
+     - parameter tag:        tag of this element
+     - parameter baseUri:    the base URI
+     - parameter attributes: initial attributes
+     - parameter skipChildReserve: Whether to skip reserving space for children in advance.
      */
     public override init(
         _ tag: Tag,
@@ -31,10 +32,11 @@ public class FormElement: Element {
     }
     
     /**
-     * Create a new, standalone form element.
-     *
-     * @param tag        tag of this element
-     * @param baseUri    the base URI
+     Create a new, standalone form element.
+     
+     - parameter tag:        tag of this element
+     - parameter baseUri:    the base URI
+     - parameter skipChildReserve: Whether to skip reserving space for children in advance.
      */
     public override init(
         _ tag: Tag,
@@ -45,17 +47,17 @@ public class FormElement: Element {
     }
 
     /**
-     * Get the list of form control elements associated with this form.
-     * @return form controls associated with this element.
+     Get the list of form control elements associated with this form.
+     - returns: form controls associated with this element.
      */
     public func elements() -> Elements {
         return _elements
     }
 
     /**
-     * Add a form control element to this form.
-     * @param element form control to add
-     * @return this form element, for chaining
+     Add a form control element to this form.
+     - parameter element: form control to add
+     - returns: this form element, for chaining
      */
     @discardableResult
     public func addElement(_ element: Element) -> FormElement {

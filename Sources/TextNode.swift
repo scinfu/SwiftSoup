@@ -22,8 +22,8 @@ open class TextNode: Node {
     /**
      Create a new TextNode representing the supplied (unencoded) text).
      
-     @param text raw text
-     @param baseUri base uri
+     - parameter text: raw text
+     - parameter baseUri: base uri
      */
     public init(_ text: [UInt8], _ baseUri: [UInt8]?) {
         self._text = text
@@ -46,9 +46,9 @@ open class TextNode: Node {
     }
 
     /**
-     * Get the text content of this text node.
-     * @return Unencoded, normalised text.
-     * @see TextNode#getWholeText()
+     Get the text content of this text node.
+     - returns: Unencoded, normalised text.
+     - seealso: ``getWholeText()``
      */
     @inline(__always)
     open func text() -> String {
@@ -56,9 +56,9 @@ open class TextNode: Node {
     }
 
     /**
-     * Set the text content of this text node.
-     * @param text unencoded text
-     * @return this, for chaining
+     Set the text content of this text node.
+     - parameter text: unencoded text
+     - returns: this, for chaining
      */
     @discardableResult
     @inline(__always)
@@ -77,7 +77,7 @@ open class TextNode: Node {
 
     /**
      Get the (unencoded) text of this text node, including any newlines and spaces present in the original.
-     @return text
+     - returns: text
      */
     @inline(__always)
     open func getWholeText() -> String {
@@ -91,7 +91,7 @@ open class TextNode: Node {
 
     /**
      Test if this text node is blank -- that is, empty or only whitespace (including newlines).
-     @return true if this document is empty or only whitespace, false if it contains any text content.
+     - returns: true if this document is empty or only whitespace, false if it contains any text content.
      */
     @inline(__always)
     open func isBlank() -> Bool {
@@ -99,10 +99,10 @@ open class TextNode: Node {
     }
 
     /**
-     * Split this text node into two nodes at the specified string offset. After splitting, this node will contain the
-     * original text up to the offset, and will have a new text node sibling containing the text after the offset.
-     * @param offset string offset point to split node at.
-     * @return the newly created text node containing the text after the offset.
+     Split this text node into two nodes at the specified string offset. After splitting, this node will contain the
+     original text up to the offset, and will have a new text node sibling containing the text after the offset.
+     - parameter offset: string offset point to split node at.
+     - returns: the newly created text node containing the text after the offset.
      */
     open func splitText(_ offset: Int) throws -> TextNode {
         try Validate.isTrue(val: offset >= 0, msg: "Split offset must be not be negative")
@@ -150,10 +150,10 @@ open class TextNode: Node {
     }
 
     /**
-     * Create a new TextNode from HTML encoded (aka escaped) data.
-     * @param encodedText Text containing encoded HTML (e.g. &amp;lt;)
-     * @param baseUri Base uri
-     * @return TextNode containing unencoded data (e.g. &lt;)
+     Create a new TextNode from HTML encoded (aka escaped) data.
+     - parameter encodedText: Text containing encoded HTML (e.g. `&amp;lt;`)
+     - parameter baseUri: Base uri
+     - returns: TextNode containing unencoded data (e.g. `&lt;`)
      */
     @inline(__always)
     public static func createFromEncoded(_ encodedText: String, _ baseUri: String) throws -> TextNode {
