@@ -68,9 +68,12 @@ extension ArraySlice where Element == UInt8 {
     }
 }
 
-// TODO: Use @retroactive once supported on Ubuntu (?)
-//extension Array: @retroactive Comparable where Element == UInt8 {
-extension Array: Comparable where Element == UInt8 {
+#if hasAttribute(retroactive)
+extension Array: @retroactive Comparable where Element == UInt8 {}
+#else
+extension Array: Comparable where Element == UInt8 {}
+#endif
+extension Array where Element == UInt8 {
     @inline(__always)
     public func lowercased() -> [UInt8] {
         // Check if any element needs lowercasing
@@ -196,9 +199,12 @@ extension Array: Comparable where Element == UInt8 {
     }
 }
 
-// TODO: Use @retroactive once supported on Ubuntu (?)
-//extension ArraySlice: @retroactive Comparable where Element == UInt8 {
-extension ArraySlice: Comparable where Element == UInt8 {
+#if hasAttribute(retroactive)
+extension ArraySlice: @retroactive Comparable where Element == UInt8 {}
+#else
+extension ArraySlice: Comparable where Element == UInt8 {}
+#endif
+extension ArraySlice where Element == UInt8 {
     public static func < (lhs: ArraySlice<UInt8>, rhs: ArraySlice<UInt8>) -> Bool {
 //    public static func < (lhs: [UInt8], rhs: [UInt8]) -> Bool {
         for (byte1, byte2) in zip(lhs, rhs) {
