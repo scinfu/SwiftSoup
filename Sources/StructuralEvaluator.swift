@@ -8,7 +8,7 @@
 import Foundation
 
 /**
- * Base structural evaluator.
+ Base structural evaluator.
  */
 public class StructuralEvaluator: Evaluator {
     let evaluator: Evaluator

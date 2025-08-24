@@ -31,9 +31,9 @@ open class StringUtil {
     
     /**
      * Join a collection of strings by a seperator
-     * @param strings collection of string objects
-     * @param sep string to place between strings
-     * @return joined string
+     * - parameter strings: collection of string objects
+     * - parameter sep: string to place between strings
+     * - returns: joined string
      */
     public static func join(_ strings: [String], sep: String) -> String {
         return strings.joined(separator: sep)
@@ -48,9 +48,9 @@ open class StringUtil {
 
 //    /**
 //     * Join a collection of strings by a seperator
-//     * @param strings iterator of string objects
-//     * @param sep string to place between strings
-//     * @return joined string
+//     * - parameter strings: iterator of string objects
+//     * - parameter sep: string to place between strings
+//     * - returns: joined string
 //     */
 //    public static String join(Iterator strings, String sep) {
 //    if (!strings.hasNext())
@@ -69,8 +69,8 @@ open class StringUtil {
 //    }
     /**
      * Returns space padding
-     * @param width amount of padding desired
-     * @return string of spaces * width
+     * - parameter width: amount of padding desired
+     * - returns: string of spaces * width
      */
     public static func padding(_ width: Int) -> String {
 
@@ -86,9 +86,9 @@ open class StringUtil {
     }
 
     /**
-     * Tests if a string is blank: null, emtpy, or only whitespace (" ", \r\n, \t, etc)
-     * @param string string to test
-     * @return if string is blank
+     * Tests if a string is blank: emtpy, or only whitespace (" ", \r\n, \t, etc)
+     * - parameter string: string to test
+     * - returns: if string is blank
      */
     public static func isBlank(_ string: String) -> Bool {
         if (string.isEmpty) {
@@ -105,8 +105,8 @@ open class StringUtil {
 
     /**
      * Tests if a string is numeric, i.e. contains only digit characters
-     * @param string string to test
-     * @return true if only digit chars, false if empty or null or contains non-digit chrs
+     * - parameter string: string to test
+     * - returns: true if only digit chars, false if empty or contains non-digit chrs
      */
     public static func isNumeric(_ string: String) -> Bool {
         if (string.isEmpty) {
@@ -123,8 +123,8 @@ open class StringUtil {
 
     /**
      * Tests if a code point is "whitespace" as defined in the HTML spec.
-     * @param c code point to test
-     * @return true if code point is whitespace, false otherwise
+     * - parameter c: code point to test
+     * - returns: true if code point is whitespace, false otherwise
      */
     public static func isWhitespace(_ c: Character) -> Bool {
         //(c == " " || c == UnicodeScalar.BackslashT || c == "\n" || (c == "\f" ) || c == "\r")
@@ -133,8 +133,8 @@ open class StringUtil {
 
     /**
      * Tests if a code point is "whitespace" as defined in the HTML spec.
-     * @param c code point to test
-     * @return true if code point is whitespace, false otherwise
+     * - parameter bytes: code point to test
+     * - returns: true if code point is whitespace, false otherwise
      */
     @inlinable
     public static func isWhitespace(_ bytes: [UInt8]) -> Bool {
@@ -149,8 +149,8 @@ open class StringUtil {
     /**
      * Normalise the whitespace within this string; multiple spaces collapse to a single, and all whitespace characters
      * (e.g. newline, tab) convert to a simple space
-     * @param string content to normalise
-     * @return normalised string
+     * - parameter string: content to normalise
+     * - returns: normalised string
      */
     public static func normaliseWhitespace(_ string: String) -> String {
         let sb: StringBuilder  = StringBuilder.init()
@@ -161,8 +161,8 @@ open class StringUtil {
     /**
      * Normalise the whitespace within this string; multiple spaces collapse to a single, and all whitespace characters
      * (e.g. newline, tab) convert to a simple space
-     * @param string content to normalise
-     * @return normalised string
+     * - parameter string: content to normalise
+     * - returns: normalised string
      */
     public static func normaliseWhitespace(_ string: [UInt8]) -> String {
         let sb: StringBuilder  = StringBuilder.init()
@@ -172,9 +172,9 @@ open class StringUtil {
 
     /**
      * After normalizing the whitespace within a string, appends it to a string builder.
-     * @param accum builder to append to
-     * @param string string to normalize whitespace within
-     * @param stripLeading set to true if you wish to remove any leading whitespace
+     * - parameter accum: builder to append to
+     * - parameter string: string to normalize whitespace within
+     * - parameter stripLeading: set to true if you wish to remove any leading whitespace
      */
     public static func appendNormalisedWhitespace(_ accum: StringBuilder, string: String, stripLeading: Bool) {
         var lastWasWhite: Bool = false
@@ -197,9 +197,9 @@ open class StringUtil {
 
     /**
      * After normalizing the whitespace within a string, appends it to a string builder.
-     * @param accum builder to append to
-     * @param string string to normalize whitespace within
-     * @param stripLeading set to true if you wish to remove any leading whitespace
+     * - parameter accum: builder to append to
+     * - parameter string: string to normalize whitespace within
+     * - parameter stripLeading: set to true if you wish to remove any leading whitespace
      */
     public static func appendNormalisedWhitespace(_ accum: StringBuilder, string: [UInt8], stripLeading: Bool) {
         var lastWasWhite = false
@@ -262,10 +262,9 @@ open class StringUtil {
 
     /**
      * Create a new absolute URL, from a provided existing absolute URL and a relative URL component.
-     * @param base the existing absolulte base URL
-     * @param relUrl the relative URL to resolve. (If it's already absolute, it will be returned)
-     * @return the resolved absolute URL
-     * @throws MalformedURLException if an error occurred generating the URL
+     * - parameter base: the existing absolulte base URL
+     * - parameter relUrl: the relative URL to resolve. (If it's already absolute, it will be returned)
+     * - returns: the resolved absolute URL
      */
     //NOTE: Not sure it work
     public static func resolve(_ base: URL, relUrl: String) -> URL? {
@@ -279,9 +278,9 @@ open class StringUtil {
 
     /**
      * Create a new absolute URL, from a provided existing absolute URL and a relative URL component.
-     * @param baseUrl the existing absolute base URL
-     * @param relUrl the relative URL to resolve. (If it's already absolute, it will be returned)
-     * @return an absolute URL if one was able to be generated, or the empty string if not
+     * - parameter baseUrl: the existing absolute base URL
+     * - parameter relUrl: the relative URL to resolve. (If it's already absolute, it will be returned)
+     * - returns: an absolute URL if one was able to be generated, or the empty string if not
      */
     public static func resolve(_ baseUrl: String, relUrl: String ) -> String {
         let base = URL(string: baseUrl)

@@ -8,7 +8,7 @@
 import Foundation
 
 /**
- * Base combining (and, or) evaluator.
+ Base combining (and, or) evaluator.
  */
 public class CombiningEvaluator: Evaluator {
 

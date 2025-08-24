@@ -19,8 +19,8 @@ public class QueryParser {
     private var evals: Array<Evaluator>  = Array<Evaluator>()
 
     /**
-     * Create a new QueryParser.
-     * @param query CSS query
+     Create a new QueryParser.
+     - parameter query: CSS query
      */
     private init(_ query: String) {
         self.query = query
@@ -28,9 +28,9 @@ public class QueryParser {
     }
 
     /**
-     * Parse a CSS query into an Evaluator.
-     * @param query CSS query
-     * @return Evaluator
+     Parse a CSS query into an Evaluator.
+     - parameter query: CSS query
+     - returns: ``Evaluator``
      */
     public static func parse(_ query: String)throws->Evaluator {
         let p = QueryParser(query)
@@ -38,8 +38,8 @@ public class QueryParser {
     }
 
     /**
-     * Parse the query
-     * @return Evaluator
+     Parse the query
+     - returns: ``Evaluator``
      */
     public func parse()throws->Evaluator {
         tq.consumeWhitespace()
