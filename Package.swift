@@ -15,9 +15,10 @@ let package = Package(
     targets: [
         .target(
             name: "SwiftSoup",
+            dependencies: ["LRUCache", "swift-atomics"],
             path: "Sources"),
         .testTarget(
             name: "SwiftSoupTests", 
-            dependencies: ["SwiftSoup"])
+            dependencies: ["SwiftSoup", "swift-atomics"])
     ]
 )
