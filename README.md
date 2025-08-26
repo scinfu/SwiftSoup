@@ -209,7 +209,19 @@ print(cleanHtml) // Output: <b>Important text</b>
 
 #### Optimize repeated queries
 
-To speed up queries that are done repeatedly, consider parsing the query upfront and passing an `Evaluator` instead of query string.
+SwiftSoup provides automatic caching of parsed CSS queries to speed up repeated queries, and also to speed up parsing related queries.
+
+The cache is controlled through the static property `QueryParser.cache`. By default, it is initialized with a reasonable size limit.
+You may replace the cache at any time; however, assigning a new cache instance will discard all previously cached values.
+
+```swift
+// Remove any cache limits.
+QueryParser.cache = QueryParser.DefaultCache(limit: .unlimited)
+// Limit to 1000 items. See also documentation for ``QueryParserCache/set(_:_:)``.
+QueryParser.cache = QueryParser.DefaultCache(limit: .count(1000))
+```
+
+An alternative is to parse the query upfront and passing an `Evaluator` instead of query string.
 Since `Evaluator` instances are immutable they are safe to store in (static) properties or pass across isolation boundaries. 
 
 ```swift
