@@ -1,0 +1,24 @@
+{
+  "originHash" : "bc8e5595cb34393e6c45a64d40910a8ddd615d9d80acba0f1293fcaff92fcb21",
+  "pins" : [
+    {
+      "identity" : "lrucache",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/nicklockwood/LRUCache",
+      "state" : {
+        "revision" : "e0e9e039b33db8f2ef39b8e25607e38f46b13584",
+        "version" : "1.1.2"
+      }
+    },
+    {
+      "identity" : "swift-atomics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-atomics.git",
+      "state" : {
+        "revision" : "b601256eab081c0f92f059e12818ac1d4f178ff7",
+        "version" : "1.3.0"
+      }
+    }
+  ],
+  "version" : 3
+}
