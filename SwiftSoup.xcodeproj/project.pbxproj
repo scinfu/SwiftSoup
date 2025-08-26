@@ -3,10 +3,24 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		492E7FF32E5B8F4C001B5BEB /* LRUCache in Frameworks */ = {isa = PBXBuildFile; productRef = 492E7FF22E5B8F4C001B5BEB /* LRUCache */; };
+		492E7FF52E5B8F53001B5BEB /* LRUCache in Frameworks */ = {isa = PBXBuildFile; productRef = 492E7FF42E5B8F53001B5BEB /* LRUCache */; };
+		492E7FF72E5B8F58001B5BEB /* LRUCache in Frameworks */ = {isa = PBXBuildFile; productRef = 492E7FF62E5B8F58001B5BEB /* LRUCache */; };
+		492E7FF92E5B8F5D001B5BEB /* LRUCache in Frameworks */ = {isa = PBXBuildFile; productRef = 492E7FF82E5B8F5D001B5BEB /* LRUCache */; };
+		492E7FFC2E5B98C1001B5BEB /* QueryParserCacheTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492E7FFB2E5B98C1001B5BEB /* QueryParserCacheTest.swift */; };
+		492E80012E5CE720001B5BEB /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 492E80002E5CE720001B5BEB /* Atomics */; };
+		492E80032E5CE727001B5BEB /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 492E80022E5CE727001B5BEB /* Atomics */; };
+		492E80052E5CE72C001B5BEB /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 492E80042E5CE72C001B5BEB /* Atomics */; };
+		492E80072E5CE732001B5BEB /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 492E80062E5CE732001B5BEB /* Atomics */; };
+		492E80092E5CF20F001B5BEB /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 492E80082E5CF20F001B5BEB /* Atomics */; };
+		492E800B2E5DA3F0001B5BEB /* QueryParserCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492E800A2E5DA3F0001B5BEB /* QueryParserCache.swift */; };
+		492E800C2E5DA3F0001B5BEB /* QueryParserCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492E800A2E5DA3F0001B5BEB /* QueryParserCache.swift */; };
+		492E800D2E5DA3F0001B5BEB /* QueryParserCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492E800A2E5DA3F0001B5BEB /* QueryParserCache.swift */; };
+		492E800E2E5DA3F0001B5BEB /* QueryParserCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492E800A2E5DA3F0001B5BEB /* QueryParserCache.swift */; };
 		8C19C82F1DB7E5D200B8FC22 /* Tokeniser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C19C82E1DB7E5D200B8FC22 /* Tokeniser.swift */; };
 		8C19C8311DB7E8CD00B8FC22 /* ParseError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C19C8301DB7E8CD00B8FC22 /* ParseError.swift */; };
 		8C19C8331DB7ECB700B8FC22 /* ParseErrorList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C19C8321DB7ECB700B8FC22 /* ParseErrorList.swift */; };
@@ -273,6 +287,9 @@
 
 /* Begin PBXFileReference section */
 		492E7FED2E59D2A0001B5BEB /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		492E7FFA2E5B900D001B5BEB /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Package.swift; sourceTree = "<group>"; };
+		492E7FFB2E5B98C1001B5BEB /* QueryParserCacheTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = QueryParserCacheTest.swift; path = SwiftSoupTests/QueryParserCacheTest.swift; sourceTree = "<group>"; };
+		492E800A2E5DA3F0001B5BEB /* QueryParserCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryParserCache.swift; sourceTree = "<group>"; };
 		8C19C82E1DB7E5D200B8FC22 /* Tokeniser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Tokeniser.swift; sourceTree = "<group>"; };
 		8C19C8301DB7E8CD00B8FC22 /* ParseError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ParseError.swift; sourceTree = "<group>"; };
 		8C19C8321DB7ECB700B8FC22 /* ParseErrorList.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ParseErrorList.swift; sourceTree = "<group>"; };
@@ -380,6 +397,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				492E7FF32E5B8F4C001B5BEB /* LRUCache in Frameworks */,
+				492E80012E5CE720001B5BEB /* Atomics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -388,6 +407,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8CE418201DAA54A900240B42 /* SwiftSoup.framework in Frameworks */,
+				492E80092E5CF20F001B5BEB /* Atomics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -403,6 +423,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				492E7FF52E5B8F53001B5BEB /* LRUCache in Frameworks */,
+				492E80032E5CE727001B5BEB /* Atomics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -410,6 +432,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				492E7FF72E5B8F58001B5BEB /* LRUCache in Frameworks */,
+				492E80052E5CE72C001B5BEB /* Atomics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -417,12 +441,21 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				492E7FF92E5B8F5D001B5BEB /* LRUCache in Frameworks */,
+				492E80072E5CE732001B5BEB /* Atomics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		492E7FF12E5B8F4C001B5BEB /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		8C55AE171E29049700DF7A9F /* safety */ = {
 			isa = PBXGroup;
 			children = (
@@ -518,6 +551,7 @@
 				8C84C43C1DB516C700D63B0D /* NodeTraversor.swift */,
 				8CA209861DB3A38E00A9EC9D /* NodeVisitor.swift */,
 				8C9651A91DBC2B6B00FCB4C2 /* QueryParser.swift */,
+				492E800A2E5DA3F0001B5BEB /* QueryParserCache.swift */,
 				8C3617C01DBAC2AE00E00CFE /* CssSelector.swift */,
 				8C89785B1DBCBC5600B1C024 /* StructuralEvaluator.swift */,
 			);
@@ -536,12 +570,14 @@
 			isa = PBXGroup;
 			children = (
 				BDCCDAA827F710000047B769 /* .travis.yml */,
-				BD36975B20135EBB00D8FAC6 /* SwiftSoup.podspec */,
 				BD76883E206D8B6900B7F940 /* CHANGELOG.md */,
+				492E7FFA2E5B900D001B5BEB /* Package.swift */,
 				492E7FED2E59D2A0001B5BEB /* README.md */,
+				BD36975B20135EBB00D8FAC6 /* SwiftSoup.podspec */,
 				8CE418181DAA54A900240B42 /* Sources */,
 				8CE418231DAA54A900240B42 /* Tests */,
 				BB57C2CF222CAF8E008933AA /* Tests-macOS */,
+				492E7FF12E5B8F4C001B5BEB /* Frameworks */,
 				8CE418171DAA54A900240B42 /* Products */,
 			);
 			indentWidth = 4;
@@ -619,6 +655,7 @@
 				8CC1421B1E092E89002F536D /* CharacterReaderTest.swift */,
 				8CC142231E092E89002F536D /* HtmlParserTest.swift */,
 				8CC142251E092E89002F536D /* ParseSettingsTest.swift */,
+				492E7FFB2E5B98C1001B5BEB /* QueryParserCacheTest.swift */,
 				8CC1422A1E092E89002F536D /* TagTest.swift */,
 				8CC1422D1E092E89002F536D /* TokenQueueTest.swift */,
 				8CC1422E1E092E89002F536D /* XmlTreeBuilderTest.swift */,
@@ -850,6 +887,10 @@
 				Base,
 			);
 			mainGroup = 8CE4180C1DAA54A900240B42;
+			packageReferences = (
+				492E7FEE2E5B8F16001B5BEB /* XCRemoteSwiftPackageReference "LRUCache" */,
+				492E7FFF2E5CE70D001B5BEB /* XCRemoteSwiftPackageReference "swift-atomics" */,
+			);
 			productRefGroup = 8CE418171DAA54A900240B42 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -966,6 +1007,7 @@
 				8C5B31C61DC3F2F600D2F649 /* XmlTreeBuilder.swift in Sources */,
 				8C5B31C41DC3F2E900D2F649 /* HtmlTreeBuilder.swift in Sources */,
 				8CD48F1F1DBB6B5100D1D88F /* Collector.swift in Sources */,
+				492E800D2E5DA3F0001B5BEB /* QueryParserCache.swift in Sources */,
 				8CE2D9411DB27CAD00C7BDE3 /* Tag.swift in Sources */,
 				8CE418671DAA568600240B42 /* DocumentType.swift in Sources */,
 				8C7D44D81DB018D500A815E0 /* TokenQueue.swift in Sources */,
@@ -981,6 +1023,7 @@
 			files = (
 				8CC1423F1E092E89002F536D /* SelectorTest.swift in Sources */,
 				8CC142311E092E89002F536D /* AttributeTest.swift in Sources */,
+				492E7FFC2E5B98C1001B5BEB /* QueryParserCacheTest.swift in Sources */,
 				8CC142301E092E89002F536D /* AttributesTest.swift in Sources */,
 				8CC142381E092E89002F536D /* ElementTest.swift in Sources */,
 				8CC142441E092E89002F536D /* TextUtil.swift in Sources */,
@@ -1064,6 +1107,7 @@
 				BD3B5B951FBED933001FDB3B /* XmlTreeBuilder.swift in Sources */,
 				BD3B5B961FBED933001FDB3B /* HtmlTreeBuilder.swift in Sources */,
 				BD3B5B981FBED933001FDB3B /* Collector.swift in Sources */,
+				492E800B2E5DA3F0001B5BEB /* QueryParserCache.swift in Sources */,
 				BD3B5B9A1FBED933001FDB3B /* Tag.swift in Sources */,
 				BD3B5B9B1FBED933001FDB3B /* DocumentType.swift in Sources */,
 				BD3B5B9D1FBED933001FDB3B /* TokenQueue.swift in Sources */,
@@ -1123,6 +1167,7 @@
 				BD3B5BD81FC063BD001FDB3B /* XmlTreeBuilder.swift in Sources */,
 				BD3B5BD91FC063BD001FDB3B /* HtmlTreeBuilder.swift in Sources */,
 				BD3B5BDB1FC063BD001FDB3B /* Collector.swift in Sources */,
+				492E800E2E5DA3F0001B5BEB /* QueryParserCache.swift in Sources */,
 				BD3B5BDD1FC063BD001FDB3B /* Tag.swift in Sources */,
 				BD3B5BDE1FC063BD001FDB3B /* DocumentType.swift in Sources */,
 				BD3B5BE01FC063BD001FDB3B /* TokenQueue.swift in Sources */,
@@ -1182,6 +1227,7 @@
 				BD3B5C1B1FC06423001FDB3B /* XmlTreeBuilder.swift in Sources */,
 				BD3B5C1C1FC06423001FDB3B /* HtmlTreeBuilder.swift in Sources */,
 				BD3B5C1E1FC06423001FDB3B /* Collector.swift in Sources */,
+				492E800C2E5DA3F0001B5BEB /* QueryParserCache.swift in Sources */,
 				BD3B5C201FC06423001FDB3B /* Tag.swift in Sources */,
 				BD3B5C211FC06423001FDB3B /* DocumentType.swift in Sources */,
 				BD3B5C231FC06423001FDB3B /* TokenQueue.swift in Sources */,
@@ -1211,6 +1257,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
@@ -1280,6 +1327,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
@@ -1326,7 +1374,8 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				RUN_DOCUMENTATION_COMPILER = YES;
 				SDKROOT = iphoneos;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_SWIFT3_OBJC_INFERENCE = Off;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1351,7 +1400,11 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = "$(SRCROOT)/Resources/Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoup;
 				PRODUCT_NAME = SwiftSoup;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1374,7 +1427,11 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = "$(SRCROOT)/Resources/Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoup;
 				PRODUCT_NAME = SwiftSoup;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1392,7 +1449,11 @@
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = Tests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoupTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1408,7 +1469,11 @@
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = Tests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoupTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1424,7 +1489,11 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = 5MC4PNHTX6;
 				INFOPLIST_FILE = "Tests-macOS/Info.plist";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.scinfu.SwiftSoupTests-macOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1439,7 +1508,11 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = 5MC4PNHTX6;
 				INFOPLIST_FILE = "Tests-macOS/Info.plist";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.scinfu.SwiftSoupTests-macOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1450,6 +1523,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				ARCHS = "$(ARCHS_STANDARD)";
 				CODE_SIGN_IDENTITY = "";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -1457,7 +1531,11 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = "$(SRCROOT)/Resources/InfoMac.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				MACH_O_TYPE = mh_dylib;
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoup;
 				PRODUCT_NAME = SwiftSoup;
@@ -1471,6 +1549,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				ARCHS = "$(ARCHS_STANDARD)";
 				CODE_SIGN_IDENTITY = "";
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -1478,7 +1557,11 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = "$(SRCROOT)/Resources/InfoMac.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				MACH_O_TYPE = mh_dylib;
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoup;
 				PRODUCT_NAME = SwiftSoup;
@@ -1501,7 +1584,11 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = "$(SRCROOT)/Resources/InfotvOS.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoup;
 				PRODUCT_NAME = SwiftSoup;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1525,7 +1612,11 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = "$(SRCROOT)/Resources/InfotvOS.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoup;
 				PRODUCT_NAME = SwiftSoup;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1549,7 +1640,11 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = "$(SRCROOT)/Resources/InfoWatchOS.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoup;
 				PRODUCT_NAME = SwiftSoup;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1573,7 +1668,11 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = "$(SRCROOT)/Resources/InfoWatchOS.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.scinfu.SwiftSoup;
 				PRODUCT_NAME = SwiftSoup;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1651,6 +1750,73 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		492E7FEE2E5B8F16001B5BEB /* XCRemoteSwiftPackageReference "LRUCache" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/nicklockwood/LRUCache";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.2;
+			};
+		};
+		492E7FFF2E5CE70D001B5BEB /* XCRemoteSwiftPackageReference "swift-atomics" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-atomics.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		492E7FF22E5B8F4C001B5BEB /* LRUCache */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 492E7FEE2E5B8F16001B5BEB /* XCRemoteSwiftPackageReference "LRUCache" */;
+			productName = LRUCache;
+		};
+		492E7FF42E5B8F53001B5BEB /* LRUCache */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 492E7FEE2E5B8F16001B5BEB /* XCRemoteSwiftPackageReference "LRUCache" */;
+			productName = LRUCache;
+		};
+		492E7FF62E5B8F58001B5BEB /* LRUCache */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 492E7FEE2E5B8F16001B5BEB /* XCRemoteSwiftPackageReference "LRUCache" */;
+			productName = LRUCache;
+		};
+		492E7FF82E5B8F5D001B5BEB /* LRUCache */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 492E7FEE2E5B8F16001B5BEB /* XCRemoteSwiftPackageReference "LRUCache" */;
+			productName = LRUCache;
+		};
+		492E80002E5CE720001B5BEB /* Atomics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 492E7FFF2E5CE70D001B5BEB /* XCRemoteSwiftPackageReference "swift-atomics" */;
+			productName = Atomics;
+		};
+		492E80022E5CE727001B5BEB /* Atomics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 492E7FFF2E5CE70D001B5BEB /* XCRemoteSwiftPackageReference "swift-atomics" */;
+			productName = Atomics;
+		};
+		492E80042E5CE72C001B5BEB /* Atomics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 492E7FFF2E5CE70D001B5BEB /* XCRemoteSwiftPackageReference "swift-atomics" */;
+			productName = Atomics;
+		};
+		492E80062E5CE732001B5BEB /* Atomics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 492E7FFF2E5CE70D001B5BEB /* XCRemoteSwiftPackageReference "swift-atomics" */;
+			productName = Atomics;
+		};
+		492E80082E5CF20F001B5BEB /* Atomics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 492E7FFF2E5CE70D001B5BEB /* XCRemoteSwiftPackageReference "swift-atomics" */;
+			productName = Atomics;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 8CE4180D1DAA54A900240B42 /* Project object */;
 }
