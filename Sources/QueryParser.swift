@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if canImport(Atomics)
 import Atomics
+#endif
 
 
 /**
@@ -16,11 +18,20 @@ public class QueryParser {
     private static let combinators: [String]  = [",", ">", "+", "~", " "]
     private static let AttributeEvals: [String]  = ["=", "!=", "^=", "$=", "*=", "~="]
     
+#if canImport(Atomics)
     /// Atomic reference to the query parser cache. This allows for thread-safe manipulation of the
     /// cache while avoiding locks.
     private static let atomicCacheReference = ManagedAtomic<AtomicCacheWrapper?>(
         AtomicCacheWrapper(cache: DefaultCache())
     )
+#else
+    /// Mutex lock for the cache instance.
+    private static let cacheMutex = Mutex()
+    
+    /// Cache instance. Must always access this with the ``QueryParser/cacheMutex``.
+    nonisolated(unsafe)
+    private static var cacheInstance: (any QueryParserCache)? = DefaultCache()
+#endif
     
     private var tq: TokenQueue
     private var query: String
@@ -48,7 +59,7 @@ public class QueryParser {
      - seealso: ``cache``
      */
     public static func parse(_ query: String)throws->Evaluator {
-        let cache = Self.atomicCacheReference.load(ordering: .relaxed)?.wrapped
+        let cache = Self.cache
         if let cached = cache?.get(query) {
             return cached
         }
@@ -97,6 +108,7 @@ public class QueryParser {
     ///
     /// Defaults to ``DefaultCache``. You can set this to `nil` to disable caching, provide a
     /// ``DefaultCache`` instance with a different limit, or provide your own cache.
+#if canImport(Atomics)
     public static var cache: (any QueryParserCache)? {
         get {
             Self.atomicCacheReference.load(ordering: .relaxed)?.wrapped
@@ -109,6 +121,20 @@ public class QueryParser {
             }
         }
     }
+#else
+    public static var cache: (any QueryParserCache)? {
+        get {
+            Self.cacheMutex.lock()
+            defer { Self.cacheMutex.unlock() }
+            return Self.cacheInstance
+        }
+        set {
+            Self.cacheMutex.lock()
+            defer { Self.cacheMutex.unlock() }
+            Self.cacheInstance = newValue
+        }
+    }
+#endif
     
     
     // MARK: Private methods

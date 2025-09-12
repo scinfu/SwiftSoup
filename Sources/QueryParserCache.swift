@@ -7,8 +7,12 @@
 //
 
 import Foundation
+#if canImport(LRUCache)
 import LRUCache
+#endif
+#if canImport(Atomics)
 import Atomics
+#endif
 
 
 /// Protocol for ``QueryParser`` caches.
@@ -51,8 +55,6 @@ public extension QueryParser {
     ///
     /// On (Apple) platforms that support it, this cache responds to memory pressure.
     final class DefaultCache: QueryParserCache {
-        /// Actual cache implementation.
-        private let cache: LRUCache<String, Evaluator>
         // The value is arbitrarily chosen. Maybe use a low limit on watchOS?
         private static let defaultCountLimit = 300
         
@@ -60,6 +62,10 @@ public extension QueryParser {
         public convenience init () {
             self.init(limit: .count(Self.defaultCountLimit))
         }
+        
+#if canImport(LRUCache)
+        /// Actual cache implementation.
+        private let cache: LRUCache<String, Evaluator>
         
         /// Initialize using an explicit limit.
         public init (limit: CacheLimit) {
@@ -83,11 +89,47 @@ public extension QueryParser {
         public func set(_ query: String, _ evaluator: Evaluator) {
             cache.setValue(evaluator, forKey: query)
         }
+#else
+        /// Actual cache implementation.
+        nonisolated(unsafe)
+        private let cache: NSCache<NSString, Evaluator>
+        // Note: Even though NSCache is not Sendable, Apple has documented it
+        // as being thread-safe:
+        //     You can add, remove, and query items in the cache from different threads
+        //     without having to lock the cache yourself.
+        
+        /// Initialize using an explicit limit.
+        public init (limit: CacheLimit) {
+            cache = NSCache()
+            
+            switch limit {
+            case .count(let count):
+                assert(count > 0, "Cache count must be greater than 0")
+                if count > 0 {
+                    cache.countLimit = count
+                } else {
+                    cache.countLimit = Self.defaultCountLimit
+                }
+            case .unlimited:
+                // For NSCache, 0 means "no limit".
+                cache.countLimit = 0
+            }
+        }
+        
+        public func get(_ query: String) -> Evaluator? {
+            return cache.object(forKey: query as NSString)
+        }
+        
+        public func set(_ query: String, _ evaluator: Evaluator) {
+            cache.setObject(evaluator, forKey: query as NSString)
+        }
+#endif
     }
     
 }
 
 
+#if canImport(Atomics)
 internal extension QueryParser {
     
     /// Helper class to manage references to arbitrary cache instances using atomic references.
@@ -100,3 +142,4 @@ internal extension QueryParser {
     }
     
 }
+#endif
