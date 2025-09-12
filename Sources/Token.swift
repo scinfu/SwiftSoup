@@ -135,7 +135,7 @@ open class Token {
                 }
                 _attributes?.put(attribute: attribute)
             }
-            _pendingAttributeName?.removeAll(keepingCapacity: true)
+            _pendingAttributeName = nil
             _hasEmptyAttributeValue = false
             _hasPendingAttributeValue = false
             Token.reset(_pendingAttributeValue)
