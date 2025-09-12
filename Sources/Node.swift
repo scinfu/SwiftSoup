@@ -38,7 +38,7 @@ open class Node: Equatable, Hashable {
     weak var treeBuilder: TreeBuilder?
     
     @usableFromInline
-    lazy var childNodes: [Node] = []
+    var childNodes: [Node]
     
     /**
      Get the list index of this node in its node sibling list. I.e. if this is the first node

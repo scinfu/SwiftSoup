@@ -82,20 +82,25 @@ public final class Entities: Sendable {
             
             var entitiesByNameMap: [NamedCodepoint] = []
             entitiesByNameMap.reserveCapacity(size)
+            
+            let equals = "=".utf8Array
+            let semicolon = ";".utf8Array
+            let newline = "\n".utf8Array
+            
             while !reader.isEmpty() {
-                let name: ArraySlice<UInt8> = reader.consumeTo("=")
+                let name: ArraySlice<UInt8> = reader.consumeTo(equals)
                 reader.advance()
                 let cp1: Int = reader.consumeToAny(EscapeMode.codeDelims).toInt(radix: codepointRadix) ?? 0
                 let codeDelim: UnicodeScalar = reader.current()
                 reader.advance()
                 let cp2: Int
                 if codeDelim == "," {
-                    cp2 = reader.consumeTo(";".utf8Array).toInt(radix: codepointRadix) ?? 0
+                    cp2 = reader.consumeTo(semicolon).toInt(radix: codepointRadix) ?? 0
                     reader.advance()
                 } else {
                     cp2 = empty
                 }
-                let _ = reader.consumeTo("\n".utf8Array).toInt(radix: codepointRadix) ?? 0
+                let _ = reader.consumeTo(newline).toInt(radix: codepointRadix) ?? 0
                 reader.advance()
                 
                 entitiesByNameMap.append(NamedCodepoint(scalar: UnicodeScalar(cp1)!, name: name))
