@@ -860,12 +860,10 @@ open class Node: Equatable, Hashable {
             idx += 1
             
             let originalChildren = currParent.childNodes
-            currParent.childNodes = []
-            for child in originalChildren {
-                let childClone = child.copy(parent: currParent)
-                currParent.childNodes.append(childClone)
-                queue.append(childClone)
+            currParent.childNodes = originalChildren.map {
+                $0.copy(parent: currParent)
             }
+            queue.append(contentsOf: currParent.childNodes)
             if let currParentElement = currParent as? Element {
                 currParentElement.rebuildQueryIndexesForThisNodeOnly()
             }
