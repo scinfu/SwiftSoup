@@ -182,7 +182,7 @@ final class Tokeniser {
             if (!found) {
                 reader.rewindToMark()
                 if (looksLegit) { // named with semicolon
-                    characterReferenceError("invalid named referenece '\(nameRef)'")
+                    characterReferenceError("invalid named reference '\(nameRef)'")
                 }
                 return nil
             }
