@@ -83,9 +83,9 @@ public final class Entities: Sendable {
             var entitiesByNameMap: [NamedCodepoint] = []
             entitiesByNameMap.reserveCapacity(size)
             
-            let equals = "=".utf8Array
-            let semicolon = ";".utf8Array
-            let newline = "\n".utf8Array
+            let equals = UTF8Arrays.equalSign
+            let semicolon = UTF8Arrays.semicolon
+            let newline = UTF8Arrays.newline
             
             while !reader.isEmpty() {
                 let name: ArraySlice<UInt8> = reader.consumeTo(equals)
