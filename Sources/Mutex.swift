@@ -55,6 +55,25 @@ final class Mutex: NSLocking, @unchecked Sendable {
     func unlock() {
         LeaveCriticalSection(&mutex)
     }
+#elseif os(FreeBSD)
+    private var mutex:  pthread_mutex_t? = nil
+
+    init() {
+        var attr = pthread_mutexattr_t(bitPattern: 0)
+        pthread_mutexattr_init(&attr)
+    }
+
+    deinit {
+        pthread_mutex_destroy(&mutex)
+    }
+
+    func lock() {
+        pthread_mutex_lock(&mutex)
+    }
+
+    func unlock() {
+        pthread_mutex_unlock(&mutex)
+    }
     
 #else
     private var mutex = pthread_mutex_t()
