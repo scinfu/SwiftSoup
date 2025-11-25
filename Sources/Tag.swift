@@ -70,9 +70,9 @@ open class Tag: Hashable, @unchecked Sendable {
     }
     
     /**
-     Get this tag's name.
-     
-     - returns: the tag's name
+     * Get this tag's name.
+     *
+     * @return the tag's name
      */
     open func getName() -> String {
         return String(decoding: self.tagName, as: UTF8.self)
@@ -88,13 +88,14 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Get a Tag by name. If not previously defined (unknown), returns a new generic tag, that can do anything.
-     
-     Pre-defined tags (P, DIV etc) will be ==, but unknown tags are not registered and will only .equals().
-     
-     - parameter tagName: Name of tag, e.g. "p". Case insensitive.
-     - parameter settings: used to control tag name sensitivity
-     - returns: The tag, either defined or new generic.
+     * Get a Tag by name. If not previously defined (unknown), returns a new generic tag, that can do anything.
+     * <p>
+     * Pre-defined tags (P, DIV etc) will be ==, but unknown tags are not registered and will only .equals().
+     * </p>
+     *
+     * @param tagName Name of tag, e.g. "p". Case insensitive.
+     * @param settings used to control tag name sensitivity
+     * @return The tag, either defined or new generic.
      */
     public static func valueOf(_ tagName: String, _ settings: ParseSettings) throws -> Tag {
         return try valueOf(tagName.utf8Array, settings, isSelfClosing: false)
@@ -124,12 +125,13 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Get a Tag by name. If not previously defined (unknown), returns a new generic tag, that can do anything.
-     
-     Pre-defined tags (P, DIV etc) will be ==, but unknown tags are not registered and will only .equals().
-     
-     - parameter tagName: Name of tag, e.g. "p". **Case sensitive.**
-     - returns: The tag, either defined or new generic.
+     * Get a Tag by name. If not previously defined (unknown), returns a new generic tag, that can do anything.
+     * <p>
+     * Pre-defined tags (P, DIV etc) will be ==, but unknown tags are not registered and will only .equals().
+     * </p>
+     *
+     * @param tagName Name of tag, e.g. "p". <b>Case sensitive</b>.
+     * @return The tag, either defined or new generic.
      */
     @inline(__always)
     public static func valueOf(_ tagName: String) throws -> Tag {
@@ -142,9 +144,9 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Gets if this is a block tag.
-     
-     - returns: if block tag
+     * Gets if this is a block tag.
+     *
+     * @return if block tag
      */
     @inline(__always)
     open func isBlock() -> Bool {
@@ -152,9 +154,9 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Gets if this tag should be formatted as a block (or as inline)
-     
-     - returns: if should be formatted as block or inline
+     * Gets if this tag should be formatted as a block (or as inline)
+     *
+     * @return if should be formatted as block or inline
      */
     @inline(__always)
     open func formatAsBlock() -> Bool {
@@ -162,9 +164,9 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Gets if this tag can contain block tags.
-     
-     - returns: if tag can contain block tags
+     * Gets if this tag can contain block tags.
+     *
+     * @return if tag can contain block tags
      */
     @inline(__always)
     open func canContainBlock() -> Bool {
@@ -172,9 +174,9 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Gets if this tag is an inline tag.
-     
-     - returns: if this tag is an inline tag.
+     * Gets if this tag is an inline tag.
+     *
+     * @return if this tag is an inline tag.
      */
     @inline(__always)
     open func isInline() -> Bool {
@@ -182,9 +184,9 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Gets if this tag is a data only tag.
-     
-     - returns: if this tag is a data only tag
+     * Gets if this tag is a data only tag.
+     *
+     * @return if this tag is a data only tag
      */
     @inline(__always)
     open func isData() -> Bool {
@@ -192,9 +194,9 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Get if this is an empty tag
-     
-     - returns: if this is an empty tag
+     * Get if this is an empty tag
+     *
+     * @return if this is an empty tag
      */
     @inline(__always)
     open func isEmpty() -> Bool {
@@ -202,9 +204,9 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Get if this tag is self closing.
-     
-     - returns: if this tag should be output as self closing.
+     * Get if this tag is self closing.
+     *
+     * @return if this tag should be output as self closing.
      */
     @inline(__always)
     open func isSelfClosing() -> Bool {
@@ -212,9 +214,9 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Get if this is a pre-defined tag, or was auto created on parsing.
-     
-     - returns: if a known tag
+     * Get if this is a pre-defined tag, or was auto created on parsing.
+     *
+     * @return if a known tag
      */
     @inline(__always)
     open func isKnownTag() -> Bool {
@@ -222,10 +224,10 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Check if this tagname is a known tag.
-     
-     - parameter tagName: name of tag
-     - returns: if known HTML tag
+     * Check if this tagname is a known tag.
+     *
+     * @param tagName name of tag
+     * @return if known HTML tag
      */
     @inline(__always)
     public static func isKnownTag(_ tagName: [UInt8]) -> Bool {
@@ -233,9 +235,9 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Get if this tag should preserve whitespace within child text nodes.
-     
-     - returns: if preserve whitepace
+     * Get if this tag should preserve whitespace within child text nodes.
+     *
+     * @return if preserve whitepace
      */
     @inline(__always)
     public func preserveWhitespace() -> Bool {
@@ -243,8 +245,8 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Get if this tag represents a control associated with a form. E.g. input, textarea, output
-     - returns: if associated with a form
+     * Get if this tag represents a control associated with a form. E.g. input, textarea, output
+     * @return if associated with a form
      */
     @inline(__always)
     public func isFormListed() -> Bool {
@@ -252,8 +254,8 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     /**
-     Get if this tag represents an element that should be submitted with a form. E.g. input, option
-     - returns: if submittable with a form
+     * Get if this tag represents an element that should be submitted with a form. E.g. input, option
+     * @return if submittable with a form
      */
     @inline(__always)
     public func isFormSubmittable() -> Bool {

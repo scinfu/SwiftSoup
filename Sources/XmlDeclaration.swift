@@ -16,9 +16,9 @@ public class XmlDeclaration: Node {
 
     /**
      Create a new XML declaration
-     - parameter name: of declaration
-     - parameter baseUri: base uri
-     - parameter isProcessingInstruction: is processing instruction
+     @param name of declaration
+     @param baseUri base uri
+     @param isProcessingInstruction is processing instruction
      */
     public init(_ name: [UInt8], _ baseUri: [UInt8], _ isProcessingInstruction: Bool) {
         self._name = name
@@ -39,8 +39,8 @@ public class XmlDeclaration: Node {
     }
 
     /**
-     Get the name of this declaration.
-     - returns: name of this declaration.
+     * Get the name of this declaration.
+     * @return name of this declaration.
      */
     public func name() -> String {
         return String(decoding: _name, as: UTF8.self)
@@ -48,7 +48,7 @@ public class XmlDeclaration: Node {
 
     /**
      Get the unencoded XML declaration.
-     - returns: XML declaration
+     @return XML declaration
      */
     public func getWholeDeclaration()throws->String {
         return try attributes!.html().trim() // attr html starts with a " "

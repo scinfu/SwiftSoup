@@ -8,22 +8,22 @@
 import Foundation
 
 /**
- Base structural evaluator.
+ * Base structural evaluator.
  */
-public class StructuralEvaluator: Evaluator, @unchecked Sendable {
+public class StructuralEvaluator: Evaluator {
     let evaluator: Evaluator
 
     public init(_ evaluator: Evaluator) {
         self.evaluator = evaluator
     }
 
-    public class Root: Evaluator, @unchecked Sendable {
+    public class Root: Evaluator {
         public override func matches(_ root: Element, _ element: Element) -> Bool {
             return root === element
         }
     }
 
-    public class Has: StructuralEvaluator, @unchecked Sendable {
+    public class Has: StructuralEvaluator {
         public override init(_ evaluator: Evaluator) {
             super.init(evaluator)
         }
@@ -47,7 +47,7 @@ public class StructuralEvaluator: Evaluator, @unchecked Sendable {
         }
     }
 
-    public class Not: StructuralEvaluator, @unchecked Sendable {
+    public class Not: StructuralEvaluator {
         public override init(_ evaluator: Evaluator) {
             super.init(evaluator)
         }
@@ -64,7 +64,7 @@ public class StructuralEvaluator: Evaluator, @unchecked Sendable {
         }
     }
 
-    public class Parent: StructuralEvaluator, @unchecked Sendable {
+    public class Parent: StructuralEvaluator {
         public override init(_ evaluator: Evaluator) {
             super.init(evaluator)
         }
@@ -95,7 +95,7 @@ public class StructuralEvaluator: Evaluator, @unchecked Sendable {
         }
     }
 
-    public class ImmediateParent: StructuralEvaluator, @unchecked Sendable {
+    public class ImmediateParent: StructuralEvaluator {
         public override init(_ evaluator: Evaluator) {
             super.init(evaluator)
         }
@@ -119,7 +119,7 @@ public class StructuralEvaluator: Evaluator, @unchecked Sendable {
         }
     }
 
-    public class PreviousSibling: StructuralEvaluator, @unchecked Sendable {
+    public class PreviousSibling: StructuralEvaluator {
         public override init(_ evaluator: Evaluator) {
             super.init(evaluator)
         }
@@ -148,7 +148,7 @@ public class StructuralEvaluator: Evaluator, @unchecked Sendable {
         }
     }
 
-    class ImmediatePreviousSibling: StructuralEvaluator, @unchecked Sendable {
+    class ImmediatePreviousSibling: StructuralEvaluator {
         public override init(_ evaluator: Evaluator) {
             super.init(evaluator)
         }

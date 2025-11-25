@@ -18,9 +18,9 @@ open class Collector {
 
     /**
      Build a list of elements, by visiting root and every descendant of root, and testing it against the evaluator.
-     - parameter eval: Evaluator to test elements against
-     - parameter root: root of tree to descend
-     - returns: list of matches; empty if none
+     @param eval Evaluator to test elements against
+     @param root root of tree to descend
+     @return list of matches; empty if none
      */
     public static func collect (_ eval: Evaluator, _ root: Element) throws -> Elements {
         let elements: Elements = Elements()

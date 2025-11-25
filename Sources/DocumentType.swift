@@ -8,7 +8,7 @@
 import Foundation
 
 /**
- * A `<!DOCTYPE>` node.
+ * A {@code <!DOCTYPE>} node.
  */
 public class DocumentType: Node {
     static let PUBLIC_KEY = "PUBLIC".utf8Array
@@ -20,11 +20,11 @@ public class DocumentType: Node {
     // todo: quirk mode from publicId and systemId
 
     /**
-     Create a new doctype element.
-     - parameter name: the doctype's name
-     - parameter publicId: the doctype's public ID
-     - parameter systemId: the doctype's system ID
-     - parameter baseUri: the doctype's base URI
+     * Create a new doctype element.
+     * @param name the doctype's name
+     * @param publicId the doctype's public ID
+     * @param systemId the doctype's system ID
+     * @param baseUri the doctype's base URI
      */
     public convenience init(_ name: String, _ publicId: String, _ systemId: String, _ baseUri: String) {
         self.init(name.utf8Array, publicId.utf8Array, systemId.utf8Array, baseUri.utf8Array)
@@ -43,12 +43,11 @@ public class DocumentType: Node {
     }
 
     /**
-     Create a new doctype element.
-     - parameter name: the doctype's name
-     - parameter pubSysKey: (unknown)
-     - parameter publicId: the doctype's public ID
-     - parameter systemId: the doctype's system ID
-     - parameter baseUri: the doctype's base URI
+     * Create a new doctype element.
+     * @param name the doctype's name
+     * @param publicId the doctype's public ID
+     * @param systemId the doctype's system ID
+     * @param baseUri the doctype's base URI
      */
     public init(_ name: [UInt8], _ pubSysKey: [UInt8]?, _ publicId: [UInt8], _ systemId: [UInt8], _ baseUri: [UInt8]) {
         super.init(baseUri)

@@ -15,8 +15,8 @@ open class DataNode: Node {
 
     /**
      Create a new DataNode.
-     - parameter data: data contents
-     - parameter baseUri: base URI
+     @param data data contents
+     @param baseUri base URI
      */
     public init(_ data: [UInt8], _ baseUri: [UInt8]) {
         super.init(baseUri)
@@ -38,7 +38,7 @@ open class DataNode: Node {
 
     /**
      Get the data contents of this node. Will be unescaped and with original new lines, space etc.
-     - returns: data
+     @return data
      */
     @inline(__always)
     open func getWholeData() -> String {
@@ -51,9 +51,9 @@ open class DataNode: Node {
     }
 
     /**
-     Set the data contents of this node.
-     - parameter data: unencoded data
-     - returns: this node, for chaining
+     * Set the data contents of this node.
+     * @param data unencoded data
+     * @return this node, for chaining
      */
     @discardableResult
     @inline(__always)
@@ -74,9 +74,9 @@ open class DataNode: Node {
 
     /**
      Create a new DataNode from HTML encoded data.
-     - parameter encodedData: encoded data
-     - parameter baseUri: bass URI
-     - returns: new DataNode
+     @param encodedData encoded data
+     @param baseUri bass URI
+     @return new DataNode
      */
     @inline(__always)
     public static func createFromEncoded(_ encodedData: String, _ baseUri: String) throws -> DataNode {

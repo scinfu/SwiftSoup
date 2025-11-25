@@ -8,13 +8,17 @@
 import Foundation
 
 /**
- The attributes of an Element.
- 
- Attributes are treated as a map: there can be only one value associated with an attribute key/name.
- 
- Attribute name and value comparisons are **case sensitive**. By default for HTML, attribute names are
- normalized to lower-case on parsing. That means you should use lower-case strings when referring to attributes by
- name.
+ * The attributes of an Element.
+ * <p>
+ * Attributes are treated as a map: there can be only one value associated with an attribute key/name.
+ * </p>
+ * <p>
+ * Attribute name and value comparisons are  <b>case sensitive</b>. By default for HTML, attribute names are
+ * normalized to lower-case on parsing. That means you should use lower-case strings when referring to attributes by
+ * name.
+ * </p>
+ *
+ *
  */
 open class Attributes: NSCopying {
     public static let dataPrefix: [UInt8] = "data-".utf8Array
@@ -60,9 +64,9 @@ open class Attributes: NSCopying {
     
     /**
      Get an attribute value by key.
-     - parameter key: the (case-sensitive) attribute key
-     - returns: the attribute value if set; or empty string if not set.
-     - seealso: ``hasKey(key:)-(String)``
+     @param key the (case-sensitive) attribute key
+     @return the attribute value if set; or empty string if not set.
+     @see #hasKey(String)
      */
     @inline(__always)
     open func get(key: String) -> String {
@@ -78,9 +82,9 @@ open class Attributes: NSCopying {
     }
     
     /**
-     Get an attribute's value by case-insensitive key
-     - parameter key: the attribute name
-     - returns: the first matching attribute value if set; or empty string if not set.
+     * Get an attribute's value by case-insensitive key
+     * @param key the attribute name
+     * @return the first matching attribute value if set; or empty string if not set.
      */
     @inline(__always)
     open func getIgnoreCase(key: String) throws -> String {
@@ -102,8 +106,8 @@ open class Attributes: NSCopying {
     
     /**
      Set a new attribute, or replace an existing one by key.
-     - parameter key: attribute key
-     - parameter value: attribute value
+     @param key attribute key
+     @param value attribute value
      */
     @inline(__always)
     open func put(_ key: [UInt8], _ value: [UInt8]) throws {
@@ -118,8 +122,8 @@ open class Attributes: NSCopying {
     
     /**
      Set a new boolean attribute, remove attribute if value is false.
-     - parameter key: attribute key
-     - parameter value: attribute value
+     @param key attribute key
+     @param value attribute value
      */
     @inline(__always)
     open func put(_ key: [UInt8], _ value: Bool) throws {
@@ -132,7 +136,7 @@ open class Attributes: NSCopying {
     
     /**
      Set a new attribute, or replace an existing one by (case-sensitive) key.
-     - parameter attribute: attribute
+     @param attribute attribute
      */
     @inline(__always)
     open func put(attribute: Attribute) {
@@ -150,7 +154,7 @@ open class Attributes: NSCopying {
     
     /**
      Remove an attribute by key. <b>Case sensitive.</b>
-     - parameter key: attribute key to remove
+     @param key attribute key to remove
      */
     @inline(__always)
     open func remove(key: String) throws {
@@ -171,7 +175,7 @@ open class Attributes: NSCopying {
     
     /**
      Remove an attribute by key. <b>Case insensitive.</b>
-     - parameter key: attribute key to remove
+     @param key attribute key to remove
      */
     @inlinable
     open func removeIgnoreCase(key: [UInt8]) throws {
@@ -187,8 +191,8 @@ open class Attributes: NSCopying {
     
     /**
      Tests if these attributes contain an attribute with this key.
-     - parameter key: case-sensitive key to check for
-     - returns: true if key exists, false otherwise
+     @param key case-sensitive key to check for
+     @return true if key exists, false otherwise
      */
     @inline(__always)
     open func hasKey(key: String) -> Bool {
@@ -202,8 +206,8 @@ open class Attributes: NSCopying {
     
     /**
      Tests if these attributes contain an attribute with this key.
-     - parameter key: key to check for
-     - returns: true if key exists, false otherwise
+     @param key key to check for
+     @return true if key exists, false otherwise
      */
     @inline(__always)
     open func hasKeyIgnoreCase(key: String) -> Bool {
@@ -235,7 +239,7 @@ open class Attributes: NSCopying {
     
     /**
      Get the number of attributes in this set.
-     - returns: size
+     @return size
      */
     @inline(__always)
     open func size() -> Int {
@@ -244,7 +248,7 @@ open class Attributes: NSCopying {
     
     /**
      Add all the attributes from the incoming set to this set.
-     - parameter incoming: attributes to add to these attributes.
+     @param incoming attributes to add to these attributes.
      */
     @inline(__always)
     open func addAll(incoming: Attributes?) {
@@ -257,7 +261,7 @@ open class Attributes: NSCopying {
     /**
      Get the attributes as a List, for iteration. Do not modify the keys of the attributes via this view, as changes
      to keys will not be recognised in the containing set.
-     - returns: an view of the attributes as a List.
+     @return an view of the attributes as a List.
      */
     @inline(__always)
     open func asList() -> [Attribute] {
@@ -265,9 +269,9 @@ open class Attributes: NSCopying {
     }
     
     /**
-     Retrieves a filtered view of attributes that are HTML5 custom data attributes; that is, attributes with keys
-     starting with `data-`.
-     - returns: map of custom data attributes.
+     * Retrieves a filtered view of attributes that are HTML5 custom data attributes; that is, attributes with keys
+     * starting with {@code data-}.
+     * @return map of custom data attributes.
      */
     @inline(__always)
     open func dataset() -> [String: String] {
@@ -279,7 +283,8 @@ open class Attributes: NSCopying {
     
     /**
      Get the HTML representation of these attributes.
-     - returns: HTML
+     @return HTML
+     @throws SerializationException if the HTML representation of the attributes cannot be constructed.
      */
     @inline(__always)
     open func html() throws -> String {
@@ -290,7 +295,8 @@ open class Attributes: NSCopying {
     
     /**
      Get the HTML representation of these attributes.
-     - returns: HTML
+     @return HTML
+     @throws SerializationException if the HTML representation of the attributes cannot be constructed.
      */
     @inline(__always)
     open func htmlUTF8() throws -> [UInt8] {
@@ -313,9 +319,9 @@ open class Attributes: NSCopying {
     }
     
     /**
-     Checks if these attributes are equal to another set of attributes, by comparing the two sets
-     - parameter o: attributes to compare with
-     - returns: if both sets of attributes have the same content
+     * Checks if these attributes are equal to another set of attributes, by comparing the two sets
+     * @param o attributes to compare with
+     * @return if both sets of attributes have the same content
      */
     @inline(__always)
     open func equals(o: AnyObject?) -> Bool {
