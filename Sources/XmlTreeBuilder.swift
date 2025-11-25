@@ -8,10 +8,13 @@
 import Foundation
 
 /**
- * Use the {@code XmlTreeBuilder} when you want to parse XML without any of the HTML DOM rules being applied to the
- * document.
- * <p>Usage example: {@code Document xmlDoc = Jsoup.parse(html, baseUrl, Parser.xmlParser())}</p>
- *
+ Use the `XmlTreeBuilder` when you want to parse XML without any of the HTML DOM rules being applied to the
+ document.
+ 
+ Usage example:
+ ```swift
+ let xmlDoc = SwiftSoup.parse(html, baseUrl, Parser.xmlParser())
+ ```
  */
 public class XmlTreeBuilder: TreeBuilder {
     
@@ -125,10 +128,10 @@ public class XmlTreeBuilder: TreeBuilder {
     }
     
     /**
-     * If the stack contains an element with this tag's name, pop up the stack to remove the first occurrence. If not
-     * found, skips.
-     *
-     * @param endTag
+     If the stack contains an element with this tag's name, pop up the stack to remove the first occurrence. If not
+     found, skips.
+     
+     - parameter endTag:
      */
     @inline(__always)
     private func popStackToClose(_ endTag: Token.EndTag) throws {

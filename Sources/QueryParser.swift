@@ -6,6 +6,10 @@
 //
 
 import Foundation
+#if canImport(Atomics)
+import Atomics
+#endif
+
 
 /**
  * Parses a CSS selector into an Evaluator tree.
@@ -13,33 +17,62 @@ import Foundation
 public class QueryParser {
     private static let combinators: [String]  = [",", ">", "+", "~", " "]
     private static let AttributeEvals: [String]  = ["=", "!=", "^=", "$=", "*=", "~="]
-
+    
+#if canImport(Atomics)
+    /// Atomic reference to the query parser cache. This allows for thread-safe manipulation of the
+    /// cache while avoiding locks.
+    private static let atomicCacheReference = ManagedAtomic<AtomicCacheWrapper?>(
+        AtomicCacheWrapper(cache: DefaultCache())
+    )
+#else
+    /// Mutex lock for the cache instance.
+    private static let cacheMutex = Mutex()
+    
+    /// Cache instance. Must always access this with the ``QueryParser/cacheMutex``.
+    nonisolated(unsafe)
+    private static var cacheInstance: (any QueryParserCache)? = DefaultCache()
+#endif
+    
     private var tq: TokenQueue
     private var query: String
     private var evals: Array<Evaluator>  = Array<Evaluator>()
-
+    
+    
+    // MARK: Initializer
+    
     /**
-     * Create a new QueryParser.
-     * @param query CSS query
+     Create a new QueryParser.
+     - parameter query: CSS query
      */
     private init(_ query: String) {
         self.query = query
         self.tq = TokenQueue(query)
     }
+    
+    
+    // MARK: Public methods
 
     /**
-     * Parse a CSS query into an Evaluator.
-     * @param query CSS query
-     * @return Evaluator
+     Parse a CSS query into an Evaluator.
+     - parameter query: CSS query
+     - returns: ``Evaluator``
+     - seealso: ``cache``
      */
     public static func parse(_ query: String)throws->Evaluator {
+        let cache = Self.cache
+        if let cached = cache?.get(query) {
+            return cached
+        }
+        
         let p = QueryParser(query)
-        return try p.parse()
+        let eval = try p.parse()
+        cache?.set(query, eval)
+        return eval
     }
 
     /**
-     * Parse the query
-     * @return Evaluator
+     Parse the query
+     - returns: ``Evaluator``
      */
     public func parse()throws->Evaluator {
         tq.consumeWhitespace()
@@ -69,6 +102,42 @@ public class QueryParser {
         }
         return CombiningEvaluator.And(evals)
     }
+    
+    
+    /// Cache to use for the query parser.
+    ///
+    /// Defaults to ``DefaultCache``. You can set this to `nil` to disable caching, provide a
+    /// ``DefaultCache`` instance with a different limit, or provide your own cache.
+#if canImport(Atomics)
+    public static var cache: (any QueryParserCache)? {
+        get {
+            Self.atomicCacheReference.load(ordering: .relaxed)?.wrapped
+        }
+        set {
+            if let newValue {
+                Self.atomicCacheReference.store(AtomicCacheWrapper(cache: newValue), ordering: .relaxed)
+            } else {
+                Self.atomicCacheReference.store(nil, ordering: .relaxed)
+            }
+        }
+    }
+#else
+    public static var cache: (any QueryParserCache)? {
+        get {
+            Self.cacheMutex.lock()
+            defer { Self.cacheMutex.unlock() }
+            return Self.cacheInstance
+        }
+        set {
+            Self.cacheMutex.lock()
+            defer { Self.cacheMutex.unlock() }
+            Self.cacheInstance = newValue
+        }
+    }
+#endif
+    
+    
+    // MARK: Private methods
 
     private func combinator(_ combinator: Character)throws {
         tq.consumeWhitespace()

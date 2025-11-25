@@ -12,8 +12,8 @@ import Foundation
  */
 open class BooleanAttribute: Attribute {
     /**
-     * Create a new boolean attribute from unencoded (raw) key.
-     * @param key attribute key
+     Create a new boolean attribute from unencoded (raw) key.
+     - parameter key: attribute key
      */
     @usableFromInline
     init(key: [UInt8]) throws {

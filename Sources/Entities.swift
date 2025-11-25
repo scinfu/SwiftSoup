@@ -8,9 +8,9 @@
 import Foundation
 
 /**
- * HTML entities, and escape routines.
- * Source: <a href="http://www.w3.org/TR/html5/named-character-references.html#named-character-references">W3C HTML
- * named character references</a>.
+ HTML entities, and escape routines.
+ 
+ Source: [W3C HTML named character references](http://www.w3.org/TR/html5/named-character-references.html#named-character-references)
  */
 public final class Entities: Sendable {
     private static let empty = -1
@@ -59,11 +59,11 @@ public final class Entities: Sendable {
             let name: ArraySlice<UInt8>
         }
         
-        // Array of named references, sorted by name for binary search. built by BuildEntities.
-        // The few entities that map to a multi-codepoint sequence go into multipoints.
+        /// Array of named references, sorted by name for binary search. built by BuildEntities.
+        /// The few entities that map to a multi-codepoint sequence go into multipoints.
         fileprivate let entitiesByName: [NamedCodepoint]
         
-        // Array of entities in first-codepoint order.
+        /// Array of entities in first-codepoint order.
         fileprivate let entitiesByCodepoint: [NamedCodepoint]
         
         public static func == (left: EscapeMode, right: EscapeMode) -> Bool {
@@ -82,20 +82,25 @@ public final class Entities: Sendable {
             
             var entitiesByNameMap: [NamedCodepoint] = []
             entitiesByNameMap.reserveCapacity(size)
+            
+            let equals = UTF8Arrays.equalSign
+            let semicolon = UTF8Arrays.semicolon
+            let newline = UTF8Arrays.newline
+            
             while !reader.isEmpty() {
-                let name: ArraySlice<UInt8> = reader.consumeTo("=")
+                let name: ArraySlice<UInt8> = reader.consumeTo(equals)
                 reader.advance()
                 let cp1: Int = reader.consumeToAny(EscapeMode.codeDelims).toInt(radix: codepointRadix) ?? 0
                 let codeDelim: UnicodeScalar = reader.current()
                 reader.advance()
                 let cp2: Int
                 if codeDelim == "," {
-                    cp2 = reader.consumeTo(";".utf8Array).toInt(radix: codepointRadix) ?? 0
+                    cp2 = reader.consumeTo(semicolon).toInt(radix: codepointRadix) ?? 0
                     reader.advance()
                 } else {
                     cp2 = empty
                 }
-                let _ = reader.consumeTo("\n".utf8Array).toInt(radix: codepointRadix) ?? 0
+                let _ = reader.consumeTo(newline).toInt(radix: codepointRadix) ?? 0
                 reader.advance()
                 
                 entitiesByNameMap.append(NamedCodepoint(scalar: UnicodeScalar(cp1)!, name: name))
@@ -111,12 +116,12 @@ public final class Entities: Sendable {
             self.entitiesByCodepoint = entitiesByNameMap.sorted() { a, b in a.scalar < b.scalar }
         }
         
-        // Only returns the first of potentially multiple codepoints
+        /// Only returns the first of potentially multiple codepoints
         public func codepointForName(_ name: [UInt8]) -> UnicodeScalar? {
             return codepointForName(name[...])
         }
         
-        // Only returns the first of potentially multiple codepoints
+        /// Only returns the first of potentially multiple codepoints
         public func codepointForName(_ name: ArraySlice<UInt8>) -> UnicodeScalar? {
             let ix = entitiesByName.binarySearch { $0.name < name }
             guard ix < entitiesByName.endIndex else { return nil }
@@ -129,7 +134,7 @@ public final class Entities: Sendable {
             return codepointForName(name.utf8Array)
         }
         
-        // Search by first codepoint only
+        /// Search by first codepoint only
         public func nameForCodepoint(_ codepoint: UnicodeScalar) -> String? {
             var ix = entitiesByCodepoint.binarySearch { $0.scalar < codepoint }
             var matches: [ArraySlice<UInt8>] = []
@@ -164,28 +169,28 @@ public final class Entities: Sendable {
     }
     
     /**
-     * Check if the input is a known named entity
-     * @param name the possible entity name (e.g. "lt" or "amp")
-     * @return true if a known named entity
+     Check if the input is a known named entity
+     - parameter name: the possible entity name (e.g. "lt" or "amp")
+     - returns: true if a known named entity
      */
     public static func isNamedEntity(_ name: ArraySlice<UInt8>) -> Bool {
         return (EscapeMode.extended.codepointForName(name) != nil)
     }
     
     /**
-     * Check if the input is a known named entity in the base entity set.
-     * @param name the possible entity name (e.g. "lt" or "amp")
-     * @return true if a known named entity in the base set
-     * @see #isNamedEntity(String)
+     Check if the input is a known named entity in the base entity set.
+     - parameter name: the possible entity name (e.g. "lt" or "amp")
+     - returns: true if a known named entity in the base set
+     - seealso: ``isNamedEntity(_:)``
      */
     public static func isBaseNamedEntity(_ name: ArraySlice<UInt8>) -> Bool {
         return EscapeMode.base.codepointForName(name) != nil
     }
     
     /**
-     * Get the character(s) represented by the named entitiy
-     * @param name entity (e.g. "lt" or "amp")
-     * @return the string value of the character(s) represented by this entity, or "" if not defined
+     Get the character(s) represented by the named entitiy
+     - parameter name: entity (e.g. "lt" or "amp")
+     - returns: the string value of the character(s) represented by this entity, or "" if not defined
      */
     public static func getByName(name: String) -> String? {
         return getByName(name: name.utf8ArraySlice)
@@ -343,10 +348,10 @@ public final class Entities: Sendable {
     }
     
     /**
-     * Unescape the input string.
-     * @param string to un-HTML-escape
-     * @param strict if "strict" (that is, requires trailing ';' char, otherwise that's optional)
-     * @return unescaped string
+     Unescape the input string.
+     - parameter string: to un-HTML-escape
+     - parameter strict: if "strict" (that is, requires trailing `;` char, otherwise that's optional)
+     - returns: unescaped string
      */
     public static func unescape(string: String, strict: Bool) throws -> String {
         return try String(decoding: unescape(string: string.utf8Array, strict: strict), as: UTF8.self)

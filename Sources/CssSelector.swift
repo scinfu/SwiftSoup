@@ -7,73 +7,71 @@
 
 import Foundation
 
-/**
- * CSS-like element selector, that finds elements matching a query.
- *
- * <h2>CssSelector syntax</h2>
- * <p>
- * A selector is a chain of simple selectors, separated by combinators. Selectors are <b>case insensitive</b> (including against
- * elements, attributes, and attribute values).
- * </p>
- * <p>
- * The universal selector (*) is implicit when no element selector is supplied (i.e. {@code *.header} and {@code .header}
- * is equivalent).
- * </p>
- * <table summary="">
- * <tr><th align="left">Pattern</th><th align="left">Matches</th><th align="left">Example</th></tr>
- * <tr><td><code>*</code></td><td>any element</td><td><code>*</code></td></tr>
- * <tr><td><code>tag</code></td><td>elements with the given tag name</td><td><code>div</code></td></tr>
- * <tr><td><code>*|E</code></td><td>elements of type E in any namespace <i>ns</i></td><td><code>*|name</code> finds <code>&lt;fb:name&gt;</code> elements</td></tr>
- * <tr><td><code>ns|E</code></td><td>elements of type E in the namespace <i>ns</i></td><td><code>fb|name</code> finds <code>&lt;fb:name&gt;</code> elements</td></tr>
- * <tr><td><code>#id</code></td><td>elements with attribute ID of "id"</td><td><code>div#wrap</code>, <code>#logo</code></td></tr>
- * <tr><td><code>.class</code></td><td>elements with a class name of "class"</td><td><code>div.left</code>, <code>.result</code></td></tr>
- * <tr><td><code>[attr]</code></td><td>elements with an attribute named "attr" (with any value)</td><td><code>a[href]</code>, <code>[title]</code></td></tr>
- * <tr><td><code>[^attrPrefix]</code></td><td>elements with an attribute name starting with "attrPrefix". Use to find elements with HTML5 datasets</td><td><code>[^data-]</code>, <code>div[^data-]</code></td></tr>
- * <tr><td><code>[attr=val]</code></td><td>elements with an attribute named "attr", and value equal to "val"</td><td><code>img[width=500]</code>, <code>a[rel=nofollow]</code></td></tr>
- * <tr><td><code>[attr=&quot;val&quot;]</code></td><td>elements with an attribute named "attr", and value equal to "val"</td><td><code>span[hello="Cleveland"][goodbye="Columbus"]</code>, <code>a[rel=&quot;nofollow&quot;]</code></td></tr>
- * <tr><td><code>[attr^=valPrefix]</code></td><td>elements with an attribute named "attr", and value starting with "valPrefix"</td><td><code>a[href^=http:]</code></td></tr>
- * <tr><td><code>[attr$=valSuffix]</code></td><td>elements with an attribute named "attr", and value ending with "valSuffix"</td><td><code>img[src$=.png]</code></td></tr>
- * <tr><td><code>[attr*=valContaining]</code></td><td>elements with an attribute named "attr", and value containing "valContaining"</td><td><code>a[href*=/search/]</code></td></tr>
- * <tr><td><code>[attr~=<em>regex</em>]</code></td><td>elements with an attribute named "attr", and value matching the regular expression</td><td><code>img[src~=(?i)\\.(png|jpe?g)]</code></td></tr>
- * <tr><td></td><td>The above may be combined in any order</td><td><code>div.header[title]</code></td></tr>
- * <tr><td><td colspan="3"><h3>Combinators</h3></td></tr>
- * <tr><td><code>E F</code></td><td>an F element descended from an E element</td><td><code>div a</code>, <code>.logo h1</code></td></tr>
- * <tr><td><code>E {@literal >} F</code></td><td>an F direct child of E</td><td><code>ol {@literal >} li</code></td></tr>
- * <tr><td><code>E + F</code></td><td>an F element immediately preceded by sibling E</td><td><code>li + li</code>, <code>div.head + div</code></td></tr>
- * <tr><td><code>E ~ F</code></td><td>an F element preceded by sibling E</td><td><code>h1 ~ p</code></td></tr>
- * <tr><td><code>E, F, G</code></td><td>all matching elements E, F, or G</td><td><code>a[href], div, h3</code></td></tr>
- * <tr><td><td colspan="3"><h3>Pseudo selectors</h3></td></tr>
- * <tr><td><code>:lt(<em>n</em>)</code></td><td>elements whose sibling index is less than <em>n</em></td><td><code>td:lt(3)</code> finds the first 3 cells of each row</td></tr>
- * <tr><td><code>:gt(<em>n</em>)</code></td><td>elements whose sibling index is greater than <em>n</em></td><td><code>td:gt(1)</code> finds cells after skipping the first two</td></tr>
- * <tr><td><code>:eq(<em>n</em>)</code></td><td>elements whose sibling index is equal to <em>n</em></td><td><code>td:eq(0)</code> finds the first cell of each row</td></tr>
- * <tr><td><code>:has(<em>selector</em>)</code></td><td>elements that contains at least one element matching the <em>selector</em></td><td><code>div:has(p)</code> finds divs that contain p elements </td></tr>
- * <tr><td><code>:not(<em>selector</em>)</code></td><td>elements that do not match the <em>selector</em>. See also {@link Elements#not(String)}</td><td><code>div:not(.logo)</code> finds all divs that do not have the "logo" class.<p><code>div:not(:has(div))</code> finds divs that do not contain divs.</p></td></tr>
- * <tr><td><code>:contains(<em>text</em>)</code></td><td>elements that contains the specified text. The search is case insensitive. The text may appear in the found element, or any of its descendants.</td><td><code>p:contains(SwiftSoup)</code> finds p elements containing the text "SwiftSoup".</td></tr>
- * <tr><td><code>:matches(<em>regex</em>)</code></td><td>elements whose text matches the specified regular expression. The text may appear in the found element, or any of its descendants.</td><td><code>td:matches(\\d+)</code> finds table cells containing digits. <code>div:matches((?i)login)</code> finds divs containing the text, case insensitively.</td></tr>
- * <tr><td><code>:containsOwn(<em>text</em>)</code></td><td>elements that directly contain the specified text. The search is case insensitive. The text must appear in the found element, not any of its descendants.</td><td><code>p:containsOwn(SwiftSoup)</code> finds p elements with own text "SwiftSoup".</td></tr>
- * <tr><td><code>:matchesOwn(<em>regex</em>)</code></td><td>elements whose own text matches the specified regular expression. The text must appear in the found element, not any of its descendants.</td><td><code>td:matchesOwn(\\d+)</code> finds table cells directly containing digits. <code>div:matchesOwn((?i)login)</code> finds divs containing the text, case insensitively.</td></tr>
- * <tr><td></td><td>The above may be combined in any order and with other selectors</td><td><code>.light:contains(name):eq(0)</code></td></tr>
- * <tr><td colspan="3"><h3>Structural pseudo selectors</h3></td></tr>
- * <tr><td><code>:root</code></td><td>The element that is the root of the document. In HTML, this is the <code>html</code> element</td><td><code>:root</code></td></tr>
- * <tr><td><code>:nth-child(<em>a</em>n+<em>b</em>)</code></td><td><p>elements that have <code><em>a</em>n+<em>b</em>-1</code> siblings <b>before</b> it in the document tree, for any positive integer or zero value of <code>n</code>, and has a parent element. For values of <code>a</code> and <code>b</code> greater than zero, this effectively divides the element's children into groups of a elements (the last group taking the remainder), and selecting the <em>b</em>th element of each group. For example, this allows the selectors to address every other row in a table, and could be used to alternate the color of paragraph text in a cycle of four. The <code>a</code> and <code>b</code> values must be integers (positive, negative, or zero). The index of the first child of an element is 1.</p>
- * In addition to this, <code>:nth-child()</code> can take <code>odd</code> and <code>even</code> as arguments instead. <code>odd</code> has the same signification as <code>2n+1</code>, and <code>even</code> has the same signification as <code>2n</code>.</td><td><code>tr:nth-child(2n+1)</code> finds every odd row of a table. <code>:nth-child(10n-1)</code> the 9th, 19th, 29th, etc, element. <code>li:nth-child(5)</code> the 5h li</td></tr>
- * <tr><td><code>:nth-last-child(<em>a</em>n+<em>b</em>)</code></td><td>elements that have <code><em>a</em>n+<em>b</em>-1</code> siblings <b>after</b> it in the document tree. Otherwise like <code>:nth-child()</code></td><td><code>tr:nth-last-child(-n+2)</code> the last two rows of a table</td></tr>
- * <tr><td><code>:nth-of-type(<em>a</em>n+<em>b</em>)</code></td><td>pseudo-class notation represents an element that has <code><em>a</em>n+<em>b</em>-1</code> siblings with the same expanded element name <em>before</em> it in the document tree, for any zero or positive integer value of n, and has a parent element</td><td><code>img:nth-of-type(2n+1)</code></td></tr>
- * <tr><td><code>:nth-last-of-type(<em>a</em>n+<em>b</em>)</code></td><td>pseudo-class notation represents an element that has <code><em>a</em>n+<em>b</em>-1</code> siblings with the same expanded element name <em>after</em> it in the document tree, for any zero or positive integer value of n, and has a parent element</td><td><code>img:nth-last-of-type(2n+1)</code></td></tr>
- * <tr><td><code>:first-child</code></td><td>elements that are the first child of some other element.</td><td><code>div {@literal >} p:first-child</code></td></tr>
- * <tr><td><code>:last-child</code></td><td>elements that are the last child of some other element.</td><td><code>ol {@literal >} li:last-child</code></td></tr>
- * <tr><td><code>:first-of-type</code></td><td>elements that are the first sibling of its type in the list of children of its parent element</td><td><code>dl dt:first-of-type</code></td></tr>
- * <tr><td><code>:last-of-type</code></td><td>elements that are the last sibling of its type in the list of children of its parent element</td><td><code>tr {@literal >} td:last-of-type</code></td></tr>
- * <tr><td><code>:only-child</code></td><td>elements that have a parent element and whose parent element hasve no other element children</td><td></td></tr>
- * <tr><td><code>:only-of-type</code></td><td> an element that has a parent element and whose parent element has no other element children with the same expanded element name</td><td></td></tr>
- * <tr><td><code>:empty</code></td><td>elements that have no children at all</td><td></td></tr>
- * </table>
- *
- * @see Element#select(String)
- */
+
 @available(*, deprecated, renamed: "CssSelector")
 typealias Selector = CssSelector
 
+/**
+ CSS-like element selector, that finds elements matching a query.
+ 
+ # CssSelector syntax
+ 
+ A selector is a chain of simple selectors, separated by combinators. Selectors are **case insensitive** (including against
+ elements, attributes, and attribute values).
+ 
+ The universal selector (`*`) is implicit when no element selector is supplied (i.e. `*.header` and `.header`
+ are equivalent).
+ 
+ Pattern | Matches | Example
+ --------|---------|---------
+ `*`     | any element | `*`
+ `tag`   | elements with the given tag name | `div`
+ `*\|E`  | elements of type E in any namespace _ns_ | `*\|name` finds `<fb:name>` elements
+ `#id`   | elements with attribute ID of "id" | `div#wrap`, `#logo`
+ `.class` | elements with a class name of "class" | `div.left`, `.result`
+ `.class` | elements with a class name of "class" | `div.left`, `.result`
+ `[attr]` | elements with an attribute named "attr" (with any value) | `a[href]`, `[title]`
+ `[^attrPrefix]` | elements with an attribute name starting with "attrPrefix". Use to find elements with HTML5 datasets | `[^data-]`, `div[^data-]`
+ `[attr=val]` | elements with an attribute named "attr", and value equal to "val" | `img[width=500]`, `a[rel=nofollow]`
+ `[attr="val"]` | elements with an attribute named "attr", and value equal to "val" | `span[hello="Cleveland"][goodbye="Columbus"]`, `a[rel="nofollow"]`
+ `[attr^=valPrefix]` | elements with an attribute named "attr", and value starting with "valPrefix" | `a[href^=http:]`
+ `[attr$=valSuffix]` | elements with an attribute named "attr", and value ending with "valSuffix" | `img[src$=.png]`
+ `[attr*=valContaining]` | elements with an attribute named "attr", and value containing "valContaining" | `a[href*=/search/]`
+ `[attr~=regex]` | elements with an attribute named "attr", and value matching the regular expression | `img[src~=(?i)\\.(png|jpe?g)]`
+ | | The above may be combined in any order | `div.header[title]`
+ **Combinators** |||
+ `E F`   | an F element descended from an E element | `div a`, `.logo h1`
+ `E > F` | an F direct child of E | `ol > li`
+ `E + F` | an F element immediately preceded by sibling E | `li + li`, `div.head + div`
+ `E ~ F` | an F element preceded by sibling E | `h1 ~ p`
+ `E, F, G` | all matching elements E, F, or G | `a[href], div, h3`
+ **Pseudo selectors** |||
+ `:lt(n)` | elements whose sibling index is less than _n_ | `td:lt(3)` finds the first 3 cells of each row
+ `:gt(n)` | elements whose sibling index is greater than _n_ | `td:gt(1)` finds cells after skipping the first two
+ `:eq(n)` | elements whose sibling index is equal to _n_ | `td:eq(0)` finds the first cell of each row
+ `:has(selector)` | elements that contains at least one element matching the _selector_ | `div:has(p)` finds divs that contain p elements
+ `:not(selector)` | elements that do not match the _selector_. See also ``Elements/not(_:)-(String)`` | `div:not(.logo)` finds all divs that do not have the "logo" class. `div:not(:has(div))` finds divs that do not contain divs.
+ `:contains(text)` | elements that contains the specified text. The search is case insensitive. The text may appear in the found element, or any of its descendants. | `p:contains(SwiftSoup)` finds p elements containing the text "SwiftSoup".
+ `:matches(regex)` | elements whose text matches the specified regular expression. The text may appear in the found element, or any of its descendants. | `td:matches(\\d+)` finds table cells containing digits. `div:matches((?i)login)` finds divs containing the text, case insensitively.
+ `:containsOwn(text)` | elements that directly contain the specified text. The search is case insensitive. The text must appear in the found element, not any of its descendants. | `p:containsOwn(SwiftSoup)` finds p elements with own text "SwiftSoup".
+ `:matchesOwn(regex)` | elements whose own text matches the specified regular expression. The text must appear in the found element, not any of its descendants. | `td:matchesOwn(\\d+)` finds table cells directly containing digits. `div:matchesOwn((?i)login)` finds divs containing the text, case insensitively.
+ | | The above may be combined in any order and with other selectors | `.light:contains(name):eq(0)`
+ **Structural pseudo selectors** |||
+ `:root` | The element that is the root of the document. In HTML, this is the `html` element | `:root`
+ `:nth-child(An+B)` | elements that have _A_ n + _B_ - 1 siblings _before_ it in the document tree, for any positive integer or zero value of `n`, and has a parent element. For values of `A` and `B` greater than zero, this effectively divides the element's children into groups of a elements (the last group taking the remainder), and selecting the _b_ th element of each group. For example, this allows the selectors to address every other row in a table, and could be used to alternate the color of paragraph text in a cycle of four. The `A` and `B` values must be integers (positive, negative, or zero). The index of the first child of an element is 1. In addition to this, `:nth-child()` can take `odd` and `even` as arguments instead. `odd` has the same signification as `2n+1`, and `even` has the same signification as `2n`. | `tr:nth-child(2n+1)` finds every odd row of a table. `:nth-child(10n-1)` the 9th, 19th, 29th, etc, element. `li:nth-child(5)` the 5th `li`
+ `:nth-last-child(An+B)` | elements that have _A_ n + _B_ - 1 siblings _after_ it in the document tree. Otherwise like `:nth-child()` | `tr:nth-last-child(-n+2)` the last two rows of a table
+ `:nth-of-type(An+B)` | pseudo-class notation represents an element that has _A_ n + _B_ - 1 siblings with the same expanded element name _before_ it in the document tree, for any zero or positive integer value of n, and has a parent element | `img:nth-of-type(2n+1)`
+ `:nth-last-of-type(An+B)` | pseudo-class notation represents an element that has _A_ n + _B_ - 1 siblings with the same expanded element name _after_ it in the document tree, for any zero or positive integer value of n, and has a parent element | `img:nth-last-of-type(2n+1)`
+ `:first-child` | elements that are the first child of some other element. | `div > p:first-child`
+ `:last-child` | elements that are the last child of some other element. | `ol > li:last-child`
+ `:first-of-type` | elements that are the first sibling of its type in the list of children of its parent element | `dl dt:first-of-type`
+ `:last-of-type` | elements that are the last sibling of its type in the list of children of its parent element | `tr > td:last-of-type`
+ `:only-child` | elements that have a parent element and whose parent element hasve no other element children | 
+ `:only-of-type` |  an element that has a parent element and whose parent element has no other element children with the same expanded element name | 
+ `:empty` | elements that have no children at all | 
+ 
+ - seealso: ``Element/select(_:)-(String)``
+ */
 open class CssSelector {
     private let evaluator: Evaluator
     private let root: Element
@@ -93,38 +91,50 @@ open class CssSelector {
     }
 
     /**
-     * Find elements matching selector.
-     *
-     * @param query CSS selector
-     * @param root  root element to descend into
-     * @return matching elements, empty if none
-     * @throws CssSelector.SelectorParseException (unchecked) on an invalid CSS query.
+     Find elements matching selector.
+     
+     - parameter query: CSS selector
+     - parameter root:  root element to descend into
+     - returns: matching elements, empty if none
+     - throws ``Exception`` with ``ExceptionType/SelectorParseException`` (unchecked) on an invalid CSS query.
      */
     public static func select(_ query: String, _ root: Element)throws->Elements {
         return try CssSelector(query, root).select()
     }
 
     /**
-     * Find elements matching selector.
-     *
-     * @param evaluator CSS selector
-     * @param root root element to descend into
-     * @return matching elements, empty if none
+     Find elements matching selector.
+     
+     - parameter evaluator: CSS selector
+     - parameter root: root element to descend into
+     - returns: matching elements, empty if none
      */
     public static func select(_ evaluator: Evaluator, _ root: Element)throws->Elements {
         return try CssSelector(evaluator, root).select()
     }
 
     /**
-     * Find elements matching selector.
-     *
-     * @param query CSS selector
-     * @param roots root elements to descend into
-     * @return matching elements, empty if none
+     Find elements matching selector.
+     
+     - parameter query: CSS selector
+     - parameter roots: root elements to descend into
+     - returns: matching elements, empty if none
      */
     public static func select(_ query: String, _ roots: Array<Element>)throws->Elements {
         try Validate.notEmpty(string: query.utf8Array)
         let evaluator: Evaluator = try QueryParser.parse(query)
+        return try self.select(evaluator, roots)
+    }
+
+    /**
+     Find elements matching an evaluator.
+     
+     - parameter evaluator: Query evaluator
+     - parameter roots: root elements to descend into
+     - seealso: ``QueryParser``
+     - returns: matching elements, empty if none
+     */
+    public static func select(_ evaluator: Evaluator, _ roots: Array<Element>)throws->Elements {
         var elements: Array<Element> = Array<Element>()
         var seenElements: Array<Element> = Array<Element>()
         // dedupe elements by identity, not equality
