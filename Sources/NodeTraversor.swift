@@ -11,16 +11,16 @@ open class NodeTraversor {
     private let visitor: NodeVisitor
 
     /**
-     * Create a new traversor.
-     * @param visitor a class implementing the {@link NodeVisitor} interface, to be called when visiting each node.
+     Create a new traversor.
+     - parameter visitor: a class implementing the ``NodeVisitor`` interface, to be called when visiting each node.
      */
     public init(_ visitor: NodeVisitor) {
         self.visitor = visitor
     }
 
     /**
-     * Start a depth-first traverse of the root and all of its descendants.
-     * @param root the root node point to traverse.
+     Start a depth-first traverse of the root and all of its descendants.
+     - parameter root: the root node point to traverse.
      */
     open func traverse(_ root: Node?) throws {
         var node: Node? = root
