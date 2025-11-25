@@ -59,7 +59,7 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
     let multiByteChars: [[UInt8]]
     let multiByteCharLengths: [Int]
     public let multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)]
-    public let multiByteSet: [ArraySlice<UInt8>]
+    public let multiByteSet: Set<ArraySlice<UInt8>>
     public let multiByteByteLookupsCount: Int
     public let singleByteMask: (UInt64, UInt64, UInt64, UInt64) // Precomputed set for single-byte lookups
     private let precomputedHash: Int
@@ -107,7 +107,7 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
         self.multiByteByteLookups = multiByteByteLookups
         multiByteByteLookupsCount = multiByteByteLookups.count
         
-        multiByteSet = multiByteChars.map { ArraySlice($0) }
+        multiByteSet = Set(multiByteChars.map { ArraySlice($0) })
         self.precomputedHash = Self.computeHash(
             multiByteChars: multiByteChars,
             multiByteByteLookups: multiByteByteLookups

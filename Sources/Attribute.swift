@@ -10,6 +10,7 @@ import Foundation
 open class Attribute {
     /// The element type of a dictionary: a tuple containing an individual
     /// key-value pair.
+    
     static let booleanAttributes = ParsingStrings([
         "allowfullscreen", "async", "autofocus", "checked", "compact", "controls", "declare", "default", "defer",
         "disabled", "formnovalidate", "hidden", "inert", "ismap", "itemscope", "multiple", "muted", "nohref",
@@ -34,7 +35,7 @@ open class Attribute {
     
     /**
      Get the attribute key.
-     - returns: the attribute key
+     @return the attribute key
      */
     @inline(__always)
     open func getKey() -> String {
@@ -48,7 +49,7 @@ open class Attribute {
     
     /**
      Set the attribute key; case is preserved.
-     - parameter key: the new key
+     @param key the new key; must not be null
      */
     @inline(__always)
     open func setKey(key: [UInt8]) throws {
@@ -63,7 +64,7 @@ open class Attribute {
     
     /**
      Get the attribute value.
-     - returns: the attribute value
+     @return the attribute value
      */
     @inline(__always)
     open func getValue() -> String {
@@ -77,7 +78,7 @@ open class Attribute {
     
     /**
      Set the attribute value.
-     - parameter value: the new attribute value
+     @param value the new attribute value; must not be null
      */
     @discardableResult
     @inline(__always)
@@ -88,8 +89,8 @@ open class Attribute {
     }
     
     /**
-     Get the HTML representation of this attribute; e.g. `href="index.html"`.
-     - returns: HTML
+     Get the HTML representation of this attribute; e.g. {@code href="index.html"}.
+     @return HTML
      */
     @inline(__always)
     public func html() -> String {
@@ -109,8 +110,8 @@ open class Attribute {
     }
     
     /**
-     Get the string representation of this attribute, implemented as ``html()``.
-     - returns: string
+     Get the string representation of this attribute, implemented as {@link #html()}.
+     @return string
      */
     @inline(__always)
     open func toString() -> String {
@@ -118,10 +119,10 @@ open class Attribute {
     }
     
     /**
-     Create a new Attribute from an unencoded key and a HTML attribute encoded value.
-     - parameter unencodedKey: assumes the key is not encoded, as can be only run of simple `\w` chars.
-     - parameter encodedValue: HTML attribute encoded value
-     - returns: attribute
+     * Create a new Attribute from an unencoded key and a HTML attribute encoded value.
+     * @param unencodedKey assumes the key is not encoded, as can be only run of simple \w chars.
+     * @param encodedValue HTML attribute encoded value
+     * @return attribute
      */
     @inline(__always)
     public static func createFromEncoded(unencodedKey: [UInt8], encodedValue: [UInt8]) throws -> Attribute {
@@ -135,10 +136,10 @@ open class Attribute {
     }
     
     /**
-     Collapsible if it's a boolean attribute and value is empty or same as name
-     
-     - parameter out: Outputsettings
-     - returns:  Returns whether collapsible or not
+     * Collapsible if it's a boolean attribute and value is empty or same as name
+     *
+     * @param out Outputsettings
+     * @return  Returns whether collapsible or not
      */
     @inline(__always)
     public final func shouldCollapseAttribute(out: OutputSettings) -> Bool {
@@ -178,19 +179,4 @@ extension Attribute: Equatable {
         return lhs.value == rhs.value && lhs.key == rhs.key
     }
     
-}
-
-
-extension Attribute: CustomStringConvertible {
-    @inline(__always)
-    public var description: String {
-        return "\(getKey())=\"\(getValue())\""
-    }
-}
-
-extension Attribute: CustomDebugStringConvertible {
-    private static let space = " "
-    public var debugDescription: String {
-        return "<\(String(describing: type(of: self))): \(Unmanaged.passUnretained(self).toOpaque()) \(self.description)>"
-    }
 }

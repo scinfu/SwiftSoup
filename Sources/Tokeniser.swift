@@ -182,7 +182,7 @@ final class Tokeniser {
             if (!found) {
                 reader.rewindToMark()
                 if (looksLegit) { // named with semicolon
-                    characterReferenceError("invalid named reference '\(nameRef)'")
+                    characterReferenceError("invalid named referenece '\(nameRef)'")
                 }
                 return nil
             }
@@ -291,9 +291,9 @@ final class Tokeniser {
     }
     
     /**
-     Utility method to consume reader and unescape entities found within.
-     - parameter inAttribute:
-     - returns: unescaped string from reader
+     * Utility method to consume reader and unescape entities found within.
+     * @param inAttribute
+     * @return unescaped string from reader
      */
     func unescapeEntities(_ inAttribute: Bool) throws -> [UInt8] {
         let builder: StringBuilder = StringBuilder()

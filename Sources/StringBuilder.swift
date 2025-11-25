@@ -17,7 +17,7 @@ open class StringBuilder {
     /**
      Construct with initial String contents
      
-     - parameter string: Initial value; defaults to empty string
+     :param: string Initial value; defaults to empty string
      */
     @inline(__always)
     public init(string: String? = nil) {
@@ -37,7 +37,7 @@ open class StringBuilder {
     /**
      Return the String object
      
-     - returns: String
+     :return: String
      */
     @inline(__always)
     open func toString() -> String {
@@ -60,9 +60,9 @@ open class StringBuilder {
     /**
      Append a String to the object
      
-     - parameter string: String
+     :param: string String
      
-     - returns: reference to this StringBuilder instance
+     :return: reference to this StringBuilder instance
      */
     @discardableResult
     @inline(__always)
@@ -127,9 +127,9 @@ open class StringBuilder {
     /**
      Append a Printable to the object
      
-     - parameter value: a value supporting the Printable protocol
+     :param: value a value supporting the Printable protocol
      
-     - returns: reference to this StringBuilder instance
+     :return: reference to this StringBuilder instance
      */
     //    @discardableResult
     //    open func append<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
@@ -168,9 +168,9 @@ open class StringBuilder {
     /**
      Append a String and a newline to the object
      
-     - parameter string: String
+     :param: string String
      
-     - returns: reference to this StringBuilder instance
+     :return: reference to this StringBuilder instance
      */
     @discardableResult
     @inline(__always)
@@ -183,9 +183,9 @@ open class StringBuilder {
     /**
      Append a Printable and a newline to the object
      
-     - parameter value: a value supporting the Printable protocol
+     :param: value a value supporting the Printable protocol
      
-     - returns: reference to this StringBuilder instance
+     :return: reference to this StringBuilder instance
      */
     @discardableResult
     @inline(__always)
@@ -198,7 +198,7 @@ open class StringBuilder {
     /**
      Reset the object to an empty string
      
-     - returns: reference to this StringBuilder instance
+     :return: reference to this StringBuilder instance
      */
     @discardableResult
     @inline(__always)
@@ -249,8 +249,8 @@ open class StringBuilder {
 /**
  Append a String to a StringBuilder using operator syntax
  
- - parameter lhs: StringBuilder
- - parameter rhs: String
+ :param: lhs StringBuilder
+ :param: rhs String
  */
 @inline(__always)
 public func += (lhs: StringBuilder, rhs: String) {
@@ -260,8 +260,8 @@ public func += (lhs: StringBuilder, rhs: String) {
 /**
  Append a Printable to a StringBuilder using operator syntax
  
- - parameter lhs: Printable
- - parameter rhs: String
+ :param: lhs Printable
+ :param: rhs String
  */
 @inline(__always)
 public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
@@ -271,10 +271,10 @@ public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
 /**
  Create a StringBuilder by concatenating the values of two StringBuilders
  
- - parameter lhs: first StringBuilder
- - parameter rhs: second StringBuilder
+ :param: lhs first StringBuilder
+ :param: rhs second StringBuilder
  
- - returns: StringBuilder
+ :result StringBuilder
  */
 @inline(__always)
 public func +(lhs: StringBuilder, rhs: StringBuilder) -> StringBuilder {

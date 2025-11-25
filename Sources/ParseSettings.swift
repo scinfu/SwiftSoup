@@ -21,9 +21,9 @@ open class ParseSettings: @unchecked Sendable {
     private let preserveAttributeCase: Bool
 
     /**
-     Define parse settings.
-     - parameter tag: preserve tag case?
-     - parameter attribute: preserve attribute name case?
+     * Define parse settings.
+     * @param tag preserve tag case?
+     * @param attribute preserve attribute name case?
      */
     public init(_ tag: Bool, _ attribute: Bool) {
         preserveTagCase = tag

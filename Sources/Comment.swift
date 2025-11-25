@@ -15,8 +15,8 @@ public class Comment: Node {
 
     /**
      Create a new comment node.
-     - parameter data: The contents of the comment
-     - parameter baseUri: base URI
+     @param data The contents of the comment
+     @param baseUri base URI
      */
     public init(_ data: [UInt8], _ baseUri: [UInt8]) {
         super.init(baseUri)
@@ -37,7 +37,7 @@ public class Comment: Node {
 
     /**
      Get the contents of the comment.
-     - returns: comment content
+     @return comment content
      */
     @inline(__always)
     public func getData() -> String {

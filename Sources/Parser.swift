@@ -8,8 +8,8 @@
 import Foundation
 
 /**
- Parses HTML into a ``Document``. Generally best to use one of the more convenient parse methods
- in ``SwiftSoup``.
+* Parses HTML into a {@link Document}. Generally best to use one of the  more convenient parse methods
+* in {@link SwiftSoup}.
 */
 public class Parser {
 	private static let DEFAULT_MAX_ERRORS: Int = 0 // by default, error tracking is disabled.
@@ -20,8 +20,8 @@ public class Parser {
 	private var _settings: ParseSettings
 
 	/**
-	 Create a new Parser, using the specified TreeBuilder
-	 - parameter treeBuilder: TreeBuilder to use to parse input into Documents.
+	* Create a new Parser, using the specified TreeBuilder
+	* @param treeBuilder TreeBuilder to use to parse input into Documents.
 	*/
 	init(_ treeBuilder: TreeBuilder) {
 		self._treeBuilder = treeBuilder
@@ -41,39 +41,38 @@ public class Parser {
         return try parseInput(html, baseUri.utf8Array)
     }
 
-	// MARK: Getters & setters
-	
+	// gets & sets
 	/**
-	 Get the TreeBuilder currently in use.
-	 - returns: current TreeBuilder.
+	* Get the TreeBuilder currently in use.
+	* @return current TreeBuilder.
 	*/
 	public func getTreeBuilder() -> TreeBuilder {
 		return _treeBuilder
 	}
 
 	/**
-	 Update the TreeBuilder used when parsing content.
-	 - parameter treeBuilder: current TreeBuilder
-	 - returns: this, for chaining
+	* Update the TreeBuilder used when parsing content.
+	* @param treeBuilder current TreeBuilder
+	* @return this, for chaining
 	*/
-	@discardableResult
+    @discardableResult
 	public func setTreeBuilder(_ treeBuilder: TreeBuilder) -> Parser {
 		self._treeBuilder = treeBuilder
 		return self
 	}
 
 	/**
-	 Check if parse error tracking is enabled.
-	 - returns: current track error state.
+	* Check if parse error tracking is enabled.
+	* @return current track error state.
 	*/
 	public func isTrackErrors() -> Bool {
 		return _maxErrors > 0
 	}
 
 	/**
-	 Enable or disable parse error tracking for the next parse.
-	 - parameter maxErrors: the maximum number of errors to track. Set to 0 to disable.
-	 - returns: this, for chaining
+	* Enable or disable parse error tracking for the next parse.
+	* @param maxErrors the maximum number of errors to track. Set to 0 to disable.
+	* @return this, for chaining
 	*/
     @discardableResult
 	public func setTrackErrors(_ maxErrors: Int) -> Parser {
@@ -82,14 +81,14 @@ public class Parser {
 	}
 
 	/**
-	 Retrieve the parse errors, if any, from the last parse.
-	 - returns: list of parse errors, up to the size of the maximum errors tracked.
+	* Retrieve the parse errors, if any, from the last parse.
+	* @return list of parse errors, up to the size of the maximum errors tracked.
 	*/
 	public func getErrors() -> ParseErrorList {
 		return _errors
 	}
 
-	@discardableResult
+    @discardableResult
 	public func settings(_ settings: ParseSettings) -> Parser {
 		self._settings = settings
 		return self
@@ -99,15 +98,14 @@ public class Parser {
 		return _settings
 	}
 
-	// MARK: Static parse functions
-	
+	// static parse functions below
 	/**
-	 Parse HTML into a Document.
-	 
-	 - parameter html: HTML to parse
-	 - parameter baseUri: base URI of document (i.e. original fetch location), for resolving relative URLs.
-	 
-	 - returns: parsed Document
+	* Parse HTML into a Document.
+	*
+	* @param html HTML to parse
+	* @param baseUri base URI of document (i.e. original fetch location), for resolving relative URLs.
+	*
+	* @return parsed Document
 	*/
 	public static func parse(_ html: [UInt8], _ baseUri: [UInt8]) throws -> Document {
 		let treeBuilder: TreeBuilder = HtmlTreeBuilder()
@@ -128,14 +126,14 @@ public class Parser {
     }
 
 	/**
-	 Parse a fragment of HTML into a list of nodes. The context element, if supplied, supplies parsing context.
-	 
-	 - parameter fragmentHtml: the fragment of HTML to parse
-	 - parameter context: (optional) the element that this HTML fragment is being parsed for (i.e. for inner HTML). This
-	 provides stack context (for implicit element creation).
-	 - parameter baseUri: base URI of document (i.e. original fetch location), for resolving relative URLs.
-	 
-	 - returns: list of nodes parsed from the input HTML. Note that the context element, if supplied, is not modified.
+	* Parse a fragment of HTML into a list of nodes. The context element, if supplied, supplies parsing context.
+	*
+	* @param fragmentHtml the fragment of HTML to parse
+	* @param context (optional) the element that this HTML fragment is being parsed for (i.e. for inner HTML). This
+	* provides stack context (for implicit element creation).
+	* @param baseUri base URI of document (i.e. original fetch location), for resolving relative URLs.
+	*
+	* @return list of nodes parsed from the input HTML. Note that the context element, if supplied, is not modified.
 	*/
 	public static func parseFragment(_ fragmentHtml: [UInt8], _ context: Element?, _ baseUri: [UInt8]) throws -> Array<Node> {
 		let treeBuilder = HtmlTreeBuilder()
@@ -147,11 +145,11 @@ public class Parser {
     }
 
 	/**
-	 Parse a fragment of XML into a list of nodes.
-	 
-	 - parameter fragmentXml: the fragment of XML to parse
-	 - parameter baseUri: base URI of document (i.e. original fetch location), for resolving relative URLs.
-	 - returns: list of nodes parsed from the input XML.
+	* Parse a fragment of XML into a list of nodes.
+	*
+	* @param fragmentXml the fragment of XML to parse
+	* @param baseUri base URI of document (i.e. original fetch location), for resolving relative URLs.
+	* @return list of nodes parsed from the input XML.
 	*/
 	public static func parseXmlFragment(_ fragmentXml: [UInt8], _ baseUri: [UInt8]) throws -> Array<Node> {
 		let treeBuilder: XmlTreeBuilder = XmlTreeBuilder()
@@ -163,12 +161,12 @@ public class Parser {
     }
 
 	/**
-	 Parse a fragment of HTML into the `body` of a Document.
-	 
-	 - parameter bodyHtml: fragment of HTML
-	 - parameter baseUri: base URI of document (i.e. original fetch location), for resolving relative URLs.
-	 
-	 - returns: Document, with empty head, and HTML parsed into body
+	* Parse a fragment of HTML into the {@code body} of a Document.
+	*
+	* @param bodyHtml fragment of HTML
+	* @param baseUri base URI of document (i.e. original fetch location), for resolving relative URLs.
+	*
+	* @return Document, with empty head, and HTML parsed into body
 	*/
 	public static func parseBodyFragment(_ bodyHtml: String, _ baseUri: String) throws -> Document {
 		let doc: Document = Document.createShell(baseUri)
@@ -188,10 +186,10 @@ public class Parser {
 	}
 
 	/**
-	 Utility method to unescape HTML entities from a string
-	 - parameter string: HTML escaped string
-	 - parameter inAttribute: if the string is to be escaped in strict mode (as attributes are)
-	 - returns: an unescaped string
+	* Utility method to unescape HTML entities from a string
+	* @param string HTML escaped string
+	* @param inAttribute if the string is to be escaped in strict mode (as attributes are)
+	* @return an unescaped string
 	*/
 	public static func unescapeEntities(_ string: [UInt8], _ inAttribute: Bool) throws -> [UInt8] {
 		let tokeniser: Tokeniser = Tokeniser(CharacterReader(string), ParseErrorList.noTracking())
@@ -203,12 +201,12 @@ public class Parser {
     }
 
 	/**
-	 - parameter bodyHtml: HTML to parse
-	 - parameter baseUri: baseUri base URI of document (i.e. original fetch location), for resolving relative URLs.
-	 
-	 - returns: parsed Document
+	* @param bodyHtml HTML to parse
+	* @param baseUri baseUri base URI of document (i.e. original fetch location), for resolving relative URLs.
+	*
+	* @return parsed Document
+	* @deprecated Use {@link #parseBodyFragment} or {@link #parseFragment} instead.
 	*/
-	@available(*, deprecated, message: "Use `parseBodyFragment` or `parseFragment` instead.")
 	public static func parseBodyFragmentRelaxed(_ bodyHtml: String, _ baseUri: String) throws -> Document {
         return try parse(bodyHtml.utf8Array, baseUri.utf8Array)
 	}
@@ -216,18 +214,18 @@ public class Parser {
 	// builders
 
 	/**
-	 Create a new HTML parser. This parser treats input as HTML5, and enforces the creation of a normalised document,
-	 based on a knowledge of the semantics of the incoming tags.
-	 - returns: a new HTML parser.
+	* Create a new HTML parser. This parser treats input as HTML5, and enforces the creation of a normalised document,
+	* based on a knowledge of the semantics of the incoming tags.
+	* @return a new HTML parser.
 	*/
 	public static func htmlParser() -> Parser {
 		return Parser(HtmlTreeBuilder())
 	}
 
 	/**
-	 Create a new XML parser. This parser assumes no knowledge of the incoming tags and does not treat it as HTML,
-	 rather creates a simple tree directly from the input.
-	 - returns: a new simple XML parser.
+	* Create a new XML parser. This parser assumes no knowledge of the incoming tags and does not treat it as HTML,
+	* rather creates a simple tree directly from the input.
+	* @return a new simple XML parser.
 	*/
 	public static func xmlParser() -> Parser {
 		return Parser(XmlTreeBuilder())

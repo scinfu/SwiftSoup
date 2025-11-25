@@ -8,9 +8,9 @@
 import Foundation
 
 /**
- Base combining (and, or) evaluator.
+ * Base combining (and, or) evaluator.
  */
-public class CombiningEvaluator: Evaluator, @unchecked Sendable {
+public class CombiningEvaluator: Evaluator {
 
     public private(set) var evaluators: Array<Evaluator>
 
@@ -37,7 +37,7 @@ public class CombiningEvaluator: Evaluator, @unchecked Sendable {
         evaluators[evaluators.count - 1] = replacement
     }
 
-    public final class And: CombiningEvaluator, @unchecked Sendable {
+    public final class And: CombiningEvaluator {
         
         public override func matches(_ root: Element, _ node: Element) -> Bool {
             for evaluator in self.evaluators {
@@ -57,7 +57,7 @@ public class CombiningEvaluator: Evaluator, @unchecked Sendable {
         }
     }
 
-    public final class Or: CombiningEvaluator, @unchecked Sendable {
+    public final class Or: CombiningEvaluator {
         
         public func add(_ evaluator: Evaluator) {
             evaluators.append(evaluator)

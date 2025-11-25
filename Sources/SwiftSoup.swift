@@ -8,76 +8,78 @@
 import Foundation
 
 	/**
-	 Parse HTML into a Document. The parser will make a sensible, balanced document tree out of any HTML.
-	 
-	 - parameter html:    HTML to parse
-	 - parameter baseUri: The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs, that occur
-	   before the HTML declares a `<base href>` tag.
-	 - returns: sane HTML
+	Parse HTML into a Document. The parser will make a sensible, balanced document tree out of any HTML.
+	
+	@param html    HTML to parse
+	@param baseUri The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs, that occur
+	before the HTML declares a {@code <base href>} tag.
+	@return sane HTML
 	*/
 	public func parse(_ html: String, _ baseUri: String) throws -> Document {
 		return try Parser.parse(html, baseUri)
 	}
 
-	/**
-	 Parse Data into a Document. The parser will make a sensible, balanced document tree out of any HTML.
-	 
-	 - parameter data: Data to parse
-	 - parameter baseUri: The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs, that occur
-	   before the HTML declares a `<base href>` tag.
-	 - returns: sane HTML
-	*/
+    /**
+    Parse Data into a Document. The parser will make a sensible, balanced document tree out of any HTML.
+
+    @param data Data to parse
+    @param baseUri The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs, that occur
+    before the HTML declares a {@code <base href>} tag.
+    @return sane HTML
+    */
     public func parse(_ data: Data, _ baseUri: String) throws -> Document {
         return try Parser.parse(data, baseUri)
     }
 
 	/**
-	 Parse HTML into a Document, using the provided Parser. You can provide an alternate parser, such as a simple XML
-	 (non-HTML) parser.
-	 
-	 - parameter html:    HTML to parse
-	 - parameter baseUri: The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs, that occur
-	   before the HTML declares a `<base href>` tag.
-	 - parameter parser: alternate parse (e.g. ``Parser/xmlParser()``) to use.
-	 - returns: sane HTML
+	Parse HTML into a Document, using the provided Parser. You can provide an alternate parser, such as a simple XML
+	(non-HTML) parser.
+	
+	@param html    HTML to parse
+	@param baseUri The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs, that occur
+	before the HTML declares a {@code <base href>} tag.
+	@param parser alternate {@link Parser#xmlParser() parser} to use.
+	@return sane HTML
 	*/
 	public func parse(_ html: String, _ baseUri: String, _ parser: Parser) throws -> Document {
 		return try parser.parseInput(html, baseUri)
 	}
 
     /**
-	 Parse HTML into a Document, using the provided Parser. You can provide an alternate parser, such as a simple XML
-	 (non-HTML) parser.
-	 
-	 - parameter html:    HTML to parse
-	 - parameter baseUri: The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs, that occur
-	   before the HTML declares a `<base href>` tag.
-	 - parameter parser: alternate parser (e.g. ``Parser/xmlParser()``) to use.
-	 - returns: sane HTML
+     Parse HTML into a Document, using the provided Parser. You can provide an alternate parser, such as a simple XML
+     (non-HTML) parser.
+     
+     @param html    HTML to parse
+     @param baseUri The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs, that occur
+     before the HTML declares a {@code <base href>} tag.
+     @param parser alternate {@link Parser#xmlParser() parser} to use.
+     @return sane HTML
      */
     public func parse(_ html: [UInt8], _ baseUri: String, _ parser: Parser) throws -> Document {
         return try parser.parseInput(html, baseUri)
     }
 
 	/**
-	 Parse HTML into a Document. As no base URI is specified, absolute URL detection relies on the HTML including a
-	 `<base href>` tag.
-	 
-	 - parameter html: HTML to parse
-	 - returns: sane HTML
-	 - seealso: ``parse(_:_:)-(String,String)``
+	Parse HTML into a Document. As no base URI is specified, absolute URL detection relies on the HTML including a
+	{@code <base href>} tag.
+	
+	@param html HTML to parse
+	@return sane HTML
+	
+	@see #parse(String, String)
 	*/
 	public func parse(_ html: String) throws -> Document {
 		return try Parser.parse(html, "")
 	}
 
     /**
-	 Parse Data into a Document. As no base URI is specified, absolute URL detection relies on the HTML including a
-	 `<base href>` tag.
-	 
-	 - parameter data: Data to parse
-	 - returns: sane HTML
-	 - seealso: ``parse(_:_:)-(String,String)``
+    Parse Data into a Document. As no base URI is specified, absolute URL detection relies on the HTML including a
+    {@code <base href>} tag.
+
+    @param data Data to parse
+    @return sane HTML
+
+    @see #parse(String, String)
     */
     public func parse(_ data: Data) throws -> Document {
         return try Parser.parse(data, "")
@@ -164,23 +166,25 @@ import Foundation
 //	}
 
 	/**
-	 Parse a fragment of HTML, with the assumption that it forms the `body` of the HTML.
-	 
-	 - parameter bodyHtml: body HTML fragment
-	 - parameter baseUri:  URL to resolve relative URLs against.
-	 - returns: sane HTML document
-	 - seealso: ``Document/body()``
+	Parse a fragment of HTML, with the assumption that it forms the {@code body} of the HTML.
+	
+	@param bodyHtml body HTML fragment
+	@param baseUri  URL to resolve relative URLs against.
+	@return sane HTML document
+	
+	@see Document#body()
 	*/
 	public func parseBodyFragment(_ bodyHtml: String, _ baseUri: String) throws -> Document {
 		return try Parser.parseBodyFragment(bodyHtml, baseUri)
 	}
 
 	/**
-	 Parse a fragment of HTML, with the assumption that it forms the `body` of the HTML.
-	 
-	 - parameter bodyHtml: body HTML fragment
-	 - returns: sane HTML document
-	 - seealso: ``Document/body()``
+	Parse a fragment of HTML, with the assumption that it forms the {@code body} of the HTML.
+	
+	@param bodyHtml body HTML fragment
+	@return sane HTML document
+	
+	@see Document#body()
 	*/
 	public func parseBodyFragment(_ bodyHtml: String) throws -> Document {
 		return try Parser.parseBodyFragment(bodyHtml, "")
@@ -210,14 +214,15 @@ import Foundation
 //	}
 
 	/**
-	 Get safe HTML from untrusted input HTML, by parsing input HTML and filtering it through a white-list of permitted
-	 tags and attributes.
-	 
-	 - parameter bodyHtml:  input untrusted HTML (body fragment)
-	 - parameter baseUri:   URL to resolve relative URLs against
-	 - parameter whitelist: white-list of permitted HTML elements
-	 - returns: safe HTML (body fragment)
-	 - seealso: ``Cleaner/clean(_:)``
+	Get safe HTML from untrusted input HTML, by parsing input HTML and filtering it through a white-list of permitted
+	tags and attributes.
+	
+	@param bodyHtml  input untrusted HTML (body fragment)
+	@param baseUri   URL to resolve relative URLs against
+	@param whitelist white-list of permitted HTML elements
+	@return safe HTML (body fragment)
+	
+	@see Cleaner#clean(Document)
 	*/
 	public func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist) throws -> String? {
 		let dirty: Document = try parseBodyFragment(bodyHtml, baseUri)
@@ -227,28 +232,30 @@ import Foundation
 	}
 
 	/**
-	 Get safe HTML from untrusted input HTML, by parsing input HTML and filtering it through a white-list of permitted
-	 tags and attributes.
-	 
-	 - parameter bodyHtml:  input untrusted HTML (body fragment)
-	 - parameter whitelist: white-list of permitted HTML elements
-	 - returns: safe HTML (body fragment)
-	 - seealso: ``Cleaner/clean(_:)``
+	Get safe HTML from untrusted input HTML, by parsing input HTML and filtering it through a white-list of permitted
+	tags and attributes.
+	
+	@param bodyHtml  input untrusted HTML (body fragment)
+	@param whitelist white-list of permitted HTML elements
+	@return safe HTML (body fragment)
+	
+	@see Cleaner#clean(Document)
 	*/
 	public func clean(_ bodyHtml: String, _ whitelist: Whitelist) throws -> String? {
 		return try SwiftSoup.clean(bodyHtml, "", whitelist)
 	}
 
 	/**
-	 Get safe HTML from untrusted input HTML, by parsing input HTML and filtering it through a white-list of
-	 permitted tags and attributes.
-	 
-	 - parameter bodyHtml: input untrusted HTML (body fragment)
-	 - parameter baseUri: URL to resolve relative URLs against
-	 - parameter whitelist: white-list of permitted HTML elements
-	 - parameter outputSettings: document output settings; use to control pretty-printing and entity escape modes
-	 - returns: safe HTML (body fragment)
-	 - seealso: ``Cleaner/clean(_:)``
+	* Get safe HTML from untrusted input HTML, by parsing input HTML and filtering it through a white-list of
+	* permitted
+	* tags and attributes.
+	*
+	* @param bodyHtml input untrusted HTML (body fragment)
+	* @param baseUri URL to resolve relative URLs against
+	* @param whitelist white-list of permitted HTML elements
+	* @param outputSettings document output settings; use to control pretty-printing and entity escape modes
+	* @return safe HTML (body fragment)
+	* @see Cleaner#clean(Document)
 	*/
 	public func clean(
         _ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist, _ outputSettings: OutputSettings
@@ -260,14 +267,14 @@ import Foundation
 		return try clean.body()?.html()
 	}
 
-	/**
-	 Test if the input HTML has only tags and attributes allowed by the Whitelist. Useful for form validation. The input HTML should
-	 still be run through the cleaner to set up enforced attributes, and to tidy the output.
-	 - parameter bodyHtml: HTML to test
-	 - parameter whitelist: whitelist to test against
-	 - returns: true if no tags or attributes were removed; false otherwise
-	 - seealso: ``clean(_:_:)``
-	 */
+    /**
+     Test if the input HTML has only tags and attributes allowed by the Whitelist. Useful for form validation. The input HTML should
+     still be run through the cleaner to set up enforced attributes, and to tidy the output.
+     @param bodyHtml HTML to test
+     @param whitelist whitelist to test against
+     @return true if no tags or attributes were removed; false otherwise
+     @see #clean(String, Whitelist)
+     */
     public func isValid(_ bodyHtml: String, _ whitelist: Whitelist) throws -> Bool {
         let dirty = try parseBodyFragment(bodyHtml, "")
         let cleaner  = Cleaner(whitelist)

@@ -119,7 +119,7 @@ open class Token {
         
         func newAttribute() throws {
             if let pendingAttr = _pendingAttributeName, !pendingAttr.isEmpty {
-                let attribute: Attribute
+                var attribute: Attribute
                 if _hasPendingAttributeValue {
                     attribute = try Attribute(
                         key: pendingAttr,
@@ -135,7 +135,7 @@ open class Token {
                 }
                 _attributes?.put(attribute: attribute)
             }
-            _pendingAttributeName = nil
+            _pendingAttributeName?.removeAll(keepingCapacity: true)
             _hasEmptyAttributeValue = false
             _hasPendingAttributeValue = false
             Token.reset(_pendingAttributeValue)
@@ -191,11 +191,7 @@ open class Token {
         // these appenders are rarely hit in not null state-- caused by null chars.
         @inline(__always)
         func appendTagName(_ append: ArraySlice<UInt8>) {
-            if _tagName == nil {
-                _tagName = Array(append)
-            } else {
-                _tagName!.append(contentsOf: append)
-            }
+            _tagName = _tagName == nil ? Array(append) : (_tagName! + Array(append))
             _normalName = _tagName?.lowercased()
         }
         
@@ -211,11 +207,7 @@ open class Token {
         
         @inline(__always)
         func appendAttributeName(_ append: ArraySlice<UInt8>) {
-            if _pendingAttributeName == nil {
-                _pendingAttributeName = Array(append)
-            } else {
-                _pendingAttributeName!.append(contentsOf: append)
-            }
+            _pendingAttributeName = _pendingAttributeName == nil ? Array(append) : ((_pendingAttributeName ?? []) + Array(append))
         }
         
         @inline(__always)
