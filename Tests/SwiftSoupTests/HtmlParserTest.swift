@@ -621,4 +621,10 @@ class HtmlParserTest: XCTestCase {
 		XCTAssertEqual(try doc.select("span").first()!.children().size(), 0) // the span gets closed
 		XCTAssertEqual(try doc.select("table").size(), 1) // only one table
 	}
+    
+    func testParse_DoesNotCrashOnUnterminatedHtmlEntity() throws {
+        let html = "<a href='&lt"
+        let doc = try SwiftSoup.parse(html)
+        XCTAssertEqual(try doc.body()?.text(), "")
+    }
 }
