@@ -384,6 +384,9 @@ public final class CharacterReader {
     }
 
     public func matchesAny(_ seq: ParsingStrings) -> Bool {
+        guard input.count > pos
+        else { return false }
+        
         var buffer = [UInt8](repeating: 0, count: 4) // Max UTF-8 sequence is 4 bytes
         var length = 1
         buffer[0] = input[pos]
@@ -424,7 +427,9 @@ public final class CharacterReader {
     }
 
     public func matchesAny(_ seq: [[UInt8]]) -> Bool {
-        guard pos < end else { return false }
+        guard pos < end,
+              input.count > pos
+        else { return false }
         
         var buffer = [UInt8](repeating: 0, count: 4) // Max UTF-8 sequence is 4 bytes
         var length = 1
@@ -479,7 +484,9 @@ public final class CharacterReader {
     }
     
     public func matchesDigit() -> Bool {
-        guard pos < end else { return false }
+        guard pos < end,
+              input.count > pos
+        else { return false }
         
         var buffer = [UInt8](repeating: 0, count: 4)
         var length = 0
