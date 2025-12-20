@@ -150,7 +150,7 @@ open class Attributes: NSCopying {
         if normalizedKey == UTF8Arrays.class_ {
             ownerElement?.markClassQueryIndexDirty()
         }
-        if normalizedKey == Element.idString {
+        if normalizedKey == SwiftSoup.Element.idString {
             ownerElement?.markIdQueryIndexDirty()
         }
         ownerElement?.markAttributeQueryIndexDirty()
@@ -176,7 +176,7 @@ open class Attributes: NSCopying {
             if normalizedKey == UTF8Arrays.class_ {
                 ownerElement?.markClassQueryIndexDirty()
             }
-            if normalizedKey == Element.idString {
+            if normalizedKey == SwiftSoup.Element.idString {
                 ownerElement?.markIdQueryIndexDirty()
             }
             ownerElement?.markAttributeQueryIndexDirty()
@@ -198,7 +198,7 @@ open class Attributes: NSCopying {
             if normalizedKey == UTF8Arrays.class_ {
                 ownerElement?.markClassQueryIndexDirty()
             }
-            if normalizedKey == Element.idString {
+            if normalizedKey == SwiftSoup.Element.idString {
                 ownerElement?.markIdQueryIndexDirty()
             }
             ownerElement?.markAttributeQueryIndexDirty()

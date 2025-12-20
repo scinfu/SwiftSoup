@@ -37,26 +37,36 @@ open class Element: Node {
         "charset".utf8Array
     ].map { $0.lowercased() })
     
+    /// Lazily-built tag → elements index (normalized lowercase UTF‑8 keys), invalidated on mutations.
+    /// Optimizes hot tag selectors while preserving document order.
     @usableFromInline
     internal var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]]? = nil
     @usableFromInline
     internal var isTagQueryIndexDirty: Bool = false
     
+    /// Lazily-built class → elements index (normalized lowercase UTF‑8 keys).
+    /// Rebuilt on class/DOM mutations to avoid stale results.
     @usableFromInline
     internal var normalizedClassNameIndex: [[UInt8]: [Weak<Element>]]? = nil
     @usableFromInline
     internal var isClassQueryIndexDirty: Bool = false
     
+    /// Lazily-built id → elements index (id is case‑insensitive per HTML matching).
+    /// Multiple matches are preserved for non‑unique IDs; order is document order.
     @usableFromInline
     internal var normalizedIdIndex: [[UInt8]: [Weak<Element>]]? = nil
     @usableFromInline
     internal var isIdQueryIndexDirty: Bool = false
     
+    /// Lazily-built attribute-name → elements index (normalized lowercase UTF‑8 keys).
+    /// Keeps full scan out of attribute‑heavy selectors like [href], [data-*].
     @usableFromInline
     internal var normalizedAttributeNameIndex: [[UInt8]: [Weak<Element>]]? = nil
     @usableFromInline
     internal var isAttributeQueryIndexDirty: Bool = false
     
+    /// Lazily-built attribute-name → (value → elements) index for a curated hot list.
+    /// Focused to avoid index build cost dwarfing selector savings.
     @usableFromInline
     internal var normalizedAttributeValueIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]]? = nil
     @usableFromInline
@@ -137,6 +147,7 @@ open class Element: Node {
     public func tagName(_ tagName: [UInt8]) throws -> Element {
         try Validate.notEmpty(string: tagName, msg: "Tag name must not be empty.")
         _tag = try Tag.valueOf(tagName, ParseSettings.preserveCase) // preserve the requested tag case
+        markTagQueryIndexDirty()
         return self
     }
     
@@ -886,6 +897,9 @@ open class Element: Node {
     public func getElementsByAttribute(_ key: String) throws -> Elements {
         try Validate.notEmpty(string: key.utf8Array)
         let key = key.trim()
+        if key.lowercased().hasPrefix("abs:") {
+            return try Collector.collect(Evaluator.Attribute(key), self)
+        }
         let normalizedKey = key.utf8Array.lowercased().trim()
         
         if isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil {
@@ -919,6 +933,9 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValue(_ key: String, _ value: String)throws->Elements {
+        if key.lowercased().hasPrefix("abs:") {
+            return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
+        }
         let normalizedKey = key.utf8Array.lowercased().trim()
         if Element.isHotAttributeKey(normalizedKey) {
             if isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil {
@@ -1722,6 +1739,24 @@ open class Element: Node {
 }
 
 internal extension Element {
+    final class IndexBuilderVisitor: NodeVisitor {
+        private let handler: (Element) -> Void
+        
+        init(_ handler: @escaping (Element) -> Void) {
+            self.handler = handler
+        }
+        
+        func head(_ node: Node, _ depth: Int) {
+            if let element = node as? Element {
+                handler(element)
+            }
+        }
+        
+        func tail(_ node: Node, _ depth: Int) {
+            // void
+        }
+    }
+    
     @usableFromInline
     @inline(__always)
     func markQueryIndexesDirty() {
@@ -1822,25 +1857,16 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForAllTags() {
+        /// Index build is depth‑first to preserve document order.
         var newIndex: [[UInt8]: [Weak<Element>]] = [:]
-        var queue: [Node] = [self]
         
         let childNodeCount = childNodeSize()
         newIndex.reserveCapacity(childNodeCount * 4)
-        queue.reserveCapacity(childNodeCount)
         
-        var index = 0
-        while index < queue.count {
-            let node = queue[index]
-            index += 1  // Move to the next element
-            
-            if let element = node as? Element {
-                let key = element.tagNameNormalUTF8()
-                newIndex[key, default: []].append(Weak(element))
-            }
-            
-            queue.append(contentsOf: node.childNodes)
-        }
+        try? NodeTraversor(IndexBuilderVisitor { element in
+            let key = element.tagNameNormalUTF8()
+            newIndex[key, default: []].append(Weak(element))
+        }).traverse(self)
         
         normalizedTagNameIndex = newIndex
         isTagQueryIndexDirty = false
@@ -1849,24 +1875,18 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForAllClasses() {
+        /// Index build is depth‑first to preserve document order.
         var newIndex: [[UInt8]: [Weak<Element>]] = [:]
-        var queue: [Node] = [self]
         let childNodeCount = childNodeSize()
         newIndex.reserveCapacity(childNodeCount * 4)
-        queue.reserveCapacity(childNodeCount)
-        var idx = 0
-        while idx < queue.count {
-            let node = queue[idx]
-            idx += 1
-            if let element = node as? Element {
-                if let classNames = try? element.unorderedClassNamesUTF8() {
-                    for className in classNames {
-                        newIndex[Array(className.lowercased()), default: []].append(Weak(element))
-                    }
+        
+        try? NodeTraversor(IndexBuilderVisitor { element in
+            if let classNames = try? element.unorderedClassNamesUTF8() {
+                for className in classNames {
+                    newIndex[Array(className.lowercased()), default: []].append(Weak(element))
                 }
             }
-            queue.append(contentsOf: node.childNodes)
-        }
+        }).traverse(self)
         normalizedClassNameIndex = newIndex
         isClassQueryIndexDirty = false
     }
@@ -1874,26 +1894,19 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForAllIds() {
+        /// Index build is depth‑first to preserve document order.
         var newIndex: [[UInt8]: [Weak<Element>]] = [:]
-        var queue: [Node] = [self]
         
         let childNodeCount = childNodeSize()
         newIndex.reserveCapacity(childNodeCount)
-        queue.reserveCapacity(childNodeCount)
         
-        var index = 0
-        while index < queue.count {
-            let node = queue[index]
-            index += 1
-            
-            if let element = node as? Element, let attrs = element.getAttributes() {
+        try? NodeTraversor(IndexBuilderVisitor { element in
+            if let attrs = element.getAttributes() {
                 if let idValue = try? attrs.getIgnoreCase(key: Element.idString), !idValue.isEmpty {
                     newIndex[idValue, default: []].append(Weak(element))
                 }
             }
-            
-            queue.append(contentsOf: node.childNodes)
-        }
+        }).traverse(self)
         
         normalizedIdIndex = newIndex
         isIdQueryIndexDirty = false
@@ -1902,27 +1915,20 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForAllAttributes() {
+        /// Index build is depth‑first to preserve document order.
         var newIndex: [[UInt8]: [Weak<Element>]] = [:]
-        var queue: [Node] = [self]
         
         let childNodeCount = childNodeSize()
         newIndex.reserveCapacity(childNodeCount * 4)
-        queue.reserveCapacity(childNodeCount)
         
-        var index = 0
-        while index < queue.count {
-            let node = queue[index]
-            index += 1
-            
-            if let element = node as? Element, let attrs = element.getAttributes() {
+        try? NodeTraversor(IndexBuilderVisitor { element in
+            if let attrs = element.getAttributes() {
                 for attr in attrs.attributes {
                     let key = attr.getKeyUTF8().lowercased()
                     newIndex[key, default: []].append(Weak(element))
                 }
             }
-            
-            queue.append(contentsOf: node.childNodes)
-        }
+        }).traverse(self)
         
         normalizedAttributeNameIndex = newIndex
         isAttributeQueryIndexDirty = false
@@ -1931,19 +1937,13 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForHotAttributes() {
+        /// Index build is depth‑first to preserve document order for stable selector results.
         var newIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]] = [:]
-        var queue: [Node] = [self]
         
-        let childNodeCount = childNodeSize()
         newIndex.reserveCapacity(Element.hotAttributeIndexKeys.count)
-        queue.reserveCapacity(childNodeCount)
         
-        var index = 0
-        while index < queue.count {
-            let node = queue[index]
-            index += 1
-            
-            if let element = node as? Element, let attrs = element.getAttributes() {
+        try? NodeTraversor(IndexBuilderVisitor { element in
+            if let attrs = element.getAttributes() {
                 for attr in attrs.attributes {
                     let key = attr.getKeyUTF8().lowercased()
                     guard Element.isHotAttributeKey(key) else { continue }
@@ -1953,9 +1953,7 @@ internal extension Element {
                     newIndex[key] = valueIndex
                 }
             }
-            
-            queue.append(contentsOf: node.childNodes)
-        }
+        }).traverse(self)
         
         normalizedAttributeValueIndex = newIndex
         isAttributeValueQueryIndexDirty = false

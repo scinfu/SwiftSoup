@@ -669,6 +669,41 @@ class ElementTest: XCTestCase {
 		XCTAssertEqual(1, try doc.select("em").size())
 		XCTAssertEqual("<em>Hello</em>", try doc.select("div").first()!.html())
 	}
+    
+    func testTagIndexUpdatesAfterTagNameChange() throws {
+        let doc = try SwiftSoup.parse("<div><p id=1>One</p><p id=2>Two</p></div>")
+        XCTAssertEqual(2, try doc.getElementsByTag("p").size())
+        let first = try doc.getElementById("1")!
+        try first.tagName("span")
+        XCTAssertEqual(1, try doc.getElementsByTag("p").size())
+        XCTAssertEqual(1, try doc.getElementsByTag("span").size())
+        XCTAssertEqual("1", try doc.getElementsByTag("span").first()!.id())
+    }
+    
+    func testAttributeValueIndexCaseInsensitive() throws {
+        let doc = try SwiftSoup.parse("<a href=One id=1></a><a href=two id=2></a>")
+        let els = try doc.getElementsByAttributeValue("href", "one")
+        XCTAssertEqual(1, els.size())
+        XCTAssertEqual("1", els.get(0).id())
+    }
+    
+    func testAttributeNameIndexOrderPreserved() throws {
+        let doc = try SwiftSoup.parse("<div><a href=one id=1></a><span></span><a href=two id=2></a></div>")
+        let els = try doc.getElementsByAttribute("href")
+        XCTAssertEqual(2, els.size())
+        XCTAssertEqual("1", els.get(0).id())
+        XCTAssertEqual("2", els.get(1).id())
+    }
+    
+    func testClassIndexInvalidatesOnClassMutation() throws {
+        let doc = try SwiftSoup.parse("<div class=one id=1></div><div id=2></div>")
+        XCTAssertEqual(1, try doc.getElementsByClass("one").size())
+        let second = try doc.getElementById("2")!
+        try second.attr("class", "one")
+        XCTAssertEqual(2, try doc.getElementsByClass("one").size())
+        try second.removeAttr("class")
+        XCTAssertEqual(1, try doc.getElementsByClass("one").size())
+    }
 
 	func testHtmlContainsOuter() throws {
 		let doc: Document = try SwiftSoup.parse("<title>Check</title> <div>Hello there</div>")

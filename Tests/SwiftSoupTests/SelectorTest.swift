@@ -85,6 +85,20 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("Bar", try contains.first()?.attr("title"))
 		XCTAssertEqual("SLAM", try contains.last()?.attr("title"))
 	}
+    
+    func testSelectAttributeValueHotKeyOrder() throws {
+        let doc = try SwiftSoup.parse("<a href=one id=1></a><a href=two id=2></a><a href=one id=3></a>")
+        let els: Elements = try doc.select("[href=one]")
+        XCTAssertEqual(2, els.size())
+        XCTAssertEqual("1", els.get(0).id())
+        XCTAssertEqual("3", els.get(1).id())
+    }
+    
+    func testSelectAttributeAbsFallback() throws {
+        let doc = try SwiftSoup.parse("<a href=/one id=1></a><a href=/two id=2></a>")
+        let els: Elements = try doc.select("[abs:href]")
+        XCTAssertEqual(0, els.size())
+    }
 
 	func testNamespacedTag() throws {
 		let doc: Document = try SwiftSoup.parse("<div><abc:def id=1>Hello</abc:def></div> <abc:def class=bold id=2>There</abc:def>")

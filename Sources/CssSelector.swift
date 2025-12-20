@@ -158,6 +158,8 @@ open class CssSelector {
         return try Collector.collect(evaluator, root)
     }
     
+    /// Fast‑path for simple selectors that map directly onto indexed queries.
+    /// Avoids full DOM traversal when the evaluator is a single primitive selector.
     private static func fastSelect(_ evaluator: Evaluator, _ root: Element) throws -> Elements? {
         if let eval = evaluator as? Evaluator.Tag {
             return try root.getElementsByTag(eval.tagNameNormal)
