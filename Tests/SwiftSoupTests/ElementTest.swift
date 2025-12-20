@@ -189,6 +189,40 @@ class ElementTest: XCTestCase {
 		let none: Elements = try! doc.getElementsByAttributeValue("style", "none")
 		XCTAssertEqual(0, none.size())
 	}
+    
+    func testAttributeIndexesInvalidateOnMutation() throws {
+        let doc = try SwiftSoup.parse("<div><a href=one>One</a><a>Two</a></div>")
+        var withHref = try doc.getElementsByAttribute("href")
+        XCTAssertEqual(1, withHref.size())
+        
+        let second = try doc.select("a").get(1)
+        try second.attr("href", "two")
+        withHref = try doc.getElementsByAttribute("href")
+        XCTAssertEqual(2, withHref.size())
+        
+        var byValue = try doc.getElementsByAttributeValue("href", "two")
+        XCTAssertEqual(1, byValue.size())
+        XCTAssertEqual("Two", try byValue.get(0).text())
+        
+        try second.removeAttr("href")
+        withHref = try doc.getElementsByAttribute("href")
+        XCTAssertEqual(1, withHref.size())
+        
+        byValue = try doc.getElementsByAttributeValue("href", "two")
+        XCTAssertEqual(0, byValue.size())
+    }
+    
+    func testIdIndexInvalidatesOnMutation() throws {
+        let doc = try SwiftSoup.parse("<div id=one></div><div></div>")
+        XCTAssertNotNil(try doc.getElementById("one"))
+        
+        let second = try doc.select("div").get(1)
+        try second.attr("id", "two")
+        XCTAssertNotNil(try doc.getElementById("two"))
+        
+        try second.removeAttr("id")
+        XCTAssertNil(try doc.getElementById("two"))
+    }
 
 	func testClassDomMethods() {
 		let doc: Document = try! SwiftSoup.parse("<div><span class=' mellow yellow '>Hello <b>Yellow</b></span></div>")

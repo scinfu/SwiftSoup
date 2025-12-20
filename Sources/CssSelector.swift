@@ -152,7 +152,29 @@ open class CssSelector {
     }
 
     private func select()throws->Elements {
+        if let fast = try CssSelector.fastSelect(evaluator, root) {
+            return fast
+        }
         return try Collector.collect(evaluator, root)
+    }
+    
+    private static func fastSelect(_ evaluator: Evaluator, _ root: Element) throws -> Elements? {
+        if let eval = evaluator as? Evaluator.Tag {
+            return try root.getElementsByTag(eval.tagNameNormal)
+        }
+        if let eval = evaluator as? Evaluator.Id {
+            return root.getElementsById(eval.id.utf8Array)
+        }
+        if let eval = evaluator as? Evaluator.Class {
+            return try root.getElementsByClass(eval.className)
+        }
+        if let eval = evaluator as? Evaluator.Attribute {
+            return try root.getElementsByAttribute(eval.key)
+        }
+        if let eval = evaluator as? Evaluator.AttributeWithValue {
+            return try root.getElementsByAttributeValue(eval.key, eval.value)
+        }
+        return nil
     }
 
     // exclude set. package open so that Elements can implement .not() selector.

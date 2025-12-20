@@ -12,8 +12,30 @@ open class Element: Node {
     
     private static let classString = "class".utf8Array
     private static let emptyString = "".utf8Array
-    private static let idString = "id".utf8Array
+    @usableFromInline
+    internal static let idString = "id".utf8Array
     private static let rootString = "#root".utf8Array
+    @usableFromInline
+    internal static let hotAttributeIndexKeys: Set<[UInt8]> = Set([
+        "href".utf8Array,
+        "src".utf8Array,
+        "srcset".utf8Array,
+        "data-src".utf8Array,
+        "data-srcset".utf8Array,
+        "data-original".utf8Array,
+        "data-lazy-src".utf8Array,
+        "data-lazy-srcset".utf8Array,
+        "rel".utf8Array,
+        "itemtype".utf8Array,
+        "itemprop".utf8Array,
+        "property".utf8Array,
+        "name".utf8Array,
+        "content".utf8Array,
+        "role".utf8Array,
+        "aria-hidden".utf8Array,
+        "type".utf8Array,
+        "charset".utf8Array
+    ].map { $0.lowercased() })
     
     @usableFromInline
     internal var normalizedTagNameIndex: [[UInt8]: [Weak<Element>]]? = nil
@@ -24,6 +46,21 @@ open class Element: Node {
     internal var normalizedClassNameIndex: [[UInt8]: [Weak<Element>]]? = nil
     @usableFromInline
     internal var isClassQueryIndexDirty: Bool = false
+    
+    @usableFromInline
+    internal var normalizedIdIndex: [[UInt8]: [Weak<Element>]]? = nil
+    @usableFromInline
+    internal var isIdQueryIndexDirty: Bool = false
+    
+    @usableFromInline
+    internal var normalizedAttributeNameIndex: [[UInt8]: [Weak<Element>]]? = nil
+    @usableFromInline
+    internal var isAttributeQueryIndexDirty: Bool = false
+    
+    @usableFromInline
+    internal var normalizedAttributeValueIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]]? = nil
+    @usableFromInline
+    internal var isAttributeValueQueryIndexDirty: Bool = false
     
     /**
      Create a new, standalone Element. (Standalone in that is has no parent.)
@@ -781,6 +818,28 @@ open class Element: Node {
     }
     
     /**
+     Find elements by ID, including or under this element.
+     
+     - parameter id: The ID to search for.
+     - returns: Elements matching the ID, empty if none.
+     */
+    @usableFromInline
+    func getElementsById(_ id: [UInt8]) -> Elements {
+        let key = id.trim()
+        if key.isEmpty {
+            return Elements()
+        }
+        
+        if isIdQueryIndexDirty || normalizedIdIndex == nil {
+            rebuildQueryIndexesForAllIds()
+            isIdQueryIndexDirty = false
+        }
+        
+        let results = normalizedIdIndex?[key]?.compactMap { $0.value } ?? []
+        return Elements(results)
+    }
+    
+    /**
      Find an element by ID, including or under this element.
      
      Note that this finds the first matching ID, starting with this element. If you search down from a different
@@ -792,13 +851,8 @@ open class Element: Node {
     @inline(__always)
     public func getElementById(_ id: String) throws -> Element? {
         try Validate.notEmpty(string: id.utf8Array)
-        
-        let elements: Elements = try Collector.collect(Evaluator.Id(id), self)
-        if !elements.array().isEmpty {
-            return elements.get(0)
-        } else {
-            return nil
-        }
+        let elements = getElementsById(id.utf8Array)
+        return elements.array().isEmpty ? nil : elements.get(0)
     }
     
     /**
@@ -832,7 +886,15 @@ open class Element: Node {
     public func getElementsByAttribute(_ key: String) throws -> Elements {
         try Validate.notEmpty(string: key.utf8Array)
         let key = key.trim()
-        return try Collector.collect(Evaluator.Attribute(key), self)
+        let normalizedKey = key.utf8Array.lowercased().trim()
+        
+        if isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil {
+            rebuildQueryIndexesForAllAttributes()
+            isAttributeQueryIndexDirty = false
+        }
+        
+        let results = normalizedAttributeNameIndex?[normalizedKey]?.compactMap { $0.value } ?? []
+        return Elements(results)
     }
     
     /**
@@ -857,6 +919,16 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValue(_ key: String, _ value: String)throws->Elements {
+        let normalizedKey = key.utf8Array.lowercased().trim()
+        if Element.isHotAttributeKey(normalizedKey) {
+            if isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil {
+                rebuildQueryIndexesForHotAttributes()
+                isAttributeValueQueryIndexDirty = false
+            }
+            let normalizedValue = value.utf8Array.trim().lowercased()
+            let results = normalizedAttributeValueIndex?[normalizedKey]?[normalizedValue]?.compactMap { $0.value } ?? []
+            return Elements(results)
+        }
         return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
     }
     
@@ -1659,6 +1731,9 @@ internal extension Element {
             if let el = node as? Element {
                 el.isTagQueryIndexDirty = true
                 el.isClassQueryIndexDirty = true
+                el.isIdQueryIndexDirty = true
+                el.isAttributeQueryIndexDirty = true
+                el.isAttributeValueQueryIndexDirty = true
             }
             current = node.parentNode
         }
@@ -1688,6 +1763,60 @@ internal extension Element {
             }
             current = node.parentNode
         }
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    func markIdQueryIndexDirty() {
+        guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
+        var current: Node? = self
+        while let node = current {
+            if let el = node as? Element {
+                el.isIdQueryIndexDirty = true
+            }
+            current = node.parentNode
+        }
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    func markAttributeQueryIndexDirty() {
+        guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
+        var current: Node? = self
+        while let node = current {
+            if let el = node as? Element {
+                el.isAttributeQueryIndexDirty = true
+            }
+            current = node.parentNode
+        }
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    func markAttributeValueQueryIndexDirty() {
+        guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
+        var current: Node? = self
+        while let node = current {
+            if let el = node as? Element {
+                el.isAttributeValueQueryIndexDirty = true
+            }
+            current = node.parentNode
+        }
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    func markAttributeValueQueryIndexDirty(for key: [UInt8]) {
+        let normalizedKey = key.lowercased()
+        if Element.isHotAttributeKey(normalizedKey) {
+            markAttributeValueQueryIndexDirty()
+        }
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    static func isHotAttributeKey(_ normalizedKey: [UInt8]) -> Bool {
+        return hotAttributeIndexKeys.contains(normalizedKey)
     }
     
     @usableFromInline
@@ -1742,10 +1871,107 @@ internal extension Element {
         isClassQueryIndexDirty = false
     }
     
+    @usableFromInline
+    @inline(__always)
+    func rebuildQueryIndexesForAllIds() {
+        var newIndex: [[UInt8]: [Weak<Element>]] = [:]
+        var queue: [Node] = [self]
+        
+        let childNodeCount = childNodeSize()
+        newIndex.reserveCapacity(childNodeCount)
+        queue.reserveCapacity(childNodeCount)
+        
+        var index = 0
+        while index < queue.count {
+            let node = queue[index]
+            index += 1
+            
+            if let element = node as? Element, let attrs = element.getAttributes() {
+                if let idValue = try? attrs.getIgnoreCase(key: Element.idString), !idValue.isEmpty {
+                    newIndex[idValue, default: []].append(Weak(element))
+                }
+            }
+            
+            queue.append(contentsOf: node.childNodes)
+        }
+        
+        normalizedIdIndex = newIndex
+        isIdQueryIndexDirty = false
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    func rebuildQueryIndexesForAllAttributes() {
+        var newIndex: [[UInt8]: [Weak<Element>]] = [:]
+        var queue: [Node] = [self]
+        
+        let childNodeCount = childNodeSize()
+        newIndex.reserveCapacity(childNodeCount * 4)
+        queue.reserveCapacity(childNodeCount)
+        
+        var index = 0
+        while index < queue.count {
+            let node = queue[index]
+            index += 1
+            
+            if let element = node as? Element, let attrs = element.getAttributes() {
+                for attr in attrs.attributes {
+                    let key = attr.getKeyUTF8().lowercased()
+                    newIndex[key, default: []].append(Weak(element))
+                }
+            }
+            
+            queue.append(contentsOf: node.childNodes)
+        }
+        
+        normalizedAttributeNameIndex = newIndex
+        isAttributeQueryIndexDirty = false
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    func rebuildQueryIndexesForHotAttributes() {
+        var newIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]] = [:]
+        var queue: [Node] = [self]
+        
+        let childNodeCount = childNodeSize()
+        newIndex.reserveCapacity(Element.hotAttributeIndexKeys.count)
+        queue.reserveCapacity(childNodeCount)
+        
+        var index = 0
+        while index < queue.count {
+            let node = queue[index]
+            index += 1
+            
+            if let element = node as? Element, let attrs = element.getAttributes() {
+                for attr in attrs.attributes {
+                    let key = attr.getKeyUTF8().lowercased()
+                    guard Element.isHotAttributeKey(key) else { continue }
+                    let value = attr.getValueUTF8().trim().lowercased()
+                    var valueIndex = newIndex[key] ?? [:]
+                    valueIndex[value, default: []].append(Weak(element))
+                    newIndex[key] = valueIndex
+                }
+            }
+            
+            queue.append(contentsOf: node.childNodes)
+        }
+        
+        normalizedAttributeValueIndex = newIndex
+        isAttributeValueQueryIndexDirty = false
+    }
+    
     @inlinable
     func rebuildQueryIndexesForThisNodeOnly() {
         normalizedTagNameIndex = nil
+        normalizedClassNameIndex = nil
+        normalizedIdIndex = nil
+        normalizedAttributeNameIndex = nil
+        normalizedAttributeValueIndex = nil
         markTagQueryIndexDirty()
         markClassQueryIndexDirty()
+        markIdQueryIndexDirty()
+        markAttributeQueryIndexDirty()
+        markAttributeValueQueryIndexDirty()
     }
 }

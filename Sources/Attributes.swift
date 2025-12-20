@@ -26,6 +26,9 @@ open class Attributes: NSCopying {
         @inline(__always)
         didSet {
             ownerElement?.markClassQueryIndexDirty()
+            ownerElement?.markIdQueryIndexDirty()
+            ownerElement?.markAttributeQueryIndexDirty()
+            ownerElement?.markAttributeValueQueryIndexDirty()
             invalidateLowercasedKeysCache()
         }
     }
@@ -137,15 +140,21 @@ open class Attributes: NSCopying {
     @inline(__always)
     open func put(attribute: Attribute) {
         let key = attribute.getKeyUTF8()
+        let normalizedKey = key.lowercased()
         if let ix = attributes.firstIndex(where: { $0.getKeyUTF8() == key }) {
             attributes[ix] = attribute
         } else {
             attributes.append(attribute)
         }
         invalidateLowercasedKeysCache()
-        if key.lowercased() == UTF8Arrays.class_ {
+        if normalizedKey == UTF8Arrays.class_ {
             ownerElement?.markClassQueryIndexDirty()
         }
+        if normalizedKey == Element.idString {
+            ownerElement?.markIdQueryIndexDirty()
+        }
+        ownerElement?.markAttributeQueryIndexDirty()
+        ownerElement?.markAttributeValueQueryIndexDirty(for: key)
     }
     
     /**
@@ -163,9 +172,15 @@ open class Attributes: NSCopying {
         if let ix = attributes.firstIndex(where: { $0.getKeyUTF8() == key }) {
             attributes.remove(at: ix)
             invalidateLowercasedKeysCache()
-            if key.lowercased() == UTF8Arrays.class_ {
+            let normalizedKey = key.lowercased()
+            if normalizedKey == UTF8Arrays.class_ {
                 ownerElement?.markClassQueryIndexDirty()
             }
+            if normalizedKey == Element.idString {
+                ownerElement?.markIdQueryIndexDirty()
+            }
+            ownerElement?.markAttributeQueryIndexDirty()
+            ownerElement?.markAttributeValueQueryIndexDirty(for: key)
         }
     }
     
@@ -177,11 +192,17 @@ open class Attributes: NSCopying {
     open func removeIgnoreCase(key: [UInt8]) throws {
         try Validate.notEmpty(string: key)
         if let ix = attributes.firstIndex(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame}) {
+            let normalizedKey = key.lowercased()
             attributes.remove(at: ix)
             invalidateLowercasedKeysCache()
-            if key.lowercased() == UTF8Arrays.class_ {
+            if normalizedKey == UTF8Arrays.class_ {
                 ownerElement?.markClassQueryIndexDirty()
             }
+            if normalizedKey == Element.idString {
+                ownerElement?.markIdQueryIndexDirty()
+            }
+            ownerElement?.markAttributeQueryIndexDirty()
+            ownerElement?.markAttributeValueQueryIndexDirty(for: key)
         }
     }
     
