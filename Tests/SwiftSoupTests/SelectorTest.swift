@@ -85,6 +85,28 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("Bar", try contains.first()?.attr("title"))
 		XCTAssertEqual("SLAM", try contains.last()?.attr("title"))
 	}
+
+    func testSelectTagAndClass() throws {
+        let doc = try SwiftSoup.parse("<div><p class=lead id=1></p><p class=lead id=2></p><span class=lead id=3></span></div>")
+        let els = try doc.select("p.lead")
+        XCTAssertEqual(2, els.size())
+        XCTAssertEqual("1", els.get(0).id())
+        XCTAssertEqual("2", els.get(1).id())
+    }
+
+    func testSelectTagAndAttributeValueHot() throws {
+        let doc = try SwiftSoup.parse("<a href=one id=1></a><a href=two id=2></a><a href=one id=3></a>")
+        let els = try doc.select("a[href=two]")
+        XCTAssertEqual(1, els.size())
+        XCTAssertEqual("2", els.get(0).id())
+    }
+
+    func testSelectTagClassAndId() throws {
+        let doc = try SwiftSoup.parse("<div class=card id=hit></div><div class=card id=miss></div><span class=card id=hit2></span>")
+        let els = try doc.select("div.card#hit")
+        XCTAssertEqual(1, els.size())
+        XCTAssertEqual("hit", els.get(0).id())
+    }
     
     func testSelectAttributeValueHotKeyOrder() throws {
         let doc = try SwiftSoup.parse("<a href=one id=1></a><a href=two id=2></a><a href=one id=3></a>")

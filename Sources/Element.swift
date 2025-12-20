@@ -72,6 +72,12 @@ open class Element: Node {
     @usableFromInline
     internal var isAttributeValueQueryIndexDirty: Bool = false
     
+    /// Cached normalized text (UTF‑8) for trim+normalize path.
+    @usableFromInline
+    internal var cachedTextUTF8: [UInt8]? = nil
+    @usableFromInline
+    internal var cachedTextVersion: Int = -1
+    
     /**
      Create a new, standalone Element. (Standalone in that is has no parent.)
      
@@ -148,6 +154,7 @@ open class Element: Node {
         try Validate.notEmpty(string: tagName, msg: "Tag name must not be empty.")
         _tag = try Tag.valueOf(tagName, ParseSettings.preserveCase) // preserve the requested tag case
         markTagQueryIndexDirty()
+        bumpTextMutationVersion()
         return self
     }
     
@@ -645,6 +652,7 @@ open class Element: Node {
     public func empty() -> Element {
         markQueryIndexesDirty()
         childNodes.removeAll()
+        bumpTextMutationVersion()
         return self
     }
     
@@ -1173,6 +1181,19 @@ open class Element: Node {
     }
     
     public func text(trimAndNormaliseWhitespace: Bool = true) throws -> String {
+        if trimAndNormaliseWhitespace {
+            let version = textMutationRoot().textMutationVersion
+            if cachedTextVersion == version, let cachedTextUTF8 {
+                return String(decoding: cachedTextUTF8, as: UTF8.self)
+            }
+            let accum: StringBuilder = StringBuilder()
+            try NodeTraversor(TextNodeVisitor(accum, trimAndNormaliseWhitespace: true)).traverse(self)
+            let text = accum.toString().trim()
+            let textUTF8 = text.utf8Array
+            cachedTextUTF8 = textUTF8
+            cachedTextVersion = version
+            return text
+        }
         let accum: StringBuilder = StringBuilder()
         try NodeTraversor(TextNodeVisitor(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)).traverse(self)
         let text = accum.toString()

@@ -33,6 +33,10 @@ open class Node: Equatable, Hashable {
         }
     }
     
+    /// Text cache versioning for the root of a tree (Document or standalone root Element).
+    @usableFromInline
+    internal var textMutationVersion: Int = 0
+    
     /// Reference back to the parser that built this node (for bulk-build flag checks)
     @usableFromInline
     weak var treeBuilder: TreeBuilder?
@@ -384,6 +388,23 @@ open class Node: Equatable, Hashable {
         try parentNode?.removeChild(self)
     }
     
+    @inline(__always)
+    @usableFromInline
+    internal func textMutationRoot() -> Node {
+        var node: Node = self
+        while let parent = node.parentNode {
+            node = parent
+        }
+        return node
+    }
+    
+    @inline(__always)
+    @usableFromInline
+    internal func bumpTextMutationVersion() {
+        let root = textMutationRoot()
+        root.textMutationVersion &+= 1
+    }
+    
     /**
      Insert the specified HTML into the DOM before this node (i.e. as a preceding sibling).
      - parameter html: HTML to add before this node
@@ -617,6 +638,10 @@ open class Node: Equatable, Hashable {
         input.parentNode = self
         input.setSiblingIndex(index)
         out.parentNode = nil
+        if (out is Element) || (input is Element), let element = self as? Element {
+            element.markQueryIndexesDirty()
+        }
+        bumpTextMutationVersion()
     }
     
     @inlinable
@@ -626,6 +651,10 @@ open class Node: Equatable, Hashable {
         childNodes.remove(at: index)
         reindexChildren(index)
         out.parentNode = nil
+        if out is Element, let element = self as? Element {
+            element.markQueryIndexesDirty()
+        }
+        bumpTextMutationVersion()
     }
     
     @inline(__always)
@@ -642,6 +671,7 @@ open class Node: Equatable, Hashable {
             childNodes.append(child)
             child.setSiblingIndex(childNodes.count - 1)
         }
+        bumpTextMutationVersion()
     }
     
     @inline(__always)
@@ -656,6 +686,7 @@ open class Node: Equatable, Hashable {
             childNodes.insert(input, at: index)
             reindexChildren(index)
         }
+        bumpTextMutationVersion()
     }
     
     @inline(__always)

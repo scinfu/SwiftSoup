@@ -65,6 +65,7 @@ open class TextNode: Node {
     public func text(_ text: String) -> TextNode {
         _text = text.utf8Array
         guard let attributes = attributes else {
+            bumpTextMutationVersion()
             return self
         }
         do {
@@ -72,6 +73,7 @@ open class TextNode: Node {
         } catch {
 
         }
+        bumpTextMutationVersion()
         return self
     }
 

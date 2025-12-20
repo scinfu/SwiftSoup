@@ -176,6 +176,63 @@ open class CssSelector {
         if let eval = evaluator as? Evaluator.AttributeWithValue {
             return try root.getElementsByAttributeValue(eval.key, eval.value)
         }
+        if let eval = evaluator as? CombiningEvaluator.And {
+            return try fastSelectAnd(eval, root)
+        }
+        return nil
+    }
+
+    private struct IndexedCandidate {
+        let elements: Elements
+        let priority: Int
+    }
+
+    /// Fast‑path for AND chains: pick a cheap indexed candidate set, then filter by the full evaluator list.
+    private static func fastSelectAnd(_ evaluator: CombiningEvaluator.And, _ root: Element) throws -> Elements? {
+        var best: IndexedCandidate? = nil
+        for sub in evaluator.evaluators {
+            if let candidate = try indexedCandidate(for: sub, root) {
+                if best == nil || candidate.priority < best!.priority {
+                    best = candidate
+                }
+            }
+        }
+        guard let best else { return nil }
+
+        let output = Elements()
+        for element in best.elements.array() {
+            var matchesAll = true
+            for sub in evaluator.evaluators {
+                if try !sub.matches(root, element) {
+                    matchesAll = false
+                    break
+                }
+            }
+            if matchesAll {
+                output.add(element)
+            }
+        }
+        return output
+    }
+
+    private static func indexedCandidate(for evaluator: Evaluator, _ root: Element) throws -> IndexedCandidate? {
+        if let eval = evaluator as? Evaluator.Id {
+            return IndexedCandidate(elements: root.getElementsById(eval.id.utf8Array), priority: 0)
+        }
+        if let eval = evaluator as? Evaluator.AttributeWithValue {
+            let normalizedKey = eval.key.utf8Array.lowercased().trim()
+            guard Element.isHotAttributeKey(normalizedKey) else { return nil }
+            return IndexedCandidate(elements: try root.getElementsByAttributeValue(eval.key, eval.value), priority: 1)
+        }
+        if let eval = evaluator as? Evaluator.Class {
+            return IndexedCandidate(elements: try root.getElementsByClass(eval.className), priority: 2)
+        }
+        if let eval = evaluator as? Evaluator.Tag {
+            return IndexedCandidate(elements: try root.getElementsByTag(eval.tagNameNormal), priority: 3)
+        }
+        if let eval = evaluator as? Evaluator.Attribute {
+            return IndexedCandidate(elements: try root.getElementsByAttribute(eval.key), priority: 4)
+        }
         return nil
     }
 

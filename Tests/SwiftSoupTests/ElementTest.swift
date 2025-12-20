@@ -705,6 +705,133 @@ class ElementTest: XCTestCase {
         XCTAssertEqual(1, try doc.getElementsByClass("one").size())
     }
 
+    func testTagIndexInvalidatesOnRemoveChild() throws {
+        let doc = try SwiftSoup.parse("<div id=wrap><p id=a>One</p><p id=b>Two</p></div>")
+        let wrap = try doc.getElementById("wrap")!
+        _ = try wrap.getElementsByTag("p") // build index
+        let first = try doc.getElementById("a")!
+        try first.remove()
+        let remaining = try wrap.getElementsByTag("p")
+        XCTAssertEqual(1, remaining.size())
+        XCTAssertEqual("b", remaining.first()!.id())
+    }
+
+    func testTagIndexInvalidatesOnReparent() throws {
+        let doc = try SwiftSoup.parse("<div id=one><p id=move>One</p></div><div id=two></div>")
+        let one = try doc.getElementById("one")!
+        let two = try doc.getElementById("two")!
+        _ = try one.getElementsByTag("p") // build index on old parent
+        let move = try doc.getElementById("move")!
+        try two.appendChild(move)
+        XCTAssertEqual(0, try one.getElementsByTag("p").size())
+        let moved = try two.getElementsByTag("p")
+        XCTAssertEqual(1, moved.size())
+        XCTAssertEqual("move", moved.first()!.id())
+    }
+
+    func testIdIndexInvalidatesOnRemoveChild() throws {
+        let doc = try SwiftSoup.parse("<div><p id=gone>One</p></div>")
+        XCTAssertNotNil(try doc.getElementById("gone"))
+        let gone = try doc.getElementById("gone")!
+        try gone.remove()
+        XCTAssertNil(try doc.getElementById("gone"))
+    }
+
+    func testAttributeIndexesInvalidateOnRemoveAttr() throws {
+        let doc = try SwiftSoup.parse("<a id=1 href=one></a><a id=2 href=two></a>")
+        let first = try doc.getElementById("1")!
+        _ = try doc.getElementsByAttributeValue("href", "one")
+        try first.removeAttr("href")
+        XCTAssertEqual(0, try doc.getElementsByAttributeValue("href", "one").size())
+        XCTAssertEqual(1, try doc.getElementsByAttribute("href").size())
+    }
+
+    func testAttributeValueIndexInvalidatesOnValueChange() throws {
+        let doc = try SwiftSoup.parse("<a id=1 href=one></a><a id=2 href=two></a>")
+        XCTAssertEqual(1, try doc.getElementsByAttributeValue("href", "one").size())
+        let first = try doc.getElementById("1")!
+        try first.attr("href", "two")
+        XCTAssertEqual(0, try doc.getElementsByAttributeValue("href", "one").size())
+        XCTAssertEqual(2, try doc.getElementsByAttributeValue("href", "two").size())
+    }
+    
+    func testTextCacheInvalidatesOnTextMutation() throws {
+        let doc = try SwiftSoup.parse("<div><p id=1>Hello</p></div>")
+        XCTAssertEqual("Hello", try doc.text())
+        let p = try doc.getElementById("1")!
+        try p.text("Updated")
+        XCTAssertEqual("Updated", try doc.text())
+    }
+    
+    func testTextCacheInvalidatesOnStructuralChange() throws {
+        let doc = try SwiftSoup.parse("<div id=1><p>One</p></div>")
+        XCTAssertEqual("One", try doc.text())
+        let div = try doc.getElementById("1")!
+        try div.append("<p>Two</p>")
+        XCTAssertEqual("One Two", try doc.text())
+    }
+
+    func testTextCacheInvalidatesOnTagNameChange() throws {
+        let doc = try SwiftSoup.parse("<div><span id=one>One</span><span id=two>Two</span></div>")
+        XCTAssertEqual("OneTwo", try doc.text())
+        let two = try doc.getElementById("two")!
+        try two.tagName("br")
+        XCTAssertEqual("One Two", try doc.text())
+    }
+    
+    func testTextCacheInvalidatesOnRemove() throws {
+        let doc = try SwiftSoup.parse("<div id=1><p>One</p><p>Two</p></div>")
+        XCTAssertEqual("One Two", try doc.text())
+        let first = try doc.select("p").get(0)
+        try first.remove()
+        XCTAssertEqual("Two", try doc.text())
+    }
+    
+    func testTextCacheInvalidatesOnReplaceWith() throws {
+        let doc = try SwiftSoup.parse("<div id=1><p>One</p></div>")
+        XCTAssertEqual("One", try doc.text())
+        let p = try doc.select("p").first()!
+        let span = try SwiftSoup.parse("<span>Two</span>").select("span").first()!
+        try p.replaceWith(span)
+        XCTAssertEqual("Two", try doc.text())
+    }
+    
+    func testTextCacheInvalidatesOnTextNodeSplit() throws {
+        let doc = try SwiftSoup.parse("<p id=1>HelloWorld</p>")
+        XCTAssertEqual("HelloWorld", try doc.text())
+        let p = try doc.getElementById("1")!
+        let tn = p.textNodes().first!
+        _ = try tn.splitText(5)
+        XCTAssertEqual("HelloWorld", try doc.text())
+    }
+    
+    func testTextCacheInvalidatesOnUnwrap() throws {
+        let doc = try SwiftSoup.parse("<div id=1><span>One</span></div>")
+        XCTAssertEqual("One", try doc.text())
+        let span = try doc.select("span").first()!
+        _ = try span.unwrap()
+        XCTAssertEqual("One", try doc.text())
+    }
+    
+    func testTextCacheInvalidatesOnBeforeAfter() throws {
+        let doc = try SwiftSoup.parse("<div id=1><p>One</p></div>")
+        XCTAssertEqual("One", try doc.text())
+        let p = try doc.select("p").first()!
+        try p.before("<span>Zero</span>")
+        try p.after("<span>Two</span>")
+        XCTAssertEqual("Zero OneTwo", try doc.text())
+    }
+    
+    func testTextCacheInvalidatesOnReplaceChild() throws {
+        let doc = try SwiftSoup.parse("<div id=1><p>One</p></div>")
+        XCTAssertEqual("One", try doc.text())
+        let div = try doc.getElementById("1")!
+        let p = div.child(0)
+        let span = try SwiftSoup.parse("<span>Two</span>").select("span").first()!
+        try div.replaceChild(p, span)
+        XCTAssertEqual("Two", try doc.text())
+    }
+
 	func testHtmlContainsOuter() throws {
 		let doc: Document = try SwiftSoup.parse("<title>Check</title> <div>Hello there</div>")
 		doc.outputSettings().indentAmount(indentAmount: 0)
