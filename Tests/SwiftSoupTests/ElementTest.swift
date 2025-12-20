@@ -754,6 +754,148 @@ class ElementTest: XCTestCase {
         XCTAssertEqual(0, try doc.getElementsByAttributeValue("href", "one").size())
         XCTAssertEqual(2, try doc.getElementsByAttributeValue("href", "two").size())
     }
+
+    func testIndexesStayCorrectAfterMutationSequence() throws {
+        let doc = try SwiftSoup.parse(
+            "<div id=wrap>" +
+            "<p id=a class=one href=one>One</p>" +
+            "<p id=b class=two>Two</p>" +
+            "<span id=c class=one data-x=1>Three</span>" +
+            "</div>"
+        )
+
+        // Prime indexes before mutations.
+        _ = try doc.getElementsByTag("p")
+        _ = try doc.getElementsByClass("one")
+        _ = try doc.getElementById("b")
+        _ = try doc.getElementsByAttribute("href")
+        _ = try doc.getElementsByAttributeValue("href", "one")
+
+        let a = try doc.getElementById("a")!
+        let b = try doc.getElementById("b")!
+        let c = try doc.getElementById("c")!
+
+        try a.tagName("span")
+        try b.attr("class", "one")
+        try b.attr("href", "two")
+        try c.attr("href", "one")
+        try a.removeAttr("class")
+        try b.remove()
+
+        let wrap = try doc.getElementById("wrap")!
+        _ = try wrap.appendElement("p").attr("id", "new").attr("class", "one").attr("href", "one").text("New")
+
+        func ids(_ elements: Elements) -> [String] {
+            return elements.array().map { $0.id() }
+        }
+
+        XCTAssertEqual(ids(try doc.select("p")), ids(try doc.getElementsByTag("p")))
+        XCTAssertEqual(ids(try doc.select(".one")), ids(try doc.getElementsByClass("one")))
+        XCTAssertEqual(ids(try doc.select("[href]")), ids(try doc.getElementsByAttribute("href")))
+        XCTAssertEqual(ids(try doc.select("[href=one]")), ids(try doc.getElementsByAttributeValue("href", "one")))
+        XCTAssertEqual(try doc.select("p.one[href=one]").first()?.id(), "new")
+    }
+
+    func testIndexesStayCorrectAfterUnwrapAndReplace() throws {
+        let doc = try SwiftSoup.parse(
+            "<div id=wrap>" +
+            "<section id=sec class=one>" +
+            "<p id=p1 class=lead href=one>One</p>" +
+            "<p id=p2 class=lead href=two>Two</p>" +
+            "</section>" +
+            "<div id=box class=card></div>" +
+            "</div>"
+        )
+
+        // Prime indexes.
+        _ = try doc.getElementsByTag("p")
+        _ = try doc.getElementsByClass("lead")
+        _ = try doc.getElementsByAttribute("href")
+        _ = try doc.getElementsByAttributeValue("href", "one")
+
+        let sec = try doc.getElementById("sec")!
+        _ = try sec.unwrap()
+
+        let box = try doc.getElementById("box")!
+        let replacement = try SwiftSoup.parse("<p id=rep class=lead href=one>Rep</p>").select("p").first()!
+        try box.replaceWith(replacement)
+
+        func ids(_ elements: Elements) -> [String] {
+            return elements.array().map { $0.id() }
+        }
+
+        XCTAssertEqual(ids(try doc.select("p")), ids(try doc.getElementsByTag("p")))
+        XCTAssertEqual(ids(try doc.select(".lead")), ids(try doc.getElementsByClass("lead")))
+        XCTAssertEqual(ids(try doc.select("[href]")), ids(try doc.getElementsByAttribute("href")))
+        XCTAssertEqual(ids(try doc.select("[href=one]")), ids(try doc.getElementsByAttributeValue("href", "one")))
+    }
+
+    func testIndexesStayCorrectAfterDeterministicMutations() throws {
+        let doc = try SwiftSoup.parse(
+            "<div id=wrap>" +
+            "<p id=p1 class=one href=one>One</p>" +
+            "<p id=p2 class=two href=two>Two</p>" +
+            "<span id=s1 class=one>Span</span>" +
+            "<div id=box class=card></div>" +
+            "</div>"
+        )
+
+        // Prime indexes before mutations.
+        _ = try doc.getElementsByTag("p")
+        _ = try doc.getElementsByClass("one")
+        _ = try doc.getElementsByAttribute("href")
+        _ = try doc.getElementsByAttributeValue("href", "one")
+
+        var state: UInt64 = 0xC0FFEE
+        func next() -> UInt64 {
+            state = state &* 6364136223846793005 &+ 1
+            return state
+        }
+
+        for i in 0..<60 {
+            let all = try doc.select("*").array()
+            if all.isEmpty { break }
+            let index = Int(next() % UInt64(all.count))
+            let el = all[index]
+
+            switch Int(next() % 8) {
+            case 0:
+                try el.attr("class", (i % 2 == 0) ? "one" : "two")
+            case 1:
+                try el.removeAttr("class")
+            case 2:
+                try el.attr("href", (i % 3 == 0) ? "one" : "two")
+            case 3:
+                try el.removeAttr("href")
+            case 4:
+                if el.tagName() != "#root" {
+                    try el.tagName((i % 2 == 0) ? "span" : "p")
+                }
+            case 5:
+                _ = try el.appendElement((i % 2 == 0) ? "span" : "p").attr("class", "one")
+            case 6:
+                if el.parent() != nil && el.id() != "wrap" {
+                    try el.remove()
+                }
+            case 7:
+                if el.parent() != nil && el.id() != "wrap" {
+                    let replacement = try SwiftSoup.parse("<p class=lead href=one>R</p>").select("p").first()!
+                    try el.replaceWith(replacement)
+                }
+            default:
+                break
+            }
+        }
+
+        func ids(_ elements: Elements) -> [String] {
+            return elements.array().map { $0.id() }
+        }
+
+        XCTAssertEqual(ids(try doc.select("p")), ids(try doc.getElementsByTag("p")))
+        XCTAssertEqual(ids(try doc.select(".one")), ids(try doc.getElementsByClass("one")))
+        XCTAssertEqual(ids(try doc.select("[href]")), ids(try doc.getElementsByAttribute("href")))
+        XCTAssertEqual(ids(try doc.select("[href=one]")), ids(try doc.getElementsByAttributeValue("href", "one")))
+    }
     
     func testTextCacheInvalidatesOnTextMutation() throws {
         let doc = try SwiftSoup.parse("<div><p id=1>Hello</p></div>")

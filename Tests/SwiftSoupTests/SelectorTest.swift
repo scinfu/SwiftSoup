@@ -101,6 +101,88 @@ class SelectorTest: XCTestCase {
         XCTAssertEqual("2", els.get(0).id())
     }
 
+    func testSelectTagAndAttributeName() throws {
+        let doc = try SwiftSoup.parse("<a href=one id=1></a><div href=two id=2></div><a id=3></a>")
+        let els = try doc.select("a[href]")
+        XCTAssertEqual(1, els.size())
+        XCTAssertEqual("1", els.get(0).id())
+    }
+
+    func testFastSelectAndMatchesCollector() throws {
+        let html =
+            "<div id=wrap>" +
+            "<p id=p1 class=lead href=one>One</p>" +
+            "<p id=p2 class=lead href=two>Two</p>" +
+            "<p id=p3 class=body>Three</p>" +
+            "<a id=a1 class=lead href=one>Link</a>" +
+            "<span id=s1 class=lead href=one>Span</span>" +
+            "<div id=d1 class=card data-x=1></div>" +
+            "<div id=d2 class=card></div>" +
+            "</div>"
+
+        let doc = try SwiftSoup.parse(html)
+
+        func ids(_ elements: Elements) -> [String] {
+            return elements.array().map { $0.id() }
+        }
+
+        let selectors = [
+            "p.lead[href=one]",
+            "a.lead[href]",
+            "div.card[data-x]"
+        ]
+
+        for selector in selectors {
+            let eval = try QueryParser.parse(selector)
+            let slow = try Collector.collect(eval, doc)
+            let fast = try doc.select(selector)
+            XCTAssertEqual(ids(slow), ids(fast))
+        }
+    }
+
+    func testSelectAbsAttributeMatchesCollector() throws {
+        let doc = try SwiftSoup.parse("<a href=/one id=1></a><a href=/two id=2></a>")
+        let selector = "[abs:href]"
+        let eval = try QueryParser.parse(selector)
+        let slow = try Collector.collect(eval, doc)
+        let fast = try doc.select(selector)
+        XCTAssertEqual(slow.size(), fast.size())
+    }
+
+    func testSelectNotAndHasMatchesCollector() throws {
+        let html =
+            "<div id=wrap>" +
+            "<article id=a1><p class=lead>One</p></article>" +
+            "<article id=a2><p class=body>Two</p></article>" +
+            "<section id=s1><p class=lead>Three</p></section>" +
+            "</div>"
+        let doc = try SwiftSoup.parse(html)
+        let selector = "article:has(p.lead):not(.missing)"
+        let eval = try QueryParser.parse(selector)
+        let slow = try Collector.collect(eval, doc)
+        let fast = try doc.select(selector)
+        XCTAssertEqual(slow.size(), fast.size())
+        XCTAssertEqual(slow.first()?.id(), fast.first()?.id())
+    }
+
+    func testSelectAbsAttributeValueMatchesCollector() throws {
+        let doc = try SwiftSoup.parse("<a href=/one id=1></a><a href=/two id=2></a>")
+        let selector = "[abs:href=/one]"
+        let eval = try QueryParser.parse(selector)
+        let slow = try Collector.collect(eval, doc)
+        let fast = try doc.select(selector)
+        XCTAssertEqual(slow.size(), fast.size())
+    }
+
+    func testSelectAttributeStartingMatchesCollector() throws {
+        let doc = try SwiftSoup.parse("<div data-x=1 id=1></div><div data-y=2 id=2></div><div id=3></div>")
+        let selector = "[^data-]"
+        let eval = try QueryParser.parse(selector)
+        let slow = try Collector.collect(eval, doc)
+        let fast = try doc.select(selector)
+        XCTAssertEqual(slow.size(), fast.size())
+    }
+
     func testSelectTagClassAndId() throws {
         let doc = try SwiftSoup.parse("<div class=card id=hit></div><div class=card id=miss></div><span class=card id=hit2></span>")
         let els = try doc.select("div.card#hit")
