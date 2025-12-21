@@ -259,6 +259,13 @@ public final class CharacterReader {
     }
     
     public func consumeTo(_ c: UnicodeScalar) -> ArraySlice<UInt8> {
+        if c.value <= 0x7F {
+            let byte = UInt8(c.value)
+            guard let targetIx = input[pos...].firstIndex(of: byte) else { return consumeToEndUTF8() }
+            let consumed = cacheString(pos, targetIx)
+            pos = targetIx
+            return consumed
+        }
         var buffer = [UInt8](repeating: 0, count: 4)
         var length = 0
         for b in c.utf8 {
@@ -279,6 +286,12 @@ public final class CharacterReader {
     }
     
     public func consumeTo(_ seq: [UInt8]) -> ArraySlice<UInt8> {
+        if seq.count == 1 {
+            guard let targetIx = input[pos...].firstIndex(of: seq[0]) else { return consumeToEndUTF8() }
+            let consumed = cacheString(pos, targetIx)
+            pos = targetIx
+            return consumed
+        }
         guard let targetIx = nextIndexOf(seq) else { return consumeToEndUTF8() }
         let consumed = cacheString(pos, targetIx)
         pos = targetIx
@@ -450,17 +463,17 @@ public final class CharacterReader {
     public func consumeDigitSequence() -> ArraySlice<UInt8> {
         let start = pos
         while pos < end {
-            let slice = currentUTF8()
-            if slice.isEmpty { return cacheString(start, pos) }
-            if slice.count == 1 {
-                let b = slice.first!
-                if b >= 48 && b <= 57 {
+            let firstByte = input[pos]
+            if firstByte < 0x80 {
+                if firstByte >= 48 && firstByte <= 57 {
                     pos += 1
                     continue
                 }
                 return cacheString(start, pos)
             }
 
+            let slice = currentUTF8()
+            if slice.isEmpty { return cacheString(start, pos) }
             var iterator = slice.makeIterator()
             var utf8Decoder = UTF8()
             switch utf8Decoder.decode(&iterator) {
@@ -566,6 +579,11 @@ public final class CharacterReader {
         guard input.count > pos
         else { return false }
 
+        if seq.isSingleByteOnly {
+            guard let byte = currentByte() else { return false }
+            return seq.contains(byte)
+        }
+
         let slice = currentUTF8()
         if slice.isEmpty { return false }
         if slice.count == 1 {
@@ -591,6 +609,20 @@ public final class CharacterReader {
               input.count > pos
         else { return false }
 
+        if let byte = currentByte() {
+            var allSingleByte = true
+            for utf8Bytes in seq where utf8Bytes.count != 1 {
+                allSingleByte = false
+                break
+            }
+            if allSingleByte {
+                for utf8Bytes in seq where utf8Bytes.first == byte {
+                    return true
+                }
+                return false
+            }
+        }
+
         let slice = currentUTF8()
         if slice.isEmpty { return false }
         for utf8Bytes in seq where utf8Bytes.count == slice.count {
@@ -603,6 +635,9 @@ public final class CharacterReader {
         guard pos < end else { return false }
         
         let firstByte = input[pos]
+        if firstByte < 0x80 {
+            return (firstByte >= 65 && firstByte <= 90) || (firstByte >= 97 && firstByte <= 122)
+        }
         var length = 1
         
         if firstByte & 0b10000000 != 0 {
@@ -624,6 +659,11 @@ public final class CharacterReader {
         guard pos < end,
               input.count > pos
         else { return false }
+
+        let firstByte = input[pos]
+        if firstByte < 0x80 {
+            return firstByte >= 48 && firstByte <= 57
+        }
 
         let slice = currentUTF8()
         if slice.isEmpty { return false }
@@ -648,8 +688,41 @@ public final class CharacterReader {
     
     @inline(__always)
     public func containsIgnoreCase(_ seq: [UInt8]) -> Bool {
+        var allAscii = true
+        for b in seq where b & 0x80 != 0 {
+            allAscii = false
+            break
+        }
+        if allAscii {
+            return containsAsciiTransformed(seq, upper: false) || containsAsciiTransformed(seq, upper: true)
+        }
         let loScan = seq.lowercased()
         let hiScan = seq.uppercased()
+        return nextIndexOf(loScan) != nil || nextIndexOf(hiScan) != nil
+    }
+
+    @inline(__always)
+    public func containsIgnoreCase(prefix: [UInt8], suffix: [UInt8]) -> Bool {
+        let totalCount = prefix.count + suffix.count
+        if totalCount == 0 { return true }
+        var allAscii = true
+        for b in prefix where b & 0x80 != 0 {
+            allAscii = false
+            break
+        }
+        if allAscii {
+            for b in suffix where b & 0x80 != 0 {
+                allAscii = false
+                break
+            }
+        }
+        if allAscii {
+            return containsAsciiTransformed(prefix: prefix, suffix: suffix, upper: false)
+                || containsAsciiTransformed(prefix: prefix, suffix: suffix, upper: true)
+        }
+        let combined = prefix + suffix
+        let loScan = combined.lowercased()
+        let hiScan = combined.uppercased()
         return nextIndexOf(loScan) != nil || nextIndexOf(hiScan) != nil
     }
     
@@ -661,6 +734,87 @@ public final class CharacterReader {
     @inline(__always)
     public func toString() -> String {
         return String(decoding: input[pos...], as: UTF8.self)
+    }
+
+    @inline(__always)
+    private func containsAsciiTransformed(_ seq: [UInt8], upper: Bool) -> Bool {
+        guard !seq.isEmpty else { return true }
+        let transformedFirst: UInt8
+        if upper {
+            let b = seq[0]
+            transformedFirst = (b >= 97 && b <= 122) ? b &- 32 : b
+        } else {
+            let b = seq[0]
+            transformedFirst = (b >= 65 && b <= 90) ? b &+ 32 : b
+        }
+        if seq.count == 1 {
+            return input[pos...].firstIndex(of: transformedFirst) != nil
+        }
+        let lastStart = end - seq.count
+        if pos > lastStart { return false }
+        var i = pos
+        while i <= lastStart {
+            if input[i] == transformedFirst {
+                var j = 1
+                while j < seq.count {
+                    let b = seq[j]
+                    let expected: UInt8
+                    if upper {
+                        expected = (b >= 97 && b <= 122) ? b &- 32 : b
+                    } else {
+                        expected = (b >= 65 && b <= 90) ? b &+ 32 : b
+                    }
+                    if input[i + j] != expected { break }
+                    j &+= 1
+                }
+                if j == seq.count { return true }
+            }
+            i &+= 1
+        }
+        return false
+    }
+
+    @inline(__always)
+    private func containsAsciiTransformed(prefix: [UInt8], suffix: [UInt8], upper: Bool) -> Bool {
+        let totalCount = prefix.count + suffix.count
+        guard totalCount > 0 else { return true }
+        let firstByte: UInt8 = prefix.isEmpty ? suffix[0] : prefix[0]
+        let transformedFirst: UInt8
+        if upper {
+            transformedFirst = (firstByte >= 97 && firstByte <= 122) ? firstByte &- 32 : firstByte
+        } else {
+            transformedFirst = (firstByte >= 65 && firstByte <= 90) ? firstByte &+ 32 : firstByte
+        }
+        if totalCount == 1 {
+            return input[pos...].firstIndex(of: transformedFirst) != nil
+        }
+        let lastStart = end - totalCount
+        if pos > lastStart { return false }
+        var i = pos
+        let prefixCount = prefix.count
+        while i <= lastStart {
+            if input[i] == transformedFirst {
+                var j = 1
+                while j < totalCount {
+                    let b: UInt8 = j < prefixCount ? prefix[j] : suffix[j - prefixCount]
+                    let expected: UInt8
+                    if upper {
+                        expected = (b >= 97 && b <= 122) ? b &- 32 : b
+                    } else {
+                        expected = (b >= 65 && b <= 90) ? b &+ 32 : b
+                    }
+                    if input[i + j] != expected {
+                        break
+                    }
+                    j += 1
+                }
+                if j == totalCount {
+                    return true
+                }
+            }
+            i += 1
+        }
+        return false
     }
     
 //    private func cacheString(_ start: String.UTF8View.Index, _ end: String.UTF8View.Index) -> String {
@@ -703,6 +857,9 @@ public final class CharacterReader {
     }
 
     public func nextIndexOf(_ targetUtf8: [UInt8]) -> [UInt8].Index? {
+        if targetUtf8.count == 1 {
+            return input[pos...].firstIndex(of: targetUtf8[0])
+        }
         var start = pos
         
         while true {

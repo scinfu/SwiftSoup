@@ -76,6 +76,20 @@ class HtmlParserTest: XCTestCase {
 		let text: TextNode = p.childNode(0)as! TextNode
 		XCTAssertEqual("Hello", text.getWholeText())
 	}
+	
+	func testCommentStartDashDash() throws {
+		let html = "<div><!---x--></div>"
+		let doc = try SwiftSoup.parse(html)
+		let comment = try doc.select("div").first()!.childNode(0) as! Comment
+		XCTAssertEqual("x", comment.getData())
+	}
+	
+	func testCommentEndBang() throws {
+		let html = "<div><!--x!--></div>"
+		let doc = try SwiftSoup.parse(html)
+		let comment = try doc.select("div").first()!.childNode(0) as! Comment
+		XCTAssertEqual("x!", comment.getData())
+	}
 
 	func testParsesUnterminatedComments() throws {
 		let html = "<p>Hello<!-- <tr><td>"
@@ -223,6 +237,14 @@ class HtmlParserTest: XCTestCase {
 		let doc = try SwiftSoup.parse(html)
 		let script = try doc.select("script").first()!
 		XCTAssertEqual("<!-- 你-好 -->", script.data())
+	}
+
+	func testScriptDataEscapedEndTagCaseInsensitive() throws {
+		let html = "<script><!--var a=1;--></SCRIPT><p>Hi</p>"
+		let doc = try SwiftSoup.parse(html)
+		let script = try doc.select("script").first()!
+		XCTAssertEqual("<!--var a=1;-->", script.data())
+		XCTAssertEqual("Hi", try doc.select("p").first()!.text())
 	}
 	
 	func testPlaintextStopsAtNull() throws {

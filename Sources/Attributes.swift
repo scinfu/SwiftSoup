@@ -27,9 +27,6 @@ public struct AttributeMutation {
     }
 }
 
-public protocol AttributeMutator {
-    mutating func mutate(_ attr: Attribute) -> AttributeMutation
-}
 
 open class Attributes: NSCopying {
     public static let dataPrefix: [UInt8] = "data-".utf8Array
@@ -282,12 +279,24 @@ open class Attributes: NSCopying {
     @inline(__always)
     open func compactAndMutate(_ body: (Attribute) -> AttributeMutation) {
         guard !attributes.isEmpty else { return }
-        
-        var removedKeys: [[UInt8]] = []
-        removedKeys.reserveCapacity(attributes.count / 4)
-        var changedKeys: [[UInt8]] = []
-        changedKeys.reserveCapacity(attributes.count / 8)
-        
+
+        let ownerElement = self.ownerElement
+        var didMutate = false
+        var dirtyClass = false
+        var dirtyId = false
+
+        @inline(__always)
+        func markDirty(for key: [UInt8]) {
+            let normalizedKey = key.lowercased()
+            if normalizedKey == UTF8Arrays.class_ {
+                dirtyClass = true
+            }
+            if normalizedKey == SwiftSoup.Element.idString {
+                dirtyId = true
+            }
+            ownerElement?.markAttributeValueQueryIndexDirty(for: key)
+        }
+
         var writeIndex = 0
         let originalCount = attributes.count
         for readIndex in 0..<originalCount {
@@ -295,7 +304,10 @@ open class Attributes: NSCopying {
             let decision = body(attr)
             if let newValue = decision.newValue {
                 _ = attr.setValue(value: newValue)
-                changedKeys.append(attr.getKeyUTF8())
+                if ownerElement != nil {
+                    markDirty(for: attr.getKeyUTF8())
+                }
+                didMutate = true
             }
             if decision.keep {
                 if writeIndex != readIndex {
@@ -303,105 +315,33 @@ open class Attributes: NSCopying {
                 }
                 writeIndex += 1
             } else {
-                removedKeys.append(attr.getKeyUTF8())
+                if ownerElement != nil {
+                    markDirty(for: attr.getKeyUTF8())
+                }
+                didMutate = true
             }
         }
-        
-        guard !removedKeys.isEmpty || !changedKeys.isEmpty else { return }
-        
+
         if writeIndex < originalCount {
             attributes.removeLast(originalCount - writeIndex)
+            didMutate = true
         }
+
+        guard didMutate else { return }
+
         invalidateLowercasedKeysCache()
-        
+
         if let ownerElement {
-            for key in removedKeys {
-                let normalizedKey = key.lowercased()
-                if normalizedKey == UTF8Arrays.class_ {
-                    ownerElement.markClassQueryIndexDirty()
-                }
-                if normalizedKey == SwiftSoup.Element.idString {
-                    ownerElement.markIdQueryIndexDirty()
-                }
-                ownerElement.markAttributeValueQueryIndexDirty(for: key)
+            if dirtyClass {
+                ownerElement.markClassQueryIndexDirty()
             }
-            for key in changedKeys {
-                let normalizedKey = key.lowercased()
-                if normalizedKey == UTF8Arrays.class_ {
-                    ownerElement.markClassQueryIndexDirty()
-                }
-                if normalizedKey == SwiftSoup.Element.idString {
-                    ownerElement.markIdQueryIndexDirty()
-                }
-                ownerElement.markAttributeValueQueryIndexDirty(for: key)
+            if dirtyId {
+                ownerElement.markIdQueryIndexDirty()
             }
             ownerElement.markAttributeQueryIndexDirty()
         }
     }
 
-    /**
-     Compact the attribute list in one pass using a mutator object.
-     - parameter mutator: mutates attributes and returns keep/update decisions.
-     */
-    @inline(__always)
-    open func compactAndMutate<M: AttributeMutator>(_ mutator: inout M) {
-        guard !attributes.isEmpty else { return }
-        
-        var removedKeys: [[UInt8]] = []
-        removedKeys.reserveCapacity(attributes.count / 4)
-        var changedKeys: [[UInt8]] = []
-        changedKeys.reserveCapacity(attributes.count / 8)
-        
-        var writeIndex = 0
-        let originalCount = attributes.count
-        for readIndex in 0..<originalCount {
-            let attr = attributes[readIndex]
-            let decision = mutator.mutate(attr)
-            if let newValue = decision.newValue {
-                _ = attr.setValue(value: newValue)
-                changedKeys.append(attr.getKeyUTF8())
-            }
-            if decision.keep {
-                if writeIndex != readIndex {
-                    attributes[writeIndex] = attr
-                }
-                writeIndex += 1
-            } else {
-                removedKeys.append(attr.getKeyUTF8())
-            }
-        }
-        
-        guard !removedKeys.isEmpty || !changedKeys.isEmpty else { return }
-        
-        if writeIndex < originalCount {
-            attributes.removeLast(originalCount - writeIndex)
-        }
-        invalidateLowercasedKeysCache()
-        
-        if let ownerElement {
-            for key in removedKeys {
-                let normalizedKey = key.lowercased()
-                if normalizedKey == UTF8Arrays.class_ {
-                    ownerElement.markClassQueryIndexDirty()
-                }
-                if normalizedKey == SwiftSoup.Element.idString {
-                    ownerElement.markIdQueryIndexDirty()
-                }
-                ownerElement.markAttributeValueQueryIndexDirty(for: key)
-            }
-            for key in changedKeys {
-                let normalizedKey = key.lowercased()
-                if normalizedKey == UTF8Arrays.class_ {
-                    ownerElement.markClassQueryIndexDirty()
-                }
-                if normalizedKey == SwiftSoup.Element.idString {
-                    ownerElement.markIdQueryIndexDirty()
-                }
-                ownerElement.markAttributeValueQueryIndexDirty(for: key)
-            }
-            ownerElement.markAttributeQueryIndexDirty()
-        }
-    }
     
     /**
      Tests if these attributes contain an attribute with this key.

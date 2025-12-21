@@ -193,15 +193,35 @@ open class Token {
         func appendTagName(_ append: ArraySlice<UInt8>) {
             if _tagName == nil {
                 _tagName = Array(append)
+                _normalName = Array(append.lowercased())
             } else {
                 _tagName!.append(contentsOf: append)
+                if _normalName == nil {
+                    _normalName = _tagName?.lowercased()
+                } else {
+                    _normalName!.append(contentsOf: append.lowercased())
+                }
             }
-            _normalName = _tagName?.lowercased()
         }
         
         @inline(__always)
         func appendTagName(_ append: UnicodeScalar) {
             appendTagName(ArraySlice(append.utf8))
+        }
+
+        @inline(__always)
+        func appendTagNameByte(_ byte: UInt8) {
+            if _tagName == nil {
+                _tagName = [byte]
+            } else {
+                _tagName!.append(byte)
+            }
+            let lowercased = (byte >= 65 && byte <= 90) ? byte + 32 : byte
+            if _normalName == nil {
+                _normalName = [lowercased]
+            } else {
+                _normalName!.append(lowercased)
+            }
         }
         
         @inline(__always)
@@ -222,6 +242,15 @@ open class Token {
         func appendAttributeName(_ append: UnicodeScalar) {
             appendAttributeName(Array(append.utf8))
         }
+
+        @inline(__always)
+        func appendAttributeNameByte(_ byte: UInt8) {
+            if _pendingAttributeName == nil {
+                _pendingAttributeName = [byte]
+            } else {
+                _pendingAttributeName!.append(byte)
+            }
+        }
         
         @inline(__always)
         func appendAttributeValue(_ append: ArraySlice<UInt8>) {
@@ -237,6 +266,12 @@ open class Token {
         func appendAttributeValue(_ append: UnicodeScalar) {
             ensureAttributeValue()
             _pendingAttributeValue.appendCodePoint(append)
+        }
+
+        @inline(__always)
+        func appendAttributeValueByte(_ byte: UInt8) {
+            ensureAttributeValue()
+            _pendingAttributeValue.append(byte)
         }
         
         @inline(__always)

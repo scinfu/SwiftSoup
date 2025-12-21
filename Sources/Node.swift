@@ -730,19 +730,23 @@ open class Node: Equatable, Hashable {
      */
     @inline(__always)
     open func nextSibling() -> Node? {
-        guard hasNextSibling() else { return nil }
-        guard let siblings: Array<Node> = parent()?.getChildNodes() else {
+        guard let parent = parentNode else {
             return nil
         }
-        return siblings[siblingIndex + 1]
+        let nextIndex = siblingIndex + 1
+        let siblings = parent.childNodes
+        guard nextIndex < siblings.count else {
+            return nil
+        }
+        return siblings[nextIndex]
     }
     
     @inline(__always)
     open func hasNextSibling() -> Bool {
-        guard let parent = parent() else {
+        guard let parent = parentNode else {
             return false
         }
-        return parent.childNodeSize() > siblingIndex + 1
+        return parent.childNodes.count > siblingIndex + 1
     }
     
     /**

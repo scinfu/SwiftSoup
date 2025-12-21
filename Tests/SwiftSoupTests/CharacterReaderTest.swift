@@ -144,6 +144,14 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("π", r.consume())
         XCTAssertEqual("c", r.consumeToEnd())
     }
+
+    func testConsumeToUnicodeScalarAscii() {
+        let lt = "<".unicodeScalars.first!
+        let r = CharacterReader("ab<cd")
+        XCTAssertEqual("ab", String(decoding: r.consumeTo(lt), as: UTF8.self))
+        XCTAssertEqual("<", r.consume())
+        XCTAssertEqual("cd", r.consumeToEnd())
+    }
     
     func testConsumeToStringMultibyte() {
         let r = CharacterReader("aπbπc")
@@ -219,6 +227,12 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("٣4", String(decoding: r.consumeDigitSequence(), as: UTF8.self))
         XCTAssertEqual("π", r.consumeToEnd())
     }
+
+    func testConsumeDigitSequenceAscii() {
+        let r = CharacterReader("1234a")
+        XCTAssertEqual("1234", String(decoding: r.consumeDigitSequence(), as: UTF8.self))
+        XCTAssertEqual("a", r.consumeToEnd())
+    }
     
     func testConsumeHexSequenceAscii() {
         let r = CharacterReader("0aFz")
@@ -245,6 +259,15 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertTrue(r.matches("π"))
         XCTAssertTrue(r.matches("πβ"))
         XCTAssertFalse(r.matches("β"))
+    }
+
+    func testMatchesLetterAsciiAndMultibyte() {
+        let r = CharacterReader("aπ1")
+        XCTAssertTrue(r.matchesLetter())
+        _ = r.consume()
+        XCTAssertFalse(r.matchesLetter())
+        _ = r.consume()
+        XCTAssertFalse(r.matchesLetter())
     }
     
     func testMatchesDigitAsciiAndMultibyte() {
@@ -282,6 +305,13 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertFalse(r.containsIgnoreCase("one"))
     }
 
+    func testContainsIgnoreCasePrefixSuffix() {
+        let r = CharacterReader("<title>Test</TITLE>")
+        XCTAssertTrue(r.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: "title".utf8Array))
+        let r2 = CharacterReader("<title>Test</BODY>")
+        XCTAssertFalse(r2.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: "title".utf8Array))
+    }
+
     func testMatchesAny() {
         //let scan = [" ", "\n", "\t"]
         let r = CharacterReader("One\nTwo\tThree")
@@ -290,6 +320,13 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertTrue(r.matchesAny(" ", "\n", "\t"))
         XCTAssertEqual("\n", r.consume())
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
+    }
+
+    func testMatchesAnyMultibyte() {
+        let r = CharacterReader("πx")
+        XCTAssertTrue(r.matchesAny("π"))
+        _ = r.consume()
+        XCTAssertFalse(r.matchesAny("π"))
     }
 
     func testCachesStrings() {

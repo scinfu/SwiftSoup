@@ -153,7 +153,13 @@ final class Tokeniser {
         
         reader.markPos()
         if (reader.matchConsume(UTF8Arrays.hash)) { // numbered
-            let isHexMode: Bool = reader.matchConsumeIgnoreCase("X".utf8Array)
+            let isHexMode: Bool
+            if let byte = reader.currentByte(), (byte == 0x78 || byte == 0x58) { // x or X
+                reader.advanceAscii()
+                isHexMode = true
+            } else {
+                isHexMode = false
+            }
             let numRef: ArraySlice<UInt8> = isHexMode ? reader.consumeHexSequence() : reader.consumeDigitSequence()
             if (numRef.isEmpty) { // didn't match anything
                 characterReferenceError("numeric reference with no numerals")
@@ -166,7 +172,7 @@ final class Tokeniser {
             var charval: Int  = -1
             
             let base: Int = isHexMode ? 16 : 10
-            if let num = numRef.toInt(radix: base) {
+            if let num = numRef.toIntAscii(radix: base) {
                 charval = num
             }
             
@@ -181,7 +187,7 @@ final class Tokeniser {
         } else { // named
                  // get as many letters as possible, and look for matching entities.
             let nameRef: ArraySlice<UInt8> = reader.consumeLetterThenDigitSequence()
-            let looksLegit: Bool = reader.matches(";")
+            let looksLegit: Bool = reader.matches(UTF8Arrays.semicolon)
             // found if a base named entity without a ;, or an extended entity with the ;.
             let found: Bool = (Entities.isBaseNamedEntity(nameRef) || (Entities.isNamedEntity(nameRef) && looksLegit))
             
