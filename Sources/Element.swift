@@ -1724,7 +1724,7 @@ open class Element: Node {
     
     @inline(__always)
     public override func copy(with zone: NSZone? = nil) -> Any {
-        let clone = Element(_tag, baseUri!, attributes!)
+        let clone = Element(_tag, baseUri!, skipChildReserve: true)
         if let treeBuilder {
             clone.treeBuilder = treeBuilder
         }
@@ -1733,7 +1733,7 @@ open class Element: Node {
     
     @inline(__always)
     public override func copy(parent: Node?) -> Node {
-        let clone = Element(_tag, baseUri!, attributes!)
+        let clone = Element(_tag, baseUri!, skipChildReserve: true)
         if let treeBuilder {
             clone.treeBuilder = treeBuilder
         }
@@ -1742,7 +1742,7 @@ open class Element: Node {
 
     @inline(__always)
     override func copyForDeepClone(parent: Node?) -> Node {
-        let clone = Element(_tag, baseUri!, attributes!)
+        let clone = Element(_tag, baseUri!, skipChildReserve: true)
         if let treeBuilder {
             clone.treeBuilder = treeBuilder
         }
