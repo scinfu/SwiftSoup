@@ -1746,7 +1746,7 @@ open class Element: Node {
         if let treeBuilder {
             clone.treeBuilder = treeBuilder
         }
-        return copy(clone: clone, parent: parent, copyChildren: false)
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
     
     @inline(__always)

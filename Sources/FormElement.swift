@@ -141,7 +141,7 @@ public class FormElement: Element {
         for att in _elements.array() {
             clone._elements.add(att)
         }
-        return copy(clone: clone, parent: parent, copyChildren: false)
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		let clone = clone as! FormElement

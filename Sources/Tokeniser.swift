@@ -130,6 +130,12 @@ final class Tokeniser {
         self.state = state
     }
     
+    @inline(__always)
+    func advanceTransitionAscii(_ state: TokeniserState) {
+        reader.advanceAscii()
+        self.state = state
+    }
+    
     func acknowledgeSelfClosingFlag() {
         selfClosingFlagAcknowledged = true
     }

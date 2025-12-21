@@ -412,7 +412,7 @@ open class Document: Element {
         clone._outputSettings = _outputSettings.copy() as! OutputSettings
         clone._quirksMode = _quirksMode
         clone.updateMetaCharset = updateMetaCharset
-        return copy(clone: clone, parent: parent, copyChildren: false)
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
 
     @inline(__always)

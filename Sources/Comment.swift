@@ -78,7 +78,7 @@ public class Comment: Node {
     @inline(__always)
     override func copyForDeepClone(parent: Node?) -> Node {
         let clone = Comment(attributes!.get(key: Comment.COMMENT_KEY), baseUri!)
-        return copy(clone: clone, parent: parent, copyChildren: false)
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
 
     @inline(__always)

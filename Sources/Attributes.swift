@@ -16,6 +16,21 @@ import Foundation
  normalized to lower-case on parsing. That means you should use lower-case strings when referring to attributes by
  name.
  */
+public struct AttributeMutation {
+    public let keep: Bool
+    public let newValue: [UInt8]?
+    
+    @inline(__always)
+    public init(keep: Bool, newValue: [UInt8]? = nil) {
+        self.keep = keep
+        self.newValue = newValue
+    }
+}
+
+public protocol AttributeMutator {
+    mutating func mutate(_ attr: Attribute) -> AttributeMutation
+}
+
 open class Attributes: NSCopying {
     public static let dataPrefix: [UInt8] = "data-".utf8Array
     
@@ -203,6 +218,188 @@ open class Attributes: NSCopying {
             }
             ownerElement?.markAttributeQueryIndexDirty()
             ownerElement?.markAttributeValueQueryIndexDirty(for: key)
+        }
+    }
+
+    /**
+     Remove multiple attributes by exact key bytes in a single pass.
+     - parameter keys: attribute keys to remove (case sensitive)
+     */
+    @inline(__always)
+    open func removeAll(keys: [[UInt8]]) {
+        guard !keys.isEmpty else { return }
+        guard !attributes.isEmpty else { return }
+
+        var removedKeys: [[UInt8]] = []
+        removedKeys.reserveCapacity(Swift.min(keys.count, attributes.count))
+        var writeIndex = 0
+        let originalCount = attributes.count
+        for readIndex in 0..<originalCount {
+            let attr = attributes[readIndex]
+            let key = attr.getKeyUTF8()
+            var shouldRemove = false
+            for removalKey in keys {
+                if removalKey == key {
+                    shouldRemove = true
+                    break
+                }
+            }
+            if shouldRemove {
+                removedKeys.append(key)
+            } else {
+                if writeIndex != readIndex {
+                    attributes[writeIndex] = attr
+                }
+                writeIndex += 1
+            }
+        }
+
+        guard !removedKeys.isEmpty else { return }
+        if writeIndex < originalCount {
+            attributes.removeLast(originalCount - writeIndex)
+        }
+        invalidateLowercasedKeysCache()
+
+        if let ownerElement {
+            for key in removedKeys {
+                let normalizedKey = key.lowercased()
+                if normalizedKey == UTF8Arrays.class_ {
+                    ownerElement.markClassQueryIndexDirty()
+                }
+                if normalizedKey == SwiftSoup.Element.idString {
+                    ownerElement.markIdQueryIndexDirty()
+                }
+                ownerElement.markAttributeValueQueryIndexDirty(for: key)
+            }
+            ownerElement.markAttributeQueryIndexDirty()
+        }
+    }
+
+    /**
+     Compact the attribute list in one pass, allowing in-place mutation of values.
+     - parameter body: return whether to keep the attribute and optionally a new value.
+     */
+    @inline(__always)
+    open func compactAndMutate(_ body: (Attribute) -> AttributeMutation) {
+        guard !attributes.isEmpty else { return }
+        
+        var removedKeys: [[UInt8]] = []
+        removedKeys.reserveCapacity(attributes.count / 4)
+        var changedKeys: [[UInt8]] = []
+        changedKeys.reserveCapacity(attributes.count / 8)
+        
+        var writeIndex = 0
+        let originalCount = attributes.count
+        for readIndex in 0..<originalCount {
+            let attr = attributes[readIndex]
+            let decision = body(attr)
+            if let newValue = decision.newValue {
+                _ = attr.setValue(value: newValue)
+                changedKeys.append(attr.getKeyUTF8())
+            }
+            if decision.keep {
+                if writeIndex != readIndex {
+                    attributes[writeIndex] = attr
+                }
+                writeIndex += 1
+            } else {
+                removedKeys.append(attr.getKeyUTF8())
+            }
+        }
+        
+        guard !removedKeys.isEmpty || !changedKeys.isEmpty else { return }
+        
+        if writeIndex < originalCount {
+            attributes.removeLast(originalCount - writeIndex)
+        }
+        invalidateLowercasedKeysCache()
+        
+        if let ownerElement {
+            for key in removedKeys {
+                let normalizedKey = key.lowercased()
+                if normalizedKey == UTF8Arrays.class_ {
+                    ownerElement.markClassQueryIndexDirty()
+                }
+                if normalizedKey == SwiftSoup.Element.idString {
+                    ownerElement.markIdQueryIndexDirty()
+                }
+                ownerElement.markAttributeValueQueryIndexDirty(for: key)
+            }
+            for key in changedKeys {
+                let normalizedKey = key.lowercased()
+                if normalizedKey == UTF8Arrays.class_ {
+                    ownerElement.markClassQueryIndexDirty()
+                }
+                if normalizedKey == SwiftSoup.Element.idString {
+                    ownerElement.markIdQueryIndexDirty()
+                }
+                ownerElement.markAttributeValueQueryIndexDirty(for: key)
+            }
+            ownerElement.markAttributeQueryIndexDirty()
+        }
+    }
+
+    /**
+     Compact the attribute list in one pass using a mutator object.
+     - parameter mutator: mutates attributes and returns keep/update decisions.
+     */
+    @inline(__always)
+    open func compactAndMutate<M: AttributeMutator>(_ mutator: inout M) {
+        guard !attributes.isEmpty else { return }
+        
+        var removedKeys: [[UInt8]] = []
+        removedKeys.reserveCapacity(attributes.count / 4)
+        var changedKeys: [[UInt8]] = []
+        changedKeys.reserveCapacity(attributes.count / 8)
+        
+        var writeIndex = 0
+        let originalCount = attributes.count
+        for readIndex in 0..<originalCount {
+            let attr = attributes[readIndex]
+            let decision = mutator.mutate(attr)
+            if let newValue = decision.newValue {
+                _ = attr.setValue(value: newValue)
+                changedKeys.append(attr.getKeyUTF8())
+            }
+            if decision.keep {
+                if writeIndex != readIndex {
+                    attributes[writeIndex] = attr
+                }
+                writeIndex += 1
+            } else {
+                removedKeys.append(attr.getKeyUTF8())
+            }
+        }
+        
+        guard !removedKeys.isEmpty || !changedKeys.isEmpty else { return }
+        
+        if writeIndex < originalCount {
+            attributes.removeLast(originalCount - writeIndex)
+        }
+        invalidateLowercasedKeysCache()
+        
+        if let ownerElement {
+            for key in removedKeys {
+                let normalizedKey = key.lowercased()
+                if normalizedKey == UTF8Arrays.class_ {
+                    ownerElement.markClassQueryIndexDirty()
+                }
+                if normalizedKey == SwiftSoup.Element.idString {
+                    ownerElement.markIdQueryIndexDirty()
+                }
+                ownerElement.markAttributeValueQueryIndexDirty(for: key)
+            }
+            for key in changedKeys {
+                let normalizedKey = key.lowercased()
+                if normalizedKey == UTF8Arrays.class_ {
+                    ownerElement.markClassQueryIndexDirty()
+                }
+                if normalizedKey == SwiftSoup.Element.idString {
+                    ownerElement.markIdQueryIndexDirty()
+                }
+                ownerElement.markAttributeValueQueryIndexDirty(for: key)
+            }
+            ownerElement.markAttributeQueryIndexDirty()
         }
     }
     

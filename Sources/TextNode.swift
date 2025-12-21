@@ -258,7 +258,7 @@ open class TextNode: Node {
 
     override func copyForDeepClone(parent: Node?) -> Node {
         let clone = TextNode(_text, baseUri)
-        return copy(clone: clone, parent: parent, copyChildren: false)
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
 
 	public override func copy(clone: Node, parent: Node?) -> Node {

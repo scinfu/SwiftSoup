@@ -76,4 +76,85 @@ class AttributesTest: XCTestCase {
 		let iterator = a.makeIterator()
 		XCTAssertNil(iterator.next())
 	}
+
+    func testRemoveAllKeys() {
+        let a = Attributes()
+        do {
+            try a.put("One", "1")
+            try a.put("Two", "2")
+            try a.put("data-x", "3")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        a.removeAll(keys: [ "Two".utf8Array, "data-x".utf8Array ])
+
+        XCTAssertEqual(1, a.size())
+        XCTAssertTrue(a.hasKey(key: "One"))
+        XCTAssertFalse(a.hasKey(key: "Two"))
+        XCTAssertFalse(a.hasKey(key: "data-x"))
+    }
+
+    func testCompactAndMutate() {
+        let a = Attributes()
+        do {
+            try a.put("One", "1")
+            try a.put("Two", "2")
+            try a.put("class", "alpha")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        a.compactAndMutate { attr in
+            switch attr.getKey() {
+            case "Two":
+                return AttributeMutation(keep: false)
+            case "One":
+                return AttributeMutation(keep: true, newValue: "10".utf8Array)
+            default:
+                return AttributeMutation(keep: true)
+            }
+        }
+
+        XCTAssertEqual(2, a.size())
+        XCTAssertTrue(a.hasKey(key: "One"))
+        XCTAssertFalse(a.hasKey(key: "Two"))
+        XCTAssertTrue(a.hasKey(key: "class"))
+        XCTAssertEqual("10", a.get(key: "One"))
+        XCTAssertEqual("alpha", a.get(key: "class"))
+    }
+
+    func testCompactAndMutateWithMutator() {
+        struct Mutator: AttributeMutator {
+            mutating func mutate(_ attr: Attribute) -> AttributeMutation {
+                switch attr.getKey() {
+                case "Two":
+                    return AttributeMutation(keep: false)
+                case "One":
+                    return AttributeMutation(keep: true, newValue: "10".utf8Array)
+                default:
+                    return AttributeMutation(keep: true)
+                }
+            }
+        }
+
+        let a = Attributes()
+        do {
+            try a.put("One", "1")
+            try a.put("Two", "2")
+            try a.put("class", "alpha")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        var mutator = Mutator()
+        a.compactAndMutate(&mutator)
+
+        XCTAssertEqual(2, a.size())
+        XCTAssertTrue(a.hasKey(key: "One"))
+        XCTAssertFalse(a.hasKey(key: "Two"))
+        XCTAssertTrue(a.hasKey(key: "class"))
+        XCTAssertEqual("10", a.get(key: "One"))
+        XCTAssertEqual("alpha", a.get(key: "class"))
+    }
 }

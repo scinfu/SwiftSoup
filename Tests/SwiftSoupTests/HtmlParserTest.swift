@@ -87,6 +87,13 @@ class HtmlParserTest: XCTestCase {
 		let comment: Comment = p.childNode(1)as! Comment
 		XCTAssertEqual(" <tr><td>", comment.getData())
 	}
+	
+	func testCommentWithMultibyteAndHyphen() throws {
+		let html = "<div><!-- 你好-世界 --><p>OK</p></div>"
+		let doc = try SwiftSoup.parse(html)
+		let comment = try doc.select("div").first()!.childNode(0) as! Comment
+		XCTAssertEqual(" 你好-世界 ", comment.getData())
+	}
 
 	func testDropsUnterminatedTag() throws {
 		// swiftsoup used to parse this to <p>, but whatwg, webkit will drop.
@@ -211,6 +218,20 @@ class HtmlParserTest: XCTestCase {
 		XCTAssertEqual("<script>" + expect + "</script>", try el.outerHtml())
 	}
 
+	func testScriptDataEscapedWithMultibyte() throws {
+		let html = "<script><!-- 你-好 --></script>"
+		let doc = try SwiftSoup.parse(html)
+		let script = try doc.select("script").first()!
+		XCTAssertEqual("<!-- 你-好 -->", script.data())
+	}
+	
+	func testPlaintextStopsAtNull() throws {
+		let html = "<plaintext>one\u{0000}two<p>three</p>"
+		let doc = try SwiftSoup.parse(html)
+		let bodyHtml = try doc.body()!.html()
+		XCTAssertTrue(bodyHtml.contains("one�two"))
+	}
+
 	func testDoesNotCreateImplicitLists() throws {
 		// old SwiftSoup used to wrap this in <ul>, but that's not to spec
 		let h: String = "<li>Point one<li>Point two"
@@ -321,6 +342,16 @@ class HtmlParserTest: XCTestCase {
 		let doc: Document = try SwiftSoup.parse(h)
 		XCTAssertEqual("Hello < There <&>", try doc.select("div").first()!.text())
 	}
+	
+	func testDataStateWithMultibyteBeforeTag() throws {
+		let doc: Document = try SwiftSoup.parse("<div>你好<em>ok</em></div>")
+		XCTAssertEqual("你好ok", try doc.select("div").first()!.text())
+	}
+	
+	func testRcdataStateWithMultibyteAndAmpersand() throws {
+		let doc: Document = try SwiftSoup.parse("<textarea>你&好</textarea>")
+		XCTAssertEqual("你&好", try doc.select("textarea").first()!.text())
+	}
 
 	func testHandlesUnknownTags() throws {
 		let h = "<div><foo title=bar>Hello<foo title=qux>there</foo></div>"
@@ -330,6 +361,16 @@ class HtmlParserTest: XCTestCase {
 		XCTAssertEqual("bar", try foos.first()!.attr("title"))
 		XCTAssertEqual("qux", try foos.last()!.attr("title"))
 		XCTAssertEqual("there", try foos.last()!.text())
+	}
+	
+	func testTagNameWithMultibyteAndAttributes() throws {
+		let h = "<div><xπβ class='x'>Hi</xπβ></div>"
+		let doc = try SwiftSoup.parse(h)
+		let els = try doc.getElementsByTag("xπβ")
+		XCTAssertEqual(1, els.size())
+		let el = els.get(0)
+		XCTAssertEqual("xπβ", el.tagName())
+		XCTAssertEqual("Hi", try el.text())
 	}
 
 	func testHandlesUnknownInlineTags() throws {

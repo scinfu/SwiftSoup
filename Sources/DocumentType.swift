@@ -135,7 +135,7 @@ public class DocumentType: Node {
                                  attributes!.get(key: DocumentType.PUBLIC_ID),
                                  attributes!.get(key: DocumentType.SYSTEM_ID),
                                  baseUri!)
-        return copy(clone: clone, parent: parent, copyChildren: false)
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
 
 	public override func copy(clone: Node, parent: Node?) -> Node {

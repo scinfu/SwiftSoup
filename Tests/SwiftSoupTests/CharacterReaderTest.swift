@@ -57,6 +57,23 @@ class CharacterReaderTest: XCTestCase {
         r.unconsume()
         XCTAssertEqual("π", r.current())
     }
+    
+    func testConsumeAsStringAsciiAndMultibyte() {
+        let r = CharacterReader("abπ")
+        XCTAssertEqual("a", r.consumeAsString())
+        XCTAssertEqual("b", r.consumeAsString())
+        XCTAssertEqual("π", r.consumeAsString())
+        XCTAssertTrue(r.isEmpty())
+    }
+    
+    func testAdvanceAsciiAndMultibyte() {
+        let r = CharacterReader("aπb")
+        XCTAssertEqual("a", r.current())
+        r.advance()
+        XCTAssertEqual("π", r.current())
+        r.advance()
+        XCTAssertEqual("b", r.current())
+    }
 
     func testMark() {
         let r = CharacterReader("one")
@@ -117,6 +134,23 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("T", r.consume())
         XCTAssertEqual("hree", r.consumeTo("T")) // consume to end
     }
+    
+    func testConsumeToUnicodeScalarMultibyte() {
+        let pi = "π".unicodeScalars.first!
+        let r = CharacterReader("aπbπc")
+        XCTAssertEqual("a", String(decoding: r.consumeTo(pi), as: UTF8.self))
+        XCTAssertEqual("π", r.consume())
+        XCTAssertEqual("b", String(decoding: r.consumeTo(pi), as: UTF8.self))
+        XCTAssertEqual("π", r.consume())
+        XCTAssertEqual("c", r.consumeToEnd())
+    }
+    
+    func testConsumeToStringMultibyte() {
+        let r = CharacterReader("aπbπc")
+        XCTAssertEqual("a", r.consumeTo("πb"))
+        XCTAssertEqual("πb", r.consumeTo("πc"))
+        XCTAssertEqual("πc", r.consumeToEnd())
+    }
 
     func testConsumeToString() {
         let r = CharacterReader("One Two Two Four")
@@ -150,6 +184,13 @@ class CharacterReaderTest: XCTestCase {
         let value: ArraySlice<UInt8> = r.consumeToAny(ParsingStrings(["\"", UnicodeScalar.Ampersand, "\u{0000}"]))
         XCTAssertEqual(String(decoding: value, as: UTF8.self), "若い")
     }
+    
+    func testConsumeToAnySingleByteFastPathDoesNotSplitMultibyte() {
+        let r = CharacterReader("a☃b")
+        let value: ArraySlice<UInt8> = r.consumeToAny(ParsingStrings(["b", "<"]))
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), "a☃")
+        XCTAssertEqual("b", r.consume())
+    }
 
     func testConsumeLetterSequence() {
         let r = CharacterReader("One &bar; qux")
@@ -166,6 +207,24 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("Two", String(decoding: r.consumeLetterThenDigitSequence(), as: UTF8.self))
         XCTAssertEqual(" &bar; qux", r.consumeToEnd())
     }
+    
+    func testConsumeLetterSequenceMultibyte() {
+        let r = CharacterReader("πβ123")
+        XCTAssertEqual("πβ", String(decoding: r.consumeLetterSequence(), as: UTF8.self))
+        XCTAssertEqual("123", r.consumeToEnd())
+    }
+    
+    func testConsumeDigitSequenceMultibyte() {
+        let r = CharacterReader("٣4π")
+        XCTAssertEqual("٣4", String(decoding: r.consumeDigitSequence(), as: UTF8.self))
+        XCTAssertEqual("π", r.consumeToEnd())
+    }
+    
+    func testConsumeHexSequenceAscii() {
+        let r = CharacterReader("0aFz")
+        XCTAssertEqual("0aF", String(decoding: r.consumeHexSequence(), as: UTF8.self))
+        XCTAssertEqual("z", r.consumeToEnd())
+    }
 
     func testMatches() {
         let r = CharacterReader("One Two Three")
@@ -179,6 +238,22 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertFalse(r.matches("ne Two Three Four"))
         XCTAssertEqual("ne Two Three", r.consumeToEnd())
         XCTAssertFalse(r.matches("ne"))
+    }
+    
+    func testMatchesNonAscii() {
+        let r = CharacterReader("πβγ")
+        XCTAssertTrue(r.matches("π"))
+        XCTAssertTrue(r.matches("πβ"))
+        XCTAssertFalse(r.matches("β"))
+    }
+    
+    func testMatchesDigitAsciiAndMultibyte() {
+        let r = CharacterReader("1٣a")
+        XCTAssertTrue(r.matchesDigit())
+        _ = r.consume()
+        XCTAssertFalse(r.matchesDigit())
+        _ = r.consume()
+        XCTAssertFalse(r.matchesDigit())
     }
 
     func testMatchesIgnoreCase() {

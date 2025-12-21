@@ -884,11 +884,11 @@ open class Node: Equatable, Hashable {
     @inline(__always)
     func copyForDeepClone(parent: Node?) -> Node {
         let clone = Node(skipChildReserve: !hasChildNodes())
-        return copy(clone: clone, parent: parent, copyChildren: false)
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
     
     public func copy(clone: Node) -> Node {
-        let thisClone = copy(clone: clone, parent: nil) // splits for orphan
+        let thisClone = copy(clone: clone, parent: nil, copyChildren: true, rebuildIndexes: false) // splits for orphan
         
         // BFS clone using index-based queue, preserving original nodes to avoid extra array copies.
         var queue: [(Node, Node)] = [(self, thisClone)]
@@ -913,9 +913,6 @@ open class Node: Equatable, Hashable {
             } else {
                 cloneParent.childNodes.removeAll(keepingCapacity: true)
             }
-            if let cloneParentElement = cloneParent as? Element {
-                cloneParentElement.rebuildQueryIndexesForThisNodeOnly()
-            }
         }
         
         return thisClone
@@ -926,11 +923,11 @@ open class Node: Equatable, Hashable {
      * Not a deep copy of children.
      */
     public func copy(clone: Node, parent: Node?) -> Node {
-        return copy(clone: clone, parent: parent, copyChildren: true)
+        return copy(clone: clone, parent: parent, copyChildren: true, rebuildIndexes: true)
     }
 
     @inline(__always)
-    func copy(clone: Node, parent: Node?, copyChildren: Bool) -> Node {
+    func copy(clone: Node, parent: Node?, copyChildren: Bool, rebuildIndexes: Bool) -> Node {
         clone.parentNode = parent // can be nil, to create an orphan split
         clone.siblingIndex = parent == nil ? 0 : siblingIndex
         if let attrs = attributes {
@@ -950,11 +947,16 @@ open class Node: Equatable, Hashable {
             clone.childNodes.removeAll(keepingCapacity: true)
         }
 
-        if let cloneElement = clone as? Element {
+        if rebuildIndexes, let cloneElement = clone as? Element {
             cloneElement.rebuildQueryIndexesForThisNodeOnly()
         }
 
         return clone
+    }
+
+    @inline(__always)
+    func copy(clone: Node, parent: Node?, copyChildren: Bool) -> Node {
+        return copy(clone: clone, parent: parent, copyChildren: copyChildren, rebuildIndexes: true)
     }
     
     private class OuterHtmlVisitor: NodeVisitor {

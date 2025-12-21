@@ -62,6 +62,7 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
     public let multiByteSet: [ArraySlice<UInt8>]
     public let multiByteByteLookupsCount: Int
     public let singleByteMask: (UInt64, UInt64, UInt64, UInt64) // Precomputed set for single-byte lookups
+    public let isSingleByteOnly: Bool
     private let precomputedHash: Int
     private let root: TrieNode
     
@@ -73,6 +74,7 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
         multiByteChars = strings
         multiByteCharLengths = strings.map { $0.count }
         let maxLen = multiByteCharLengths.max() ?? 0
+        var singleByteOnly = true
         
         var multiByteByteLookups: [(UInt64, UInt64, UInt64, UInt64)] = Array(repeating: (0,0,0,0), count: maxLen)
         
@@ -94,7 +96,13 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
         var byteMask: (UInt64, UInt64, UInt64, UInt64) = (0, 0, 0, 0)
         for char in multiByteChars {
             if char.count == 1 {
-                setBit(in: &byteMask, forByte: char[0])
+                let byte = char[0]
+                setBit(in: &byteMask, forByte: byte)
+                if byte >= 0x80 {
+                    singleByteOnly = false
+                }
+            } else {
+                singleByteOnly = false
             }
             for (i, byte) in char.enumerated() {
                 var mask = multiByteByteLookups[i]
@@ -103,6 +111,7 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
             }
         }
         self.singleByteMask = byteMask
+        self.isSingleByteOnly = singleByteOnly
         
         self.multiByteByteLookups = multiByteByteLookups
         multiByteByteLookupsCount = multiByteByteLookups.count
