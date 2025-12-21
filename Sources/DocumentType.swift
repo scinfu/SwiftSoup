@@ -130,6 +130,14 @@ public class DocumentType: Node {
 		return copy(clone: clone, parent: parent)
 	}
 
+    override func copyForDeepClone(parent: Node?) -> Node {
+        let clone = DocumentType(attributes!.get(key: DocumentType.NAME),
+                                 attributes!.get(key: DocumentType.PUBLIC_ID),
+                                 attributes!.get(key: DocumentType.SYSTEM_ID),
+                                 baseUri!)
+        return copy(clone: clone, parent: parent, copyChildren: false)
+    }
+
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		return super.copy(clone: clone, parent: parent)
 	}

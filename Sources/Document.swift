@@ -407,6 +407,14 @@ open class Document: Element {
 		return copy(clone: clone, parent: parent)
 	}
 
+    override func copyForDeepClone(parent: Node?) -> Node {
+        let clone = Document(_location)
+        clone._outputSettings = _outputSettings.copy() as! OutputSettings
+        clone._quirksMode = _quirksMode
+        clone.updateMetaCharset = updateMetaCharset
+        return copy(clone: clone, parent: parent, copyChildren: false)
+    }
+
     @inline(__always)
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		let clone = clone as! Document

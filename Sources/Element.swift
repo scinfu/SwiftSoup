@@ -1739,6 +1739,15 @@ open class Element: Node {
         }
         return copy(clone: clone, parent: parent)
     }
+
+    @inline(__always)
+    override func copyForDeepClone(parent: Node?) -> Node {
+        let clone = Element(_tag, baseUri!, attributes!)
+        if let treeBuilder {
+            clone.treeBuilder = treeBuilder
+        }
+        return copy(clone: clone, parent: parent, copyChildren: false)
+    }
     
     @inline(__always)
     public override func copy(clone: Node, parent: Node?) -> Node {

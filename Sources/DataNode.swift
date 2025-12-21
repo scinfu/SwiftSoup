@@ -90,11 +90,17 @@ open class DataNode: Node {
 		return copy(clone: clone)
 	}
 
-    @inline(__always)
+	@inline(__always)
 	public override func copy(parent: Node?) -> Node {
 		let clone = DataNode(attributes!.get(key: DataNode.DATA_KEY), baseUri!)
 		return copy(clone: clone, parent: parent)
 	}
+
+    @inline(__always)
+    override func copyForDeepClone(parent: Node?) -> Node {
+        let clone = DataNode(attributes!.get(key: DataNode.DATA_KEY), baseUri!)
+        return copy(clone: clone, parent: parent, copyChildren: false)
+    }
 
     @inline(__always)
 	public override func copy(clone: Node, parent: Node?) -> Node {

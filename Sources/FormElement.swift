@@ -135,6 +135,14 @@ public class FormElement: Element {
 		let clone = FormElement(_tag, baseUri!, attributes!)
 		return copy(clone: clone, parent: parent)
 	}
+
+    override func copyForDeepClone(parent: Node?) -> Node {
+        let clone = FormElement(_tag, baseUri!, attributes!)
+        for att in _elements.array() {
+            clone._elements.add(att)
+        }
+        return copy(clone: clone, parent: parent, copyChildren: false)
+    }
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		let clone = clone as! FormElement
 		for att in _elements.array() {

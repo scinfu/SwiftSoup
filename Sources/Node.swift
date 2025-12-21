@@ -879,6 +879,13 @@ open class Node: Equatable, Hashable {
         let clone = Node(skipChildReserve: !hasChildNodes())
         return copy(clone: clone, parent: parent)
     }
+
+    /// Internal shallow clone used by deep-copy to avoid copying childNodes.
+    @inline(__always)
+    func copyForDeepClone(parent: Node?) -> Node {
+        let clone = Node(skipChildReserve: !hasChildNodes())
+        return copy(clone: clone, parent: parent, copyChildren: false)
+    }
     
     public func copy(clone: Node) -> Node {
         let thisClone = copy(clone: clone, parent: nil) // splits for orphan
@@ -896,7 +903,7 @@ open class Node: Equatable, Hashable {
                 var newChildren: [Node] = []
                 newChildren.reserveCapacity(originalChildren.count)
                 for child in originalChildren {
-                    let childClone = child.copy(parent: cloneParent)
+                    let childClone = child.copyForDeepClone(parent: cloneParent)
                     newChildren.append(childClone)
                     if child.hasChildNodes() {
                         queue.append((child, childClone))
@@ -919,17 +926,34 @@ open class Node: Equatable, Hashable {
      * Not a deep copy of children.
      */
     public func copy(clone: Node, parent: Node?) -> Node {
+        return copy(clone: clone, parent: parent, copyChildren: true)
+    }
+
+    @inline(__always)
+    func copy(clone: Node, parent: Node?, copyChildren: Bool) -> Node {
         clone.parentNode = parent // can be nil, to create an orphan split
         clone.siblingIndex = parent == nil ? 0 : siblingIndex
-        clone.attributes = attributes != nil ? attributes?.clone() : nil
-        clone.attributes?.ownerElement = clone as? SwiftSoup.Element
+        if let attrs = attributes {
+            if attrs.attributes.isEmpty {
+                clone.attributes = Attributes()
+            } else {
+                clone.attributes = attrs.clone()
+            }
+            clone.attributes?.ownerElement = clone as? SwiftSoup.Element
+        } else {
+            clone.attributes = nil
+        }
         clone.baseUri = baseUri
-        clone.childNodes = childNodes
-        
+        if copyChildren {
+            clone.childNodes = childNodes
+        } else {
+            clone.childNodes.removeAll(keepingCapacity: true)
+        }
+
         if let cloneElement = clone as? Element {
             cloneElement.rebuildQueryIndexesForThisNodeOnly()
         }
-        
+
         return clone
     }
     
