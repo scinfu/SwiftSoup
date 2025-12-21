@@ -883,20 +883,31 @@ open class Node: Equatable, Hashable {
     public func copy(clone: Node) -> Node {
         let thisClone = copy(clone: clone, parent: nil) // splits for orphan
         
-        // BFS clone using index-based queue
-        var queue: [Node] = [thisClone]
+        // BFS clone using index-based queue, preserving original nodes to avoid extra array copies.
+        var queue: [(Node, Node)] = [(self, thisClone)]
+        queue.reserveCapacity(8)
         var idx = 0
         while idx < queue.count {
-            let currParent = queue[idx]
+            let (originalParent, cloneParent) = queue[idx]
             idx += 1
             
-            let originalChildren = currParent.childNodes
-            currParent.childNodes = originalChildren.map {
-                $0.copy(parent: currParent)
+            let originalChildren = originalParent.childNodes
+            if !originalChildren.isEmpty {
+                var newChildren: [Node] = []
+                newChildren.reserveCapacity(originalChildren.count)
+                for child in originalChildren {
+                    let childClone = child.copy(parent: cloneParent)
+                    newChildren.append(childClone)
+                    if child.hasChildNodes() {
+                        queue.append((child, childClone))
+                    }
+                }
+                cloneParent.childNodes = newChildren
+            } else {
+                cloneParent.childNodes.removeAll(keepingCapacity: true)
             }
-            queue.append(contentsOf: currParent.childNodes)
-            if let currParentElement = currParent as? Element {
-                currParentElement.rebuildQueryIndexesForThisNodeOnly()
+            if let cloneParentElement = cloneParent as? Element {
+                cloneParentElement.rebuildQueryIndexesForThisNodeOnly()
             }
         }
         
