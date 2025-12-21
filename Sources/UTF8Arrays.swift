@@ -67,6 +67,9 @@ public enum UTF8Arrays {
     public static let textarea = "textarea".utf8Array
     public static let iframe = "iframe".utf8Array
     public static let noembed = "noembed".utf8Array
+    public static let noframes = "noframes".utf8Array
+    public static let noscript = "noscript".utf8Array
+    public static let embed = "embed".utf8Array
     public static let option = "option".utf8Array
     public static let math = "math".utf8Array
     public static let data = "data".utf8Array
@@ -85,9 +88,7 @@ public enum UTF8Arrays {
     public static let time = "time".utf8Array
     public static let href = "href".utf8Array
     public static let meter = "meter".utf8Array
-    public static let noscript = "noscript".utf8Array
     public static let b = "b".utf8Array
-    public static let noframes = "noframes".utf8Array
     public static let style = "style".utf8Array
     public static let title = "title".utf8Array
     public static let script = "script".utf8Array
@@ -173,6 +174,9 @@ public enum UTF8ArraySlices {
     public static let textarea = UTF8Arrays.textarea[...]
     public static let iframe = UTF8Arrays.iframe[...]
     public static let noembed = UTF8Arrays.noembed[...]
+    public static let noframes = UTF8Arrays.noframes[...]
+    public static let noscript = UTF8Arrays.noscript[...]
+    public static let embed = UTF8Arrays.embed[...]
     public static let option = UTF8Arrays.option[...]
     public static let math = UTF8Arrays.math[...]
     public static let sarcasm = UTF8Arrays.sarcasm[...]
@@ -182,8 +186,6 @@ public enum UTF8ArraySlices {
     public static let frame = UTF8Arrays.frame[...]
     public static let base = UTF8Arrays.base[...]
     public static let href = UTF8Arrays.href[...]
-    public static let noscript = UTF8Arrays.noscript[...]
-    public static let noframes = UTF8Arrays.noframes[...]
     public static let style = UTF8Arrays.style[...]
     public static let title = UTF8Arrays.title[...]
     public static let script = UTF8Arrays.script[...]

@@ -3,6 +3,7 @@
 
 # Swift Package Manager
 .build
+Package.resolved
 
 # Xcode user settings
 xcuserdata/
