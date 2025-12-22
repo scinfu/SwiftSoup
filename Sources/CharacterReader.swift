@@ -1025,6 +1025,62 @@ public final class CharacterReader {
     }
 
     @inline(__always)
+    public func consumeToAnyOfFour(_ a: UInt8, _ b: UInt8, _ c: UInt8, _ d: UInt8) -> ArraySlice<UInt8> {
+        let start = pos
+        let count = end - pos
+        if count <= 0 {
+            return input[start..<pos]
+        }
+        #if canImport(Darwin) || canImport(Glibc)
+        if count >= 32 {
+            return input.withUnsafeBytes { buf in
+                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
+                    return input[start..<pos]
+                }
+                let startPtr = basePtr.advanced(by: pos)
+                let startRaw = UnsafeRawPointer(startPtr)
+                let len = count
+                let pa = memchr(startPtr, Int32(a), len)
+                let pb = (a == b) ? nil : memchr(startPtr, Int32(b), len)
+                let pc = (a == c || b == c) ? nil : memchr(startPtr, Int32(c), len)
+                let pd = (a == d || b == d || c == d) ? nil : memchr(startPtr, Int32(d), len)
+                var minOff = len
+                if let pa {
+                    let off = Int(bitPattern: pa) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
+                }
+                if let pb {
+                    let off = Int(bitPattern: pb) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
+                }
+                if let pc {
+                    let off = Int(bitPattern: pc) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
+                }
+                if let pd {
+                    let off = Int(bitPattern: pd) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
+                }
+                if minOff != len {
+                    pos = start + minOff
+                    return input[start..<pos]
+                }
+                pos = end
+                return input[start..<pos]
+            }
+        }
+        #endif
+        while pos < end {
+            let byte = input[pos]
+            if byte == a || byte == b || byte == c || byte == d {
+                return input[start..<pos]
+            }
+            pos &+= 1
+        }
+        return input[start..<pos]
+    }
+
+    @inline(__always)
     public func advanceAsciiWhitespace() {
         while pos < end && input[pos].isWhitespace {
             pos &+= 1

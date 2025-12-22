@@ -16,6 +16,12 @@ final class Tokeniser {
     private static let gtName = "gt".utf8Array
     private static let quotName = "quot".utf8Array
     private static let aposName = "apos".utf8Array
+    private static let ampCodepoints: [UnicodeScalar] = [UnicodeScalar.Ampersand]
+    private static let ltCodepoints: [UnicodeScalar] = [UnicodeScalar.LessThan]
+    private static let gtCodepoints: [UnicodeScalar] = [UnicodeScalar.GreaterThan]
+    private static let quotCodepoints: [UnicodeScalar] = [UnicodeScalar(0x22)!]
+    private static let aposCodepoints: [UnicodeScalar] = [UnicodeScalar(0x27)!]
+    private static let replacementCodepoints: [UnicodeScalar] = [Tokeniser.replacementChar]
     private static let notCharRefAsciiTable: [Bool] = {
         var table = [Bool](repeating: false, count: 128)
         table[0x09] = true // \t
@@ -268,7 +274,7 @@ final class Tokeniser {
             
             if (charval == -1 || (charval >= 0xD800 && charval <= 0xDFFF) || charval > 0x10FFFF) {
                 characterReferenceError("character outside of valid range")
-                return [Tokeniser.replacementChar]
+                return Self.replacementCodepoints
             } else {
                 // todo: implement number replacement table
                 // todo: check for extra illegal unicode points as parse errors
@@ -276,7 +282,7 @@ final class Tokeniser {
             }
         } else { // named
             @inline(__always)
-            func fastNamedEntity(_ name: [UInt8], _ scalar: UnicodeScalar) -> [UnicodeScalar]? {
+            func fastNamedEntity(_ name: [UInt8], _ codepoints: [UnicodeScalar]) -> [UnicodeScalar]? {
                 let pos = reader.pos
                 let end = reader.end
                 let input = reader.input
@@ -302,20 +308,20 @@ final class Tokeniser {
                 } else {
                     characterReferenceError("missing semicolon")
                 }
-                return [scalar]
+                return codepoints
             }
 
             if let b = reader.currentByte(), b < 0x80 {
                 switch b {
                 case 0x61: // a
-                    if let fast = fastNamedEntity(Self.ampName, UnicodeScalar.Ampersand) { return fast }
-                    if let fast = fastNamedEntity(Self.aposName, UnicodeScalar(0x27)!) { return fast }
+                    if let fast = fastNamedEntity(Self.ampName, Self.ampCodepoints) { return fast }
+                    if let fast = fastNamedEntity(Self.aposName, Self.aposCodepoints) { return fast }
                 case 0x6C: // l
-                    if let fast = fastNamedEntity(Self.ltName, UnicodeScalar.LessThan) { return fast }
+                    if let fast = fastNamedEntity(Self.ltName, Self.ltCodepoints) { return fast }
                 case 0x67: // g
-                    if let fast = fastNamedEntity(Self.gtName, UnicodeScalar.GreaterThan) { return fast }
+                    if let fast = fastNamedEntity(Self.gtName, Self.gtCodepoints) { return fast }
                 case 0x71: // q
-                    if let fast = fastNamedEntity(Self.quotName, UnicodeScalar(0x22)!) { return fast }
+                    if let fast = fastNamedEntity(Self.quotName, Self.quotCodepoints) { return fast }
                 default:
                     break
                 }

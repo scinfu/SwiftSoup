@@ -307,13 +307,27 @@ enum TokeniserState: TokeniserStateProtocol {
             try TokeniserState.readTagName(self, t, r)
             break
         case .RcdataLessthanSign:
-            if (r.matches(UTF8Arrays.forwardSlash)) {
-                t.createTempBuffer()
-                t.advanceTransition(.RCDATAEndTagOpen)
-            } else if let byte = r.currentByte(), byte < 0x80 {
-                if TokeniserStateVars.isAsciiAlpha(byte),
-                   let endTagName = t.appropriateEndTagName(),
-                   !r.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: endTagName) {
+            if let byte = r.currentByte() {
+                if byte == TokeniserStateVars.slashByte {
+                    t.createTempBuffer()
+                    t.advanceTransition(.RCDATAEndTagOpen)
+                } else if byte < 0x80 {
+                    if TokeniserStateVars.isAsciiAlpha(byte),
+                       let endTagName = t.appropriateEndTagName(),
+                       !r.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: endTagName) {
+                        // diverge from spec: got a start tag, but there's no appropriate end tag (</title>), so rather than
+                        // consuming to EOF break out here
+                        t.tagPending = t.createTagPending(false).name(endTagName)
+                        try t.emitTagPending()
+                        r.unconsume() // undo UnicodeScalar.LessThan
+                        t.transition(.Data)
+                    } else {
+                        t.emit(UnicodeScalar.LessThan)
+                        t.transition(.Rcdata)
+                    }
+                } else if r.matchesLetter(),
+                          let endTagName = t.appropriateEndTagName(),
+                          !r.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: endTagName) {
                     // diverge from spec: got a start tag, but there's no appropriate end tag (</title>), so rather than
                     // consuming to EOF break out here
                     t.tagPending = t.createTagPending(false).name(endTagName)
@@ -324,14 +338,6 @@ enum TokeniserState: TokeniserStateProtocol {
                     t.emit(UnicodeScalar.LessThan)
                     t.transition(.Rcdata)
                 }
-            } else if r.matchesLetter(), let endTagName = t.appropriateEndTagName(),
-                      !r.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: endTagName) {
-                // diverge from spec: got a start tag, but there's no appropriate end tag (</title>), so rather than
-                // consuming to EOF break out here
-                t.tagPending = t.createTagPending(false).name(endTagName)
-                try t.emitTagPending()
-                r.unconsume() // undo UnicodeScalar.LessThan
-                t.transition(.Data)
             } else {
                 t.emit(UnicodeScalar.LessThan)
                 t.transition(.Rcdata)
@@ -381,118 +387,60 @@ enum TokeniserState: TokeniserStateProtocol {
 
             if let byte = r.currentByte(), byte < 0x80 {
                 r.advanceAscii()
+                let appropriate = try t.isAppropriateEndTagToken()
                 switch byte {
-                case 0x09: // \t
-                    if (try t.isAppropriateEndTagToken()) {
+                case TokeniserStateVars.tabByte, TokeniserStateVars.newLineByte, TokeniserStateVars.carriageReturnByte, TokeniserStateVars.formFeedByte, TokeniserStateVars.spaceByte:
+                    if appropriate {
                         t.transition(.BeforeAttributeName)
                     } else {
                         anythingElse(t, r)
                     }
-                    break
-                case 0x0A: // \n
-                    if (try t.isAppropriateEndTagToken()) {
-                        t.transition(.BeforeAttributeName)
-                    } else {
-                        anythingElse(t, r)
-                    }
-                    break
-                case 0x0D: // \r
-                    if (try t.isAppropriateEndTagToken()) {
-                        t.transition(.BeforeAttributeName)
-                    } else {
-                        anythingElse(t, r)
-                    }
-                    break
-                case 0x0C: // \f
-                    if (try t.isAppropriateEndTagToken()) {
-                        t.transition(.BeforeAttributeName)
-                    } else {
-                        anythingElse(t, r)
-                    }
-                    break
-                case 0x20: // space
-                    if (try t.isAppropriateEndTagToken()) {
-                        t.transition(.BeforeAttributeName)
-                    } else {
-                        anythingElse(t, r)
-                    }
-                    break
-                case 0x2F: // "/"
-                    if (try t.isAppropriateEndTagToken()) {
+                case TokeniserStateVars.slashByte: // "/"
+                    if appropriate {
                         t.transition(.SelfClosingStartTag)
                     } else {
                         anythingElse(t, r)
                     }
-                    break
-                case 0x3E: // ">"
-                    if (try t.isAppropriateEndTagToken()) {
+                case TokeniserStateVars.greaterThanByte: // ">"
+                    if appropriate {
                         try t.emitTagPending()
                         t.transition(.Data)
-                    } else {anythingElse(t, r)}
-                    break
+                    } else {
+                        anythingElse(t, r)
+                    }
                 default:
                     anythingElse(t, r)
-                    break
                 }
             } else {
                 let c = r.consume()
+                let appropriate = try t.isAppropriateEndTagToken()
                 switch (c) {
-                case UnicodeScalar.BackslashT:
-                if (try t.isAppropriateEndTagToken()) {
-                    t.transition(.BeforeAttributeName)
-                } else {
+                case UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ":
+                    if appropriate {
+                        t.transition(.BeforeAttributeName)
+                    } else {
+                        anythingElse(t, r)
+                    }
+                case "/":
+                    if appropriate {
+                        t.transition(.SelfClosingStartTag)
+                    } else {
+                        anythingElse(t, r)
+                    }
+                case ">":
+                    if appropriate {
+                        try t.emitTagPending()
+                        t.transition(.Data)
+                    } else {
+                        anythingElse(t, r)
+                    }
+                default:
                     anythingElse(t, r)
                 }
-                break
-            case "\n":
-                if (try t.isAppropriateEndTagToken()) {
-                    t.transition(.BeforeAttributeName)
-                } else {
-                    anythingElse(t, r)
-                }
-                break
-            case "\r":
-                if (try t.isAppropriateEndTagToken()) {
-                    t.transition(.BeforeAttributeName)
-                } else {
-                    anythingElse(t, r)
-                }
-                break
-            case UnicodeScalar.BackslashF:
-                if (try t.isAppropriateEndTagToken()) {
-                    t.transition(.BeforeAttributeName)
-                } else {
-                    anythingElse(t, r)
-                }
-                break
-            case " ":
-                if (try t.isAppropriateEndTagToken()) {
-                    t.transition(.BeforeAttributeName)
-                } else {
-                    anythingElse(t, r)
-                }
-                break
-            case "/":
-                if (try t.isAppropriateEndTagToken()) {
-                    t.transition(.SelfClosingStartTag)
-                } else {
-                    anythingElse(t, r)
-                }
-                break
-            case ">":
-                if (try t.isAppropriateEndTagToken()) {
-                    try t.emitTagPending()
-                    t.transition(.Data)
-                } else {anythingElse(t, r)}
-                break
-            default:
-                anythingElse(t, r)
-                break
-            }
             }
             break
         case .RawtextLessthanSign:
-            if (r.matches(UTF8Arrays.forwardSlash)) {
+            if let byte = r.currentByte(), byte == TokeniserStateVars.slashByte {
                 t.createTempBuffer()
                 t.advanceTransition(.RawtextEndTagOpen)
             } else {
@@ -564,11 +512,11 @@ enum TokeniserState: TokeniserStateProtocol {
 
             let byte = r.currentByte()!
             switch byte {
-            case 0x2D: // "-"
+            case TokeniserStateVars.hyphenByte: // "-"
                 t.emit(UTF8Arrays.hyphen)
                 t.advanceTransitionAscii(.ScriptDataEscapedDash)
                 break
-            case 0x3C: // "<"
+            case TokeniserStateVars.lessThanByte: // "<"
                 t.advanceTransitionAscii(.ScriptDataEscapedLessthanSign)
                 break
             case 0x00:
@@ -577,7 +525,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.emit(TokeniserStateVars.replacementStr)
                 break
             default:
-                let data: ArraySlice<UInt8> = r.consumeToAnyOfTwo(0x2D, 0x3C)
+                let data: ArraySlice<UInt8> = r.consumeToAnyOfThree(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
                 t.emit(data)
             }
             break
@@ -590,12 +538,12 @@ enum TokeniserState: TokeniserStateProtocol {
 
             if let byte = r.currentByte() {
                 switch byte {
-                case 0x2D: // "-"
+                case TokeniserStateVars.hyphenByte: // "-"
                     r.advanceAscii()
                     t.emit(UTF8Arrays.hyphen)
                     t.transition(.ScriptDataEscapedDashDash)
                     break
-                case 0x3C: // "<"
+                case TokeniserStateVars.lessThanByte: // "<"
                     r.advanceAscii()
                     t.transition(.ScriptDataEscapedLessthanSign)
                     break
@@ -607,8 +555,8 @@ enum TokeniserState: TokeniserStateProtocol {
                     break
                 default:
                     if byte < 0x80 {
-                        r.advanceAscii()
-                        t.emitByte(byte)
+                        let data: ArraySlice<UInt8> = r.consumeToAnyOfThree(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
+                        t.emit(data)
                     } else {
                         let c = r.consume()
                         t.emit(c)
@@ -630,15 +578,15 @@ enum TokeniserState: TokeniserStateProtocol {
 
             if let byte = r.currentByte() {
                 switch byte {
-                case 0x2D: // "-"
+                case TokeniserStateVars.hyphenByte: // "-"
                     r.advanceAscii()
                     t.emit(UTF8Arrays.hyphen)
                     break
-                case 0x3C: // "<"
+                case TokeniserStateVars.lessThanByte: // "<"
                     r.advanceAscii()
                     t.transition(.ScriptDataEscapedLessthanSign)
                     break
-                case 0x3E: // ">"
+                case TokeniserStateVars.greaterThanByte: // ">"
                     r.advanceAscii()
                     t.emit(UTF8Arrays.tagEnd)
                     t.transition(.ScriptData)
@@ -651,8 +599,8 @@ enum TokeniserState: TokeniserStateProtocol {
                     break
                 default:
                     if byte < 0x80 {
-                        r.advanceAscii()
-                        t.emitByte(byte)
+                        let data: ArraySlice<UInt8> = r.consumeToAnyOfFour(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.greaterThanByte, TokeniserStateVars.nullByte)
+                        t.emit(data)
                     } else {
                         let c = r.consume()
                         t.emit(c)
@@ -676,7 +624,7 @@ enum TokeniserState: TokeniserStateProtocol {
                         t.advanceTransition(.ScriptDataDoubleEscapeStart)
                         break
                     }
-                    if byte == 0x2F {
+                    if byte == TokeniserStateVars.slashByte {
                         t.createTempBuffer()
                         t.advanceTransition(.ScriptDataEscapedEndTagOpen)
                         break
@@ -690,13 +638,8 @@ enum TokeniserState: TokeniserStateProtocol {
                     break
                 }
             }
-            if (r.matches(UTF8Arrays.forwardSlash)) {
-                t.createTempBuffer()
-                t.advanceTransition(.ScriptDataEscapedEndTagOpen)
-            } else {
-                t.emit(UnicodeScalar.LessThan)
-                t.transition(.ScriptDataEscaped)
-            }
+            t.emit(UnicodeScalar.LessThan)
+            t.transition(.ScriptDataEscaped)
             break
         case .ScriptDataEscapedEndTagOpen:
             if let byte = r.currentByte(), byte < 0x80 {
@@ -733,11 +676,11 @@ enum TokeniserState: TokeniserStateProtocol {
 
             let byte = r.currentByte()!
             switch byte {
-            case 0x2D: // "-"
+            case TokeniserStateVars.hyphenByte: // "-"
                 t.emit(UTF8Arrays.hyphen)
                 t.advanceTransitionAscii(.ScriptDataDoubleEscapedDash)
                 break
-            case 0x3C: // "<"
+            case TokeniserStateVars.lessThanByte: // "<"
                 t.emit(UTF8Arrays.tagStart)
                 t.advanceTransitionAscii(.ScriptDataDoubleEscapedLessthanSign)
                 break
@@ -747,7 +690,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.emit(TokeniserStateVars.replacementStr)
                 break
             default:
-                let data: ArraySlice<UInt8> = r.consumeToAnyOfTwo(0x2D, 0x3C)
+                let data: ArraySlice<UInt8> = r.consumeToAnyOfThree(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
                 t.emit(data)
             }
             break
@@ -759,12 +702,12 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             if let byte = r.currentByte() {
                 switch byte {
-                case 0x2D: // "-"
+                case TokeniserStateVars.hyphenByte: // "-"
                     r.advanceAscii()
                     t.emit(UTF8Arrays.hyphen)
                     t.transition(.ScriptDataDoubleEscapedDashDash)
                     break
-                case 0x3C: // "<"
+                case TokeniserStateVars.lessThanByte: // "<"
                     r.advanceAscii()
                     t.emit(UTF8Arrays.tagStart)
                     t.transition(.ScriptDataDoubleEscapedLessthanSign)
@@ -777,8 +720,8 @@ enum TokeniserState: TokeniserStateProtocol {
                     break
                 default:
                     if byte < 0x80 {
-                        r.advanceAscii()
-                        t.emitByte(byte)
+                        let data: ArraySlice<UInt8> = r.consumeToAnyOfThree(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
+                        t.emit(data)
                     } else {
                         let c = r.consume()
                         t.emit(c)
@@ -799,16 +742,16 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             if let byte = r.currentByte() {
                 switch byte {
-                case 0x2D: // "-"
+                case TokeniserStateVars.hyphenByte: // "-"
                     r.advanceAscii()
                     t.emit(UTF8Arrays.hyphen)
                     break
-                case 0x3C: // "<"
+                case TokeniserStateVars.lessThanByte: // "<"
                     r.advanceAscii()
                     t.emit(UTF8Arrays.tagStart)
                     t.transition(.ScriptDataDoubleEscapedLessthanSign)
                     break
-                case 0x3E: // ">"
+                case TokeniserStateVars.greaterThanByte: // ">"
                     r.advanceAscii()
                     t.emit(UTF8Arrays.tagEnd)
                     t.transition(.ScriptData)
@@ -821,8 +764,8 @@ enum TokeniserState: TokeniserStateProtocol {
                     break
                 default:
                     if byte < 0x80 {
-                        r.advanceAscii()
-                        t.emitByte(byte)
+                        let data: ArraySlice<UInt8> = r.consumeToAnyOfFour(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.greaterThanByte, TokeniserStateVars.nullByte)
+                        t.emit(data)
                     } else {
                         let c = r.consume()
                         t.emit(c)
@@ -2123,10 +2066,10 @@ enum TokeniserState: TokeniserStateProtocol {
                 case TokeniserStateVars.tabByte, TokeniserStateVars.newLineByte, TokeniserStateVars.carriageReturnByte, TokeniserStateVars.formFeedByte, TokeniserStateVars.spaceByte: // whitespace
                     t.transition(BeforeAttributeName)
                     break
-                case 0x2F: // "/"
+                case TokeniserStateVars.slashByte: // "/"
                     t.transition(SelfClosingStartTag)
                     break
-                case 0x3E: // ">"
+                case TokeniserStateVars.greaterThanByte: // ">"
                     try t.emitTagPending()
                     t.transition(Data)
                     break
@@ -2170,7 +2113,7 @@ enum TokeniserState: TokeniserStateProtocol {
         }
         let byte = r.currentByte()!
         switch byte {
-        case 0x3C: // "<"
+        case TokeniserStateVars.lessThanByte: // "<"
             t.advanceTransition(advance)
             break
         case 0x00:
