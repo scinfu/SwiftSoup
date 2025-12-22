@@ -120,12 +120,20 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     public override func process(_ token: Token)throws->Bool {
+        #if PROFILE
+        let _p = Profiler.start("HtmlTreeBuilder.process")
+        defer { Profiler.end("HtmlTreeBuilder.process", _p) }
+        #endif
         currentToken = token
         return try self._state.process(token, self)
     }
     
     @discardableResult
     func process(_ token: Token, _ state: HtmlTreeBuilderState)throws->Bool {
+        #if PROFILE
+        let _p = Profiler.start("HtmlTreeBuilder.process.state")
+        defer { Profiler.end("HtmlTreeBuilder.process.state", _p) }
+        #endif
         currentToken = token
         return try state.process(token, self)
     }
@@ -188,22 +196,40 @@ class HtmlTreeBuilder: TreeBuilder {
     @inlinable
     @discardableResult
     func insert(_ startTag: Token.StartTag) throws -> Element {
-        startTag.ensureAttributes()
+        #if PROFILE
+        let _p = Profiler.start("HtmlTreeBuilder.insert.startTag")
+        defer { Profiler.end("HtmlTreeBuilder.insert.startTag", _p) }
+        #endif
         // handle empty unknown tags
         // when the spec expects an empty tag, will directly hit insertEmpty, so won't generate this fake end tag.
-        let skipChildReserve = startTag.isSelfClosing()
-        if (startTag.isSelfClosing()) {
+        let isSelfClosing = startTag.isSelfClosing()
+        let skipChildReserve = isSelfClosing
+        if isSelfClosing {
             let el: Element = try insertEmpty(startTag)
             stack.append(el)
             tokeniser.transition(TokeniserState.Data) // handles <script />, otherwise needs breakout steps from script data
             try tokeniser.emit(emptyEnd.reset().name(el.tagNameUTF8()))  // ensure we get out of whatever state we are in. emitted for yielded processing
             return el
         }
+        startTag.ensureAttributes()
+        // Resolve tag once and avoid normalizeAttributes when there are no attrs.
+        let tag: Tag
+        if settings.preservesTagCase() {
+            tag = try Tag.valueOf(startTag.name(), settings)
+        } else if let normalName = startTag.normalName() {
+            tag = try Tag.valueOfNormalized(normalName, isSelfClosing: isSelfClosing)
+        } else {
+            tag = try Tag.valueOf(startTag.name(), settings)
+        }
         let el: Element
         if let attributes = startTag._attributes {
-            el = try Element(Tag.valueOf(startTag.name(), settings), baseUri, settings.normalizeAttributes(attributes), skipChildReserve: skipChildReserve)
+            if attributes.attributes.isEmpty {
+                el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
+            } else {
+                el = try Element(tag, baseUri, settings.normalizeAttributes(attributes), skipChildReserve: skipChildReserve)
+            }
         } else {
-            el = try Element(Tag.valueOf(startTag.name(), settings), baseUri, skipChildReserve: skipChildReserve)
+            el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
         el.treeBuilder = self
         try insert(el)
@@ -212,7 +238,13 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     func insertStartTag(_ startTagName: [UInt8]) throws -> Element {
-        let el: Element = try Element(Tag.valueOf(startTagName, settings), baseUri)
+        let tag: Tag
+        if settings.preservesTagCase() {
+            tag = try Tag.valueOf(startTagName, settings)
+        } else {
+            tag = try Tag.valueOfNormalized(startTagName)
+        }
+        let el: Element = Element(tag, baseUri)
         el.treeBuilder = self
         try insert(el)
         return el
@@ -220,6 +252,10 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @inlinable
     func insert(_ el: Element) throws {
+        #if PROFILE
+        let _p = Profiler.start("HtmlTreeBuilder.insert.element")
+        defer { Profiler.end("HtmlTreeBuilder.insert.element", _p) }
+        #endif
         try insertNode(el)
         stack.append(el)
     }
@@ -228,8 +264,16 @@ class HtmlTreeBuilder: TreeBuilder {
     func insertEmpty(_ startTag: Token.StartTag) throws -> Element {
         startTag.ensureAttributes()
         // For unknown tags, remember this is self closing for output
-        let tag: Tag = try Tag.valueOf(startTag.name(), settings, isSelfClosing: startTag.isSelfClosing())
-        let skipChildReserve = startTag.isSelfClosing()
+        let isSelfClosing = startTag.isSelfClosing()
+        let tag: Tag
+        if settings.preservesTagCase() {
+            tag = try Tag.valueOf(startTag.name(), settings, isSelfClosing: isSelfClosing)
+        } else if let normalName = startTag.normalName() {
+            tag = try Tag.valueOfNormalized(normalName, isSelfClosing: isSelfClosing)
+        } else {
+            tag = try Tag.valueOf(startTag.name(), settings, isSelfClosing: isSelfClosing)
+        }
+        let skipChildReserve = isSelfClosing
         let el: Element
         if let attributes = startTag._attributes {
             el = Element(tag, baseUri, attributes, skipChildReserve: skipChildReserve)
@@ -238,7 +282,7 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         el.treeBuilder = self
         try insertNode(el)
-        if startTag.isSelfClosing(), tag.isSelfClosing() {
+        if isSelfClosing, tag.isSelfClosing() {
             // if not acked, promulagates error
             tokeniser.acknowledgeSelfClosingFlag()
         }
@@ -270,21 +314,29 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @inlinable
     func insert(_ characterToken: Token.Char) throws {
-        var node: Node
-        // characters in script and style go in as datanodes, not text nodes
+        #if PROFILE
+        let _p = Profiler.start("HtmlTreeBuilder.insert.char")
+        defer { Profiler.end("HtmlTreeBuilder.insert.char", _p) }
+        #endif
+        try Validate.notNull(obj: characterToken.getData())
+        let data = characterToken.getData()!
         let tagName: [UInt8]? = currentElement()?.tagNameUTF8()
+        let node: Node
+        // characters in script and style go in as datanodes, not text nodes
         if (tagName == UTF8Arrays.script || tagName == UTF8Arrays.style) {
-            try Validate.notNull(obj: characterToken.getData())
-            node = DataNode(characterToken.getData()!, baseUri)
+            node = DataNode(data, baseUri)
         } else {
-            try Validate.notNull(obj: characterToken.getData())
-            node = TextNode(characterToken.getData()!, baseUri)
+            node = TextNode(data, baseUri)
         }
         try currentElement()?.appendChild(node) // doesn't use insertNode, because we don't foster these; and will always have a stack.
     }
     
     @inlinable
     internal func insertNode(_ node: Node) throws {
+        #if PROFILE
+        let _p = Profiler.start("HtmlTreeBuilder.insert.node")
+        defer { Profiler.end("HtmlTreeBuilder.insert.node", _p) }
+        #endif
         // if the stack hasn't been set up yet, elements (doctype, comments) go into the doc
         if stack.isEmpty {
             try doc.appendChild(node)
@@ -846,4 +898,3 @@ class HtmlTreeBuilder: TreeBuilder {
 fileprivate func ~= (pattern: [String], value: String) -> Bool {
     return pattern.contains(value)
 }
-

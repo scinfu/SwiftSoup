@@ -30,6 +30,11 @@ open class ParseSettings: @unchecked Sendable {
         preserveAttributeCase = attribute
     }
 
+    @inline(__always)
+    internal func preservesTagCase() -> Bool {
+        return preserveTagCase
+    }
+
     open func normalizeTag(_ name: [UInt8]) -> [UInt8] {
         var name = name.trim()
         if (!preserveTagCase) {

@@ -151,7 +151,7 @@ enum TokeniserState: TokeniserStateProtocol {
         #endif
         switch self {
         case .Data:
-            if r.isEmpty() {
+            if r.pos >= r.end {
                 try t.emit(Token.EOF())
                 break
             }
@@ -160,24 +160,24 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.emit(data)
                 break
             }
-            if r.isEmpty() {
+            if r.pos >= r.end {
                 try t.emit(Token.EOF())
                 break
             }
-            let byte = r.currentByte()!
+            let byte = r.input[r.pos]
             switch byte {
             case 0x26: // "&"
                 t.advanceTransitionAscii(.CharacterReferenceInData)
                 break
             case TokeniserStateVars.lessThanByte: // "<"
                 r.advanceAscii()
-                if r.isEmpty() {
+                if r.pos >= r.end {
                     t.error(self)
                     t.emit(UnicodeScalar.LessThan) // char that got us here
                     t.transition(.Data)
                     break
                 }
-                let next = r.currentByte()!
+                let next = r.input[r.pos]
                 if next < 0x80, TokeniserStateVars.isAsciiAlpha(next) {
                     if try TokeniserState.readTagNameFromTagOpen(t, r, true) {
                         return

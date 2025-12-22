@@ -1120,29 +1120,54 @@ public final class CharacterReader {
                 guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
                     return input[start..<pos]
                 }
-                let startPtr = basePtr.advanced(by: pos)
-                let startRaw = UnsafeRawPointer(startPtr)
-                let len = remaining
-                let pa = memchr(startPtr, Int32(0x26), len) // &
-                let pb = memchr(startPtr, Int32(0x3C), len) // <
-                let pc = memchr(startPtr, Int32(0x00), len) // null
-                var minOff = len
-                if let pa {
-                    let off = Int(bitPattern: pa) - Int(bitPattern: startRaw)
-                    if off < minOff { minOff = off }
+                @inline(__always)
+                func hasByte(_ word: UInt64, _ byte: UInt64) -> Bool {
+                    let mask = byte &* 0x0101010101010101
+                    let x = word ^ mask
+                    return ((x &- 0x0101010101010101) & ~x & 0x8080808080808080) != 0
                 }
-                if let pb {
-                    let off = Int(bitPattern: pb) - Int(bitPattern: startRaw)
-                    if off < minOff { minOff = off }
+
+                var idx = pos
+                var p = basePtr.advanced(by: pos)
+                // Align to 8 bytes for safe UInt64 loads.
+                while (Int(bitPattern: p) & 7) != 0 && idx < end {
+                    let b = input[idx]
+                    if b == 0x26 || b == 0x3C || b == 0x00 {
+                        pos = idx
+                        return input[start..<pos]
+                    }
+                    idx &+= 1
+                    p = p.advanced(by: 1)
                 }
-                if let pc {
-                    let off = Int(bitPattern: pc) - Int(bitPattern: startRaw)
-                    if off < minOff { minOff = off }
+
+                while idx &+ 8 <= end {
+                    let w = UnsafeRawPointer(p).load(as: UInt64.self)
+                    if hasByte(w, 0x26) || hasByte(w, 0x3C) || hasByte(w, 0x00) {
+                        let limit = idx &+ 8
+                        var j = idx
+                        while j < limit {
+                            let b = input[j]
+                            if b == 0x26 || b == 0x3C || b == 0x00 {
+                                pos = j
+                                return input[start..<pos]
+                            }
+                            j &+= 1
+                        }
+                    }
+                    idx &+= 8
+                    p = p.advanced(by: 8)
                 }
-                if minOff != len {
-                    pos = pos + minOff
-                    return input[start..<pos]
+
+                // Tail bytes.
+                while idx < end {
+                    let b = input[idx]
+                    if b == 0x26 || b == 0x3C || b == 0x00 {
+                        pos = idx
+                        return input[start..<pos]
+                    }
+                    idx &+= 1
                 }
+
                 pos = end
                 return input[start..<pos]
             }
