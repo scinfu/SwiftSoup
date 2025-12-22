@@ -11,6 +11,11 @@ final class Tokeniser {
     static let replacementChar: UnicodeScalar = "\u{FFFD}" // replaces null character
     private static let notCharRefChars = ParsingStrings([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "<", UnicodeScalar.Ampersand])
     private static let notNamedCharRefChars = ParsingStrings([UTF8Arrays.equalSign, UTF8Arrays.hyphen, UTF8Arrays.underscore])
+    private static let ampName = "amp".utf8Array
+    private static let ltName = "lt".utf8Array
+    private static let gtName = "gt".utf8Array
+    private static let quotName = "quot".utf8Array
+    private static let aposName = "apos".utf8Array
     
     private let reader: CharacterReader // html input
     private let errors: ParseErrorList? // errors found while tokenising
@@ -158,6 +163,11 @@ final class Tokeniser {
     func emit(_ c: UnicodeScalar) {
         emit(Array(c.utf8))
     }
+
+    @inline(__always)
+    func emitByte(_ byte: UInt8) {
+        emit([byte])
+    }
     
     func emit(_ c: [UnicodeScalar]) {
         emit(c.flatMap { Array($0.utf8) })
@@ -194,7 +204,11 @@ final class Tokeniser {
         if (reader.isEmpty()) {
             return nil
         }
-        if (additionalAllowedCharacter != nil && additionalAllowedCharacter == reader.current()) {
+        if let allowed = additionalAllowedCharacter, let byte = reader.currentByte(), byte < 0x80 {
+            if allowed.value == UInt32(byte) {
+                return nil
+            }
+        } else if (additionalAllowedCharacter != nil && additionalAllowedCharacter == reader.current()) {
             return nil
         }
         if (reader.matchesAny(Tokeniser.notCharRefChars)) {
@@ -235,7 +249,54 @@ final class Tokeniser {
                 return [UnicodeScalar(charval)!]
             }
         } else { // named
-                 // get as many letters as possible, and look for matching entities.
+            @inline(__always)
+            func fastNamedEntity(_ name: [UInt8], _ scalar: UnicodeScalar) -> [UnicodeScalar]? {
+                let pos = reader.pos
+                let end = reader.end
+                let input = reader.input
+                let count = name.count
+                if pos + count > end { return nil }
+                for i in 0..<count {
+                    if input[pos + i] != name[i] { return nil }
+                }
+                let nextIndex = pos + count
+                if nextIndex < end {
+                    let nb = input[nextIndex]
+                    if nb >= 0x80 { return nil } // let slow path handle unicode letters/digits
+                    let isAsciiLetter = (nb >= 65 && nb <= 90) || (nb >= 97 && nb <= 122)
+                    let isAsciiDigit = (nb >= 48 && nb <= 57)
+                    if isAsciiLetter || isAsciiDigit {
+                        return nil // not an exact match
+                    }
+                    if inAttribute && (nb == 0x3D || nb == 0x2D || nb == 0x5F) {
+                        return nil
+                    }
+                }
+                reader.pos = nextIndex
+                if reader.matches(UTF8Arrays.semicolon) {
+                    _ = reader.matchConsume(UTF8Arrays.semicolon)
+                } else {
+                    characterReferenceError("missing semicolon")
+                }
+                return [scalar]
+            }
+
+            if let b = reader.currentByte(), b < 0x80 {
+                switch b {
+                case 0x61: // a
+                    if let fast = fastNamedEntity(Self.ampName, UnicodeScalar.Ampersand) { return fast }
+                    if let fast = fastNamedEntity(Self.aposName, UnicodeScalar(0x27)!) { return fast }
+                case 0x6C: // l
+                    if let fast = fastNamedEntity(Self.ltName, UnicodeScalar.LessThan) { return fast }
+                case 0x67: // g
+                    if let fast = fastNamedEntity(Self.gtName, UnicodeScalar.GreaterThan) { return fast }
+                case 0x71: // q
+                    if let fast = fastNamedEntity(Self.quotName, UnicodeScalar(0x22)!) { return fast }
+                default:
+                    break
+                }
+            }
+             // get as many letters as possible, and look for matching entities.
             let nameRef: ArraySlice<UInt8> = reader.consumeLetterThenDigitSequence()
             let looksLegit: Bool = reader.matches(UTF8Arrays.semicolon)
             // found if a base named entity without a ;, or an extended entity with the ;.

@@ -93,6 +93,8 @@ open class Token {
         private var _pendingAttributeNameS: ArraySlice<UInt8>? // fast path to avoid copying name slices
         private let _pendingAttributeValue: StringBuilder = StringBuilder() // but values are accumulated, from e.g. & in hrefs
         private var _pendingAttributeValueS: ArraySlice<UInt8>? // try to get attr vals in one shot, vs Builder
+        private var _pendingAttributeValueSlices: [ArraySlice<UInt8>]? // multiple slices before materializing
+        private var _pendingAttributeValueSlicesCount: Int = 0
         private var _hasEmptyAttributeValue: Bool = false // distinguish boolean attribute from empty string value
         private var _hasPendingAttributeValue: Bool = false
         public var _selfClosing: Bool = false
@@ -106,12 +108,18 @@ open class Token {
         @discardableResult
         @inline(__always)
         override func reset() -> Tag {
-            _tagName = nil
+            if _tagName != nil {
+                _tagName!.removeAll(keepingCapacity: true)
+            } else {
+                _tagName = nil
+            }
             _normalName = nil
             _pendingAttributeName = nil
             _pendingAttributeNameS = nil
             Token.reset(_pendingAttributeValue)
             _pendingAttributeValueS = nil
+            _pendingAttributeValueSlices = nil
+            _pendingAttributeValueSlicesCount = 0
             _hasEmptyAttributeValue = false
             _hasPendingAttributeValue = false
             _selfClosing = false
@@ -132,10 +140,24 @@ open class Token {
             if !pendingAttr.isEmpty {
                 let attribute: Attribute
                 if _hasPendingAttributeValue {
-                    attribute = try Attribute(
-                        key: pendingAttr,
-                        value: !_pendingAttributeValue.isEmpty ? Array(_pendingAttributeValue.buffer) : Array(_pendingAttributeValueS!)
-                    )
+                    if !_pendingAttributeValue.isEmpty {
+                        attribute = try Attribute(
+                            key: pendingAttr,
+                            value: Array(_pendingAttributeValue.buffer)
+                        )
+                    } else if let slices = _pendingAttributeValueSlices {
+                        var value: [UInt8] = []
+                        value.reserveCapacity(_pendingAttributeValueSlicesCount)
+                        for slice in slices {
+                            value.append(contentsOf: slice)
+                        }
+                        attribute = try Attribute(key: pendingAttr, value: value)
+                    } else {
+                        attribute = try Attribute(
+                            key: pendingAttr,
+                            value: Array(_pendingAttributeValueS!)
+                        )
+                    }
                 } else if _hasEmptyAttributeValue {
                     attribute = try Attribute(key: pendingAttr, value: [])
                 } else {
@@ -152,6 +174,8 @@ open class Token {
             _hasPendingAttributeValue = false
             Token.reset(_pendingAttributeValue)
             _pendingAttributeValueS = nil
+            _pendingAttributeValueSlices = nil
+            _pendingAttributeValueSlicesCount = 0
         }
         
         @inline(__always)
@@ -171,13 +195,18 @@ open class Token {
         
         @inline(__always)
         func normalName() -> [UInt8]? { // loses case, used in tree building for working out where in tree it should go
+            if _normalName == nil {
+                if let name = _tagName, !name.isEmpty {
+                    _normalName = name.lowercased()
+                }
+            }
             return _normalName
         }
         
         @discardableResult
         func name(_ name: [UInt8]) -> Tag {
             _tagName = name
-            _normalName = name.lowercased()
+            _normalName = nil
             return self
         }
         
@@ -205,15 +234,10 @@ open class Token {
         func appendTagName(_ append: ArraySlice<UInt8>) {
             if _tagName == nil {
                 _tagName = Array(append)
-                _normalName = Array(append.lowercased())
             } else {
                 _tagName!.append(contentsOf: append)
-                if _normalName == nil {
-                    _normalName = _tagName?.lowercased()
-                } else {
-                    _normalName!.append(contentsOf: append.lowercased())
-                }
             }
+            _normalName = nil
         }
         
         @inline(__always)
@@ -228,12 +252,7 @@ open class Token {
             } else {
                 _tagName!.append(byte)
             }
-            let lowercased = (byte >= 65 && byte <= 90) ? byte + 32 : byte
-            if _normalName == nil {
-                _normalName = [lowercased]
-            } else {
-                _normalName!.append(lowercased)
-            }
+            _normalName = nil
         }
         
         @inline(__always)
@@ -265,12 +284,26 @@ open class Token {
         
         @inline(__always)
         func appendAttributeValue(_ append: ArraySlice<UInt8>) {
-            ensureAttributeValue()
             if _pendingAttributeValue.isEmpty {
+                if let existing = _pendingAttributeValueS {
+                    _pendingAttributeValueSlices = [existing, append]
+                    _pendingAttributeValueSlicesCount = existing.count + append.count
+                    _pendingAttributeValueS = nil
+                    _hasPendingAttributeValue = true
+                    return
+                }
+                if _pendingAttributeValueSlices != nil {
+                    _pendingAttributeValueSlices!.append(append)
+                    _pendingAttributeValueSlicesCount += append.count
+                    _hasPendingAttributeValue = true
+                    return
+                }
                 _pendingAttributeValueS = append
-            } else {
-                _pendingAttributeValue.append(append)
+                _hasPendingAttributeValue = true
+                return
             }
+            ensureAttributeValue()
+            _pendingAttributeValue.append(append)
         }
         
         @inline(__always)
@@ -319,6 +352,13 @@ open class Token {
         @inline(__always)
         private func ensureAttributeValue() {
             _hasPendingAttributeValue = true
+            if let slices = _pendingAttributeValueSlices {
+                for slice in slices {
+                    _pendingAttributeValue.append(slice)
+                }
+                _pendingAttributeValueSlices = nil
+                _pendingAttributeValueSlicesCount = 0
+            }
             // if on second hit, we'll need to move to the builder
             if (_pendingAttributeValueS != nil) {
                 _pendingAttributeValue.append(_pendingAttributeValueS!)

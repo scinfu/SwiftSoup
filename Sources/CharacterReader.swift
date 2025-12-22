@@ -115,6 +115,22 @@ public final class CharacterReader {
         return input[pos]
     }
 
+    @inline(__always)
+    public func consumeByte() -> UInt8? {
+        guard pos < end else { return nil }
+        let byte = input[pos]
+        pos &+= 1
+        return byte
+    }
+
+    @inline(__always)
+    public func consumeAsciiScalar() -> UnicodeScalar {
+        guard pos < end else { return CharacterReader.EOF }
+        let byte = input[pos]
+        pos &+= 1
+        return UnicodeScalar(byte)
+    }
+
     @discardableResult
     public func consume() -> UnicodeScalar {
         guard pos < end else { return CharacterReader.EOF }
@@ -964,6 +980,22 @@ public final class CharacterReader {
         table[0x60] = true // `
         return table
     }()
+
+    public static let attributeValueDoubleQuotedDelims: [Bool] = {
+        var table = [Bool](repeating: false, count: 256)
+        table[0x22] = true // "
+        table[0x26] = true // &
+        table[0x00] = true // null
+        return table
+    }()
+
+    public static let attributeValueSingleQuotedDelims: [Bool] = {
+        var table = [Bool](repeating: false, count: 256)
+        table[0x27] = true // '
+        table[0x26] = true // &
+        table[0x00] = true // null
+        return table
+    }()
     
     @inlinable
     public func consumeTagName() -> ArraySlice<UInt8> {
@@ -1020,6 +1052,32 @@ public final class CharacterReader {
         while pos < end {
             let byte = input[pos]
             if CharacterReader.attributeValueUnquotedDelims[Int(byte)] {
+                return input[start..<pos]
+            }
+            pos &+= 1
+        }
+        return input[start..<pos]
+    }
+
+    @inline(__always)
+    public func consumeAttributeValueDoubleQuoted() -> ArraySlice<UInt8> {
+        let start = pos
+        while pos < end {
+            let byte = input[pos]
+            if CharacterReader.attributeValueDoubleQuotedDelims[Int(byte)] {
+                return input[start..<pos]
+            }
+            pos &+= 1
+        }
+        return input[start..<pos]
+    }
+
+    @inline(__always)
+    public func consumeAttributeValueSingleQuoted() -> ArraySlice<UInt8> {
+        let start = pos
+        while pos < end {
+            let byte = input[pos]
+            if CharacterReader.attributeValueSingleQuotedDelims[Int(byte)] {
                 return input[start..<pos]
             }
             pos &+= 1
