@@ -30,6 +30,7 @@ public class TokeniserStateVars {
     static let nullByte: UInt8 = 0x00
     static let hyphenByte: UInt8 = 0x2D
     static let bangByte: UInt8 = 0x21
+    static let questionMarkByte: UInt8 = 0x3F
     static let asciiAlphaTable: [Bool] = {
         var table = [Bool](repeating: false, count: 128)
         var b: UInt8 = 0x41 // A
@@ -154,13 +155,81 @@ enum TokeniserState: TokeniserStateProtocol {
                 try t.emit(Token.EOF())
                 break
             }
+            let data: ArraySlice<UInt8> = r.consumeData()
+            if !data.isEmpty {
+                t.emit(data)
+                break
+            }
+            if r.isEmpty() {
+                try t.emit(Token.EOF())
+                break
+            }
             let byte = r.currentByte()!
             switch byte {
             case 0x26: // "&"
                 t.advanceTransitionAscii(.CharacterReferenceInData)
                 break
-            case 0x3C: // "<"
-                t.advanceTransitionAscii(.TagOpen)
+            case TokeniserStateVars.lessThanByte: // "<"
+                r.advanceAscii()
+                if r.isEmpty() {
+                    t.error(self)
+                    t.emit(UnicodeScalar.LessThan) // char that got us here
+                    t.transition(.Data)
+                    break
+                }
+                let next = r.currentByte()!
+                if next < 0x80, TokeniserStateVars.isAsciiAlpha(next) {
+                    if try TokeniserState.readTagNameFromTagOpen(t, r, true) {
+                        return
+                    }
+                    return
+                }
+                switch next {
+                case TokeniserStateVars.bangByte: // "!"
+                    t.advanceTransitionAscii(.MarkupDeclarationOpen)
+                case TokeniserStateVars.slashByte: // "/"
+                    r.advanceAscii()
+                    if r.isEmpty() {
+                        t.eofError(self)
+                        t.emit(UTF8Arrays.endTagStart)
+                        t.transition(.Data)
+                        break
+                    }
+                    let endByte = r.currentByte()!
+                    if endByte < 0x80 {
+                        if TokeniserStateVars.isAsciiAlpha(endByte) {
+                            if try TokeniserState.readTagNameFromTagOpen(t, r, false) {
+                                return
+                            }
+                            return
+                        }
+                        if endByte == TokeniserStateVars.greaterThanByte {
+                            t.error(self)
+                            t.advanceTransition(.Data)
+                        } else {
+                            t.error(self)
+                            t.advanceTransition(.BogusComment)
+                        }
+                    } else if r.matchesLetter() {
+                        t.createTagPending(false)
+                        try TokeniserState.readTagName(.TagName, t, r)
+                        return
+                    } else {
+                        t.error(self)
+                        t.advanceTransition(.BogusComment)
+                    }
+                case TokeniserStateVars.questionMarkByte: // "?"
+                    t.advanceTransitionAscii(.BogusComment)
+                default:
+                    if next >= 0x80, r.matchesLetter() {
+                        t.createTagPending(true)
+                        try TokeniserState.readTagName(.TagName, t, r)
+                        return
+                    }
+                    t.error(self)
+                    t.emit(UnicodeScalar.LessThan) // char that got us here
+                    t.transition(.Data)
+                }
                 break
             case 0x00:
                 t.error(self) // NOT replacement character (oddly?)
@@ -168,8 +237,6 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.emit(UnicodeScalar(0x00))
                 break
             default:
-                let data: ArraySlice<UInt8> = r.consumeData()
-                t.emit(data)
                 break
             }
             break
@@ -236,37 +303,29 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             }
             let byte = r.currentByte()!
+            if byte < 0x80, TokeniserStateVars.isAsciiAlpha(byte) {
+                if try TokeniserState.readTagNameFromTagOpen(t, r, true) {
+                    return
+                }
+                return
+            }
+
             switch byte {
-            case 0x21: // "!"
+            case TokeniserStateVars.bangByte: // "!"
                 t.advanceTransitionAscii(.MarkupDeclarationOpen)
-                break
-            case 0x2F: // "/"
+            case TokeniserStateVars.slashByte: // "/"
                 t.advanceTransitionAscii(.EndTagOpen)
-                break
-            case 0x3F: // "?"
+            case TokeniserStateVars.questionMarkByte: // "?"
                 t.advanceTransitionAscii(.BogusComment)
-                break
             default:
-                if byte < 0x80 {
-                    if TokeniserStateVars.isAsciiAlpha(byte) {
-                        if try TokeniserState.readTagNameFromTagOpen(t, r, true) {
-                            return
-                        }
-                        return
-                    }
-                    t.error(self)
-                    t.emit(UnicodeScalar.LessThan) // char that got us here
-                    t.transition(.Data)
-                } else if r.matchesLetter() {
+                if byte >= 0x80, r.matchesLetter() {
                     t.createTagPending(true)
                     try TokeniserState.readTagName(.TagName, t, r)
                     return
-                } else {
-                    t.error(self)
-                    t.emit(UnicodeScalar.LessThan) // char that got us here
-                    t.transition(.Data)
                 }
-                break
+                t.error(self)
+                t.emit(UnicodeScalar.LessThan) // char that got us here
+                t.transition(.Data)
             }
             break
         case .EndTagOpen:
@@ -2623,6 +2682,14 @@ enum TokeniserState: TokeniserStateProtocol {
     }
 
     private static func handleDataDoubleEscapeTag(_ t: Tokeniser, _ r: CharacterReader, _ primary: TokeniserState, _ fallback: TokeniserState) {
+        @inline(__always)
+        func transitionForDataBuffer(_ t: Tokeniser, _ primary: TokeniserState, _ fallback: TokeniserState) {
+            if t.dataBuffer.buffer == UTF8ArraySlices.script {
+                t.transition(primary)
+            } else {
+                t.transition(fallback)
+            }
+        }
         if let byte = r.currentByte() {
             if byte < 0x80 {
                 if TokeniserStateVars.isAsciiAlpha(byte) {
@@ -2634,11 +2701,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 switch byte {
                 case TokeniserStateVars.tabByte, TokeniserStateVars.newLineByte, TokeniserStateVars.carriageReturnByte, TokeniserStateVars.formFeedByte, TokeniserStateVars.spaceByte, TokeniserStateVars.slashByte, TokeniserStateVars.greaterThanByte:
                     r.advanceAscii()
-                    if (t.dataBuffer.buffer == ArraySlice(UTF8Arrays.script)) {
-                        t.transition(primary)
-                    } else {
-                        t.transition(fallback)
-                    }
+                    transitionForDataBuffer(t, primary, fallback)
                     t.emitByte(byte)
                     return
                 default:
@@ -2658,11 +2721,7 @@ enum TokeniserState: TokeniserStateProtocol {
         let c = r.consume()
         switch (c) {
         case UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", ">":
-            if (t.dataBuffer.buffer == ArraySlice(UTF8Arrays.script)) {
-                t.transition(primary)
-            } else {
-                t.transition(fallback)
-            }
+            transitionForDataBuffer(t, primary, fallback)
             t.emit(c)
             break
         default:

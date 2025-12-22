@@ -25,5 +25,7 @@ final class TokenizerProfileTest: XCTestCase {
             parsedCount += 1
         }
         XCTAssertGreaterThan(parsedCount, 0)
+
+        print(Profiler.report(top: 30))
     }
 }

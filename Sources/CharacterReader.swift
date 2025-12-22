@@ -1089,9 +1089,74 @@ public final class CharacterReader {
 
     public static let dataTerminators = ParsingStrings([.Ampersand, .LessThan, TokeniserStateVars.nullScalr])
     
-    @inlinable
+    @inline(__always)
     public func consumeData() -> ArraySlice<UInt8> {
-        return consumeToAnyOfThree(0x26, 0x3C, 0x00) // &, <, null
+        let start = pos
+        let count = end - pos
+        if count <= 0 {
+            return input[start..<pos]
+        }
+
+        // Small unrolled scan for short runs before falling back to memchr.
+        var i = pos
+        let scanEnd = min(end, pos + 16)
+        while i < scanEnd {
+            let b = input[i]
+            if b == 0x26 || b == 0x3C || b == 0x00 { // &, <, null
+                pos = i
+                return input[start..<pos]
+            }
+            i &+= 1
+        }
+        pos = i
+        if pos >= end {
+            return input[start..<pos]
+        }
+
+        let remaining = end - pos
+        #if canImport(Darwin) || canImport(Glibc)
+        if remaining >= 32 {
+            return input.withUnsafeBytes { buf in
+                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
+                    return input[start..<pos]
+                }
+                let startPtr = basePtr.advanced(by: pos)
+                let startRaw = UnsafeRawPointer(startPtr)
+                let len = remaining
+                let pa = memchr(startPtr, Int32(0x26), len) // &
+                let pb = memchr(startPtr, Int32(0x3C), len) // <
+                let pc = memchr(startPtr, Int32(0x00), len) // null
+                var minOff = len
+                if let pa {
+                    let off = Int(bitPattern: pa) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
+                }
+                if let pb {
+                    let off = Int(bitPattern: pb) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
+                }
+                if let pc {
+                    let off = Int(bitPattern: pc) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
+                }
+                if minOff != len {
+                    pos = pos + minOff
+                    return input[start..<pos]
+                }
+                pos = end
+                return input[start..<pos]
+            }
+        }
+        #endif
+
+        while pos < end {
+            let b = input[pos]
+            if b == 0x26 || b == 0x3C || b == 0x00 { // &, <, null
+                return input[start..<pos]
+            }
+            pos &+= 1
+        }
+        return input[start..<pos]
     }
     
     public static let tagNameTerminators = ParsingStrings([.BackslashT, .BackslashN, .BackslashR, .BackslashF, .Space, .Slash, .GreaterThan, TokeniserStateVars.nullScalr])
