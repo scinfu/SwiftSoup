@@ -30,6 +30,25 @@ public class TokeniserStateVars {
     static let nullByte: UInt8 = 0x00
     static let hyphenByte: UInt8 = 0x2D
     static let bangByte: UInt8 = 0x21
+    static let asciiAlphaTable: [Bool] = {
+        var table = [Bool](repeating: false, count: 128)
+        var b: UInt8 = 0x41 // A
+        while b <= 0x5A {
+            table[Int(b)] = true
+            b &+= 1
+        }
+        b = 0x61 // a
+        while b <= 0x7A {
+            table[Int(b)] = true
+            b &+= 1
+        }
+        return table
+    }()
+
+    @inline(__always)
+    static func isAsciiAlpha(_ byte: UInt8) -> Bool {
+        return byte < 0x80 && asciiAlphaTable[Int(byte)]
+    }
 
     static let attributeSingleValueChars = ParsingStrings(["'", UnicodeScalar.Ampersand, nullScalr])
     static let attributeDoubleValueChars = ParsingStrings(["\"", UnicodeScalar.Ampersand, nullScalr])
@@ -229,7 +248,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             default:
                 if byte < 0x80 {
-                    if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                    if TokeniserStateVars.isAsciiAlpha(byte) {
                         if try TokeniserState.readTagNameFromTagOpen(t, r, true) {
                             return
                         }
@@ -258,7 +277,7 @@ enum TokeniserState: TokeniserStateProtocol {
             } else {
                 let byte = r.currentByte()!
                 if byte < 0x80 {
-                    if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                    if TokeniserStateVars.isAsciiAlpha(byte) {
                         if try TokeniserState.readTagNameFromTagOpen(t, r, false) {
                             return
                         }
@@ -292,7 +311,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.createTempBuffer()
                 t.advanceTransition(.RCDATAEndTagOpen)
             } else if let byte = r.currentByte(), byte < 0x80 {
-                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A),
+                if TokeniserStateVars.isAsciiAlpha(byte),
                    let endTagName = t.appropriateEndTagName(),
                    !r.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: endTagName) {
                     // diverge from spec: got a start tag, but there's no appropriate end tag (</title>), so rather than
@@ -320,7 +339,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .RCDATAEndTagOpen:
             if let byte = r.currentByte(), byte < 0x80 {
-                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                if TokeniserStateVars.isAsciiAlpha(byte) {
                     t.createTagPending(false)
                     t.tagPending.appendTagNameByte(byte)
                     t.dataBuffer.append(byte)
@@ -340,7 +359,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .RCDATAEndTagName:
             if let byte = r.currentByte(), byte < 0x80 {
-                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                if TokeniserStateVars.isAsciiAlpha(byte) {
                     let name = r.consumeLetterSequence()
                     t.tagPending.appendTagName(name)
                     t.dataBuffer.append(name)
@@ -649,7 +668,7 @@ enum TokeniserState: TokeniserStateProtocol {
         case .ScriptDataEscapedLessthanSign:
             if let byte = r.currentByte() {
                 if byte < 0x80 {
-                    if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                    if TokeniserStateVars.isAsciiAlpha(byte) {
                         t.createTempBuffer()
                         t.dataBuffer.append(byte)
                         t.emit(UTF8Arrays.tagStart)
@@ -681,7 +700,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .ScriptDataEscapedEndTagOpen:
             if let byte = r.currentByte(), byte < 0x80 {
-                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                if TokeniserStateVars.isAsciiAlpha(byte) {
                     t.createTagPending(false)
                     t.tagPending.appendTagNameByte(byte)
                     t.dataBuffer.append(byte)
@@ -1348,7 +1367,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .BeforeDoctypeName:
             if let byte = r.currentByte(), byte < 0x80 {
-                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                if TokeniserStateVars.isAsciiAlpha(byte) {
                     t.createDoctypePending()
                     t.transition(.DoctypeName)
                     return

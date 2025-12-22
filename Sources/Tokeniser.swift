@@ -115,7 +115,7 @@ final class Tokeniser {
         
         if (token.type == Token.TokenType.StartTag) {
             let startTag: Token.StartTag  = token as! Token.StartTag
-            lastStartTag = startTag._tagName!
+            lastStartTag = try startTag.name()
             if (startTag._selfClosing) {
                 selfClosingFlagAcknowledged = false
             }

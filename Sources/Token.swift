@@ -88,6 +88,7 @@ open class Token {
     
     class Tag: Token {
         public var _tagName: [UInt8]?
+        private var _tagNameS: ArraySlice<UInt8>?
         public var _normalName: [UInt8]? // lc version of tag name, for case insensitive tree build
         private var _pendingAttributeName: [UInt8]? // attribute names are generally caught in one hop, not accumulated
         private var _pendingAttributeNameS: ArraySlice<UInt8>? // fast path to avoid copying name slices
@@ -128,6 +129,7 @@ open class Token {
             } else {
                 _tagName = nil
             }
+            _tagNameS = nil
             _normalName = nil
             _pendingAttributeName = nil
             _pendingAttributeNameS = nil
@@ -197,7 +199,11 @@ open class Token {
         
         @inline(__always)
         func name() throws -> [UInt8] { // preserves case, for input into Tag.valueOf (which may drop case)
-            try Validate.isFalse(val: _tagName == nil || _tagName!.isEmpty)
+            if _tagName == nil, let tagNameSlice = _tagNameS, !tagNameSlice.isEmpty {
+                _tagName = Array(tagNameSlice)
+                _tagNameS = nil
+            }
+            try Validate.isFalse(val: (_tagName == nil || _tagName!.isEmpty) && (_tagNameS == nil || _tagNameS!.isEmpty))
             return _tagName!
         }
         
@@ -206,14 +212,41 @@ open class Token {
             if _normalName == nil {
                 if let name = _tagName, !name.isEmpty {
                     _normalName = name.lowercased()
+                } else if let nameSlice = _tagNameS, !nameSlice.isEmpty {
+                    _normalName = Array(nameSlice.lowercased())
                 }
             }
             return _normalName
+        }
+
+        @inline(__always)
+        func tagNameSlice() -> ArraySlice<UInt8>? {
+            if let name = _tagName {
+                return name[...]
+            }
+            return _tagNameS
+        }
+
+        @inline(__always)
+        func normalNameEquals(_ lower: [UInt8]) -> Bool {
+            return normalNameEquals(lower[...])
+        }
+
+        @inline(__always)
+        func normalNameEquals(_ lower: ArraySlice<UInt8>) -> Bool {
+            if let name = _tagName, !name.isEmpty {
+                return Token.Tag.equalsLowercased(name[...], lower)
+            }
+            if let nameSlice = _tagNameS, !nameSlice.isEmpty {
+                return Token.Tag.equalsLowercased(nameSlice, lower)
+            }
+            return false
         }
         
         @discardableResult
         func name(_ name: [UInt8]) -> Tag {
             _tagName = name
+            _tagNameS = nil
             _normalName = nil
             return self
         }
@@ -279,8 +312,14 @@ open class Token {
         // these appenders are rarely hit in not null state-- caused by null chars.
         @inline(__always)
         func appendTagName(_ append: ArraySlice<UInt8>) {
+            guard !append.isEmpty else { return }
             if _tagName == nil {
-                _tagName = Array(append)
+                if _tagNameS == nil {
+                    _tagNameS = append
+                } else {
+                    ensureTagName()
+                    _tagName!.append(contentsOf: append)
+                }
             } else {
                 _tagName!.append(contentsOf: append)
             }
@@ -294,12 +333,42 @@ open class Token {
 
         @inline(__always)
         func appendTagNameByte(_ byte: UInt8) {
-            if _tagName == nil {
-                _tagName = [byte]
-            } else {
-                _tagName!.append(byte)
-            }
+            ensureTagName()
+            _tagName!.append(byte)
             _normalName = nil
+        }
+
+        @inline(__always)
+        private func ensureTagName() {
+            if _tagName == nil {
+                if let tagNameSlice = _tagNameS {
+                    _tagName = Array(tagNameSlice)
+                    _tagNameS = nil
+                } else {
+                    _tagName = []
+                }
+            }
+        }
+
+        @inline(__always)
+        private static func equalsLowercased(_ name: ArraySlice<UInt8>, _ lower: ArraySlice<UInt8>) -> Bool {
+            if name.count != lower.count {
+                return false
+            }
+            var nameIndex = name.startIndex
+            var lowerIndex = lower.startIndex
+            let nameEnd = name.endIndex
+            while nameIndex < nameEnd {
+                let b = name[nameIndex]
+                let lowerByte = lower[lowerIndex]
+                let normalized = (b >= 0x41 && b <= 0x5A) ? (b &+ 0x20) : b
+                if normalized != lowerByte {
+                    return false
+                }
+                nameIndex = name.index(after: nameIndex)
+                lowerIndex = lower.index(after: lowerIndex)
+            }
+            return true
         }
         
         @inline(__always)
