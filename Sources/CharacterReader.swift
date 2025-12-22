@@ -579,6 +579,9 @@ public final class CharacterReader {
         guard input.count > pos
         else { return false }
 
+        if let byte = currentByte(), byte < 0x80 {
+            return seq.contains(byte)
+        }
         if seq.isSingleByteOnly {
             guard let byte = currentByte() else { return false }
             return seq.contains(byte)

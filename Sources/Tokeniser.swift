@@ -47,17 +47,31 @@ final class Tokeniser {
             selfClosingFlagAcknowledged = true
         }
         
+        #if PROFILE
+        let _pLoop = Profiler.start("Tokeniser.read.loop")
+        #endif
         while (!isEmitPending) {
             try state.read(self, reader)
         }
+        #if PROFILE
+        Profiler.end("Tokeniser.read.loop", _pLoop)
+        #endif
         
         if !charsBuilder.isEmpty {
+            #if PROFILE
+            let _pEmit = Profiler.start("Tokeniser.read.emitBuilder")
+            defer { Profiler.end("Tokeniser.read.emitBuilder", _pEmit) }
+            #endif
             let str = Array(charsBuilder.buffer)
             charsBuilder.clear()
             // Clear any pending slices, as the builder takes precedence.
             pendingSlices.removeAll()
             return charPending.data(str)
         } else if !pendingSlices.isEmpty {
+            #if PROFILE
+            let _pEmit = Profiler.start("Tokeniser.read.emitSlices")
+            defer { Profiler.end("Tokeniser.read.emitSlices", _pEmit) }
+            #endif
             // Combine all the pending slices in one allocation.
             let totalCount = pendingSlices.reduce(0) { $0 + $1.count }
             var combined = [UInt8]()
@@ -68,6 +82,10 @@ final class Tokeniser {
             pendingSlices.removeAll()
             return charPending.data(combined)
         } else {
+            #if PROFILE
+            let _pEmit = Profiler.start("Tokeniser.read.emitToken")
+            defer { Profiler.end("Tokeniser.read.emitToken", _pEmit) }
+            #endif
             isEmitPending = false
             return emitPending!
         }

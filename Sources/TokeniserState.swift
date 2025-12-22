@@ -278,8 +278,18 @@ enum TokeniserState: TokeniserStateProtocol {
             // from < or </ in data, will have start or end tag pending
             // previous TagOpen state did NOT consume, will have a letter char in current
             //String tagName = r.consumeToAnySorted(tagCharsSorted).toLowerCase()
+            #if PROFILE
+            let _pConsume = Profiler.start("TokeniserState.TagName.consumeTagName")
+            #endif
             let tagName: ArraySlice<UInt8> = r.consumeTagName()
+            #if PROFILE
+            Profiler.end("TokeniserState.TagName.consumeTagName", _pConsume)
+            let _pAppend = Profiler.start("TokeniserState.TagName.appendTagName")
+            #endif
             t.tagPending.appendTagName(tagName)
+            #if PROFILE
+            Profiler.end("TokeniserState.TagName.appendTagName", _pAppend)
+            #endif
             if r.isEmpty() {
                 t.eofError(self)
                 t.transition(.Data)
@@ -764,7 +774,13 @@ enum TokeniserState: TokeniserStateProtocol {
         case .AttributeName:
             let name: ArraySlice<UInt8> = r.consumeAttributeName()
             if !name.isEmpty {
+                #if PROFILE
+                let _pAttrAppend = Profiler.start("TokeniserState.AttributeName.appendAttributeName")
+                #endif
                 t.tagPending.appendAttributeName(name)
+                #if PROFILE
+                Profiler.end("TokeniserState.AttributeName.appendAttributeName", _pAttrAppend)
+                #endif
             }
 
             if r.isEmpty() {

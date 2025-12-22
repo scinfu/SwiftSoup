@@ -42,6 +42,7 @@ open class Attributes: NSCopying {
             ownerElement?.markAttributeQueryIndexDirty()
             ownerElement?.markAttributeValueQueryIndexDirty()
             invalidateLowercasedKeysCache()
+            invalidateKeyIndex()
         }
     }
     
@@ -51,6 +52,12 @@ open class Attributes: NSCopying {
     
     @usableFromInline
     internal var hasUppercaseKeys: Bool = false
+
+    @usableFromInline
+    internal var keyIndex: [Array<UInt8>: Int]? = nil
+
+    @usableFromInline
+    internal var keyIndexDirty: Bool = true
     
     // TODO: Delegate would be cleaner...
     @usableFromInline
@@ -75,6 +82,44 @@ open class Attributes: NSCopying {
     internal func invalidateLowercasedKeysCache() {
         lowercasedKeysCache = nil
     }
+
+    @usableFromInline
+    @inline(__always)
+    internal func invalidateKeyIndex() {
+        keyIndex = nil
+        keyIndexDirty = true
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func shouldBuildKeyIndex() -> Bool {
+        return attributes.count >= 12
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func ensureKeyIndex() {
+        guard shouldBuildKeyIndex() else { return }
+        if keyIndexDirty || keyIndex == nil {
+            var rebuilt: [Array<UInt8>: Int] = [:]
+            rebuilt.reserveCapacity(attributes.count)
+            for (index, attr) in attributes.enumerated() {
+                rebuilt[attr.getKeyUTF8()] = index
+            }
+            keyIndex = rebuilt
+            keyIndexDirty = false
+        }
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func indexForKey(_ key: [UInt8]) -> Int? {
+        if shouldBuildKeyIndex() {
+            ensureKeyIndex()
+            return keyIndex?[key]
+        }
+        return attributes.firstIndex(where: { $0.getKeyUTF8() == key })
+    }
     
     /**
      Get an attribute value by key.
@@ -89,8 +134,8 @@ open class Attributes: NSCopying {
     
     @inline(__always)
     open func get(key: [UInt8]) -> [UInt8] {
-        if let attr = attributes.first(where: { $0.getKeyUTF8() == key }) {
-            return attr.getValueUTF8()
+        if let ix = indexForKey(key) {
+            return attributes[ix].getValueUTF8()
         }
         return []
     }
@@ -156,10 +201,16 @@ open class Attributes: NSCopying {
     open func put(attribute: Attribute) {
         let key = attribute.getKeyUTF8()
         let normalizedKey = key.lowercased()
-        if let ix = attributes.firstIndex(where: { $0.getKeyUTF8() == key }) {
+        if let ix = indexForKey(key) {
             attributes[ix] = attribute
+            if !keyIndexDirty, keyIndex != nil {
+                keyIndex?[key] = ix
+            }
         } else {
             attributes.append(attribute)
+            if !keyIndexDirty, keyIndex != nil {
+                keyIndex?[key] = attributes.count - 1
+            }
         }
         if !hasUppercaseKeys && Attributes.containsAsciiUppercase(key) {
             hasUppercaseKeys = true
@@ -187,9 +238,10 @@ open class Attributes: NSCopying {
     @inlinable
     open func remove(key: [UInt8]) throws {
         try Validate.notEmpty(string: key)
-        if let ix = attributes.firstIndex(where: { $0.getKeyUTF8() == key }) {
+        if let ix = indexForKey(key) {
             attributes.remove(at: ix)
             invalidateLowercasedKeysCache()
+            invalidateKeyIndex()
             let normalizedKey = key.lowercased()
             if normalizedKey == UTF8Arrays.class_ {
                 ownerElement?.markClassQueryIndexDirty()
@@ -213,6 +265,7 @@ open class Attributes: NSCopying {
             let normalizedKey = key.lowercased()
             attributes.remove(at: ix)
             invalidateLowercasedKeysCache()
+            invalidateKeyIndex()
             if normalizedKey == UTF8Arrays.class_ {
                 ownerElement?.markClassQueryIndexDirty()
             }
@@ -262,6 +315,7 @@ open class Attributes: NSCopying {
             attributes.removeLast(originalCount - writeIndex)
         }
         invalidateLowercasedKeysCache()
+        invalidateKeyIndex()
 
         if let ownerElement {
             for key in removedKeys {
@@ -336,6 +390,9 @@ open class Attributes: NSCopying {
         guard didMutate else { return }
 
         invalidateLowercasedKeysCache()
+        if writeIndex < originalCount {
+            invalidateKeyIndex()
+        }
 
         if let ownerElement {
             if dirtyClass {
@@ -361,7 +418,7 @@ open class Attributes: NSCopying {
     
     @inline(__always)
     open func hasKey(key: [UInt8]) -> Bool {
-        return attributes.contains(where: { $0.getKeyUTF8() == key })
+        return indexForKey(key) != nil
     }
     
     /**
@@ -497,6 +554,7 @@ open class Attributes: NSCopying {
         }
         hasUppercaseKeys = false
         invalidateLowercasedKeysCache()
+        invalidateKeyIndex()
         ownerElement?.markClassQueryIndexDirty()
         ownerElement?.markIdQueryIndexDirty()
         ownerElement?.markAttributeQueryIndexDirty()
@@ -509,6 +567,8 @@ open class Attributes: NSCopying {
         clone.attributes = attributes
         clone.hasUppercaseKeys = hasUppercaseKeys
         clone.lowercasedKeysCache = nil
+        clone.keyIndex = nil
+        clone.keyIndexDirty = true
         return clone
     }
     

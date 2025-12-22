@@ -510,7 +510,20 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func inSpecificScope(_ targetName: [UInt8], _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
-        return try inSpecificScope([targetName], baseTypes, extraTypes)
+        for el in stack.reversed() {
+            let elName = el.nodeNameUTF8()
+            if elName == targetName {
+                return true
+            }
+            if baseTypes.contains(elName) {
+                return false
+            }
+            if let extraTypes = extraTypes, extraTypes.contains(elName) {
+                return false
+            }
+        }
+        try Validate.fail(msg: "Should not be reachable")
+        return false
     }
     
     private func inSpecificScope(_ targetNames: Set<[UInt8]>, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
@@ -830,6 +843,5 @@ class HtmlTreeBuilder: TreeBuilder {
 fileprivate func ~= (pattern: [String], value: String) -> Bool {
     return pattern.contains(value)
 }
-
 
 
