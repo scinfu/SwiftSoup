@@ -447,6 +447,17 @@ open class Token {
                 _pendingAttributeValue.appendCodePoint(UnicodeScalar(codepoint)!)
             }
         }
+
+        @inline(__always)
+        func hasPendingAttributeName() -> Bool {
+            if let nameSlice = _pendingAttributeNameS, !nameSlice.isEmpty {
+                return true
+            }
+            if let nameBytes = _pendingAttributeName, !nameBytes.isEmpty {
+                return true
+            }
+            return false
+        }
         
         @inline(__always)
         func setEmptyAttributeValue() {

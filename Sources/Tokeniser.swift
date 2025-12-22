@@ -16,6 +16,27 @@ final class Tokeniser {
     private static let gtName = "gt".utf8Array
     private static let quotName = "quot".utf8Array
     private static let aposName = "apos".utf8Array
+    private static let notCharRefAsciiTable: [Bool] = {
+        var table = [Bool](repeating: false, count: 128)
+        table[0x09] = true // \t
+        table[0x0A] = true // \n
+        table[0x0D] = true // \r
+        table[0x0C] = true // \f
+        table[0x20] = true // space
+        table[0x3C] = true // <
+        table[0x26] = true // &
+        return table
+    }()
+
+    @inline(__always)
+    private static func isNotCharRefAscii(_ byte: UInt8) -> Bool {
+        return byte < 0x80 && notCharRefAsciiTable[Int(byte)]
+    }
+
+    @inline(__always)
+    private static func isAsciiDigit(_ byte: UInt8) -> Bool {
+        return byte >= 0x30 && byte <= 0x39
+    }
     
     private let reader: CharacterReader // html input
     private let errors: ParseErrorList? // errors found while tokenising
@@ -212,7 +233,11 @@ final class Tokeniser {
         } else if (additionalAllowedCharacter != nil && additionalAllowedCharacter == reader.current()) {
             return nil
         }
-        if (reader.matchesAny(Tokeniser.notCharRefChars)) {
+        if let byte = reader.currentByte(), byte < 0x80 {
+            if Tokeniser.isNotCharRefAscii(byte) {
+                return nil
+            }
+        } else if (reader.matchesAny(Tokeniser.notCharRefChars)) {
             return nil
         }
         
@@ -264,9 +289,7 @@ final class Tokeniser {
                 if nextIndex < end {
                     let nb = input[nextIndex]
                     if nb >= 0x80 { return nil } // let slow path handle unicode letters/digits
-                    let isAsciiLetter = (nb >= 65 && nb <= 90) || (nb >= 97 && nb <= 122)
-                    let isAsciiDigit = (nb >= 48 && nb <= 57)
-                    if isAsciiLetter || isAsciiDigit {
+                    if TokeniserStateVars.isAsciiAlpha(nb) || Tokeniser.isAsciiDigit(nb) {
                         return nil // not an exact match
                     }
                     if inAttribute && (nb == 0x3D || nb == 0x2D || nb == 0x5F) {
@@ -310,10 +333,18 @@ final class Tokeniser {
                 }
                 return nil
             }
-            if (inAttribute && (reader.matchesLetter() || reader.matchesDigit() || reader.matchesAny(Self.notNamedCharRefChars))) {
-                // don't want that to match
-                reader.rewindToMark()
-                return nil
+            if inAttribute {
+                if let byte = reader.currentByte(), byte < 0x80 {
+                    if TokeniserStateVars.isAsciiAlpha(byte) || Tokeniser.isAsciiDigit(byte) || byte == 0x3D || byte == 0x2D || byte == 0x5F {
+                        // don't want that to match
+                        reader.rewindToMark()
+                        return nil
+                    }
+                } else if (reader.matchesLetter() || reader.matchesDigit() || reader.matchesAny(Self.notNamedCharRefChars)) {
+                    // don't want that to match
+                    reader.rewindToMark()
+                    return nil
+                }
             }
             if (!reader.matchConsume(UTF8Arrays.semicolon)) {
                 characterReferenceError("missing semicolon") // missing semi

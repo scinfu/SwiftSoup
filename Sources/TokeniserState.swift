@@ -2241,7 +2241,13 @@ enum TokeniserState: TokeniserStateProtocol {
             return false
         }
         t.createTagPending(isStart)
+        #if PROFILE
+        let _pConsume = Profiler.start("TokeniserState.TagOpen.consumeTagName")
+        #endif
         let tagName: ArraySlice<UInt8> = r.consumeTagName()
+        #if PROFILE
+        Profiler.end("TokeniserState.TagOpen.consumeTagName", _pConsume)
+        #endif
         t.tagPending.appendTagName(tagName)
         if r.isEmpty() {
             t.eofError(.TagName)
@@ -2252,7 +2258,13 @@ enum TokeniserState: TokeniserStateProtocol {
         switch byte {
         case TokeniserStateVars.tabByte, TokeniserStateVars.newLineByte, TokeniserStateVars.carriageReturnByte, TokeniserStateVars.formFeedByte, TokeniserStateVars.spaceByte:
             r.advanceAsciiWhitespace()
+            #if PROFILE
+            let _pAttrs = Profiler.start("TokeniserState.TagOpen.consumeAttributes")
+            #endif
             _ = try consumeAttributesFast(t, r, .BeforeAttributeName)
+            #if PROFILE
+            Profiler.end("TokeniserState.TagOpen.consumeAttributes", _pAttrs)
+            #endif
             return true
         case TokeniserStateVars.slashByte:
             r.advanceAscii()
@@ -2387,7 +2399,9 @@ enum TokeniserState: TokeniserStateProtocol {
                     return true
                 } else {
                     t.error(.BeforeAttributeName)
-                    try t.tagPending.newAttribute()
+                    if t.tagPending.hasPendingAttributeName() {
+                        try t.tagPending.newAttribute()
+                    }
                     t.transition(.AttributeName)
                     return true
                 }
@@ -2395,23 +2409,38 @@ enum TokeniserState: TokeniserStateProtocol {
                 if afterName {
                     r.advanceAscii()
                     t.error(.AfterAttributeName)
-                    try t.tagPending.newAttribute()
+                    if t.tagPending.hasPendingAttributeName() {
+                        try t.tagPending.newAttribute()
+                    }
                     t.tagPending.appendAttributeNameByte(byte)
                     t.transition(.AttributeName)
                     return true
                 } else {
                     r.advanceAscii()
                     t.error(.BeforeAttributeName)
-                    try t.tagPending.newAttribute()
+                    if t.tagPending.hasPendingAttributeName() {
+                        try t.tagPending.newAttribute()
+                    }
                     t.tagPending.appendAttributeNameByte(byte)
                     t.transition(.AttributeName)
                     return true
                 }
             default:
-                try t.tagPending.newAttribute()
-                if try consumeAttributeNameAndValueFast(t, r) {
+                if t.tagPending.hasPendingAttributeName() {
+                    try t.tagPending.newAttribute()
+                }
+                #if PROFILE
+                let _pAttrName = Profiler.start("TokeniserState.TagOpen.consumeAttrNameValue")
+                #endif
+                if try consumeAttributeNameAndValueAsciiFast(t, r) {
+                    #if PROFILE
+                    Profiler.end("TokeniserState.TagOpen.consumeAttrNameValue", _pAttrName)
+                    #endif
                     return true
                 }
+                #if PROFILE
+                Profiler.end("TokeniserState.TagOpen.consumeAttrNameValue", _pAttrName)
+                #endif
                 afterName = false
             }
         }
@@ -2463,7 +2492,82 @@ enum TokeniserState: TokeniserStateProtocol {
     }
 
     @inline(__always)
+    private static func consumeAttributeNameAndValueAsciiFast(_ t: Tokeniser, _ r: CharacterReader) throws -> Bool {
+        let start = r.pos
+        if start >= r.end {
+            t.eofError(.AttributeName)
+            t.transition(.Data)
+            return true
+        }
+
+        let input = r.input
+        var i = start
+        var asciiOnly = true
+        while i < r.end {
+            let b = input[i]
+            if b >= 0x80 {
+                asciiOnly = false
+                break
+            }
+            if CharacterReader.attributeNameDelims[Int(b)] {
+                break
+            }
+            i &+= 1
+        }
+        if !asciiOnly {
+            return try consumeAttributeNameAndValueFast(t, r)
+        }
+
+        if i > start {
+            r.pos = i
+            t.tagPending.appendAttributeName(input[start..<i])
+        }
+
+        if r.isEmpty() {
+            t.eofError(.AttributeName)
+            t.transition(.Data)
+            return true
+        }
+
+        var byte = r.currentByte()!
+        if byte == TokeniserStateVars.tabByte || byte == TokeniserStateVars.newLineByte || byte == TokeniserStateVars.carriageReturnByte || byte == TokeniserStateVars.formFeedByte || byte == TokeniserStateVars.spaceByte {
+            r.advanceAsciiWhitespace()
+            if r.isEmpty() {
+                t.eofError(.AfterAttributeName)
+                t.transition(.Data)
+                return true
+            }
+            byte = r.currentByte()!
+        }
+
+        switch byte {
+        case TokeniserStateVars.equalSignByte: // "="
+            r.advanceAscii()
+            return try consumeAttributeValueFast(t, r)
+        case TokeniserStateVars.slashByte: // "/"
+            r.advanceAscii()
+            t.transition(.SelfClosingStartTag)
+            return true
+        case TokeniserStateVars.greaterThanByte: // ">"
+            r.advanceAscii()
+            try t.emitTagPending()
+            t.transition(.Data)
+            return true
+        case TokeniserStateVars.nullByte, TokeniserStateVars.quoteByte, TokeniserStateVars.apostropheByte, TokeniserStateVars.lessThanByte:
+            // Let the slow path handle spec edge cases.
+            t.transition(.AfterAttributeName)
+            return true
+        default:
+            return false
+        }
+    }
+
+    @inline(__always)
     private static func consumeAttributeValueFast(_ t: Tokeniser, _ r: CharacterReader) throws -> Bool {
+        #if PROFILE
+        let _p = Profiler.start("TokeniserState.TagOpen.consumeAttrValue")
+        defer { Profiler.end("TokeniserState.TagOpen.consumeAttrValue", _p) }
+        #endif
         if r.isEmpty() {
             t.eofError(.BeforeAttributeValue)
             try t.emitTagPending()

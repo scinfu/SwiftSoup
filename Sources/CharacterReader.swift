@@ -1084,6 +1084,23 @@ public final class CharacterReader {
         table[0x00] = true // null
         return table
     }()
+
+    public static let attributeNameDelims: [Bool] = {
+        var table = [Bool](repeating: false, count: 256)
+        table[0x09] = true // \t
+        table[0x0A] = true // \n
+        table[0x0D] = true // \r
+        table[0x0C] = true // \f
+        table[0x20] = true // space
+        table[0x2F] = true // /
+        table[0x3D] = true // =
+        table[0x3E] = true // >
+        table[0x00] = true // null
+        table[0x22] = true // "
+        table[0x27] = true // '
+        table[0x3C] = true // <
+        return table
+    }()
     
     @inlinable
     public func consumeTagName() -> ArraySlice<UInt8> {
@@ -1118,13 +1135,11 @@ public final class CharacterReader {
                 if b >= 0x80 {
                     return consumeToAny(TokeniserStateVars.attributeNameChars)
                 }
-                switch b {
-                case 0x09, 0x0A, 0x0D, 0x0C, 0x20, 0x2F, 0x3D, 0x3E, 0x00, 0x22, 0x27, 0x3C:
+                if CharacterReader.attributeNameDelims[Int(b)] {
                     pos = i
                     return input[start..<pos]
-                default:
-                    i &+= 1
                 }
+                i &+= 1
             }
             pos = i
             return input[start..<pos]
