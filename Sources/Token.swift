@@ -97,10 +97,25 @@ open class Token {
         private var _pendingAttributeValueSlicesCount: Int = 0
         private var _hasEmptyAttributeValue: Bool = false // distinguish boolean attribute from empty string value
         private var _hasPendingAttributeValue: Bool = false
+        fileprivate var _pendingAttributes: [PendingAttribute]? // lazily materialized into Attributes
         public var _selfClosing: Bool = false
         // start tags get attributes on construction. End tags get attributes on first new attribute (but only for parser convenience, not used).
         public var _attributes: Attributes?
-        
+
+        fileprivate enum PendingAttrValue {
+            case none
+            case empty
+            case slice(ArraySlice<UInt8>)
+            case slices([ArraySlice<UInt8>], Int)
+            case bytes([UInt8])
+        }
+
+        fileprivate struct PendingAttribute {
+            var nameSlice: ArraySlice<UInt8>?
+            var nameBytes: [UInt8]?
+            var value: PendingAttrValue
+        }
+
         override init() {
             super.init()
         }
@@ -122,51 +137,44 @@ open class Token {
             _pendingAttributeValueSlicesCount = 0
             _hasEmptyAttributeValue = false
             _hasPendingAttributeValue = false
+            _pendingAttributes = nil
             _selfClosing = false
             _attributes = nil
             return self
         }
         
         func newAttribute() throws {
-            let pendingAttr: [UInt8]
-            if let pending = _pendingAttributeName {
-                pendingAttr = pending
-            } else if let pendingSlice = _pendingAttributeNameS {
-                pendingAttr = Array(pendingSlice)
-            } else {
-                pendingAttr = []
-            }
-
-            if !pendingAttr.isEmpty {
-                let attribute: Attribute
+            let pendingNameSlice = _pendingAttributeNameS
+            let pendingNameBytes = _pendingAttributeName
+            let hasNameSlice = pendingNameSlice != nil && !(pendingNameSlice?.isEmpty ?? true)
+            let hasNameBytes = pendingNameBytes != nil && !(pendingNameBytes?.isEmpty ?? true)
+            if hasNameSlice || hasNameBytes {
+                let value: PendingAttrValue
                 if _hasPendingAttributeValue {
                     if !_pendingAttributeValue.isEmpty {
-                        attribute = try Attribute(
-                            key: pendingAttr,
-                            value: Array(_pendingAttributeValue.buffer)
-                        )
+                        value = .bytes(Array(_pendingAttributeValue.buffer))
                     } else if let slices = _pendingAttributeValueSlices {
-                        var value: [UInt8] = []
-                        value.reserveCapacity(_pendingAttributeValueSlicesCount)
-                        for slice in slices {
-                            value.append(contentsOf: slice)
-                        }
-                        attribute = try Attribute(key: pendingAttr, value: value)
+                        value = .slices(slices, _pendingAttributeValueSlicesCount)
+                    } else if let pendingSlice = _pendingAttributeValueS {
+                        value = .slice(pendingSlice)
                     } else {
-                        attribute = try Attribute(
-                            key: pendingAttr,
-                            value: Array(_pendingAttributeValueS!)
-                        )
+                        value = .bytes([])
                     }
                 } else if _hasEmptyAttributeValue {
-                    attribute = try Attribute(key: pendingAttr, value: [])
+                    value = .empty
                 } else {
-                    attribute = try BooleanAttribute(key: pendingAttr)
+                    value = .none
                 }
-                if _attributes == nil {
-                    _attributes = Attributes()
+                let pending = PendingAttribute(
+                    nameSlice: hasNameSlice ? pendingNameSlice : nil,
+                    nameBytes: hasNameBytes ? pendingNameBytes : nil,
+                    value: value
+                )
+                if _pendingAttributes == nil {
+                    _pendingAttributes = [pending]
+                } else {
+                    _pendingAttributes!.append(pending)
                 }
-                _attributes?.put(attribute: attribute)
             }
             _pendingAttributeName = nil
             _pendingAttributeNameS = nil
@@ -217,10 +225,49 @@ open class Token {
         
         @inline(__always)
         func getAttributes() -> Attributes {
+            ensureAttributes()
             if _attributes == nil {
                 _attributes = Attributes()
             }
             return _attributes!
+        }
+
+        @inline(__always)
+        func ensureAttributes() {
+            guard let pendingAttributes = _pendingAttributes, !pendingAttributes.isEmpty else { return }
+            if _attributes == nil {
+                _attributes = Attributes()
+            }
+            for pending in pendingAttributes {
+                let key: [UInt8]
+                if let nameBytes = pending.nameBytes {
+                    key = nameBytes
+                } else if let nameSlice = pending.nameSlice {
+                    key = Array(nameSlice)
+                } else {
+                    continue
+                }
+                let attribute: Attribute
+                switch pending.value {
+                case .none:
+                    attribute = try! BooleanAttribute(key: key)
+                case .empty:
+                    attribute = try! Attribute(key: key, value: [])
+                case .slice(let slice):
+                    attribute = try! Attribute(key: key, value: Array(slice))
+                case .slices(let slices, let count):
+                    var value: [UInt8] = []
+                    value.reserveCapacity(count)
+                    for slice in slices {
+                        value.append(contentsOf: slice)
+                    }
+                    attribute = try! Attribute(key: key, value: value)
+                case .bytes(let bytes):
+                    attribute = try! Attribute(key: key, value: bytes)
+                }
+                _attributes?.put(attribute: attribute)
+            }
+            _pendingAttributes = nil
         }
         
         // these appenders are rarely hit in not null state-- caused by null chars.
@@ -385,12 +432,14 @@ open class Token {
         func nameAttr(_ name: [UInt8], _ attributes: Attributes) -> StartTag {
             self._tagName = name
             self._attributes = attributes
+            _pendingAttributes = nil
             _normalName = _tagName?.lowercased()
             return self
         }
         
         @inline(__always)
         public override func toString() throws -> String {
+            ensureAttributes()
             if let _attributes, !_attributes.attributes.isEmpty {
                 return "<" + String(decoding: try name(), as: UTF8.self) + " " + (try _attributes.toString()) + ">"
             } else {

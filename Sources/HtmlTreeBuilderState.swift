@@ -536,6 +536,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
                         tb.tokeniser.acknowledgeSelfClosingFlag()
                         try tb.processStartTag(UTF8Arrays.form)
+                        startTag.ensureAttributes()
                         if startTag._attributes?.hasKey(key: UTF8Arrays.action) ?? false {
                             if let form: Element = tb.getFormElement() {
                                 try form.attr(UTF8Arrays.action, startTag._attributes?.get(key: UTF8Arrays.action) ?? [])
@@ -928,6 +929,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     } else if name == UTF8Arrays.style || name == UTF8Arrays.script {
                         return try tb.process(t, .InHead)
                     } else if name == UTF8Arrays.input {
+                        startTag.ensureAttributes()
                         if !(startTag._attributes?.get(key: UTF8Arrays.type).equalsIgnoreCase(string: UTF8Arrays.hidden) ?? false) {
                             return try anythingElse(t, tb)
                         } else {

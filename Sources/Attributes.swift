@@ -200,7 +200,8 @@ open class Attributes: NSCopying {
     @inline(__always)
     open func put(attribute: Attribute) {
         let key = attribute.getKeyUTF8()
-        let normalizedKey = key.lowercased()
+        let hasUppercase = Attributes.containsAsciiUppercase(key)
+        let normalizedKey = hasUppercase ? key.lowercased() : key
         if let ix = indexForKey(key) {
             attributes[ix] = attribute
             if !keyIndexDirty, keyIndex != nil {
@@ -212,7 +213,7 @@ open class Attributes: NSCopying {
                 keyIndex?[key] = attributes.count - 1
             }
         }
-        if !hasUppercaseKeys && Attributes.containsAsciiUppercase(key) {
+        if !hasUppercaseKeys && hasUppercase {
             hasUppercaseKeys = true
         }
         invalidateLowercasedKeysCache()

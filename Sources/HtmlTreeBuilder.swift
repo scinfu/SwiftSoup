@@ -188,6 +188,7 @@ class HtmlTreeBuilder: TreeBuilder {
     @inlinable
     @discardableResult
     func insert(_ startTag: Token.StartTag) throws -> Element {
+        startTag.ensureAttributes()
         // handle empty unknown tags
         // when the spec expects an empty tag, will directly hit insertEmpty, so won't generate this fake end tag.
         let skipChildReserve = startTag.isSelfClosing()
@@ -225,6 +226,7 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     func insertEmpty(_ startTag: Token.StartTag) throws -> Element {
+        startTag.ensureAttributes()
         // For unknown tags, remember this is self closing for output
         let tag: Tag = try Tag.valueOf(startTag.name(), settings, isSelfClosing: startTag.isSelfClosing())
         let skipChildReserve = startTag.isSelfClosing()
@@ -245,6 +247,7 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     func insertForm(_ startTag: Token.StartTag, _ onStack: Bool) throws -> FormElement {
+        startTag.ensureAttributes()
         let tag: Tag = try Tag.valueOf(startTag.name(), settings)
         let el: FormElement
         if let attributes = startTag._attributes {
@@ -843,5 +846,4 @@ class HtmlTreeBuilder: TreeBuilder {
 fileprivate func ~= (pattern: [String], value: String) -> Bool {
     return pattern.contains(value)
 }
-
 

@@ -15,6 +15,20 @@ public class TokeniserStateVars {
 	public static let nullScalr: UnicodeScalar = "\u{0000}"
     public static let nullScalrUTF8 = "\u{0000}".utf8Array
     public static let nullScalrUTF8Slice = ArraySlice(nullScalrUTF8)
+    static let tabByte: UInt8 = 0x09
+    static let newLineByte: UInt8 = 0x0A
+    static let carriageReturnByte: UInt8 = 0x0D
+    static let formFeedByte: UInt8 = 0x0C
+    static let spaceByte: UInt8 = 0x20
+    static let slashByte: UInt8 = 0x2F
+    static let greaterThanByte: UInt8 = 0x3E
+    static let lessThanByte: UInt8 = 0x3C
+    static let ampersandByte: UInt8 = 0x26
+    static let quoteByte: UInt8 = 0x22
+    static let apostropheByte: UInt8 = 0x27
+    static let nullByte: UInt8 = 0x00
+    static let hyphenByte: UInt8 = 0x2D
+    static let bangByte: UInt8 = 0x21
 
     static let attributeSingleValueChars = ParsingStrings(["'", UnicodeScalar.Ampersand, nullScalr])
     static let attributeDoubleValueChars = ParsingStrings(["\"", UnicodeScalar.Ampersand, nullScalr])
@@ -288,6 +302,20 @@ enum TokeniserState: TokeniserStateProtocol {
             if (r.matches(UTF8Arrays.forwardSlash)) {
                 t.createTempBuffer()
                 t.advanceTransition(.RCDATAEndTagOpen)
+            } else if let byte = r.currentByte(), byte < 0x80 {
+                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A),
+                   let endTagName = t.appropriateEndTagName(),
+                   !r.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: endTagName) {
+                    // diverge from spec: got a start tag, but there's no appropriate end tag (</title>), so rather than
+                    // consuming to EOF break out here
+                    t.tagPending = t.createTagPending(false).name(endTagName)
+                    try t.emitTagPending()
+                    r.unconsume() // undo UnicodeScalar.LessThan
+                    t.transition(.Data)
+                } else {
+                    t.emit(UnicodeScalar.LessThan)
+                    t.transition(.Rcdata)
+                }
             } else if r.matchesLetter(), let endTagName = t.appropriateEndTagName(),
                       !r.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: endTagName) {
                 // diverge from spec: got a start tag, but there's no appropriate end tag (</title>), so rather than
@@ -302,19 +330,34 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .RCDATAEndTagOpen:
-            if (r.matchesLetter()) {
+            if let byte = r.currentByte(), byte < 0x80 {
+                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                    t.createTagPending(false)
+                    t.tagPending.appendTagNameByte(byte)
+                    t.dataBuffer.append(byte)
+                    t.advanceTransition(.RCDATAEndTagName)
+                    break
+                }
+            } else if r.matchesLetter() {
                 let byte = r.currentByte()!
                 t.createTagPending(false)
                 t.tagPending.appendTagNameByte(byte)
                 t.dataBuffer.append(byte)
                 t.advanceTransition(.RCDATAEndTagName)
-            } else {
-                t.emit(UTF8Arrays.endTagStart)
-                t.transition(.Rcdata)
+                break
             }
+            t.emit(UTF8Arrays.endTagStart)
+            t.transition(.Rcdata)
             break
         case .RCDATAEndTagName:
-            if (r.matchesLetter()) {
+            if let byte = r.currentByte(), byte < 0x80 {
+                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                    let name = r.consumeLetterSequence()
+                    t.tagPending.appendTagName(name)
+                    t.dataBuffer.append(name)
+                    return
+                }
+            } else if (r.matchesLetter()) {
                 let name = r.consumeLetterSequence()
                 t.tagPending.appendTagName(name)
                 t.dataBuffer.append(name)
@@ -615,14 +658,31 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .ScriptDataEscapedLessthanSign:
-            if (r.matchesLetter()) {
-                let byte = r.currentByte()!
-                t.createTempBuffer()
-                t.dataBuffer.append(byte)
-                t.emit(UTF8Arrays.tagStart)
-                t.emitByte(byte)
-                t.advanceTransition(.ScriptDataDoubleEscapeStart)
-            } else if (r.matches(UTF8Arrays.forwardSlash)) {
+            if let byte = r.currentByte() {
+                if byte < 0x80 {
+                    if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                        t.createTempBuffer()
+                        t.dataBuffer.append(byte)
+                        t.emit(UTF8Arrays.tagStart)
+                        t.emitByte(byte)
+                        t.advanceTransition(.ScriptDataDoubleEscapeStart)
+                        break
+                    }
+                    if byte == 0x2F {
+                        t.createTempBuffer()
+                        t.advanceTransition(.ScriptDataEscapedEndTagOpen)
+                        break
+                    }
+                } else if r.matchesLetter() {
+                    t.createTempBuffer()
+                    t.dataBuffer.append(byte)
+                    t.emit(UTF8Arrays.tagStart)
+                    t.emitByte(byte)
+                    t.advanceTransition(.ScriptDataDoubleEscapeStart)
+                    break
+                }
+            }
+            if (r.matches(UTF8Arrays.forwardSlash)) {
                 t.createTempBuffer()
                 t.advanceTransition(.ScriptDataEscapedEndTagOpen)
             } else {
@@ -631,16 +691,24 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .ScriptDataEscapedEndTagOpen:
-            if (r.matchesLetter()) {
+            if let byte = r.currentByte(), byte < 0x80 {
+                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                    t.createTagPending(false)
+                    t.tagPending.appendTagNameByte(byte)
+                    t.dataBuffer.append(byte)
+                    t.advanceTransition(.ScriptDataEscapedEndTagName)
+                    break
+                }
+            } else if r.matchesLetter() {
                 let byte = r.currentByte()!
                 t.createTagPending(false)
                 t.tagPending.appendTagNameByte(byte)
                 t.dataBuffer.append(byte)
                 t.advanceTransition(.ScriptDataEscapedEndTagName)
-            } else {
-                t.emit(UTF8Arrays.endTagStart)
-                t.transition(.ScriptDataEscaped)
+                break
             }
+            t.emit(UTF8Arrays.endTagStart)
+            t.transition(.ScriptDataEscaped)
             break
         case .ScriptDataEscapedEndTagName:
             try TokeniserState.handleDataEndTag(t, r, .ScriptDataEscaped)
@@ -773,46 +841,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .BeforeAttributeName:
             // from tagname <xxx
-            if r.isEmpty() {
-                t.eofError(self)
-                t.transition(.Data)
-                break
-            }
-            var byte = r.currentByte()!
-            if byte == 0x09 || byte == 0x0A || byte == 0x0D || byte == 0x0C || byte == 0x20 {
-                r.advanceAsciiWhitespace()
-                if r.isEmpty() {
-                    t.eofError(self)
-                    t.transition(.Data)
-                    break
-                }
-                byte = r.currentByte()!
-            }
-            switch byte {
-            case 0x2F: // "/"
-                r.advanceAscii()
-                t.transition(.SelfClosingStartTag)
-                break
-            case 0x3E: // ">"
-                r.advanceAscii()
-                try t.emitTagPending()
-                t.transition(.Data)
-                break
-            case 0x00:
-                t.error(self)
-                try t.tagPending.newAttribute()
-                t.transition(.AttributeName)
-                break
-            case 0x22, 0x27, 0x3C, 0x3D: // "\"", "'", "<", "="
-                r.advanceAscii()
-                t.error(self)
-                try t.tagPending.newAttribute()
-                t.tagPending.appendAttributeNameByte(byte)
-                t.transition(.AttributeName)
-                break
-            default:
-                try t.tagPending.newAttribute()
-                try TokeniserState.readAttributeName(.AttributeName, t, r)
+            if try TokeniserState.consumeAttributesFast(t, r, self) {
                 return
             }
             break
@@ -820,99 +849,16 @@ enum TokeniserState: TokeniserStateProtocol {
             try TokeniserState.readAttributeName(self, t, r)
             break
         case .AfterAttributeName:
-            if r.isEmpty() {
-                t.eofError(self)
-                t.transition(.Data)
-                break
-            }
-            let byte = r.currentByte()!
-            switch byte {
-            case 0x09, 0x0A, 0x0D, 0x0C, 0x20:
-                r.advanceAsciiWhitespace()
-                break // ignore
-            case 0x2F: // "/"
-                r.advanceAscii()
-                t.transition(.SelfClosingStartTag)
-                break
-            case 0x3D: // "="
-                r.advanceAscii()
-                t.transition(.BeforeAttributeValue)
-                break
-            case 0x3E: // ">"
-                r.advanceAscii()
-                try t.emitTagPending()
-                t.transition(.Data)
-                break
-            case 0x00:
-                r.advanceAscii()
-                t.error(self)
-                t.tagPending.appendAttributeName(TokeniserStateVars.replacementChar)
-                t.transition(.AttributeName)
-                break
-            case 0x22, 0x27, 0x3C: // "\"", "'", "<"
-                r.advanceAscii()
-                t.error(self)
-                try t.tagPending.newAttribute()
-                t.tagPending.appendAttributeNameByte(byte)
-                t.transition(.AttributeName)
-                break
-            default:
-                try t.tagPending.newAttribute()
-                t.transition(.AttributeName)
+            if try TokeniserState.consumeAttributesFast(t, r, self) {
+                return
             }
             break
         case .BeforeAttributeValue:
-            if r.isEmpty() {
-                t.eofError(self)
-                try t.emitTagPending()
-                t.transition(.Data)
-                break
+            if try TokeniserState.consumeAttributeValueFast(t, r) {
+                return
             }
-            var byte = r.currentByte()!
-            if byte == 0x09 || byte == 0x0A || byte == 0x0D || byte == 0x0C || byte == 0x20 {
-                r.advanceAsciiWhitespace()
-                if r.isEmpty() {
-                    t.eofError(self)
-                    try t.emitTagPending()
-                    t.transition(.Data)
-                    break
-                }
-                byte = r.currentByte()!
-            }
-            switch byte {
-            case 0x22: // "\""
-                r.advanceAscii()
-                t.transition(.AttributeValue_doubleQuoted)
-                break
-            case 0x26: // "&"
-                t.transition(.AttributeValue_unquoted)
-                break
-            case 0x27: // "'"
-                r.advanceAscii()
-                t.transition(.AttributeValue_singleQuoted)
-                break
-            case 0x00:
-                r.advanceAscii()
-                t.error(self)
-                t.tagPending.appendAttributeValue(TokeniserStateVars.replacementChar)
-                t.transition(.AttributeValue_unquoted)
-                break
-            case 0x3E: // ">"
-                r.advanceAscii()
-                t.error(self)
-                try t.emitTagPending()
-                t.transition(.Data)
-                break
-            case 0x3C, 0x3D, 0x60: // "<", "=", "`"
-                r.advanceAscii()
-                t.error(self)
-                t.tagPending.appendAttributeValueByte(byte)
-                t.transition(.AttributeValue_unquoted)
-                break
-            default:
-                t.transition(.AttributeValue_unquoted)
-            }
-            break
+            t.transition(.BeforeAttributeName)
+            return
         case .AttributeValue_doubleQuoted:
             let value: ArraySlice<UInt8> = r.consumeAttributeValueDoubleQuoted()
             if !value.isEmpty {
@@ -1103,7 +1049,7 @@ enum TokeniserState: TokeniserStateProtocol {
             r.unconsume()
             let comment: Token.Comment = Token.Comment()
             comment.bogus = true
-            comment.data.append(r.consumeTo(">"))
+            comment.data.append(r.consumeTo(UTF8Arrays.tagEnd))
             // todo: replace nullChar with replaceChar
             try t.emit(comment)
             t.advanceTransition(.Data)
@@ -1412,7 +1358,13 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .BeforeDoctypeName:
-            if (r.matchesLetter()) {
+            if let byte = r.currentByte(), byte < 0x80 {
+                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                    t.createDoctypePending()
+                    t.transition(.DoctypeName)
+                    return
+                }
+            } else if (r.matchesLetter()) {
                 t.createDoctypePending()
                 t.transition(.DoctypeName)
                 return
@@ -1466,7 +1418,13 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .DoctypeName:
-            if (r.matchesLetter()) {
+            if let byte = r.currentByte(), byte < 0x80 {
+                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                    let name = r.consumeLetterSequence()
+                    t.doctypePending.name.append(name)
+                    return
+                }
+            } else if (r.matchesLetter()) {
                 let name = r.consumeLetterSequence()
                 t.doctypePending.name.append(name)
                 return
@@ -2135,7 +2093,14 @@ enum TokeniserState: TokeniserStateProtocol {
      * different else exit transitions.
      */
     private static func handleDataEndTag(_ t: Tokeniser, _ r: CharacterReader, _ elseTransition: TokeniserState)throws {
-        if (r.matchesLetter()) {
+        if let byte = r.currentByte(), byte < 0x80 {
+            if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                let name: ArraySlice<UInt8> = r.consumeLetterSequence()
+                t.tagPending.appendTagName(name)
+                t.dataBuffer.append(name)
+                return
+            }
+        } else if (r.matchesLetter()) {
             let name: ArraySlice<UInt8> = r.consumeLetterSequence()
             t.tagPending.appendTagName(name)
             t.dataBuffer.append(name)
@@ -2322,6 +2287,305 @@ enum TokeniserState: TokeniserStateProtocol {
         }
     }
 
+    @inline(__always)
+    private static func consumeAttributesFast(_ t: Tokeniser, _ r: CharacterReader, _ state: TokeniserState) throws -> Bool {
+        var afterName = (state == .AfterAttributeName)
+        while true {
+            if r.isEmpty() {
+                t.eofError(state)
+                t.transition(.Data)
+                return true
+            }
+            var byte = r.currentByte()!
+            if byte == 0x09 || byte == 0x0A || byte == 0x0D || byte == 0x0C || byte == 0x20 {
+                r.advanceAsciiWhitespace()
+                if r.isEmpty() {
+                    t.eofError(state)
+                    t.transition(.Data)
+                    return true
+                }
+                byte = r.currentByte()!
+            }
+
+            if afterName && byte == 0x3D {
+                r.advanceAscii()
+                if try consumeAttributeValueFast(t, r) {
+                    return true
+                }
+                afterName = false
+                continue
+            }
+
+            switch byte {
+            case 0x2F: // "/"
+                r.advanceAscii()
+                t.transition(.SelfClosingStartTag)
+                return true
+            case 0x3E: // ">"
+                r.advanceAscii()
+                try t.emitTagPending()
+                t.transition(.Data)
+                return true
+            case 0x00:
+                if afterName {
+                    r.advanceAscii()
+                    t.error(.AfterAttributeName)
+                    t.tagPending.appendAttributeName(TokeniserStateVars.replacementChar)
+                    t.transition(.AttributeName)
+                    return true
+                } else {
+                    t.error(.BeforeAttributeName)
+                    try t.tagPending.newAttribute()
+                    t.transition(.AttributeName)
+                    return true
+                }
+            case 0x22, 0x27, 0x3C, 0x3D: // "\"", "'", "<", "="
+                if afterName {
+                    r.advanceAscii()
+                    t.error(.AfterAttributeName)
+                    try t.tagPending.newAttribute()
+                    t.tagPending.appendAttributeNameByte(byte)
+                    t.transition(.AttributeName)
+                    return true
+                } else {
+                    r.advanceAscii()
+                    t.error(.BeforeAttributeName)
+                    try t.tagPending.newAttribute()
+                    t.tagPending.appendAttributeNameByte(byte)
+                    t.transition(.AttributeName)
+                    return true
+                }
+            default:
+                try t.tagPending.newAttribute()
+                if try consumeAttributeNameAndValueFast(t, r) {
+                    return true
+                }
+                afterName = false
+            }
+        }
+    }
+
+    @inline(__always)
+    private static func consumeAttributeNameAndValueFast(_ t: Tokeniser, _ r: CharacterReader) throws -> Bool {
+        let name: ArraySlice<UInt8> = r.consumeAttributeName()
+        if !name.isEmpty {
+            t.tagPending.appendAttributeName(name)
+        }
+        if r.isEmpty() {
+            t.eofError(.AttributeName)
+            t.transition(.Data)
+            return true
+        }
+
+        var byte = r.currentByte()!
+        if byte == 0x09 || byte == 0x0A || byte == 0x0D || byte == 0x0C || byte == 0x20 {
+            r.advanceAsciiWhitespace()
+            if r.isEmpty() {
+                t.eofError(.AfterAttributeName)
+                t.transition(.Data)
+                return true
+            }
+            byte = r.currentByte()!
+        }
+
+        switch byte {
+        case 0x3D: // "="
+            r.advanceAscii()
+            return try consumeAttributeValueFast(t, r)
+        case 0x2F: // "/"
+            r.advanceAscii()
+            t.transition(.SelfClosingStartTag)
+            return true
+        case 0x3E: // ">"
+            r.advanceAscii()
+            try t.emitTagPending()
+            t.transition(.Data)
+            return true
+        case 0x00, 0x22, 0x27, 0x3C:
+            // Let the slow path handle spec edge cases.
+            t.transition(.AfterAttributeName)
+            return true
+        default:
+            return false
+        }
+    }
+
+    @inline(__always)
+    private static func consumeAttributeValueFast(_ t: Tokeniser, _ r: CharacterReader) throws -> Bool {
+        if r.isEmpty() {
+            t.eofError(.BeforeAttributeValue)
+            try t.emitTagPending()
+            t.transition(.Data)
+            return true
+        }
+        var byte = r.currentByte()!
+        if byte == 0x09 || byte == 0x0A || byte == 0x0D || byte == 0x0C || byte == 0x20 {
+            r.advanceAsciiWhitespace()
+            if r.isEmpty() {
+                t.eofError(.BeforeAttributeValue)
+                try t.emitTagPending()
+                t.transition(.Data)
+                return true
+            }
+            byte = r.currentByte()!
+        }
+
+        switch byte {
+        case 0x22: // "\""
+            r.advanceAscii()
+            return try consumeQuotedAttributeValueFast(t, r, 0x22, .AttributeValue_doubleQuoted)
+        case 0x27: // "'"
+            r.advanceAscii()
+            return try consumeQuotedAttributeValueFast(t, r, 0x27, .AttributeValue_singleQuoted)
+        case 0x26: // "&"
+            return try consumeUnquotedAttributeValueFast(t, r)
+        case 0x00:
+            r.advanceAscii()
+            t.error(.BeforeAttributeValue)
+            t.tagPending.appendAttributeValue(TokeniserStateVars.replacementChar)
+            return try consumeUnquotedAttributeValueFast(t, r)
+        case 0x3E: // ">"
+            r.advanceAscii()
+            t.error(.BeforeAttributeValue)
+            try t.emitTagPending()
+            t.transition(.Data)
+            return true
+        case 0x3C, 0x3D, 0x60: // "<", "=", "`"
+            r.advanceAscii()
+            t.error(.BeforeAttributeValue)
+            t.tagPending.appendAttributeValueByte(byte)
+            return try consumeUnquotedAttributeValueFast(t, r)
+        default:
+            return try consumeUnquotedAttributeValueFast(t, r)
+        }
+    }
+
+    @inline(__always)
+    private static func consumeQuotedAttributeValueFast(_ t: Tokeniser, _ r: CharacterReader, _ quote: UInt8, _ state: TokeniserState) throws -> Bool {
+        while true {
+            let value: ArraySlice<UInt8> = (quote == 0x22) ? r.consumeAttributeValueDoubleQuoted() : r.consumeAttributeValueSingleQuoted()
+            if !value.isEmpty {
+                t.tagPending.appendAttributeValue(value)
+            } else if let nextByte = r.currentByte(), nextByte == quote {
+                t.tagPending.setEmptyAttributeValue()
+            }
+
+            if r.isEmpty() {
+                t.eofError(state)
+                t.transition(.Data)
+                return true
+            }
+            let byte = r.currentByte()!
+            if byte == quote {
+                r.advanceAscii()
+                return try handleAfterQuotedValueFast(t, r)
+            }
+
+            switch byte {
+            case 0x26: // "&"
+                r.advanceAscii()
+                let allowed: UnicodeScalar = (quote == 0x22) ? "\"" : "'"
+                if let ref = try t.consumeCharacterReference(allowed, true) {
+                    t.tagPending.appendAttributeValue(ref)
+                } else {
+                    t.tagPending.appendAttributeValue(UnicodeScalar.Ampersand)
+                }
+            case 0x00:
+                r.advanceAscii()
+                t.error(state)
+                t.tagPending.appendAttributeValue(TokeniserStateVars.replacementChar)
+            default:
+                if byte < 0x80 {
+                    r.advanceAscii()
+                } else {
+                    r.advance()
+                }
+            }
+        }
+    }
+
+    @inline(__always)
+    private static func consumeUnquotedAttributeValueFast(_ t: Tokeniser, _ r: CharacterReader) throws -> Bool {
+        while true {
+            let value: ArraySlice<UInt8> = r.consumeAttributeValueUnquoted()
+            if !value.isEmpty {
+                t.tagPending.appendAttributeValue(value)
+            }
+
+            if r.isEmpty() {
+                t.eofError(.AttributeValue_unquoted)
+                t.transition(.Data)
+                return true
+            }
+            let byte = r.currentByte()!
+            switch byte {
+            case 0x09, 0x0A, 0x0D, 0x0C, 0x20:
+                r.advanceAsciiWhitespace()
+                return false
+            case 0x26: // "&"
+                r.advanceAscii()
+                if let ref = try t.consumeCharacterReference(">", true) {
+                    t.tagPending.appendAttributeValue(ref)
+                } else {
+                    t.tagPending.appendAttributeValue(UnicodeScalar.Ampersand)
+                }
+            case 0x3E: // ">"
+                r.advanceAscii()
+                try t.emitTagPending()
+                t.transition(.Data)
+                return true
+            case 0x00:
+                r.advanceAscii()
+                t.error(.AttributeValue_unquoted)
+                t.tagPending.appendAttributeValue(TokeniserStateVars.replacementChar)
+            case 0x22, 0x27, 0x3C, 0x3D, 0x60: // "\"", "'", "<", "=", "`"
+                r.advanceAscii()
+                t.error(.AttributeValue_unquoted)
+                t.tagPending.appendAttributeValueByte(byte)
+            default:
+                if byte < 0x80 {
+                    r.advanceAscii()
+                    t.tagPending.appendAttributeValueByte(byte)
+                } else {
+                    let c = r.consume()
+                    if c == TokeniserStateVars.eof {
+                        t.eofError(.AttributeValue_unquoted)
+                        t.transition(.Data)
+                        return true
+                    }
+                    t.tagPending.appendAttributeValue(c)
+                }
+            }
+        }
+    }
+
+    @inline(__always)
+    private static func handleAfterQuotedValueFast(_ t: Tokeniser, _ r: CharacterReader) throws -> Bool {
+        if r.isEmpty() {
+            t.eofError(.AfterAttributeValue_quoted)
+            t.transition(.Data)
+            return true
+        }
+        let byte = r.currentByte()!
+        switch byte {
+        case 0x09, 0x0A, 0x0D, 0x0C, 0x20:
+            r.advanceAsciiWhitespace()
+            return false
+        case 0x2F: // "/"
+            r.advanceAscii()
+            t.transition(.SelfClosingStartTag)
+            return true
+        case 0x3E: // ">"
+            r.advanceAscii()
+            try t.emitTagPending()
+            t.transition(.Data)
+            return true
+        default:
+            t.error(.AfterAttributeValue_quoted)
+            return false
+        }
+    }
+
     private static func readCharRef(_ t: Tokeniser, _ advance: TokeniserState)throws {
         let c = try t.consumeCharacterReference(nil, false)
         if (c == nil) {
@@ -2333,7 +2597,19 @@ enum TokeniserState: TokeniserStateProtocol {
     }
 
     private static func readEndTag(_ t: Tokeniser, _ r: CharacterReader, _ a: TokeniserState, _ b: TokeniserState) {
-        if (r.matchesLetter()) {
+        if let byte = r.currentByte() {
+            if byte < 0x80 {
+                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                    t.createTagPending(false)
+                    t.transition(a)
+                } else {
+                    t.emit(UTF8Arrays.endTagStart)
+                    t.transition(b)
+                }
+                return
+            }
+        }
+        if r.matchesLetter() {
             t.createTagPending(false)
             t.transition(a)
         } else {
@@ -2343,6 +2619,31 @@ enum TokeniserState: TokeniserStateProtocol {
     }
 
     private static func handleDataDoubleEscapeTag(_ t: Tokeniser, _ r: CharacterReader, _ primary: TokeniserState, _ fallback: TokeniserState) {
+        if let byte = r.currentByte() {
+            if byte < 0x80 {
+                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                    let name = r.consumeLetterSequence()
+                    t.dataBuffer.append(name)
+                    t.emit(name)
+                    return
+                }
+                switch byte {
+                case 0x09, 0x0A, 0x0D, 0x0C, 0x20, 0x2F, 0x3E:
+                    r.advanceAscii()
+                    if (t.dataBuffer.buffer == ArraySlice(UTF8Arrays.script)) {
+                        t.transition(primary)
+                    } else {
+                        t.transition(fallback)
+                    }
+                    t.emitByte(byte)
+                    return
+                default:
+                    t.transition(fallback)
+                    return
+                }
+            }
+        }
+
         if (r.matchesLetter()) {
             let name = r.consumeLetterSequence()
             t.dataBuffer.append(name)
@@ -2354,9 +2655,9 @@ enum TokeniserState: TokeniserStateProtocol {
         switch (c) {
         case UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "/", ">":
             if (t.dataBuffer.buffer == ArraySlice(UTF8Arrays.script)) {
-            t.transition(primary)
+                t.transition(primary)
             } else {
-            t.transition(fallback)
+                t.transition(fallback)
             }
             t.emit(c)
             break
