@@ -1427,7 +1427,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .DoctypeName:
             if let byte = r.currentByte(), byte < 0x80 {
-                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                if TokeniserStateVars.isAsciiAlpha(byte) {
                     let name = r.consumeLetterSequence()
                     t.doctypePending.name.append(name)
                     return
@@ -2102,7 +2102,7 @@ enum TokeniserState: TokeniserStateProtocol {
      */
     private static func handleDataEndTag(_ t: Tokeniser, _ r: CharacterReader, _ elseTransition: TokeniserState)throws {
         if let byte = r.currentByte(), byte < 0x80 {
-            if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+            if TokeniserStateVars.isAsciiAlpha(byte) {
                 let name: ArraySlice<UInt8> = r.consumeLetterSequence()
                 t.tagPending.appendTagName(name)
                 t.dataBuffer.append(name)
@@ -2651,7 +2651,7 @@ enum TokeniserState: TokeniserStateProtocol {
     private static func readEndTag(_ t: Tokeniser, _ r: CharacterReader, _ a: TokeniserState, _ b: TokeniserState) {
         if let byte = r.currentByte() {
             if byte < 0x80 {
-                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                if TokeniserStateVars.isAsciiAlpha(byte) {
                     t.createTagPending(false)
                     t.transition(a)
                 } else {
@@ -2673,7 +2673,7 @@ enum TokeniserState: TokeniserStateProtocol {
     private static func handleDataDoubleEscapeTag(_ t: Tokeniser, _ r: CharacterReader, _ primary: TokeniserState, _ fallback: TokeniserState) {
         if let byte = r.currentByte() {
             if byte < 0x80 {
-                if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
+                if TokeniserStateVars.isAsciiAlpha(byte) {
                     let name = r.consumeLetterSequence()
                     t.dataBuffer.append(name)
                     t.emit(name)
