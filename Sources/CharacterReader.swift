@@ -13,6 +13,25 @@ public final class CharacterReader {
     
     private static let letters = ParsingStrings("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".map { String($0) })
     private static let digits = ParsingStrings(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"])
+    private static let utf8WidthTable: [UInt8] = {
+        var table = [UInt8](repeating: 1, count: 256)
+        var i = 0xC0
+        while i <= 0xDF {
+            table[i] = 2
+            i += 1
+        }
+        i = 0xE0
+        while i <= 0xEF {
+            table[i] = 3
+            i += 1
+        }
+        i = 0xF0
+        while i <= 0xF7 {
+            table[i] = 4
+            i += 1
+        }
+        return table
+    }()
     
     public init(_ input: [UInt8]) {
         self.input = input
@@ -147,16 +166,9 @@ public final class CharacterReader {
             pos += 1
             return
         }
-
-        var utf8Decoder = UTF8()
-        var iterator = input[pos...].makeIterator()
-        switch utf8Decoder.decode(&iterator) {
-        case .scalarValue(let scalar):
-            let scalarLength = UTF8.width(scalar)
-            input.formIndex(&pos, offsetBy: scalarLength)
-        case .emptyInput, .error:
-            break
-        }
+        let width = CharacterReader.utf8WidthTable[Int(firstByte)]
+        let newPos = pos + Int(width)
+        pos = newPos <= end ? newPos : end
     }
     
     @inline(__always)
