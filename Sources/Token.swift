@@ -100,6 +100,8 @@ open class Token {
         private var _hasPendingAttributeValue: Bool = false
         fileprivate var _pendingAttributes: [PendingAttribute]? // lazily materialized into Attributes
         public var _selfClosing: Bool = false
+        private var _lowercaseAttributeNames: Bool = false
+        fileprivate var _attributesAreNormalized: Bool = false
         // start tags get attributes on construction. End tags get attributes on first new attribute (but only for parser convenience, not used).
         public var _attributes: Attributes?
 
@@ -141,6 +143,8 @@ open class Token {
             _hasPendingAttributeValue = false
             _pendingAttributes = nil
             _selfClosing = false
+            _lowercaseAttributeNames = false
+            _attributesAreNormalized = false
             _attributes = nil
             return self
         }
@@ -249,6 +253,11 @@ open class Token {
             _tagNameS = nil
             _normalName = nil
             return self
+        }
+
+        @inline(__always)
+        func attributesAreNormalized() -> Bool {
+            return _attributesAreNormalized
         }
         
         @inline(__always)
@@ -380,11 +389,32 @@ open class Token {
         func appendAttributeName(_ append: ArraySlice<UInt8>) {
             guard !append.isEmpty else { return }
             if _pendingAttributeName == nil && _pendingAttributeNameS == nil {
-                _pendingAttributeNameS = append
-                return
+                if _lowercaseAttributeNames {
+                    var hasUppercase = false
+                    for b in append {
+                        if b >= 65 && b <= 90 {
+                            hasUppercase = true
+                            break
+                        }
+                    }
+                    if !hasUppercase {
+                        _pendingAttributeNameS = append
+                        return
+                    }
+                } else {
+                    _pendingAttributeNameS = append
+                    return
+                }
             }
             ensureAttributeName()
-            _pendingAttributeName!.append(contentsOf: append)
+            if _lowercaseAttributeNames {
+                for b in append {
+                    let normalized = (b >= 65 && b <= 90) ? (b &+ 32) : b
+                    _pendingAttributeName!.append(normalized)
+                }
+            } else {
+                _pendingAttributeName!.append(contentsOf: append)
+            }
         }
         
         @inline(__always)
@@ -395,7 +425,22 @@ open class Token {
         @inline(__always)
         func appendAttributeNameByte(_ byte: UInt8) {
             ensureAttributeName()
-            _pendingAttributeName!.append(byte)
+            if _lowercaseAttributeNames {
+                let normalized = (byte >= 65 && byte <= 90) ? (byte &+ 32) : byte
+                _pendingAttributeName!.append(normalized)
+            } else {
+                _pendingAttributeName!.append(byte)
+            }
+        }
+
+        @inline(__always)
+        func setLowercaseAttributeNames(_ lowercase: Bool) {
+            _lowercaseAttributeNames = lowercase
+        }
+
+        @inline(__always)
+        func setAttributesNormalized(_ normalized: Bool) {
+            _attributesAreNormalized = normalized
         }
         
         @inline(__always)
@@ -468,7 +513,17 @@ open class Token {
         private func ensureAttributeName() {
             if _pendingAttributeName == nil {
                 if let pendingSlice = _pendingAttributeNameS {
-                    _pendingAttributeName = Array(pendingSlice)
+                    if _lowercaseAttributeNames {
+                        var lowercased: [UInt8] = []
+                        lowercased.reserveCapacity(pendingSlice.count)
+                        for b in pendingSlice {
+                            let normalized = (b >= 65 && b <= 90) ? (b &+ 32) : b
+                            lowercased.append(normalized)
+                        }
+                        _pendingAttributeName = lowercased
+                    } else {
+                        _pendingAttributeName = Array(pendingSlice)
+                    }
                     _pendingAttributeNameS = nil
                 } else {
                     _pendingAttributeName = []
@@ -514,6 +569,7 @@ open class Token {
             self._attributes = attributes
             _pendingAttributes = nil
             _normalName = _tagName?.lowercased()
+            _attributesAreNormalized = false
             return self
         }
         

@@ -226,7 +226,11 @@ class HtmlTreeBuilder: TreeBuilder {
             if attributes.attributes.isEmpty {
                 el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
             } else {
-                el = try Element(tag, baseUri, settings.normalizeAttributes(attributes), skipChildReserve: skipChildReserve)
+                if startTag.attributesAreNormalized() || settings.preservesAttributeCase() {
+                    el = Element(tag, baseUri, attributes, skipChildReserve: skipChildReserve)
+                } else {
+                    el = try Element(tag, baseUri, settings.normalizeAttributes(attributes), skipChildReserve: skipChildReserve)
+                }
             }
         } else {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
@@ -276,7 +280,11 @@ class HtmlTreeBuilder: TreeBuilder {
         let skipChildReserve = isSelfClosing
         let el: Element
         if let attributes = startTag._attributes {
-            el = Element(tag, baseUri, attributes, skipChildReserve: skipChildReserve)
+            if startTag.attributesAreNormalized() || settings.preservesAttributeCase() {
+                el = Element(tag, baseUri, attributes, skipChildReserve: skipChildReserve)
+            } else {
+                el = try Element(tag, baseUri, settings.normalizeAttributes(attributes), skipChildReserve: skipChildReserve)
+            }
         } else {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }

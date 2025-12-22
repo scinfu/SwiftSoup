@@ -194,7 +194,7 @@ public class Parser {
 	 - returns: an unescaped string
 	*/
 	public static func unescapeEntities(_ string: [UInt8], _ inAttribute: Bool) throws -> [UInt8] {
-		let tokeniser: Tokeniser = Tokeniser(CharacterReader(string), ParseErrorList.noTracking())
+		let tokeniser: Tokeniser = Tokeniser(CharacterReader(string), ParseErrorList.noTracking(), nil)
 		return try tokeniser.unescapeEntities(inAttribute)
 	}
     

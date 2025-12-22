@@ -64,10 +64,19 @@ final class Tokeniser {
     let commentPending: Token.Comment  = Token.Comment() // comment building up
     private var lastStartTag: [UInt8]?  // the last start tag emitted, to test appropriate end tag
     private var selfClosingFlagAcknowledged: Bool = true
+    private let lowercaseAttributeNames: Bool
+    private let attributesNormalizedByDefault: Bool
     
-    init(_ reader: CharacterReader, _ errors: ParseErrorList?) {
+    init(_ reader: CharacterReader, _ errors: ParseErrorList?, _ settings: ParseSettings? = nil) {
         self.reader = reader
         self.errors = errors
+        if let settings {
+            lowercaseAttributeNames = !settings.preservesAttributeCase()
+            attributesNormalizedByDefault = settings.preservesAttributeCase()
+        } else {
+            lowercaseAttributeNames = false
+            attributesNormalizedByDefault = false
+        }
     }
     
     func read() throws -> Token {
@@ -156,6 +165,10 @@ final class Tokeniser {
     }
     
     func emit(_ str: ArraySlice<UInt8>) {
+        if !charsBuilder.isEmpty {
+            charsBuilder.append(str)
+            return
+        }
         if let existing = charsSlice {
             if pendingSlices.isEmpty {
                 pendingSlices.append(existing)
@@ -177,6 +190,10 @@ final class Tokeniser {
     }
     
     func emit(_ str: String) {
+        if !charsBuilder.isEmpty {
+            charsBuilder.append(str)
+            return
+        }
         emit(str.utf8Array)
     }
     
@@ -188,17 +205,43 @@ final class Tokeniser {
     //        emit(String(codepoints, 0, codepoints.length));
     //    }
     
+    @inline(__always)
+    private func ensureCharsBuilderForAppend() {
+        if let existing = charsSlice {
+            charsBuilder.append(existing)
+            charsSlice = nil
+        }
+        if !pendingSlices.isEmpty {
+            for slice in pendingSlices {
+                charsBuilder.append(slice)
+            }
+            pendingSlices.removeAll()
+            pendingSlicesCount = 0
+        }
+    }
+
     func emit(_ c: UnicodeScalar) {
-        emit(Array(c.utf8))
+        let val = c.value
+        if val < 0x80 {
+            emitByte(UInt8(val))
+            return
+        }
+        ensureCharsBuilderForAppend()
+        charsBuilder.appendCodePoint(c)
     }
 
     @inline(__always)
     func emitByte(_ byte: UInt8) {
-        emit([byte])
+        ensureCharsBuilderForAppend()
+        charsBuilder.append(byte)
     }
     
     func emit(_ c: [UnicodeScalar]) {
-        emit(c.flatMap { Array($0.utf8) })
+        guard !c.isEmpty else { return }
+        ensureCharsBuilderForAppend()
+        for scalar in c {
+            charsBuilder.appendCodePoint(scalar)
+        }
     }
     
     func getState() -> TokeniserState {
@@ -376,6 +419,8 @@ final class Tokeniser {
             endPending.reset()
             tagPending = endPending
         }
+        tagPending.setLowercaseAttributeNames(lowercaseAttributeNames)
+        tagPending.setAttributesNormalized(attributesNormalizedByDefault || lowercaseAttributeNames)
         return tagPending
     }
     

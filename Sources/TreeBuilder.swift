@@ -29,11 +29,11 @@ public class TreeBuilder {
     public init() {
         doc =  Document([])
         reader = CharacterReader([])
-        tokeniser = Tokeniser(reader, nil)
         stack = Array<Element>()
         baseUri = []
         errors = ParseErrorList(0, 0)
         settings = ParseSettings(false, false)
+        tokeniser = Tokeniser(reader, nil, settings)
     }
     
     @inline(__always)
@@ -51,7 +51,7 @@ public class TreeBuilder {
         self.settings = settings
         reader = CharacterReader(input)
         self.errors = errors
-        tokeniser = Tokeniser(reader, errors)
+        tokeniser = Tokeniser(reader, errors, settings)
         stack = Array<Element>()
         self.baseUri = baseUri
     }
