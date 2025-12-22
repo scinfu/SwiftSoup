@@ -1,4 +1,9 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 fileprivate let hexCharacterSet = CharacterSet(charactersIn: "0123456789ABCDEFabcdef")
 
@@ -925,6 +930,39 @@ public final class CharacterReader {
         defer { Profiler.end("CharacterReader.consumeToAnyOfTwo", _p) }
         #endif
         let start = pos
+        let count = end - pos
+        if count <= 0 {
+            return input[start..<pos]
+        }
+        #if canImport(Darwin) || canImport(Glibc)
+        if count >= 32 {
+            return input.withUnsafeBytes { buf in
+                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
+                    return input[start..<pos]
+                }
+                let startPtr = basePtr.advanced(by: pos)
+                let startRaw = UnsafeRawPointer(startPtr)
+                let len = count
+                let pa = memchr(startPtr, Int32(a), len)
+                let pb = (a == b) ? nil : memchr(startPtr, Int32(b), len)
+                var minOff = len
+                if let pa {
+                    let off = Int(bitPattern: pa) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
+                }
+                if let pb {
+                    let off = Int(bitPattern: pb) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
+                }
+                if minOff != len {
+                    pos = start + minOff
+                    return input[start..<pos]
+                }
+                pos = end
+                return input[start..<pos]
+            }
+        }
+        #endif
         while pos < end {
             let byte = input[pos]
             if byte == a || byte == b {

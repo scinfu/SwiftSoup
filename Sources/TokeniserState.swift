@@ -210,40 +210,34 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .TagOpen:
             // from < in data
-            if let byte = r.currentByte() {
-                switch byte {
-                case 0x21: // "!"
-                    t.advanceTransitionAscii(.MarkupDeclarationOpen)
-                    break
-                case 0x2F: // "/"
-                    t.advanceTransitionAscii(.EndTagOpen)
-                    break
-                case 0x3F: // "?"
-                    t.advanceTransitionAscii(.BogusComment)
-                    break
-                default:
-                    if byte < 0x80 {
-                        if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
-                            t.createTagPending(true)
-                            try TokeniserState.readTagName(.TagName, t, r)
-                            return
-                        }
-                        t.error(self)
-                        t.emit(UnicodeScalar.LessThan) // char that got us here
-                        t.transition(.Data)
-                    } else if r.matchesLetter() {
+            if r.isEmpty() {
+                t.error(self)
+                t.emit(UnicodeScalar.LessThan) // char that got us here
+                t.transition(.Data)
+                break
+            }
+            let byte = r.currentByte()!
+            switch byte {
+            case 0x21: // "!"
+                t.advanceTransitionAscii(.MarkupDeclarationOpen)
+                break
+            case 0x2F: // "/"
+                t.advanceTransitionAscii(.EndTagOpen)
+                break
+            case 0x3F: // "?"
+                t.advanceTransitionAscii(.BogusComment)
+                break
+            default:
+                if byte < 0x80 {
+                    if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
                         t.createTagPending(true)
                         try TokeniserState.readTagName(.TagName, t, r)
                         return
-                    } else {
-                        t.error(self)
-                        t.emit(UnicodeScalar.LessThan) // char that got us here
-                        t.transition(.Data)
                     }
-                    break
-                }
-            } else {
-                if r.matchesLetter() {
+                    t.error(self)
+                    t.emit(UnicodeScalar.LessThan) // char that got us here
+                    t.transition(.Data)
+                } else if r.matchesLetter() {
                     t.createTagPending(true)
                     try TokeniserState.readTagName(.TagName, t, r)
                     return
@@ -252,6 +246,7 @@ enum TokeniserState: TokeniserStateProtocol {
                     t.emit(UnicodeScalar.LessThan) // char that got us here
                     t.transition(.Data)
                 }
+                break
             }
             break
         case .EndTagOpen:
@@ -259,7 +254,8 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.eofError(self)
                 t.emit(UTF8Arrays.endTagStart)
                 t.transition(.Data)
-            } else if let byte = r.currentByte() {
+            } else {
+                let byte = r.currentByte()!
                 if byte < 0x80 {
                     if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
                         t.createTagPending(false)
@@ -281,16 +277,6 @@ enum TokeniserState: TokeniserStateProtocol {
                     t.error(self)
                     t.advanceTransition(.BogusComment)
                 }
-            } else if (r.matchesLetter()) {
-                t.createTagPending(false)
-                try TokeniserState.readTagName(.TagName, t, r)
-                return
-            } else if (r.matches(UTF8Arrays.tagEnd)) {
-                t.error(self)
-                t.advanceTransition(.Data)
-            } else {
-                t.error(self)
-                t.advanceTransition(.BogusComment)
             }
             break
         case .TagName:
@@ -2201,7 +2187,7 @@ enum TokeniserState: TokeniserStateProtocol {
         switch byte {
         case TokeniserStateVars.tabByte, TokeniserStateVars.newLineByte, TokeniserStateVars.carriageReturnByte, TokeniserStateVars.formFeedByte, TokeniserStateVars.spaceByte: // whitespace
             r.advanceAsciiWhitespace()
-            t.transition(.BeforeAttributeName)
+            _ = try consumeAttributesFast(t, r, .BeforeAttributeName)
             return
         case 0x2F: // "/"
             r.advanceAscii()
