@@ -904,18 +904,82 @@ public final class CharacterReader {
         return input[start..<pos]
     }
 
+    @inline(__always)
+    public func consumeToAnyOfThree(_ a: UInt8, _ b: UInt8, _ c: UInt8) -> ArraySlice<UInt8> {
+        let start = pos
+        while pos < end {
+            let byte = input[pos]
+            if byte == a || byte == b || byte == c {
+                return input[start..<pos]
+            }
+            pos &+= 1
+        }
+        return input[start..<pos]
+    }
+
+    @inline(__always)
+    public func advanceAsciiWhitespace() {
+        while pos < end && input[pos].isWhitespace {
+            pos &+= 1
+        }
+    }
+
     public static let dataTerminators = ParsingStrings([.Ampersand, .LessThan, TokeniserStateVars.nullScalr])
     
     @inlinable
     public func consumeData() -> ArraySlice<UInt8> {
-        return consumeToAny(CharacterReader.dataTerminators)
+        return consumeToAnyOfThree(0x26, 0x3C, 0x00) // &, <, null
     }
     
     public static let tagNameTerminators = ParsingStrings([.BackslashT, .BackslashN, .BackslashR, .BackslashF, .Space, .Slash, .GreaterThan, TokeniserStateVars.nullScalr])
     
     @inlinable
     public func consumeTagName() -> ArraySlice<UInt8> {
+        // Fast path for ASCII tag names
+        if pos < end && input[pos] < 0x80 {
+            let start = pos
+            var i = pos
+            while i < end {
+                let b = input[i]
+                if b >= 0x80 {
+                    return consumeToAny(CharacterReader.tagNameTerminators)
+                }
+                switch b {
+                case 0x09, 0x0A, 0x0D, 0x0C, 0x20, 0x2F, 0x3E, 0x00:
+                    pos = i
+                    return input[start..<pos]
+                default:
+                    i &+= 1
+                }
+            }
+            pos = i
+            return input[start..<pos]
+        }
         return consumeToAny(CharacterReader.tagNameTerminators)
+    }
+
+    public func consumeAttributeName() -> ArraySlice<UInt8> {
+        // Fast path for ASCII attribute names
+        if pos < end && input[pos] < 0x80 {
+            let start = pos
+            var i = pos
+            while i < end {
+                let b = input[i]
+                if b >= 0x80 {
+                    return consumeToAny(TokeniserStateVars.attributeNameChars)
+                }
+                switch b {
+                case 0x09, 0x0A, 0x0D, 0x0C, 0x20, 0x2F, 0x3D, 0x3E, 0x00, 0x22, 0x27, 0x3C:
+                    pos = i
+                    return input[start..<pos]
+                default:
+                    i &+= 1
+                }
+            }
+            pos = i
+            return input[start..<pos]
+        }
+        return consumeToAny(TokeniserStateVars.attributeNameChars)
     }
 }
 

@@ -507,6 +507,8 @@ open class Attributes: NSCopying {
     public func copy(with zone: NSZone? = nil) -> Any {
         let clone = Attributes()
         clone.attributes = attributes
+        clone.hasUppercaseKeys = hasUppercaseKeys
+        clone.lowercasedKeysCache = nil
         return clone
     }
     
