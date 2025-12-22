@@ -38,6 +38,10 @@ final class Tokeniser {
     }
     
     func read() throws -> Token {
+        #if PROFILE
+        let _p = Profiler.start("Tokeniser.read")
+        defer { Profiler.end("Tokeniser.read", _p) }
+        #endif
         if (!selfClosingFlagAcknowledged) {
             error("Self closing flag not acknowledged")
             selfClosingFlagAcknowledged = true
@@ -141,6 +145,10 @@ final class Tokeniser {
     }
     
     func consumeCharacterReference(_ additionalAllowedCharacter: UnicodeScalar?, _ inAttribute: Bool) throws -> [UnicodeScalar]? {
+        #if PROFILE
+        let _p = Profiler.start("Tokeniser.consumeCharacterReference")
+        defer { Profiler.end("Tokeniser.consumeCharacterReference", _p) }
+        #endif
         if (reader.isEmpty()) {
             return nil
         }
@@ -308,6 +316,10 @@ final class Tokeniser {
      - returns: unescaped string from reader
      */
     func unescapeEntities(_ inAttribute: Bool) throws -> [UInt8] {
+        #if PROFILE
+        let _p = Profiler.start("Tokeniser.unescapeEntities")
+        defer { Profiler.end("Tokeniser.unescapeEntities", _p) }
+        #endif
         let builder: StringBuilder = StringBuilder()
         while (!reader.isEmpty()) {
             builder.append(reader.consumeTo(UnicodeScalar.Ampersand))

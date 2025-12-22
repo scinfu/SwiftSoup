@@ -125,4 +125,12 @@ class AttributeParseTest: XCTestCase {
 		p = try doc.select("p").first()!
 		XCTAssertEqual("<bar", try p.attr("foo"))
 	}
+
+	func testAttributeNameWithNullGetsReplacement() throws {
+		let html = "<p a\u{0000}b=1></p>"
+		let doc = try SwiftSoup.parse(html)
+		let p = try doc.select("p").first()!
+		XCTAssertTrue(p.hasAttr("a\u{FFFD}b"))
+		XCTAssertEqual("1", try p.attr("a\u{FFFD}b"))
+	}
 }

@@ -269,6 +269,10 @@ public final class Entities: Sendable {
         _ normaliseWhite: Bool,
         _ stripLeadingWhite: Bool
     ) {
+        #if PROFILE
+        let _p = Profiler.start("Entities.escape")
+        defer { Profiler.end("Entities.escape", _p) }
+        #endif
         let escapeMode = out.escapeMode()
         let encoder = out.encoder()
         let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .ascii || encoder == .utf16

@@ -110,6 +110,10 @@ enum TokeniserState: TokeniserStateProtocol {
 
     @inlinable
     internal func read(_ t: Tokeniser, _ r: CharacterReader) throws {
+        #if PROFILE
+        let _p = Profiler.startDynamic("TokeniserState.\(self)")
+        defer { Profiler.endDynamic("TokeniserState.\(self)", _p) }
+        #endif
         switch self {
         case .Data:
             if r.isEmpty() {
@@ -728,7 +732,9 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .AttributeName:
             let name: ArraySlice<UInt8> = r.consumeToAny(TokeniserStateVars.attributeNameChars)
-            t.tagPending.appendAttributeName(name)
+            if !name.isEmpty {
+                t.tagPending.appendAttributeName(name)
+            }
 
             if r.isEmpty() {
                 t.eofError(self)

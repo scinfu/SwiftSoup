@@ -49,6 +49,9 @@ open class Attributes: NSCopying {
     @usableFromInline
     internal var lowercasedKeysCache: Set<[UInt8]>? = nil
     
+    @usableFromInline
+    internal var hasUppercaseKeys: Bool = false
+    
     // TODO: Delegate would be cleaner...
     @usableFromInline
     weak var ownerElement: SwiftSoup.Element?
@@ -157,6 +160,9 @@ open class Attributes: NSCopying {
             attributes[ix] = attribute
         } else {
             attributes.append(attribute)
+        }
+        if !hasUppercaseKeys && Attributes.containsAsciiUppercase(key) {
+            hasUppercaseKeys = true
         }
         invalidateLowercasedKeysCache()
         if normalizedKey == UTF8Arrays.class_ {
@@ -485,9 +491,16 @@ open class Attributes: NSCopying {
     
     @inline(__always)
     open func lowercaseAllKeys() {
+        guard hasUppercaseKeys else { return }
         for ix in attributes.indices {
             attributes[ix].key = attributes[ix].key.lowercased()
         }
+        hasUppercaseKeys = false
+        invalidateLowercasedKeysCache()
+        ownerElement?.markClassQueryIndexDirty()
+        ownerElement?.markIdQueryIndexDirty()
+        ownerElement?.markAttributeQueryIndexDirty()
+        ownerElement?.markAttributeValueQueryIndexDirty()
     }
     
     @inline(__always)
@@ -505,6 +518,16 @@ open class Attributes: NSCopying {
     @inline(__always)
     fileprivate static func dataKey(key: [UInt8]) -> [UInt8] {
         return dataPrefix + key
+    }
+    
+    @inline(__always)
+    fileprivate static func containsAsciiUppercase(_ key: [UInt8]) -> Bool {
+        for b in key {
+            if b >= 65 && b <= 90 {
+                return true
+            }
+        }
+        return false
     }
     
 }

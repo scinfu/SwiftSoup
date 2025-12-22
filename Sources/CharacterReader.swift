@@ -857,6 +857,10 @@ public final class CharacterReader {
     }
 
     public func nextIndexOf(_ targetUtf8: [UInt8]) -> [UInt8].Index? {
+        #if PROFILE
+        let _p = Profiler.start("CharacterReader.nextIndexOf")
+        defer { Profiler.end("CharacterReader.nextIndexOf", _p) }
+        #endif
         if targetUtf8.count == 1 {
             return input[pos...].firstIndex(of: targetUtf8[0])
         }
@@ -885,6 +889,10 @@ public final class CharacterReader {
     }
 
     public func consumeToAnyOfTwo(_ a: UInt8, _ b: UInt8) -> ArraySlice<UInt8> {
+        #if PROFILE
+        let _p = Profiler.start("CharacterReader.consumeToAnyOfTwo")
+        defer { Profiler.end("CharacterReader.consumeToAnyOfTwo", _p) }
+        #endif
         let start = pos
         while pos < end {
             let byte = input[pos]

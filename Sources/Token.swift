@@ -90,6 +90,7 @@ open class Token {
         public var _tagName: [UInt8]?
         public var _normalName: [UInt8]? // lc version of tag name, for case insensitive tree build
         private var _pendingAttributeName: [UInt8]? // attribute names are generally caught in one hop, not accumulated
+        private var _pendingAttributeNameS: ArraySlice<UInt8>? // fast path to avoid copying name slices
         private let _pendingAttributeValue: StringBuilder = StringBuilder() // but values are accumulated, from e.g. & in hrefs
         private var _pendingAttributeValueS: ArraySlice<UInt8>? // try to get attr vals in one shot, vs Builder
         private var _hasEmptyAttributeValue: Bool = false // distinguish boolean attribute from empty string value
@@ -108,6 +109,7 @@ open class Token {
             _tagName = nil
             _normalName = nil
             _pendingAttributeName = nil
+            _pendingAttributeNameS = nil
             Token.reset(_pendingAttributeValue)
             _pendingAttributeValueS = nil
             _hasEmptyAttributeValue = false
@@ -118,7 +120,16 @@ open class Token {
         }
         
         func newAttribute() throws {
-            if let pendingAttr = _pendingAttributeName, !pendingAttr.isEmpty {
+            let pendingAttr: [UInt8]
+            if let pending = _pendingAttributeName {
+                pendingAttr = pending
+            } else if let pendingSlice = _pendingAttributeNameS {
+                pendingAttr = Array(pendingSlice)
+            } else {
+                pendingAttr = []
+            }
+
+            if !pendingAttr.isEmpty {
                 let attribute: Attribute
                 if _hasPendingAttributeValue {
                     attribute = try Attribute(
@@ -136,6 +147,7 @@ open class Token {
                 _attributes?.put(attribute: attribute)
             }
             _pendingAttributeName = nil
+            _pendingAttributeNameS = nil
             _hasEmptyAttributeValue = false
             _hasPendingAttributeValue = false
             Token.reset(_pendingAttributeValue)
@@ -145,7 +157,7 @@ open class Token {
         @inline(__always)
         func finaliseTag() throws {
             // finalises for emit
-            if (_pendingAttributeName != nil) {
+            if (_pendingAttributeName != nil || _pendingAttributeNameS != nil) {
                 // todo: check if attribute name exists; if so, drop and error
                 try newAttribute()
             }
@@ -231,11 +243,13 @@ open class Token {
         
         @inline(__always)
         func appendAttributeName(_ append: ArraySlice<UInt8>) {
-            if _pendingAttributeName == nil {
-                _pendingAttributeName = Array(append)
-            } else {
-                _pendingAttributeName!.append(contentsOf: append)
+            guard !append.isEmpty else { return }
+            if _pendingAttributeName == nil && _pendingAttributeNameS == nil {
+                _pendingAttributeNameS = append
+                return
             }
+            ensureAttributeName()
+            _pendingAttributeName!.append(contentsOf: append)
         }
         
         @inline(__always)
@@ -245,11 +259,8 @@ open class Token {
 
         @inline(__always)
         func appendAttributeNameByte(_ byte: UInt8) {
-            if _pendingAttributeName == nil {
-                _pendingAttributeName = [byte]
-            } else {
-                _pendingAttributeName!.append(byte)
-            }
+            ensureAttributeName()
+            _pendingAttributeName!.append(byte)
         }
         
         @inline(__always)
@@ -291,6 +302,18 @@ open class Token {
         @inline(__always)
         func setEmptyAttributeValue() {
             _hasEmptyAttributeValue = true
+        }
+
+        @inline(__always)
+        private func ensureAttributeName() {
+            if _pendingAttributeName == nil {
+                if let pendingSlice = _pendingAttributeNameS {
+                    _pendingAttributeName = Array(pendingSlice)
+                    _pendingAttributeNameS = nil
+                } else {
+                    _pendingAttributeName = []
+                }
+            }
         }
         
         @inline(__always)

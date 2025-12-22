@@ -72,6 +72,10 @@ public class TreeBuilder {
     }
     
     public func runParser() throws {
+        #if PROFILE
+        let _p = Profiler.start("TreeBuilder.runParser")
+        defer { Profiler.end("TreeBuilder.runParser", _p) }
+        #endif
         while (true) {
             let token: Token = try tokeniser.read()
             try process(token)

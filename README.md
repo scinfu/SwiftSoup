@@ -79,6 +79,29 @@ print(try document.title()) // Output: Example
 ```
 
 ---
+## Profiling
+
+SwiftSoup includes a lightweight profiler (gated by a compile-time flag) and a small CLI harness for parsing benchmarks.
+
+### CLI parse benchmark
+This uses the `SwiftSoupProfile` executable target to parse a fixture corpus and report wall time:
+
+```bash
+swift run -c release SwiftSoupProfile --fixtures /path/to/fixtures
+```
+
+Add `--text` to include `Document.text()` in the workload.
+
+### In-code profiler
+The `Profiler` type is only compiled when the `PROFILE` flag is set. Build with:
+
+```bash
+swift run -c release -Xswiftc -DPROFILE SwiftSoupProfile --fixtures /path/to/fixtures
+```
+
+Then the CLI will print the profiler summary at the end of the run.
+
+---
 
 ### Select Elements with CSS Query
 
