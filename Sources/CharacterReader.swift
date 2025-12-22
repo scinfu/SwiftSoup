@@ -976,6 +976,44 @@ public final class CharacterReader {
     @inline(__always)
     public func consumeToAnyOfThree(_ a: UInt8, _ b: UInt8, _ c: UInt8) -> ArraySlice<UInt8> {
         let start = pos
+        let count = end - pos
+        if count <= 0 {
+            return input[start..<pos]
+        }
+        #if canImport(Darwin) || canImport(Glibc)
+        if count >= 32 {
+            return input.withUnsafeBytes { buf in
+                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
+                    return input[start..<pos]
+                }
+                let startPtr = basePtr.advanced(by: pos)
+                let startRaw = UnsafeRawPointer(startPtr)
+                let len = count
+                let pa = memchr(startPtr, Int32(a), len)
+                let pb = (a == b) ? nil : memchr(startPtr, Int32(b), len)
+                let pc = (a == c || b == c) ? nil : memchr(startPtr, Int32(c), len)
+                var minOff = len
+                if let pa {
+                    let off = Int(bitPattern: pa) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
+                }
+                if let pb {
+                    let off = Int(bitPattern: pb) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
+                }
+                if let pc {
+                    let off = Int(bitPattern: pc) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
+                }
+                if minOff != len {
+                    pos = start + minOff
+                    return input[start..<pos]
+                }
+                pos = end
+                return input[start..<pos]
+            }
+        }
+        #endif
         while pos < end {
             let byte = input[pos]
             if byte == a || byte == b || byte == c {
@@ -1001,6 +1039,18 @@ public final class CharacterReader {
     }
     
     public static let tagNameTerminators = ParsingStrings([.BackslashT, .BackslashN, .BackslashR, .BackslashF, .Space, .Slash, .GreaterThan, TokeniserStateVars.nullScalr])
+    public static let tagNameDelims: [Bool] = {
+        var table = [Bool](repeating: false, count: 256)
+        table[0x09] = true // \t
+        table[0x0A] = true // \n
+        table[0x0D] = true // \r
+        table[0x0C] = true // \f
+        table[0x20] = true // space
+        table[0x2F] = true // /
+        table[0x3E] = true // >
+        table[0x00] = true // null
+        return table
+    }()
     public static let attributeValueUnquotedDelims: [Bool] = {
         var table = [Bool](repeating: false, count: 256)
         table[0x09] = true // \t
@@ -1046,13 +1096,11 @@ public final class CharacterReader {
                 if b >= 0x80 {
                     return consumeToAny(CharacterReader.tagNameTerminators)
                 }
-                switch b {
-                case 0x09, 0x0A, 0x0D, 0x0C, 0x20, 0x2F, 0x3E, 0x00:
+                if CharacterReader.tagNameDelims[Int(b)] {
                     pos = i
                     return input[start..<pos]
-                default:
-                    i &+= 1
                 }
+                i &+= 1
             }
             pos = i
             return input[start..<pos]

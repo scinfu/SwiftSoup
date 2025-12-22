@@ -230,8 +230,9 @@ enum TokeniserState: TokeniserStateProtocol {
             default:
                 if byte < 0x80 {
                     if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
-                        t.createTagPending(true)
-                        try TokeniserState.readTagName(.TagName, t, r)
+                        if try TokeniserState.readTagNameFromTagOpen(t, r, true) {
+                            return
+                        }
                         return
                     }
                     t.error(self)
@@ -258,8 +259,9 @@ enum TokeniserState: TokeniserStateProtocol {
                 let byte = r.currentByte()!
                 if byte < 0x80 {
                     if (byte >= 0x41 && byte <= 0x5A) || (byte >= 0x61 && byte <= 0x7A) {
-                        t.createTagPending(false)
-                        try TokeniserState.readTagName(.TagName, t, r)
+                        if try TokeniserState.readTagNameFromTagOpen(t, r, false) {
+                            return
+                        }
                         return
                     }
                     if byte == 0x3E {
@@ -2211,6 +2213,50 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             t.transition(.TagName)
             return
+        }
+    }
+
+    @inline(__always)
+    private static func readTagNameFromTagOpen(_ t: Tokeniser, _ r: CharacterReader, _ isStart: Bool) throws -> Bool {
+        if r.isEmpty() {
+            return false
+        }
+        t.createTagPending(isStart)
+        let tagName: ArraySlice<UInt8> = r.consumeTagName()
+        t.tagPending.appendTagName(tagName)
+        if r.isEmpty() {
+            t.eofError(.TagName)
+            t.transition(.Data)
+            return true
+        }
+        let byte = r.currentByte()!
+        switch byte {
+        case TokeniserStateVars.tabByte, TokeniserStateVars.newLineByte, TokeniserStateVars.carriageReturnByte, TokeniserStateVars.formFeedByte, TokeniserStateVars.spaceByte:
+            r.advanceAsciiWhitespace()
+            _ = try consumeAttributesFast(t, r, .BeforeAttributeName)
+            return true
+        case TokeniserStateVars.slashByte:
+            r.advanceAscii()
+            t.transition(.SelfClosingStartTag)
+            return true
+        case TokeniserStateVars.greaterThanByte:
+            r.advanceAscii()
+            try t.emitTagPending()
+            t.transition(.Data)
+            return true
+        case TokeniserStateVars.nullByte:
+            r.advanceAscii()
+            t.tagPending.appendTagName(TokeniserStateVars.replacementStr)
+            t.transition(.TagName)
+            return true
+        default:
+            if byte < 0x80 {
+                r.advanceAscii()
+            } else {
+                r.advance()
+            }
+            t.transition(.TagName)
+            return true
         }
     }
 
