@@ -18,8 +18,9 @@ final class Tokeniser {
     private var state: TokeniserState = TokeniserState.Data // current tokenisation state
     private var emitPending: Token?  // the token we are about to emit on next read
     private var isEmitPending: Bool = false
-    private var charsSlice: ArraySlice<UInt8>? = nil // characters pending an emit. Will fall to charsBuilder if more than one
+    private var charsSlice: ArraySlice<UInt8>? = nil // single pending slice to avoid array allocation
     private var pendingSlices = [ArraySlice<UInt8>]()
+    private var pendingSlicesCount: Int = 0
     private let charsBuilder: StringBuilder = StringBuilder(256) // buffers characters to output as one token, if more than one emit per read
     let dataBuffer: StringBuilder = StringBuilder(4 * 1024) // buffers data looking for </script>
     
@@ -65,21 +66,31 @@ final class Tokeniser {
             let str = Array(charsBuilder.buffer)
             charsBuilder.clear()
             // Clear any pending slices, as the builder takes precedence.
+            charsSlice = nil
             pendingSlices.removeAll()
+            pendingSlicesCount = 0
             return charPending.data(str)
+        } else if let slice = charsSlice {
+            #if PROFILE
+            let _pEmit = Profiler.start("Tokeniser.read.emitSlice")
+            defer { Profiler.end("Tokeniser.read.emitSlice", _pEmit) }
+            #endif
+            charsSlice = nil
+            return charPending.data(Array(slice))
         } else if !pendingSlices.isEmpty {
             #if PROFILE
             let _pEmit = Profiler.start("Tokeniser.read.emitSlices")
             defer { Profiler.end("Tokeniser.read.emitSlices", _pEmit) }
             #endif
             // Combine all the pending slices in one allocation.
-            let totalCount = pendingSlices.reduce(0) { $0 + $1.count }
+            let totalCount = pendingSlicesCount
             var combined = [UInt8]()
             combined.reserveCapacity(totalCount)
             for slice in pendingSlices {
                 combined.append(contentsOf: slice)
             }
             pendingSlices.removeAll()
+            pendingSlicesCount = 0
             return charPending.data(combined)
         } else {
             #if PROFILE
@@ -112,7 +123,20 @@ final class Tokeniser {
     }
     
     func emit(_ str: ArraySlice<UInt8>) {
-        pendingSlices.append(str)
+        if let existing = charsSlice {
+            if pendingSlices.isEmpty {
+                pendingSlices.append(existing)
+                pendingSlicesCount = existing.count
+            }
+            pendingSlices.append(str)
+            pendingSlicesCount &+= str.count
+            charsSlice = nil
+        } else if pendingSlices.isEmpty {
+            charsSlice = str
+        } else {
+            pendingSlices.append(str)
+            pendingSlicesCount &+= str.count
+        }
     }
     
     func emit(_ str: [UInt8]) {

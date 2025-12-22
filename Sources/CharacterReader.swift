@@ -935,6 +935,23 @@ public final class CharacterReader {
     }
     
     public static let tagNameTerminators = ParsingStrings([.BackslashT, .BackslashN, .BackslashR, .BackslashF, .Space, .Slash, .GreaterThan, TokeniserStateVars.nullScalr])
+    public static let attributeValueUnquotedDelims: [Bool] = {
+        var table = [Bool](repeating: false, count: 256)
+        table[0x09] = true // \t
+        table[0x0A] = true // \n
+        table[0x0D] = true // \r
+        table[0x0C] = true // \f
+        table[0x20] = true // space
+        table[0x26] = true // &
+        table[0x3E] = true // >
+        table[0x00] = true // null
+        table[0x22] = true // "
+        table[0x27] = true // '
+        table[0x3C] = true // <
+        table[0x3D] = true // =
+        table[0x60] = true // `
+        return table
+    }()
     
     @inlinable
     public func consumeTagName() -> ArraySlice<UInt8> {
@@ -983,6 +1000,19 @@ public final class CharacterReader {
             return input[start..<pos]
         }
         return consumeToAny(TokeniserStateVars.attributeNameChars)
+    }
+
+    @inline(__always)
+    public func consumeAttributeValueUnquoted() -> ArraySlice<UInt8> {
+        let start = pos
+        while pos < end {
+            let byte = input[pos]
+            if CharacterReader.attributeValueUnquotedDelims[Int(byte)] {
+                return input[start..<pos]
+            }
+            pos &+= 1
+        }
+        return input[start..<pos]
     }
 }
 
