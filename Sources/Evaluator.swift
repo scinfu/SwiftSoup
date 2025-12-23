@@ -77,7 +77,8 @@ open class Evaluator: @unchecked Sendable {
      * Evaluator for element id
      */
     public final class Id: Evaluator, @unchecked Sendable {
-        private let id: String
+        @usableFromInline
+        let id: String
 
         public init(_ id: String) {
             self.id = id
@@ -97,7 +98,8 @@ open class Evaluator: @unchecked Sendable {
      * Evaluator for element class
      */
     public final class Class: Evaluator, @unchecked Sendable {
-        private let className: String
+        @usableFromInline
+        let className: String
 
         public init(_ className: String) {
             self.className = className
@@ -117,7 +119,8 @@ open class Evaluator: @unchecked Sendable {
      * Evaluator for attribute name matching
      */
     public final class Attribute: Evaluator, @unchecked Sendable {
-        private let key: String
+        @usableFromInline
+        let key: String
 
         public init(_ key: String) {
             self.key = key

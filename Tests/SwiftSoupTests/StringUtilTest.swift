@@ -64,6 +64,14 @@ class StringUtilTest: XCTestCase {
         XCTAssertTrue(StringUtil.isNumeric("1234"))
     }
 
+    func testToIntAscii() {
+        XCTAssertEqual("123".utf8ArraySlice.toIntAscii(radix: 10), 123)
+        XCTAssertEqual("0A1f".utf8ArraySlice.toIntAscii(radix: 16), 0x0A1F)
+        XCTAssertEqual("z".utf8ArraySlice.toIntAscii(radix: 36), 35)
+        XCTAssertNil("12z".utf8ArraySlice.toIntAscii(radix: 10))
+        XCTAssertNil("12g".utf8ArraySlice.toIntAscii(radix: 16))
+    }
+
     func testIsWhitespace() {
         XCTAssertTrue(StringUtil.isWhitespace("\t"))
         XCTAssertTrue(StringUtil.isWhitespace("\n"))

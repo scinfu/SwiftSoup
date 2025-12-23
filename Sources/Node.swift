@@ -25,13 +25,32 @@ open class Node: Equatable, Hashable {
     var attributes: Attributes?
     
     @usableFromInline
+    internal var sourceRange: SourceRange? = nil
+    
+    @usableFromInline
+    internal var sourceRangeIsComplete: Bool = false
+    
+    @usableFromInline
+    internal var sourceRangeDirty: Bool = false
+    
+    @usableFromInline
+    internal var sourceBuffer: SourceBuffer? = nil
+    
+    @usableFromInline
     weak var parentNode: Node? {
         @inline(__always)
         didSet {
             guard let element = self as? Element, oldValue !== parentNode else { return }
+            if element.suppressQueryIndexDirty {
+                return
+            }
             element.markQueryIndexesDirty()
         }
     }
+    
+    /// Text cache versioning for the root of a tree (Document or standalone root Element).
+    @usableFromInline
+    internal var textMutationVersion: Int = 0
     
     /// Reference back to the parser that built this node (for bulk-build flag checks)
     @usableFromInline
@@ -159,12 +178,14 @@ open class Node: Equatable, Hashable {
     @discardableResult
     open func attr(_ attributeKey: [UInt8], _ attributeValue: [UInt8]) throws -> Node {
         try attributes?.put(attributeKey, attributeValue)
+        markSourceDirty()
         return self
     }
     
     @discardableResult
     open func attr(_ attributeKey: String, _ attributeValue: String) throws -> Node {
         try attributes?.put(attributeKey, attributeValue)
+        markSourceDirty()
         return self
     }
     
@@ -209,6 +230,7 @@ open class Node: Equatable, Hashable {
     @discardableResult
     open func removeAttr(_ attributeKey: [UInt8]) throws -> Node {
         try attributes?.removeIgnoreCase(key: attributeKey)
+        markSourceDirty()
         return self
     }
     
@@ -375,6 +397,17 @@ open class Node: Equatable, Hashable {
             return parentNode!.ownerDocument()
         }
     }
+
+    /// A token that changes when text content in this node's tree mutates.
+    /// Use this to invalidate external caches that depend on text content.
+    @inline(__always)
+    public func textMutationVersionToken() -> Int {
+        var node: Node = self
+        while let parent = node.parentNode {
+            node = parent
+        }
+        return node.textMutationVersion
+    }
     
     /**
      Remove (delete) this node from the DOM tree. If this node has children, they are also removed.
@@ -382,6 +415,54 @@ open class Node: Equatable, Hashable {
     @inline(__always)
     open func remove() throws {
         try parentNode?.removeChild(self)
+    }
+    
+    @inline(__always)
+    @usableFromInline
+    internal func textMutationRoot() -> Node {
+        var node: Node = self
+        while let parent = node.parentNode {
+            node = parent
+        }
+        return node
+    }
+    
+    @inline(__always)
+    @usableFromInline
+    internal func bumpTextMutationVersion() {
+        let root = textMutationRoot()
+        root.textMutationVersion &+= 1
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func markSourceDirty(force: Bool = false) {
+        if sourceRangeDirty {
+            return
+        }
+        if !force, treeBuilder?.isBulkBuilding == true {
+            return
+        }
+        sourceRangeDirty = true
+        parentNode?.markSourceDirty(force: force)
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func setSourceRange(_ range: SourceRange, complete: Bool) {
+        sourceRange = range
+        sourceRangeIsComplete = complete
+        sourceRangeDirty = false
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func setSourceRangeEnd(_ end: Int) {
+        guard var range = sourceRange else { return }
+        range.end = end
+        sourceRange = range
+        sourceRangeIsComplete = true
+        sourceRangeDirty = false
     }
     
     /**
@@ -617,6 +698,13 @@ open class Node: Equatable, Hashable {
         input.parentNode = self
         input.setSiblingIndex(index)
         out.parentNode = nil
+        markSourceDirty()
+        out.markSourceDirty()
+        input.markSourceDirty()
+        if (out is Element) || (input is Element), let element = self as? Element {
+            element.markQueryIndexesDirty()
+        }
+        bumpTextMutationVersion()
     }
     
     @inlinable
@@ -626,6 +714,11 @@ open class Node: Equatable, Hashable {
         childNodes.remove(at: index)
         reindexChildren(index)
         out.parentNode = nil
+        markSourceDirty()
+        if out is Element, let element = self as? Element {
+            element.markQueryIndexesDirty()
+        }
+        bumpTextMutationVersion()
     }
     
     @inline(__always)
@@ -641,7 +734,10 @@ open class Node: Equatable, Hashable {
             try reparentChild(child)
             childNodes.append(child)
             child.setSiblingIndex(childNodes.count - 1)
+            child.markSourceDirty()
         }
+        markSourceDirty()
+        bumpTextMutationVersion()
     }
     
     @inline(__always)
@@ -655,7 +751,10 @@ open class Node: Equatable, Hashable {
             try reparentChild(input)
             childNodes.insert(input, at: index)
             reindexChildren(index)
+            input.markSourceDirty()
         }
+        markSourceDirty()
+        bumpTextMutationVersion()
     }
     
     @inline(__always)
@@ -699,19 +798,23 @@ open class Node: Equatable, Hashable {
      */
     @inline(__always)
     open func nextSibling() -> Node? {
-        guard hasNextSibling() else { return nil }
-        guard let siblings: Array<Node> = parent()?.getChildNodes() else {
+        guard let parent = parentNode else {
             return nil
         }
-        return siblings[siblingIndex + 1]
+        let nextIndex = siblingIndex + 1
+        let siblings = parent.childNodes
+        guard nextIndex < siblings.count else {
+            return nil
+        }
+        return siblings[nextIndex]
     }
     
     @inline(__always)
     open func hasNextSibling() -> Bool {
-        guard let parent = parent() else {
+        guard let parent = parentNode else {
             return false
         }
-        return parent.childNodeSize() > siblingIndex + 1
+        return parent.childNodes.count > siblingIndex + 1
     }
     
     /**
@@ -762,7 +865,23 @@ open class Node: Equatable, Hashable {
     
     @inline(__always)
     public func outerHtml(_ accum: StringBuilder) throws {
-        try NodeTraversor(OuterHtmlVisitor(accum, getOutputSettings())).traverse(self)
+        try outerHtmlFast(accum, 0, getOutputSettings(), allowRawSource: true)
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func outerHtmlUTF8Internal() throws -> [UInt8] {
+        let accum = StringBuilder(128)
+        try outerHtmlFast(accum, 0, getOutputSettings(), allowRawSource: true)
+        return Array(accum.buffer)
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func outerHtmlUTF8Internal(_ out: OutputSettings, allowRawSource: Bool) throws -> [UInt8] {
+        let accum = StringBuilder(128)
+        try outerHtmlFast(accum, 0, out, allowRawSource: allowRawSource)
+        return Array(accum.buffer)
     }
     
     // if this node has no document (or parent), retrieve the default output settings
@@ -781,6 +900,62 @@ open class Node: Equatable, Hashable {
     
     func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) throws {
         preconditionFailure("This method must be overridden")
+    }
+
+    @inline(__always)
+    private func rawSourceSlice(_ out: OutputSettings, allowRawSource: Bool) -> ArraySlice<UInt8>? {
+        guard allowRawSource,
+              !out.prettyPrint(),
+              !sourceRangeDirty,
+              sourceRangeIsComplete,
+              let range = sourceRange,
+              range.isValid,
+              let doc = ownerDocument(),
+              let source = sourceBuffer?.bytes ?? doc.sourceBuffer?.bytes
+        else {
+            return nil
+        }
+        let syntax = out.syntax()
+        if syntax == .xml && !doc.parsedAsXml {
+            return nil
+        }
+        if syntax == .html || syntax == .xml {
+            // ok
+        } else {
+            return nil
+        }
+        if range.end > source.count {
+            return nil
+        }
+        return source[range.start..<range.end]
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func sourceSliceUTF8() -> ArraySlice<UInt8>? {
+        guard let range = sourceRange,
+              range.isValid,
+              let source = sourceBuffer?.bytes ?? ownerDocument()?.sourceBuffer?.bytes,
+              range.end <= source.count
+        else {
+            return nil
+        }
+        return source[range.start..<range.end]
+    }
+
+    @inline(__always)
+    private func outerHtmlFast(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings, allowRawSource: Bool) throws {
+        if let raw = rawSourceSlice(out, allowRawSource: allowRawSource) {
+            accum.append(raw)
+            return
+        }
+        try outerHtmlHead(accum, depth, out)
+        if !childNodes.isEmpty {
+            for child in childNodes {
+                try child.outerHtmlFast(accum, depth + 1, out, allowRawSource: allowRawSource)
+            }
+        }
+        try outerHtmlTail(accum, depth, out)
     }
     
     /**
@@ -848,24 +1023,39 @@ open class Node: Equatable, Hashable {
         let clone = Node(skipChildReserve: !hasChildNodes())
         return copy(clone: clone, parent: parent)
     }
+
+    /// Internal shallow clone used by deep-copy to avoid copying childNodes.
+    @inline(__always)
+    func copyForDeepClone(parent: Node?) -> Node {
+        let clone = Node(skipChildReserve: !hasChildNodes())
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false, suppressQueryIndexDirty: true)
+    }
     
     public func copy(clone: Node) -> Node {
-        let thisClone = copy(clone: clone, parent: nil) // splits for orphan
+        let thisClone = copy(clone: clone, parent: nil, copyChildren: true, rebuildIndexes: false, suppressQueryIndexDirty: false) // splits for orphan
         
-        // BFS clone using index-based queue
-        var queue: [Node] = [thisClone]
+        // BFS clone using index-based queue, preserving original nodes to avoid extra array copies.
+        var queue: [(Node, Node)] = [(self, thisClone)]
+        queue.reserveCapacity(8)
         var idx = 0
         while idx < queue.count {
-            let currParent = queue[idx]
+            let (originalParent, cloneParent) = queue[idx]
             idx += 1
             
-            let originalChildren = currParent.childNodes
-            currParent.childNodes = originalChildren.map {
-                $0.copy(parent: currParent)
-            }
-            queue.append(contentsOf: currParent.childNodes)
-            if let currParentElement = currParent as? Element {
-                currParentElement.rebuildQueryIndexesForThisNodeOnly()
+            let originalChildren = originalParent.childNodes
+            if !originalChildren.isEmpty {
+                var newChildren: [Node] = []
+                newChildren.reserveCapacity(originalChildren.count)
+                for child in originalChildren {
+                    let childClone = child.copyForDeepClone(parent: cloneParent)
+                    newChildren.append(childClone)
+                    if child.hasChildNodes() {
+                        queue.append((child, childClone))
+                    }
+                }
+                cloneParent.childNodes = newChildren
+            } else {
+                cloneParent.childNodes.removeAll(keepingCapacity: true)
             }
         }
         
@@ -877,18 +1067,61 @@ open class Node: Equatable, Hashable {
      * Not a deep copy of children.
      */
     public func copy(clone: Node, parent: Node?) -> Node {
+        return copy(clone: clone, parent: parent, copyChildren: true, rebuildIndexes: true, suppressQueryIndexDirty: false)
+    }
+
+    @inline(__always)
+    func copy(clone: Node, parent: Node?, copyChildren: Bool, rebuildIndexes: Bool) -> Node {
+        return copy(clone: clone, parent: parent, copyChildren: copyChildren, rebuildIndexes: rebuildIndexes, suppressQueryIndexDirty: false)
+    }
+
+    @inline(__always)
+    func copy(
+        clone: Node,
+        parent: Node?,
+        copyChildren: Bool,
+        rebuildIndexes: Bool,
+        suppressQueryIndexDirty: Bool
+    ) -> Node {
+        if suppressQueryIndexDirty, let element = clone as? Element {
+            element.suppressQueryIndexDirty = true
+        }
         clone.parentNode = parent // can be nil, to create an orphan split
+        if suppressQueryIndexDirty, let element = clone as? Element {
+            element.suppressQueryIndexDirty = false
+        }
         clone.siblingIndex = parent == nil ? 0 : siblingIndex
-        clone.attributes = attributes != nil ? attributes?.clone() : nil
-        clone.attributes?.ownerElement = clone as? SwiftSoup.Element
+        if let attrs = attributes {
+            if attrs.size() == 0 {
+                clone.attributes = Attributes()
+            } else {
+                clone.attributes = attrs.clone()
+            }
+            clone.attributes?.ownerElement = clone as? SwiftSoup.Element
+        } else {
+            clone.attributes = nil
+        }
         clone.baseUri = baseUri
-        clone.childNodes = childNodes
-        
-        if let cloneElement = clone as? Element {
+        if copyChildren {
+            clone.childNodes = childNodes
+        } else {
+            clone.childNodes.removeAll(keepingCapacity: true)
+        }
+        clone.sourceRange = nil
+        clone.sourceRangeIsComplete = false
+        clone.sourceRangeDirty = true
+        clone.sourceBuffer = nil
+
+        if rebuildIndexes, let cloneElement = clone as? Element {
             cloneElement.rebuildQueryIndexesForThisNodeOnly()
         }
-        
+
         return clone
+    }
+
+    @inline(__always)
+    func copy(clone: Node, parent: Node?, copyChildren: Bool) -> Node {
+        return copy(clone: clone, parent: parent, copyChildren: copyChildren, rebuildIndexes: true, suppressQueryIndexDirty: false)
     }
     
     private class OuterHtmlVisitor: NodeVisitor {

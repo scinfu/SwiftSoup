@@ -127,14 +127,28 @@ public class FormElement: Element {
 //    }
 
 	public override func copy(with zone: NSZone? = nil) -> Any {
-		let clone = FormElement(_tag, baseUri!, attributes!)
+		let clone = FormElement(_tag, baseUri!, skipChildReserve: true)
 		return copy(clone: clone)
 	}
 
 	public override func copy(parent: Node?) -> Node {
-		let clone = FormElement(_tag, baseUri!, attributes!)
+		let clone = FormElement(_tag, baseUri!, skipChildReserve: true)
 		return copy(clone: clone, parent: parent)
 	}
+
+    override func copyForDeepClone(parent: Node?) -> Node {
+        let clone = FormElement(_tag, baseUri!, skipChildReserve: true)
+        for att in _elements.array() {
+            clone._elements.add(att)
+        }
+        return copy(
+            clone: clone,
+            parent: parent,
+            copyChildren: false,
+            rebuildIndexes: false,
+            suppressQueryIndexDirty: true
+        )
+    }
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		let clone = clone as! FormElement
 		for att in _elements.array() {

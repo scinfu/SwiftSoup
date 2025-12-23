@@ -78,6 +78,11 @@ public class XmlDeclaration: Node {
 		let clone = XmlDeclaration(_name, baseUri!, isProcessingInstruction)
 		return copy(clone: clone, parent: parent)
 	}
+
+    override func copyForDeepClone(parent: Node?) -> Node {
+        let clone = XmlDeclaration(_name, baseUri!, isProcessingInstruction)
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
+    }
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		return super.copy(clone: clone, parent: parent)
 	}

@@ -368,4 +368,65 @@ class NodeTest: XCTestCase {
 			XCTAssertEqual(1, 2)
 		}
 	}
+
+	func testDeepCloneIndependence() {
+		do {
+			let doc: Document = try SwiftSoup.parse("<div id=wrap><p class=one data-x=1>Text <span>Child</span></p></div>")
+			let original: Element = try doc.select("#wrap").first()!
+			let clone: Element = original.copy() as! Element
+
+			XCTAssertNil(clone.parent())
+			XCTAssertEqual(1, original.childNodeSize())
+			XCTAssertEqual(1, clone.childNodeSize())
+
+			let originalP = try original.select("p").first()!
+			let cloneP = try clone.select("p").first()!
+			XCTAssertEqual("one", try originalP.className())
+			XCTAssertEqual("one", try cloneP.className())
+			XCTAssertEqual("1", try originalP.attr("data-x"))
+
+			try cloneP.removeAttr("data-x")
+			try cloneP.addClass("two")
+			try cloneP.text("Changed")
+
+			XCTAssertEqual("1", try originalP.attr("data-x"))
+			XCTAssertEqual("one", try originalP.className())
+			XCTAssertEqual("Text Child", try originalP.text())
+			XCTAssertEqual("Changed", try cloneP.text())
+		} catch {
+			XCTAssertEqual(1, 2)
+		}
+	}
+
+	func testDeepCloneDoesNotShareChildren() {
+		do {
+			let doc: Document = try SwiftSoup.parse("<div id=wrap><p>One</p><p>Two</p></div>")
+			let original: Element = try doc.select("#wrap").first()!
+			let clone: Element = original.copy() as! Element
+
+			XCTAssertEqual(2, original.childNodeSize())
+			XCTAssertEqual(2, clone.childNodeSize())
+
+			try clone.childNode(0).remove()
+			XCTAssertEqual(2, original.childNodeSize())
+			XCTAssertEqual(1, clone.childNodeSize())
+		} catch {
+			XCTAssertEqual(1, 2)
+		}
+	}
+
+	func testCloneWithEmptyAttributes() {
+		do {
+			let doc: Document = try SwiftSoup.parse("<div><span>Hi</span></div>")
+			let span: Element = try doc.select("span").first()!
+			XCTAssertFalse(span.hasAttr("data-x"))
+			let clone: Element = span.copy() as! Element
+			XCTAssertFalse(clone.hasAttr("data-x"))
+			try clone.attr("data-x", "1")
+			XCTAssertEqual("", try span.attr("data-x"))
+			XCTAssertEqual("1", try clone.attr("data-x"))
+		} catch {
+			XCTAssertEqual(1, 2)
+		}
+	}
 }

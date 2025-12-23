@@ -66,6 +66,7 @@ public extension QueryParser {
 #if canImport(LRUCache)
         /// Actual cache implementation.
         private let cache: LRUCache<String, Evaluator>
+        private let cacheLock = Mutex()
         
         /// Initialize using an explicit limit.
         public init (limit: CacheLimit) {
@@ -83,10 +84,14 @@ public extension QueryParser {
         }
         
         public func get(_ query: String) -> Evaluator? {
+            cacheLock.lock()
+            defer { cacheLock.unlock() }
             return cache.value(forKey: query)
         }
         
         public func set(_ query: String, _ evaluator: Evaluator) {
+            cacheLock.lock()
+            defer { cacheLock.unlock() }
             cache.setValue(evaluator, forKey: query)
         }
 #else

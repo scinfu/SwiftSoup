@@ -12,6 +12,7 @@ import Foundation
  */
 open class DataNode: Node {
     private static let DATA_KEY  = "data".utf8Array
+    private var rawDataSlice: ArraySlice<UInt8>? = nil
 
     /**
      Create a new DataNode.
@@ -24,6 +25,12 @@ open class DataNode: Node {
             try attributes?.put(DataNode.DATA_KEY, data)
         } catch {}
 
+    }
+
+    @usableFromInline
+    internal init(slice: ArraySlice<UInt8>, baseUri: [UInt8]) {
+        super.init(baseUri)
+        rawDataSlice = slice
     }
 
     @inline(__always)
@@ -47,6 +54,14 @@ open class DataNode: Node {
     
     @inline(__always)
     open func getWholeDataUTF8() -> [UInt8] {
+        if let slice = rawDataSlice {
+            let materialized = Array(slice)
+            rawDataSlice = nil
+            do {
+                try attributes?.put(DataNode.DATA_KEY, materialized)
+            } catch {}
+            return materialized
+        }
         return attributes!.get(key: DataNode.DATA_KEY)
     }
 
@@ -58,9 +73,11 @@ open class DataNode: Node {
     @discardableResult
     @inline(__always)
     open func setWholeData(_ data: String) -> DataNode {
+        rawDataSlice = nil
         do {
             try attributes?.put(DataNode.DATA_KEY, data.utf8Array)
         } catch {}
+        markSourceDirty()
         return self
     }
 
@@ -86,15 +103,21 @@ open class DataNode: Node {
 
     @inline(__always)
 	public override func copy(with zone: NSZone? = nil) -> Any {
-		let clone = DataNode(attributes!.get(key: DataNode.DATA_KEY), baseUri!)
+		let clone = DataNode(getWholeDataUTF8(), baseUri!)
 		return copy(clone: clone)
 	}
 
-    @inline(__always)
+	@inline(__always)
 	public override func copy(parent: Node?) -> Node {
-		let clone = DataNode(attributes!.get(key: DataNode.DATA_KEY), baseUri!)
+		let clone = DataNode(getWholeDataUTF8(), baseUri!)
 		return copy(clone: clone, parent: parent)
 	}
+
+    @inline(__always)
+    override func copyForDeepClone(parent: Node?) -> Node {
+        let clone = DataNode(getWholeDataUTF8(), baseUri!)
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
+    }
 
     @inline(__always)
 	public override func copy(clone: Node, parent: Node?) -> Node {

@@ -83,6 +83,20 @@ class AttributeParseTest: XCTestCase {
 
 		XCTAssertEqual(html, try el.outerHtml())
 	}
+	
+	func testParsesMultibyteAttributeValues() throws {
+		let html = "<a title=\"你&amp;好\" href=hello&amp;world data=πβ></a>"
+		let el: Element = try SwiftSoup.parse(html).select("a").first()!
+		XCTAssertEqual("你&好", try el.attr("title"))
+		XCTAssertEqual("hello&world", try el.attr("href"))
+		XCTAssertEqual("πβ", try el.attr("data"))
+	}
+	
+	func testBeforeAttributeNameSkipsWhitespace() throws {
+		let html = "<a  \t\r\nfoo=bar></a>"
+		let el: Element = try SwiftSoup.parse(html).select("a").first()!
+		XCTAssertEqual("bar", try el.attr("foo"))
+	}
 
 	func testretainsSlashFromAttributeName() throws {
 		let html: String = "<img /onerror='doMyJob'/>"
@@ -92,5 +106,46 @@ class AttributeParseTest: XCTestCase {
 
 		doc = try SwiftSoup.parse(html, "", Parser.xmlParser())
 		XCTAssertEqual("<img onerror=\"doMyJob\" />", try doc.html())
+	}
+	
+	func testAttributeValueAfterQuotedWithFollowup() throws {
+		let html = "<a href=\"x\"/p=1></a>"
+		let doc = try SwiftSoup.parse(html)
+		let a = try doc.select("a").first()!
+		XCTAssertEqual("x", try a.attr("href"))
+		XCTAssertEqual("1", try a.attr("p"))
+	}
+
+	func testUnquotedAttributeValueStartsWithEqualsOrLt() throws {
+		var doc = try SwiftSoup.parse("<p foo==bar></p>")
+		var p = try doc.select("p").first()!
+		XCTAssertEqual("=bar", try p.attr("foo"))
+
+		doc = try SwiftSoup.parse("<p foo=<bar></p>")
+		p = try doc.select("p").first()!
+		XCTAssertEqual("<bar", try p.attr("foo"))
+	}
+
+	func testAttributeNameWithNullGetsReplacement() throws {
+		let html = "<p a\u{0000}b=1></p>"
+		let doc = try SwiftSoup.parse(html)
+		let p = try doc.select("p").first()!
+		XCTAssertTrue(p.hasAttr("a\u{FFFD}b"))
+		XCTAssertEqual("1", try p.attr("a\u{FFFD}b"))
+	}
+
+	func testAttributeNameIncludesQuoteCharacter() throws {
+		let html = "<a data-abc\"=\"foo\"></a>"
+		let doc = try SwiftSoup.parse(html)
+		let a = try doc.select("a").first()!
+		XCTAssertTrue(a.hasAttr("data-abc\""))
+		XCTAssertEqual("foo", try a.attr("data-abc\""))
+	}
+
+	func testAttributeValuePreservesCommentTagText() throws {
+		let html = "<div><comment><img src=\"</comment><img src=x onerror=alert(38)//\">x</div>"
+		let doc = try SwiftSoup.parse(html)
+		let img = try doc.select("img").first()!
+		XCTAssertEqual("</comment><img src=x onerror=alert(38)//", try img.attr("src"))
 	}
 }

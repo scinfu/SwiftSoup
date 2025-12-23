@@ -152,7 +152,89 @@ open class CssSelector {
     }
 
     private func select()throws->Elements {
+        if let fast = try CssSelector.fastSelect(evaluator, root) {
+            return fast
+        }
         return try Collector.collect(evaluator, root)
+    }
+    
+    /// Fast‑path for simple selectors that map directly onto indexed queries.
+    /// Avoids full DOM traversal when the evaluator is a single primitive selector.
+    private static func fastSelect(_ evaluator: Evaluator, _ root: Element) throws -> Elements? {
+        if let eval = evaluator as? Evaluator.Tag {
+            return try root.getElementsByTag(eval.tagNameNormal)
+        }
+        if let eval = evaluator as? Evaluator.Id {
+            return root.getElementsById(eval.id.utf8Array)
+        }
+        if let eval = evaluator as? Evaluator.Class {
+            return try root.getElementsByClass(eval.className)
+        }
+        if let eval = evaluator as? Evaluator.Attribute {
+            return try root.getElementsByAttribute(eval.key)
+        }
+        if let eval = evaluator as? Evaluator.AttributeWithValue {
+            return try root.getElementsByAttributeValue(eval.key, eval.value)
+        }
+        if let eval = evaluator as? CombiningEvaluator.And {
+            return try fastSelectAnd(eval, root)
+        }
+        return nil
+    }
+
+    private struct IndexedCandidate {
+        let elements: Elements
+        let priority: Int
+    }
+
+    /// Fast‑path for AND chains: pick an indexed candidate set, then filter by the full evaluator list.
+    /// This preserves document order while avoiding a full traversal in common selector shapes.
+    private static func fastSelectAnd(_ evaluator: CombiningEvaluator.And, _ root: Element) throws -> Elements? {
+        var best: IndexedCandidate? = nil
+        for sub in evaluator.evaluators {
+            if let candidate = try indexedCandidate(for: sub, root) {
+                if best == nil || candidate.priority < best!.priority {
+                    best = candidate
+                }
+            }
+        }
+        guard let best else { return nil }
+
+        let output = Elements()
+        for element in best.elements.array() {
+            var matchesAll = true
+            for sub in evaluator.evaluators {
+                if try !sub.matches(root, element) {
+                    matchesAll = false
+                    break
+                }
+            }
+            if matchesAll {
+                output.add(element)
+            }
+        }
+        return output
+    }
+
+    private static func indexedCandidate(for evaluator: Evaluator, _ root: Element) throws -> IndexedCandidate? {
+        if let eval = evaluator as? Evaluator.Id {
+            return IndexedCandidate(elements: root.getElementsById(eval.id.utf8Array), priority: 0)
+        }
+        if let eval = evaluator as? Evaluator.AttributeWithValue {
+            let normalizedKey = eval.key.utf8Array.lowercased().trim()
+            guard Element.isHotAttributeKey(normalizedKey) else { return nil }
+            return IndexedCandidate(elements: try root.getElementsByAttributeValue(eval.key, eval.value), priority: 1)
+        }
+        if let eval = evaluator as? Evaluator.Class {
+            return IndexedCandidate(elements: try root.getElementsByClass(eval.className), priority: 2)
+        }
+        if let eval = evaluator as? Evaluator.Attribute {
+            return IndexedCandidate(elements: try root.getElementsByAttribute(eval.key), priority: 3)
+        }
+        if let eval = evaluator as? Evaluator.Tag {
+            return IndexedCandidate(elements: try root.getElementsByTag(eval.tagNameNormal), priority: 4)
+        }
+        return nil
     }
 
     // exclude set. package open so that Elements can implement .not() selector.

@@ -221,28 +221,46 @@ open class StringBuilder {
     @usableFromInline
     @inline(__always)
     internal func write(contentsOf bytes: [UInt8]) {
-        internalBuffer.reserveCapacity(size + bytes.count)
-        for byte in bytes {
-            write(byte)
+        let newSize = size + bytes.count
+        if size == internalBuffer.count {
+            internalBuffer.append(contentsOf: bytes)
+        } else if newSize <= internalBuffer.count {
+            internalBuffer.replaceSubrange(size..<newSize, with: bytes)
+        } else {
+            internalBuffer.replaceSubrange(size..<internalBuffer.count, with: bytes)
         }
+        size = newSize
     }
     
     @usableFromInline
     @inline(__always)
     internal func write(contentsOf bytes: String.UTF8View) {
-        internalBuffer.reserveCapacity(size + bytes.count)
-        for byte in bytes {
-            write(byte)
+        if size == internalBuffer.count {
+            internalBuffer.append(contentsOf: bytes)
+            size = internalBuffer.count
+            return
         }
+        let newSize = size + bytes.count
+        if newSize <= internalBuffer.count {
+            internalBuffer.replaceSubrange(size..<newSize, with: bytes)
+        } else {
+            internalBuffer.replaceSubrange(size..<internalBuffer.count, with: bytes)
+        }
+        size = newSize
     }
     
     @usableFromInline
     @inline(__always)
     internal func write(contentsOf bytes: ArraySlice<UInt8>) {
-        internalBuffer.reserveCapacity(size + bytes.count)
-        for byte in bytes {
-            write(byte)
+        let newSize = size + bytes.count
+        if size == internalBuffer.count {
+            internalBuffer.append(contentsOf: bytes)
+        } else if newSize <= internalBuffer.count {
+            internalBuffer.replaceSubrange(size..<newSize, with: bytes)
+        } else {
+            internalBuffer.replaceSubrange(size..<internalBuffer.count, with: bytes)
         }
+        size = newSize
     }
 }
 

@@ -11,6 +11,38 @@ final class Tokeniser {
     static let replacementChar: UnicodeScalar = "\u{FFFD}" // replaces null character
     private static let notCharRefChars = ParsingStrings([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "<", UnicodeScalar.Ampersand])
     private static let notNamedCharRefChars = ParsingStrings([UTF8Arrays.equalSign, UTF8Arrays.hyphen, UTF8Arrays.underscore])
+    private static let ampName = "amp".utf8Array
+    private static let ltName = "lt".utf8Array
+    private static let gtName = "gt".utf8Array
+    private static let quotName = "quot".utf8Array
+    private static let aposName = "apos".utf8Array
+    private static let ampCodepoints: [UnicodeScalar] = [UnicodeScalar.Ampersand]
+    private static let ltCodepoints: [UnicodeScalar] = [UnicodeScalar.LessThan]
+    private static let gtCodepoints: [UnicodeScalar] = [UnicodeScalar.GreaterThan]
+    private static let quotCodepoints: [UnicodeScalar] = [UnicodeScalar(0x22)!]
+    private static let aposCodepoints: [UnicodeScalar] = [UnicodeScalar(0x27)!]
+    private static let replacementCodepoints: [UnicodeScalar] = [Tokeniser.replacementChar]
+    private static let notCharRefAsciiTable: [Bool] = {
+        var table = [Bool](repeating: false, count: 128)
+        table[0x09] = true // \t
+        table[0x0A] = true // \n
+        table[0x0D] = true // \r
+        table[0x0C] = true // \f
+        table[0x20] = true // space
+        table[0x3C] = true // <
+        table[0x26] = true // &
+        return table
+    }()
+
+    @inline(__always)
+    private static func isNotCharRefAscii(_ byte: UInt8) -> Bool {
+        return byte < 0x80 && notCharRefAsciiTable[Int(byte)]
+    }
+
+    @inline(__always)
+    private static func isAsciiDigit(_ byte: UInt8) -> Bool {
+        return byte >= 0x30 && byte <= 0x39
+    }
     
     private let reader: CharacterReader // html input
     private let errors: ParseErrorList? // errors found while tokenising
@@ -18,8 +50,11 @@ final class Tokeniser {
     private var state: TokeniserState = TokeniserState.Data // current tokenisation state
     private var emitPending: Token?  // the token we are about to emit on next read
     private var isEmitPending: Bool = false
-    private var charsSlice: ArraySlice<UInt8>? = nil // characters pending an emit. Will fall to charsBuilder if more than one
+    private var charsSlice: ArraySlice<UInt8>? = nil // single pending slice to avoid array allocation
     private var pendingSlices = [ArraySlice<UInt8>]()
+    private var pendingSlicesCount: Int = 0
+    private var pendingCharRange: SourceRange? = nil
+    private var pendingTagStartPos: Int? = nil
     private let charsBuilder: StringBuilder = StringBuilder(256) // buffers characters to output as one token, if more than one emit per read
     let dataBuffer: StringBuilder = StringBuilder(4 * 1024) // buffers data looking for </script>
     
@@ -31,40 +66,105 @@ final class Tokeniser {
     let commentPending: Token.Comment  = Token.Comment() // comment building up
     private var lastStartTag: [UInt8]?  // the last start tag emitted, to test appropriate end tag
     private var selfClosingFlagAcknowledged: Bool = true
+    private let lowercaseAttributeNames: Bool
+    private let attributesNormalizedByDefault: Bool
     
-    init(_ reader: CharacterReader, _ errors: ParseErrorList?) {
+    init(_ reader: CharacterReader, _ errors: ParseErrorList?, _ settings: ParseSettings? = nil) {
         self.reader = reader
         self.errors = errors
+        if let settings {
+            lowercaseAttributeNames = !settings.preservesAttributeCase()
+            attributesNormalizedByDefault = settings.preservesAttributeCase()
+        } else {
+            lowercaseAttributeNames = false
+            attributesNormalizedByDefault = false
+        }
+    }
+
+    @inline(__always)
+    func markTagStart(_ pos: Int) {
+        pendingTagStartPos = pos
+    }
+
+    @inline(__always)
+    func ensureTagStart(_ pos: Int) {
+        if pendingTagStartPos == nil {
+            pendingTagStartPos = pos
+        }
+    }
+
+    @inline(__always)
+    func clearTagStart() {
+        pendingTagStartPos = nil
     }
     
     func read() throws -> Token {
+        #if PROFILE
+        let _p = Profiler.start("Tokeniser.read")
+        defer { Profiler.end("Tokeniser.read", _p) }
+        #endif
         if (!selfClosingFlagAcknowledged) {
             error("Self closing flag not acknowledged")
             selfClosingFlagAcknowledged = true
         }
         
+        #if PROFILE
+        let _pLoop = Profiler.start("Tokeniser.read.loop")
+        #endif
         while (!isEmitPending) {
             try state.read(self, reader)
         }
+        #if PROFILE
+        Profiler.end("Tokeniser.read.loop", _pLoop)
+        #endif
         
         if !charsBuilder.isEmpty {
+            #if PROFILE
+            let _pEmit = Profiler.start("Tokeniser.read.emitBuilder")
+            defer { Profiler.end("Tokeniser.read.emitBuilder", _pEmit) }
+            #endif
             let str = Array(charsBuilder.buffer)
             charsBuilder.clear()
             // Clear any pending slices, as the builder takes precedence.
+            charsSlice = nil
             pendingSlices.removeAll()
+            pendingSlicesCount = 0
+            charPending.sourceRange = nil
+            pendingCharRange = nil
             return charPending.data(str)
+        } else if let slice = charsSlice {
+            #if PROFILE
+            let _pEmit = Profiler.start("Tokeniser.read.emitSlice")
+            defer { Profiler.end("Tokeniser.read.emitSlice", _pEmit) }
+            #endif
+            charsSlice = nil
+            charPending.sourceRange = pendingCharRange
+            pendingCharRange = nil
+            return charPending.data(Array(slice))
         } else if !pendingSlices.isEmpty {
+            #if PROFILE
+            let _pEmit = Profiler.start("Tokeniser.read.emitSlices")
+            defer { Profiler.end("Tokeniser.read.emitSlices", _pEmit) }
+            #endif
             // Combine all the pending slices in one allocation.
-            let totalCount = pendingSlices.reduce(0) { $0 + $1.count }
+            let totalCount = pendingSlicesCount
             var combined = [UInt8]()
             combined.reserveCapacity(totalCount)
             for slice in pendingSlices {
                 combined.append(contentsOf: slice)
             }
             pendingSlices.removeAll()
+            pendingSlicesCount = 0
+            charPending.sourceRange = nil
+            pendingCharRange = nil
             return charPending.data(combined)
         } else {
+            #if PROFILE
+            let _pEmit = Profiler.start("Tokeniser.read.emitToken")
+            defer { Profiler.end("Tokeniser.read.emitToken", _pEmit) }
+            #endif
             isEmitPending = false
+            pendingCharRange = nil
             return emitPending!
         }
     }
@@ -77,20 +177,51 @@ final class Tokeniser {
         
         if (token.type == Token.TokenType.StartTag) {
             let startTag: Token.StartTag  = token as! Token.StartTag
-            lastStartTag = startTag._tagName!
+            lastStartTag = try startTag.name()
             if (startTag._selfClosing) {
                 selfClosingFlagAcknowledged = false
             }
         } else if (token.type == Token.TokenType.EndTag) {
             let endTag: Token.EndTag = token as! Token.EndTag
+            endTag.ensureAttributes()
             if !(endTag._attributes?.attributes.isEmpty ?? true) {
                 error("Attributes incorrectly present on end tag")
             }
         }
     }
+
+    @inline(__always)
+    func emitRaw(_ str: ArraySlice<UInt8>, start: Int, end: Int) {
+        if charsBuilder.isEmpty && charsSlice == nil && pendingSlices.isEmpty {
+            pendingCharRange = SourceRange(start: start, end: end)
+        } else {
+            pendingCharRange = nil
+        }
+        emit(str)
+    }
     
     func emit(_ str: ArraySlice<UInt8>) {
-        pendingSlices.append(str)
+        if pendingCharRange != nil, (!charsBuilder.isEmpty || charsSlice != nil || !pendingSlices.isEmpty) {
+            pendingCharRange = nil
+        }
+        if !charsBuilder.isEmpty {
+            charsBuilder.append(str)
+            return
+        }
+        if let existing = charsSlice {
+            if pendingSlices.isEmpty {
+                pendingSlices.append(existing)
+                pendingSlicesCount = existing.count
+            }
+            pendingSlices.append(str)
+            pendingSlicesCount &+= str.count
+            charsSlice = nil
+        } else if pendingSlices.isEmpty {
+            charsSlice = str
+        } else {
+            pendingSlices.append(str)
+            pendingSlicesCount &+= str.count
+        }
     }
     
     func emit(_ str: [UInt8]) {
@@ -98,6 +229,11 @@ final class Tokeniser {
     }
     
     func emit(_ str: String) {
+        pendingCharRange = nil
+        if !charsBuilder.isEmpty {
+            charsBuilder.append(str)
+            return
+        }
         emit(str.utf8Array)
     }
     
@@ -109,12 +245,45 @@ final class Tokeniser {
     //        emit(String(codepoints, 0, codepoints.length));
     //    }
     
+    @inline(__always)
+    private func ensureCharsBuilderForAppend() {
+        if let existing = charsSlice {
+            charsBuilder.append(existing)
+            charsSlice = nil
+        }
+        if !pendingSlices.isEmpty {
+            for slice in pendingSlices {
+                charsBuilder.append(slice)
+            }
+            pendingSlices.removeAll()
+            pendingSlicesCount = 0
+        }
+    }
+
     func emit(_ c: UnicodeScalar) {
-        emit(Array(c.utf8))
+        pendingCharRange = nil
+        let val = c.value
+        if val < 0x80 {
+            emitByte(UInt8(val))
+            return
+        }
+        ensureCharsBuilderForAppend()
+        charsBuilder.appendCodePoint(c)
+    }
+
+    @inline(__always)
+    func emitByte(_ byte: UInt8) {
+        ensureCharsBuilderForAppend()
+        charsBuilder.append(byte)
     }
     
     func emit(_ c: [UnicodeScalar]) {
-        emit(c.flatMap { Array($0.utf8) })
+        pendingCharRange = nil
+        guard !c.isEmpty else { return }
+        ensureCharsBuilderForAppend()
+        for scalar in c {
+            charsBuilder.appendCodePoint(scalar)
+        }
     }
     
     func getState() -> TokeniserState {
@@ -130,24 +299,48 @@ final class Tokeniser {
         self.state = state
     }
     
+    @inline(__always)
+    func advanceTransitionAscii(_ state: TokeniserState) {
+        reader.advanceAscii()
+        self.state = state
+    }
+    
     func acknowledgeSelfClosingFlag() {
         selfClosingFlagAcknowledged = true
     }
     
     func consumeCharacterReference(_ additionalAllowedCharacter: UnicodeScalar?, _ inAttribute: Bool) throws -> [UnicodeScalar]? {
+        #if PROFILE
+        let _p = Profiler.start("Tokeniser.consumeCharacterReference")
+        defer { Profiler.end("Tokeniser.consumeCharacterReference", _p) }
+        #endif
         if (reader.isEmpty()) {
             return nil
         }
-        if (additionalAllowedCharacter != nil && additionalAllowedCharacter == reader.current()) {
+        if let allowed = additionalAllowedCharacter, let byte = reader.currentByte(), byte < 0x80 {
+            if allowed.value == UInt32(byte) {
+                return nil
+            }
+        } else if (additionalAllowedCharacter != nil && additionalAllowedCharacter == reader.current()) {
             return nil
         }
-        if (reader.matchesAny(Tokeniser.notCharRefChars)) {
+        if let byte = reader.currentByte(), byte < 0x80 {
+            if Tokeniser.isNotCharRefAscii(byte) {
+                return nil
+            }
+        } else if (reader.matchesAny(Tokeniser.notCharRefChars)) {
             return nil
         }
         
         reader.markPos()
         if (reader.matchConsume(UTF8Arrays.hash)) { // numbered
-            let isHexMode: Bool = reader.matchConsumeIgnoreCase("X".utf8Array)
+            let isHexMode: Bool
+            if let byte = reader.currentByte(), (byte == 0x78 || byte == 0x58) { // x or X
+                reader.advanceAscii()
+                isHexMode = true
+            } else {
+                isHexMode = false
+            }
             let numRef: ArraySlice<UInt8> = isHexMode ? reader.consumeHexSequence() : reader.consumeDigitSequence()
             if (numRef.isEmpty) { // didn't match anything
                 characterReferenceError("numeric reference with no numerals")
@@ -160,22 +353,67 @@ final class Tokeniser {
             var charval: Int  = -1
             
             let base: Int = isHexMode ? 16 : 10
-            if let num = numRef.toInt(radix: base) {
+            if let num = numRef.toIntAscii(radix: base) {
                 charval = num
             }
             
             if (charval == -1 || (charval >= 0xD800 && charval <= 0xDFFF) || charval > 0x10FFFF) {
                 characterReferenceError("character outside of valid range")
-                return [Tokeniser.replacementChar]
+                return Self.replacementCodepoints
             } else {
                 // todo: implement number replacement table
                 // todo: check for extra illegal unicode points as parse errors
                 return [UnicodeScalar(charval)!]
             }
         } else { // named
-                 // get as many letters as possible, and look for matching entities.
+            @inline(__always)
+            func fastNamedEntity(_ name: [UInt8], _ codepoints: [UnicodeScalar]) -> [UnicodeScalar]? {
+                let pos = reader.pos
+                let end = reader.end
+                let input = reader.input
+                let count = name.count
+                if pos + count > end { return nil }
+                for i in 0..<count {
+                    if input[pos + i] != name[i] { return nil }
+                }
+                let nextIndex = pos + count
+                if nextIndex < end {
+                    let nb = input[nextIndex]
+                    if nb >= 0x80 { return nil } // let slow path handle unicode letters/digits
+                    if TokeniserStateVars.isAsciiAlpha(nb) || Tokeniser.isAsciiDigit(nb) {
+                        return nil // not an exact match
+                    }
+                    if inAttribute && (nb == 0x3D || nb == 0x2D || nb == 0x5F) {
+                        return nil
+                    }
+                }
+                reader.pos = nextIndex
+                if reader.matches(UTF8Arrays.semicolon) {
+                    _ = reader.matchConsume(UTF8Arrays.semicolon)
+                } else {
+                    characterReferenceError("missing semicolon")
+                }
+                return codepoints
+            }
+
+            if let b = reader.currentByte(), b < 0x80 {
+                switch b {
+                case 0x61: // a
+                    if let fast = fastNamedEntity(Self.ampName, Self.ampCodepoints) { return fast }
+                    if let fast = fastNamedEntity(Self.aposName, Self.aposCodepoints) { return fast }
+                case 0x6C: // l
+                    if let fast = fastNamedEntity(Self.ltName, Self.ltCodepoints) { return fast }
+                case 0x67: // g
+                    if let fast = fastNamedEntity(Self.gtName, Self.gtCodepoints) { return fast }
+                case 0x71: // q
+                    if let fast = fastNamedEntity(Self.quotName, Self.quotCodepoints) { return fast }
+                default:
+                    break
+                }
+            }
+             // get as many letters as possible, and look for matching entities.
             let nameRef: ArraySlice<UInt8> = reader.consumeLetterThenDigitSequence()
-            let looksLegit: Bool = reader.matches(";")
+            let looksLegit: Bool = reader.matches(UTF8Arrays.semicolon)
             // found if a base named entity without a ;, or an extended entity with the ;.
             let found: Bool = (Entities.isBaseNamedEntity(nameRef) || (Entities.isNamedEntity(nameRef) && looksLegit))
             
@@ -186,10 +424,18 @@ final class Tokeniser {
                 }
                 return nil
             }
-            if (inAttribute && (reader.matchesLetter() || reader.matchesDigit() || reader.matchesAny(Self.notNamedCharRefChars))) {
-                // don't want that to match
-                reader.rewindToMark()
-                return nil
+            if inAttribute {
+                if let byte = reader.currentByte(), byte < 0x80 {
+                    if TokeniserStateVars.isAsciiAlpha(byte) || Tokeniser.isAsciiDigit(byte) || byte == 0x3D || byte == 0x2D || byte == 0x5F {
+                        // don't want that to match
+                        reader.rewindToMark()
+                        return nil
+                    }
+                } else if (reader.matchesLetter() || reader.matchesDigit() || reader.matchesAny(Self.notNamedCharRefChars)) {
+                    // don't want that to match
+                    reader.rewindToMark()
+                    return nil
+                }
             }
             if (!reader.matchConsume(UTF8Arrays.semicolon)) {
                 characterReferenceError("missing semicolon") // missing semi
@@ -215,12 +461,20 @@ final class Tokeniser {
             endPending.reset()
             tagPending = endPending
         }
+        tagPending.setLowercaseAttributeNames(lowercaseAttributeNames)
+        tagPending.setAttributesNormalized(attributesNormalizedByDefault || lowercaseAttributeNames)
         return tagPending
     }
     
     @inlinable
     func emitTagPending() throws {
         try tagPending.finaliseTag()
+        if let start = pendingTagStartPos {
+            tagPending.sourceRange = SourceRange(start: start, end: reader.pos)
+        } else {
+            tagPending.sourceRange = nil
+        }
+        pendingTagStartPos = nil
         try emit(tagPending)
     }
     
@@ -229,6 +483,12 @@ final class Tokeniser {
     }
     
     func emitCommentPending() throws {
+        if let start = pendingTagStartPos {
+            commentPending.sourceRange = SourceRange(start: start, end: reader.pos)
+        } else {
+            commentPending.sourceRange = nil
+        }
+        pendingTagStartPos = nil
         try emit(commentPending)
     }
     
@@ -237,6 +497,12 @@ final class Tokeniser {
     }
     
     func emitDoctypePending() throws {
+        if let start = pendingTagStartPos {
+            doctypePending.sourceRange = SourceRange(start: start, end: reader.pos)
+        } else {
+            doctypePending.sourceRange = nil
+        }
+        pendingTagStartPos = nil
         try emit(doctypePending)
     }
     
@@ -296,6 +562,10 @@ final class Tokeniser {
      - returns: unescaped string from reader
      */
     func unescapeEntities(_ inAttribute: Bool) throws -> [UInt8] {
+        #if PROFILE
+        let _p = Profiler.start("Tokeniser.unescapeEntities")
+        defer { Profiler.end("Tokeniser.unescapeEntities", _p) }
+        #endif
         let builder: StringBuilder = StringBuilder()
         while (!reader.isEmpty()) {
             builder.append(reader.consumeTo(UnicodeScalar.Ampersand))

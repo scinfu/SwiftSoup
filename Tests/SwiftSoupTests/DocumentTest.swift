@@ -159,7 +159,7 @@ class DocumentTest: XCTestCase {
 			"<html>\n" +
 			" <head></head>\n" +
 			" <body>\n" +
-			"  <img async checked src=\"&amp;<>&quot;\" />&lt;&gt;&amp;\"\n" +
+			"  <img async checked=\"checked\" src=\"&amp;<>&quot;\" />&lt;&gt;&amp;\"\n" +
 			"  <foo />bar\n" +
 			" </body>\n" +
 			"</html>", try! doc.html())
@@ -469,6 +469,54 @@ class DocumentTest: XCTestCase {
 		let doc: Document = try! SwiftSoup.parse(h)
 		let text = try! doc.text()
 		XCTAssertEqual(text, "TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST")
+	}
+
+	func testRawSourceSerializationFastPath() throws {
+		let input = "<html><head></head><body><div id=\"a\">hello</div></body></html>"
+		let doc = try SwiftSoup.parse(input)
+		doc.outputSettings().prettyPrint(pretty: false)
+		XCTAssertEqual(input, try doc.outerHtml())
+
+		if let div = try doc.select("div").first() {
+			try div.text("bye")
+		}
+		XCTAssertNotEqual(input, try doc.outerHtml())
+		XCTAssertTrue(try doc.outerHtml().contains("bye"))
+	}
+
+	func testRawSourceXmlParsedDocument() throws {
+		let input = "<root><br/></root>"
+		let doc = try SwiftSoup.parse(input, "", Parser.xmlParser())
+		doc.outputSettings().prettyPrint(pretty: false)
+		doc.outputSettings().syntax(syntax: .xml)
+		XCTAssertEqual(input, try doc.outerHtml())
+	}
+
+	func testRawSourceDisabledForHtmlParsedXmlOutput() throws {
+		let input = "<br>"
+		let doc = try SwiftSoup.parse(input)
+		doc.outputSettings().prettyPrint(pretty: false)
+		doc.outputSettings().syntax(syntax: .xml)
+		let output = try doc.outerHtml()
+		XCTAssertNotEqual(input, output)
+		XCTAssertTrue(output.contains("<br />"))
+	}
+
+	func testRawSourceSurvivesMoveAcrossDocuments() throws {
+		let input = "<html><body><div id=\"a\">hello</div></body></html>"
+		let original = try SwiftSoup.parse(input)
+		original.outputSettings().prettyPrint(pretty: false)
+		let moved = try SwiftSoup.parse("<html><body></body></html>")
+		moved.outputSettings().prettyPrint(pretty: false)
+		if let div = try original.select("div").first(),
+		   let body = moved.body() {
+			try div.remove()
+			try body.appendChild(div)
+			let output = try div.outerHtml()
+			XCTAssertEqual("<div id=\"a\">hello</div>", output)
+		} else {
+			XCTFail("Expected div/body")
+		}
 	}
 
 }

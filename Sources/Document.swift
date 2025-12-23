@@ -7,6 +7,17 @@
 
 import Foundation
 
+@usableFromInline
+internal final class SourceBuffer {
+    @usableFromInline
+    let bytes: [UInt8]
+    
+    @usableFromInline
+    init(_ bytes: [UInt8]) {
+        self.bytes = bytes
+    }
+}
+
 open class Document: Element {
     public enum QuirksMode {
         case noQuirks, quirks, limitedQuirks
@@ -16,6 +27,10 @@ open class Document: Element {
     private var _quirksMode: Document.QuirksMode = QuirksMode.noQuirks
     private let _location: [UInt8]
     private var updateMetaCharset: Bool = false
+    
+    @usableFromInline
+    internal var parsedAsXml: Bool = false
+
 
     /**
      Create a new, empty Document.
@@ -383,6 +398,41 @@ open class Document: Element {
         return self
     }
 
+    @usableFromInline
+    internal func sourcePatches() throws -> [SourcePatch] {
+        guard sourceBuffer != nil else { return [] }
+        let out = (_outputSettings.copy() as! OutputSettings).prettyPrint(pretty: false)
+        var patches: [SourcePatch] = []
+
+        func collect(_ node: Node, _ ancestorDirty: Bool) {
+            let nodeDirty = node.sourceRangeDirty
+            if nodeDirty && !ancestorDirty,
+               node.sourceRangeIsComplete,
+               let range = node.sourceRange,
+               range.isValid,
+               let source = sourceBuffer?.bytes,
+               range.end <= source.count {
+                if let replacement = try? node.outerHtmlUTF8Internal(out, allowRawSource: false) {
+                    patches.append(SourcePatch(range: range, replacement: replacement))
+                    return
+                }
+            }
+            let hasOwnRange = node.sourceRangeIsComplete && node.sourceRange != nil
+            let childAncestorDirty = ancestorDirty || (nodeDirty && hasOwnRange)
+            if node.hasChildNodes() {
+                for child in node.childNodes {
+                    collect(child, childAncestorDirty)
+                }
+            }
+        }
+
+        collect(self, false)
+        if patches.count > 1 {
+            patches.sort { $0.range.start < $1.range.start }
+        }
+        return patches
+    }
+
     @inline(__always)
     public func quirksMode()->Document.QuirksMode {
         return _quirksMode
@@ -407,14 +457,26 @@ open class Document: Element {
 		return copy(clone: clone, parent: parent)
 	}
 
+    override func copyForDeepClone(parent: Node?) -> Node {
+        let clone = Document(_location)
+        clone._outputSettings = _outputSettings.copy() as! OutputSettings
+        clone._quirksMode = _quirksMode
+        clone.updateMetaCharset = updateMetaCharset
+        clone.sourceBuffer = nil
+        clone.parsedAsXml = parsedAsXml
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
+    }
+
     @inline(__always)
-	public override func copy(clone: Node, parent: Node?) -> Node {
-		let clone = clone as! Document
-		clone._outputSettings = _outputSettings.copy() as! OutputSettings
-		clone._quirksMode = _quirksMode
-		clone.updateMetaCharset = updateMetaCharset
-		return super.copy(clone: clone, parent: parent)
-	}
+    public override func copy(clone: Node, parent: Node?) -> Node {
+        let clone = clone as! Document
+        clone._outputSettings = _outputSettings.copy() as! OutputSettings
+        clone._quirksMode = _quirksMode
+        clone.updateMetaCharset = updateMetaCharset
+        clone.sourceBuffer = nil
+        clone.parsedAsXml = parsedAsXml
+        return super.copy(clone: clone, parent: parent)
+    }
 
 }
 
@@ -591,6 +653,10 @@ public class OutputSettings: NSCopying {
         let clone: OutputSettings = OutputSettings()
         clone.charset(_encoder) // new charset and charset encoder
         clone._escapeMode = _escapeMode//Entities.EscapeMode.valueOf(escapeMode.name())
+        clone._prettyPrint = _prettyPrint
+        clone._outline = _outline
+        clone._indentAmount = _indentAmount
+        clone._syntax = _syntax
         // indentAmount, prettyPrint are primitives so object.clone() will handle
         return clone
     }

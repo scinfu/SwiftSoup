@@ -76,4 +76,107 @@ class AttributesTest: XCTestCase {
 		let iterator = a.makeIterator()
 		XCTAssertNil(iterator.next())
 	}
+
+    func testRemoveAllKeys() {
+        let a = Attributes()
+        do {
+            try a.put("One", "1")
+            try a.put("Two", "2")
+            try a.put("data-x", "3")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        a.removeAll(keys: [ "Two".utf8Array, "data-x".utf8Array ])
+
+        XCTAssertEqual(1, a.size())
+        XCTAssertTrue(a.hasKey(key: "One"))
+        XCTAssertFalse(a.hasKey(key: "Two"))
+        XCTAssertFalse(a.hasKey(key: "data-x"))
+    }
+
+    func testCompactAndMutate() {
+        let a = Attributes()
+        do {
+            try a.put("One", "1")
+            try a.put("Two", "2")
+            try a.put("class", "alpha")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        a.compactAndMutate { attr in
+            switch attr.getKey() {
+            case "Two":
+                return AttributeMutation(keep: false)
+            case "One":
+                return AttributeMutation(keep: true, newValue: "10".utf8Array)
+            default:
+                return AttributeMutation(keep: true)
+            }
+        }
+
+        XCTAssertEqual(2, a.size())
+        XCTAssertTrue(a.hasKey(key: "One"))
+        XCTAssertFalse(a.hasKey(key: "Two"))
+        XCTAssertTrue(a.hasKey(key: "class"))
+        XCTAssertEqual("10", a.get(key: "One"))
+        XCTAssertEqual("alpha", a.get(key: "class"))
+    }
+
+    func testKeyIndexLargeSetLookupAndRemove() {
+        let a = Attributes()
+        do {
+            for i in 0..<20 {
+                try a.put("key\(i)", "val\(i)")
+            }
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+        XCTAssertEqual("val12", a.get(key: "key12"))
+        do {
+            try a.remove(key: "key12")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+        XCTAssertEqual("", a.get(key: "key12"))
+        XCTAssertEqual(19, a.size())
+    }
+
+    func testKeyIndexInvalidatedAfterCompactAndMutate() {
+        let a = Attributes()
+        do {
+            for i in 0..<16 {
+                try a.put("k\(i)", "v\(i)")
+            }
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+        a.compactAndMutate { attr in
+            if attr.getKey() == "k3" {
+                return AttributeMutation(keep: false)
+            }
+            if attr.getKey() == "k7" {
+                return AttributeMutation(keep: true, newValue: "v7x".utf8Array)
+            }
+            return AttributeMutation(keep: true)
+        }
+        XCTAssertEqual("", a.get(key: "k3"))
+        XCTAssertEqual("v7x", a.get(key: "k7"))
+        XCTAssertEqual(15, a.size())
+    }
+
+    func testLowercaseAllKeysNoOpWithoutUppercase() {
+        let a = Attributes()
+        do {
+            try a.put("data-x", "1")
+            try a.put("aria-label", "2")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+        a.lowercaseAllKeys()
+        XCTAssertTrue(a.hasKey(key: "data-x"))
+        XCTAssertTrue(a.hasKey(key: "aria-label"))
+    }
+
 }

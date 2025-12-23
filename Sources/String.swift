@@ -234,6 +234,30 @@ extension ArraySlice where Element == UInt8 {
         }
         return nil
     }
+
+    @inline(__always)
+    public func toIntAscii(radix: Int) -> Int? {
+        guard radix >= 2 && radix <= 36 else { return nil }
+        var value = 0
+        for b in self {
+            let digit: Int
+            if b >= 48 && b <= 57 {
+                digit = Int(b - 48)
+            } else if b >= 65 && b <= 90 {
+                digit = Int(b - 55)
+            } else if b >= 97 && b <= 122 {
+                digit = Int(b - 87)
+            } else {
+                return nil
+            }
+            if digit >= radix { return nil }
+            if value > (Int.max - digit) / radix {
+                return nil
+            }
+            value = value * radix + digit
+        }
+        return value
+    }
 }
 
 extension String {

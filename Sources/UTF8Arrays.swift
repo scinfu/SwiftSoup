@@ -7,6 +7,8 @@ public enum UTF8Arrays {
     public static let equalSign = "=".utf8Array
     public static let ampersand = "&".utf8Array
     public static let hyphen = "-".utf8Array
+    public static let doubleHyphen = "--".utf8Array
+    public static let doubleHyphenBang = "--!".utf8Array
     public static let underscore = "_".utf8Array
     public static let semicolon = ";".utf8Array
     public static let questionMark = "?".utf8Array
@@ -14,6 +16,7 @@ public enum UTF8Arrays {
     public static let selfClosingTagEnd = " />".utf8Array
     public static let endTagStart = "</".utf8Array
     public static let tagStart = "<".utf8Array
+    public static let tagStartBang = "<!".utf8Array
     public static let tagEnd = ">".utf8Array
     public static let attributeEqualsQuoteMark = "=\"".utf8Array
     public static let quoteMark = "\"".utf8Array
@@ -67,6 +70,9 @@ public enum UTF8Arrays {
     public static let textarea = "textarea".utf8Array
     public static let iframe = "iframe".utf8Array
     public static let noembed = "noembed".utf8Array
+    public static let noframes = "noframes".utf8Array
+    public static let noscript = "noscript".utf8Array
+    public static let embed = "embed".utf8Array
     public static let option = "option".utf8Array
     public static let math = "math".utf8Array
     public static let data = "data".utf8Array
@@ -85,9 +91,7 @@ public enum UTF8Arrays {
     public static let time = "time".utf8Array
     public static let href = "href".utf8Array
     public static let meter = "meter".utf8Array
-    public static let noscript = "noscript".utf8Array
     public static let b = "b".utf8Array
-    public static let noframes = "noframes".utf8Array
     public static let style = "style".utf8Array
     public static let title = "title".utf8Array
     public static let script = "script".utf8Array
@@ -103,6 +107,8 @@ public enum UTF8ArraySlices {
     public static let equalSign = UTF8Arrays.equalSign[...]
     public static let ampersand = UTF8Arrays.ampersand[...]
     public static let hyphen = UTF8Arrays.hyphen[...]
+    public static let doubleHyphen = UTF8Arrays.doubleHyphen[...]
+    public static let doubleHyphenBang = UTF8Arrays.doubleHyphenBang[...]
     public static let underscore = UTF8Arrays.underscore[...]
     public static let semicolon = UTF8Arrays.semicolon[...]
     public static let questionMark = UTF8Arrays.questionMark[...]
@@ -110,6 +116,7 @@ public enum UTF8ArraySlices {
     public static let selfClosingTagEnd = UTF8Arrays.selfClosingTagEnd[...]
     public static let endTagStart = UTF8Arrays.endTagStart[...]
     public static let tagStart = UTF8Arrays.tagStart[...]
+    public static let tagStartBang = UTF8Arrays.tagStartBang[...]
     public static let tagEnd = UTF8Arrays.tagEnd[...]
     public static let attributeEqualsQuoteMark = UTF8Arrays.attributeEqualsQuoteMark[...]
     public static let quoteMark = UTF8Arrays.quoteMark[...]
@@ -173,6 +180,9 @@ public enum UTF8ArraySlices {
     public static let textarea = UTF8Arrays.textarea[...]
     public static let iframe = UTF8Arrays.iframe[...]
     public static let noembed = UTF8Arrays.noembed[...]
+    public static let noframes = UTF8Arrays.noframes[...]
+    public static let noscript = UTF8Arrays.noscript[...]
+    public static let embed = UTF8Arrays.embed[...]
     public static let option = UTF8Arrays.option[...]
     public static let math = UTF8Arrays.math[...]
     public static let sarcasm = UTF8Arrays.sarcasm[...]
@@ -182,8 +192,6 @@ public enum UTF8ArraySlices {
     public static let frame = UTF8Arrays.frame[...]
     public static let base = UTF8Arrays.base[...]
     public static let href = UTF8Arrays.href[...]
-    public static let noscript = UTF8Arrays.noscript[...]
-    public static let noframes = UTF8Arrays.noframes[...]
     public static let style = UTF8Arrays.style[...]
     public static let title = UTF8Arrays.title[...]
     public static let script = UTF8Arrays.script[...]

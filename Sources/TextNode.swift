@@ -18,6 +18,7 @@ open class TextNode: Node {
      */
     private static let TEXT_KEY = "text".utf8Array
     var _text: [UInt8]
+    private var _textSlice: ArraySlice<UInt8>? = nil
 
     /**
      Create a new TextNode representing the supplied (unencoded) text).
@@ -30,6 +31,14 @@ open class TextNode: Node {
         super.init()
         self.baseUri = baseUri
 
+    }
+
+    @usableFromInline
+    internal init(slice: ArraySlice<UInt8>, baseUri: [UInt8]?) {
+        self._text = []
+        self._textSlice = slice
+        super.init()
+        self.baseUri = baseUri
     }
     public convenience init(_ text: String, _ baseUri: String?) {
         self.init(text.utf8Array, baseUri?.utf8Array)
@@ -63,8 +72,11 @@ open class TextNode: Node {
     @discardableResult
     @inline(__always)
     public func text(_ text: String) -> TextNode {
+        _textSlice = nil
         _text = text.utf8Array
         guard let attributes = attributes else {
+            bumpTextMutationVersion()
+            markSourceDirty()
             return self
         }
         do {
@@ -72,6 +84,8 @@ open class TextNode: Node {
         } catch {
 
         }
+        bumpTextMutationVersion()
+        markSourceDirty()
         return self
     }
 
@@ -81,11 +95,21 @@ open class TextNode: Node {
      */
     @inline(__always)
     open func getWholeText() -> String {
-        return String(decoding: attributes == nil ? _text : attributes!.get(key: TextNode.TEXT_KEY), as: UTF8.self)
+        return String(decoding: getWholeTextUTF8(), as: UTF8.self)
     }
     
     @inline(__always)
     open func getWholeTextUTF8() -> [UInt8] {
+        if let slice = _textSlice {
+            let materialized = Array(slice)
+            _textSlice = nil
+            _text = materialized
+            if let attrs = attributes {
+                do {
+                    try attrs.put(TextNode.TEXT_KEY, materialized)
+                } catch {}
+            }
+        }
         return attributes == nil ? _text : attributes!.get(key: TextNode.TEXT_KEY)
     }
 
@@ -106,7 +130,8 @@ open class TextNode: Node {
      */
     open func splitText(_ offset: Int) throws -> TextNode {
         try Validate.isTrue(val: offset >= 0, msg: "Split offset must be not be negative")
-        try Validate.isTrue(val: offset < _text.count, msg: "Split offset must not be greater than current text length")
+        let current = getWholeTextUTF8()
+        try Validate.isTrue(val: offset < current.count, msg: "Split offset must not be greater than current text length")
 
         let head: String = getWholeText().substring(0, offset)
         let tail: String = getWholeText().substring(offset)
@@ -121,13 +146,14 @@ open class TextNode: Node {
     open func splitText(utf8Offset: Int) throws -> TextNode {
         // Ensure UTF-8 offset is within valid bounds
         try Validate.isTrue(val: utf8Offset >= 0, msg: "Split UTF-8 offset must not be negative")
-        try Validate.isTrue(val: utf8Offset < _text.count, msg: "Split UTF-8 offset must not exceed current text length in UTF-8 bytes")
+        let current = getWholeTextUTF8()
+        try Validate.isTrue(val: utf8Offset < current.count, msg: "Split UTF-8 offset must not exceed current text length in UTF-8 bytes")
         
         // Convert UTF-8 offset to extended grapheme cluster offset
         let graphemeOffset = Substring(getWholeText().utf8.prefix(utf8Offset)).count
         
         // Validate grapheme cluster offset
-        try Validate.isTrue(val: graphemeOffset < _text.count, msg: "Split grapheme cluster offset must not exceed current text length")
+        try Validate.isTrue(val: graphemeOffset < current.count, msg: "Split grapheme cluster offset must not exceed current text length")
         
         return try splitText(graphemeOffset)
     }
@@ -189,6 +215,10 @@ open class TextNode: Node {
         if (attributes == nil) {
             attributes = Attributes()
             do {
+                if let slice = _textSlice {
+                    _text = Array(slice)
+                    _textSlice = nil
+                }
                 try attributes?.put(TextNode.TEXT_KEY, _text)
             } catch {}
         }
@@ -245,14 +275,19 @@ open class TextNode: Node {
     }
 
 	public override func copy(with zone: NSZone? = nil) -> Any {
-		let clone = TextNode(_text, baseUri)
+		let clone = TextNode(getWholeTextUTF8(), baseUri)
 		return super.copy(clone: clone)
 	}
 
 	public override func copy(parent: Node?) -> Node {
-		let clone = TextNode(_text, baseUri)
+		let clone = TextNode(getWholeTextUTF8(), baseUri)
 		return super.copy(clone: clone, parent: parent)
 	}
+
+    override func copyForDeepClone(parent: Node?) -> Node {
+        let clone = TextNode(getWholeTextUTF8(), baseUri)
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
+    }
 
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		return super.copy(clone: clone, parent: parent)

@@ -103,7 +103,20 @@ open class Tag: Hashable, @unchecked Sendable {
     public static func valueOf(_ tagName: [UInt8], _ settings: ParseSettings) throws -> Tag {
         return try valueOf(tagName, settings, isSelfClosing: false)
     }
-    
+
+    @inline(__always)
+    internal static func valueOfNormalized(_ normalizedTagName: [UInt8], isSelfClosing: Bool = false) throws -> Tag {
+        if let tag = Self.knownTags[normalizedTagName] {
+            return tag
+        }
+        try Validate.notEmpty(string: normalizedTagName)
+        // not defined: create default; go anywhere, do anything! (incl be inside a <p>)
+        var traits = Traits.forBlockTag
+        traits.isBlock = false
+        traits.selfClosing = isSelfClosing
+        return Tag(normalizedTagName, traits: traits)
+    }
+
     internal static func valueOf(_ tagName: [UInt8], _ settings: ParseSettings, isSelfClosing: Bool) throws -> Tag {
         if let tag = Self.knownTags[tagName] {
             return tag

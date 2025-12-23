@@ -13,6 +13,13 @@ import Foundation
  Source: [W3C HTML named character references](http://www.w3.org/TR/html5/named-character-references.html#named-character-references)
  */
 public final class Entities: Sendable {
+    private static let commonNamedEntities: [ArraySlice<UInt8>: [UnicodeScalar]] = [
+        "lt".utf8ArraySlice: [UnicodeScalar(0x3C)!],
+        "gt".utf8ArraySlice: [UnicodeScalar(0x3E)!],
+        "amp".utf8ArraySlice: [UnicodeScalar(0x26)!],
+        "quot".utf8ArraySlice: [UnicodeScalar(0x22)!],
+        "apos".utf8ArraySlice: [UnicodeScalar(0x27)!],
+    ]
     private static let empty = -1
     private static let emptyName = ""
     private static let codepointRadix: Int = 36
@@ -90,17 +97,17 @@ public final class Entities: Sendable {
             while !reader.isEmpty() {
                 let name: ArraySlice<UInt8> = reader.consumeTo(equals)
                 reader.advance()
-                let cp1: Int = reader.consumeToAny(EscapeMode.codeDelims).toInt(radix: codepointRadix) ?? 0
+                let cp1: Int = reader.consumeToAny(EscapeMode.codeDelims).toIntAscii(radix: codepointRadix) ?? 0
                 let codeDelim: UnicodeScalar = reader.current()
                 reader.advance()
                 let cp2: Int
                 if codeDelim == "," {
-                    cp2 = reader.consumeTo(semicolon).toInt(radix: codepointRadix) ?? 0
+                    cp2 = reader.consumeTo(semicolon).toIntAscii(radix: codepointRadix) ?? 0
                     reader.advance()
                 } else {
                     cp2 = empty
                 }
-                let _ = reader.consumeTo(newline).toInt(radix: codepointRadix) ?? 0
+                let _ = reader.consumeTo(newline).toIntAscii(radix: codepointRadix) ?? 0
                 reader.advance()
                 
                 entitiesByNameMap.append(NamedCodepoint(scalar: UnicodeScalar(cp1)!, name: name))
@@ -136,31 +143,47 @@ public final class Entities: Sendable {
         
         /// Search by first codepoint only
         public func nameForCodepoint(_ codepoint: UnicodeScalar) -> String? {
-            var ix = entitiesByCodepoint.binarySearch { $0.scalar < codepoint }
-            var matches: [ArraySlice<UInt8>] = []
-            while ix < entitiesByCodepoint.endIndex && entitiesByCodepoint[ix].scalar == codepoint {
-                matches.append(entitiesByCodepoint[ix].name)
-                entitiesByCodepoint.formIndex(after: &ix)
-            }
-            return matches.isEmpty ? nil : String(decoding: matches.sorted().last!, as: UTF8.self)
+            guard let best = bestNameForScalar(codepoint) else { return nil }
+            return String(decoding: best, as: UTF8.self)
         }
         
         public func nameForCodepoint(_ codepoint: [UInt8]) -> [UInt8]? {
-            guard let scalar = UnicodeScalar(String(decoding: codepoint, as: UTF8.self)) else {
+            guard !codepoint.isEmpty else { return nil }
+            var iterator = codepoint.makeIterator()
+            var utf8Decoder = UTF8()
+            guard case .scalarValue(let scalar) = utf8Decoder.decode(&iterator) else {
                 return nil
             }
-            
-            var ix = entitiesByCodepoint.binarySearch { $0.scalar < scalar }
-            var matches: [ArraySlice<UInt8>] = []
-            
-            // Iterate while handling multi-byte entries
-            while ix < entitiesByCodepoint.endIndex && entitiesByCodepoint[ix].scalar == scalar {
-                matches.append(entitiesByCodepoint[ix].name)
-                ix = entitiesByCodepoint.index(after: ix)
+            guard let best = bestNameForScalar(scalar) else { return nil }
+            return Array(best)
+        }
+
+        public func nameForCodepoint(_ codepoint: ArraySlice<UInt8>) -> ArraySlice<UInt8>? {
+            guard !codepoint.isEmpty else { return nil }
+            var iterator = codepoint.makeIterator()
+            var utf8Decoder = UTF8()
+            guard case .scalarValue(let scalar) = utf8Decoder.decode(&iterator) else {
+                return nil
             }
-            
-            // Return the last match as an array of UInt8
-            return matches.isEmpty ? nil : Array(matches.sorted().last ?? [])
+            return bestNameForScalar(scalar)
+        }
+
+        @inline(__always)
+        private func bestNameForScalar(_ scalar: UnicodeScalar) -> ArraySlice<UInt8>? {
+            var ix = entitiesByCodepoint.binarySearch { $0.scalar < scalar }
+            var best: ArraySlice<UInt8>? = nil
+            while ix < entitiesByCodepoint.endIndex && entitiesByCodepoint[ix].scalar == scalar {
+                let candidate = entitiesByCodepoint[ix].name
+                if let current = best {
+                    if current.lexicographicallyPrecedes(candidate) {
+                        best = candidate
+                    }
+                } else {
+                    best = candidate
+                }
+                entitiesByCodepoint.formIndex(after: &ix)
+            }
+            return best
         }
         
         private func size() -> Int {
@@ -204,6 +227,9 @@ public final class Entities: Sendable {
     }
 
     public static func codepointsForName(_ name: ArraySlice<UInt8>) -> [UnicodeScalar]? {
+        if let common = commonNamedEntities[name] {
+            return common
+        }
         if let scalars = EscapeMode.staticData.multipoints[name] {
             return scalars
         }
@@ -243,6 +269,10 @@ public final class Entities: Sendable {
         _ normaliseWhite: Bool,
         _ stripLeadingWhite: Bool
     ) {
+        #if PROFILE
+        let _p = Profiler.start("Entities.escape")
+        defer { Profiler.end("Entities.escape", _p) }
+        #endif
         let escapeMode = out.escapeMode()
         let encoder = out.encoder()
         let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .ascii || encoder == .utf16
@@ -302,11 +332,11 @@ public final class Entities: Sendable {
                 } else {
                     let len = utf8CharLength(for: b)
                     let end = i + len <= count ? i + len : count
-                    var charBytes = [UInt8]()
-                    for j in i..<end {
-                        charBytes.append(base[j])
-                    }
-                    if charBytes == [0xC2, 0xA0] {
+                    let startIndex = string.startIndex
+                    let sliceStart = string.index(startIndex, offsetBy: i)
+                    let sliceEnd = string.index(startIndex, offsetBy: end)
+                    let charBytes = string[sliceStart..<sliceEnd]
+                    if end - i == 2 && base[i] == 0xC2 && base[i + 1] == 0xA0 {
                         // UTF-8 encoding of "\u{A0}"
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
                     } else if canEncode(bytes: charBytes, encoder: encoder) {
@@ -319,25 +349,147 @@ public final class Entities: Sendable {
             }
         }
     }
+
+    @usableFromInline
+    @inline(__always)
+    static func escape(
+        _ accum: StringBuilder,
+        _ string: ArraySlice<UInt8>,
+        _ out: OutputSettings,
+        _ inAttribute: Bool,
+        _ normaliseWhite: Bool,
+        _ stripLeadingWhite: Bool
+    ) {
+        #if PROFILE
+        let _p = Profiler.start("Entities.escape")
+        defer { Profiler.end("Entities.escape", _p) }
+        #endif
+        let escapeMode = out.escapeMode()
+        let encoder = out.encoder()
+        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .ascii || encoder == .utf16
+        let count = string.count
+        string.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            var i = 0
+            var lastWasWhite = false, reachedNonWhite = false
+            while i < count {
+                let b = base[i]
+                if normaliseWhite && b.isWhitespace {
+                    var j = i
+                    while j < count && base[j].isWhitespace {
+                        j += 1
+                    }
+                    if (!reachedNonWhite && stripLeadingWhite) || lastWasWhite {
+                        i = j
+                        continue
+                    }
+                    accum.append(0x20)
+                    lastWasWhite = true
+                    i = j
+                    continue
+                }
+                lastWasWhite = false
+                reachedNonWhite = true
+                if b < 0x80 {
+                    switch b {
+                    case 0x26:
+                        accum.append(ampEntityUTF8)
+                    case 0x3C:
+                        if !inAttribute || escapeMode == .xhtml {
+                            accum.append(ltEntityUTF8)
+                        } else {
+                            accum.append(b)
+                        }
+                    case 0x3E:
+                        if !inAttribute {
+                            accum.append(gtEntityUTF8)
+                        } else {
+                            accum.append(b)
+                        }
+                    case 0x22:
+                        if inAttribute {
+                            accum.append(quotEntityUTF8)
+                        } else {
+                            accum.append(b)
+                        }
+                    default:
+                        if encoderKnownToBeAbleToEncode || canEncode(byte: b, encoder: encoder) {
+                            accum.append(b)
+                        } else {
+                            appendEncoded(accum: accum, escapeMode: escapeMode, bytes: [b])
+                        }
+                    }
+                    i += 1
+                } else {
+                    let len = utf8CharLength(for: b)
+                    let end = i + len <= count ? i + len : count
+                    let startIndex = string.startIndex
+                    let sliceStart = string.index(startIndex, offsetBy: i)
+                    let sliceEnd = string.index(startIndex, offsetBy: end)
+                    let charBytes = string[sliceStart..<sliceEnd]
+                    if end - i == 2 && base[i] == 0xC2 && base[i + 1] == 0xA0 {
+                        accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
+                    } else if canEncode(bytes: charBytes, encoder: encoder) {
+                        accum.append(charBytes)
+                    } else {
+                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
+                    }
+                    i = end
+                }
+            }
+        }
+    }
     
     @inlinable
-    internal static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: [UInt8]) {
+    internal static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: ArraySlice<UInt8>) {
         if let name = escapeMode.nameForCodepoint(bytes) {
             accum.append(0x26) // '&'
             accum.append(name)
             accum.append(0x3B) // ';'
         } else {
-            guard let scalar = String(bytes: bytes, encoding: .utf8)?.unicodeScalars.first else {
+            var iterator = bytes.makeIterator()
+            var utf8Decoder = UTF8()
+            guard case .scalarValue(let scalar) = utf8Decoder.decode(&iterator) else {
                 accum.append([0x26, 0x23, 0x78]) // '&#x'
-                for b in bytes { accum.append(String.toHexString(n: Int(b)).utf8Array) }
+                for b in bytes { appendHex(Int(b), accum) }
                 accum.append(0x3B)
                 return
             }
             accum.append([0x26, 0x23, 0x78])
-            accum.append(String.toHexString(n: Int(scalar.value)).utf8Array)
+            appendHex(Int(scalar.value), accum)
             accum.append(0x3B)
         }
     }
+
+    internal static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: [UInt8]) {
+        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: bytes[...])
+    }
+
+    @usableFromInline
+    @inline(__always)
+    static func appendHex(_ n: Int, _ accum: StringBuilder) {
+        if n < 16 {
+            accum.append(0x20) // space to match "%2x"
+            accum.append(hexDigits[n])
+            return
+        }
+        var temp = n
+        var shift = 0
+        while temp > 15 {
+            temp >>= 4
+            shift += 4
+        }
+        var s = shift
+        while s >= 0 {
+            let nibble = (n >> s) & 0xF
+            accum.append(hexDigits[nibble])
+            if s == 0 { break }
+            s -= 4
+        }
+    }
+
+    @usableFromInline
+    static let hexDigits: [UInt8] = "0123456789abcdef".utf8Array
     
     public static func unescape(_ string: [UInt8]) throws -> [UInt8] {
         return try unescape(string: string, strict: false)
@@ -390,6 +542,24 @@ public final class Entities: Sendable {
     
     @inlinable
     internal static func canEncode(bytes: [UInt8], encoder: String.Encoding) -> Bool {
+        switch encoder {
+        case .ascii:
+            // Check if all bytes are within ASCII range
+            return bytes.allSatisfy { $0 < 0x80 }
+        case .utf8:
+            // UTF-8 can encode all valid sequences
+            return true
+        case .utf16, .unicode:
+            // UTF-16 can encode all valid sequences
+            return true
+        default:
+            // Fallback: Try creating a string and see if it succeeds
+            return String(bytes: bytes, encoding: encoder) != nil
+        }
+    }
+
+    @inlinable
+    internal static func canEncode(bytes: ArraySlice<UInt8>, encoder: String.Encoding) -> Bool {
         switch encoder {
         case .ascii:
             // Check if all bytes are within ASCII range

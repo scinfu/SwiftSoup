@@ -29,11 +29,11 @@ public class TreeBuilder {
     public init() {
         doc =  Document([])
         reader = CharacterReader([])
-        tokeniser = Tokeniser(reader, nil)
         stack = Array<Element>()
         baseUri = []
         errors = ParseErrorList(0, 0)
         settings = ParseSettings(false, false)
+        tokeniser = Tokeniser(reader, nil, settings)
     }
     
     @inline(__always)
@@ -48,10 +48,12 @@ public class TreeBuilder {
     
     public func initialiseParse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
         doc = Document(baseUri)
+        doc.sourceBuffer = SourceBuffer(input)
+        doc.parsedAsXml = false
         self.settings = settings
         reader = CharacterReader(input)
         self.errors = errors
-        tokeniser = Tokeniser(reader, errors)
+        tokeniser = Tokeniser(reader, errors, settings)
         stack = Array<Element>()
         self.baseUri = baseUri
     }
@@ -72,6 +74,10 @@ public class TreeBuilder {
     }
     
     public func runParser() throws {
+        #if PROFILE
+        let _p = Profiler.start("TreeBuilder.runParser")
+        defer { Profiler.end("TreeBuilder.runParser", _p) }
+        #endif
         while (true) {
             let token: Token = try tokeniser.read()
             try process(token)
