@@ -1,6 +1,24 @@
 import Foundation
 import SwiftSoup
 
+func writeStderr(_ message: String) {
+    if let data = message.data(using: .utf8) {
+        FileHandle.standardError.write(data)
+    }
+}
+
+#if canImport(Darwin)
+func withAutoreleasepool(_ body: () throws -> Void) rethrows {
+    try autoreleasepool {
+        try body()
+    }
+}
+#else
+func withAutoreleasepool(_ body: () throws -> Void) rethrows {
+    try body()
+}
+#endif
+
 struct Options {
     var fixturesPath: String
     var includeText: Bool
@@ -55,18 +73,18 @@ let options = parseOptions()
 let files = findSourceHTMLFiles(fixturesPath: options.fixturesPath)
 
 if files.isEmpty {
-    fputs("No source.html files found under: \(options.fixturesPath)\n", stderr)
+    writeStderr("No source.html files found under: \(options.fixturesPath)\n")
     exit(1)
 }
 
 Profiler.reset()
 
-let start = CFAbsoluteTimeGetCurrent()
+let start = Date()
 var totalBytes = 0
 var parsedCount = 0
 
 for url in files {
-    autoreleasepool {
+    withAutoreleasepool {
         do {
             let data = try Data(contentsOf: url)
             totalBytes += data.count
@@ -76,12 +94,12 @@ for url in files {
             }
             parsedCount += 1
         } catch {
-            fputs("Error parsing \(url.path): \(error)\n", stderr)
+            writeStderr("Error parsing \(url.path): \(error)\n")
         }
     }
 }
 
-let total = CFAbsoluteTimeGetCurrent() - start
+let total = Date().timeIntervalSince(start)
 let mb = Double(totalBytes) / (1024.0 * 1024.0)
 
 print("Parsed \(parsedCount) files, \(String(format: "%.2f", mb)) MB in \(String(format: "%.2f", total)) s")

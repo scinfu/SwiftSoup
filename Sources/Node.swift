@@ -397,6 +397,17 @@ open class Node: Equatable, Hashable {
             return parentNode!.ownerDocument()
         }
     }
+
+    /// A token that changes when text content in this node's tree mutates.
+    /// Use this to invalidate external caches that depend on text content.
+    @inline(__always)
+    public func textMutationVersionToken() -> Int {
+        var node: Node = self
+        while let parent = node.parentNode {
+            node = parent
+        }
+        return node.textMutationVersion
+    }
     
     /**
      Remove (delete) this node from the DOM tree. If this node has children, they are also removed.
