@@ -58,6 +58,7 @@ open class Attributes: NSCopying {
             ownerElement?.markIdQueryIndexDirty()
             ownerElement?.markAttributeQueryIndexDirty()
             ownerElement?.markAttributeValueQueryIndexDirty()
+            ownerElement?.markSourceDirty()
             invalidateLowercasedKeysCache()
             invalidateKeyIndex()
         }
@@ -141,6 +142,7 @@ open class Attributes: NSCopying {
         ownerElement?.markIdQueryIndexDirty()
         ownerElement?.markAttributeQueryIndexDirty()
         ownerElement?.markAttributeValueQueryIndexDirty()
+        ownerElement?.markSourceDirty()
     }
 
     @usableFromInline
@@ -811,6 +813,7 @@ open class Attributes: NSCopying {
         ownerElement?.markIdQueryIndexDirty()
         ownerElement?.markAttributeQueryIndexDirty()
         ownerElement?.markAttributeValueQueryIndexDirty()
+        ownerElement?.markSourceDirty()
     }
     
     @inline(__always)

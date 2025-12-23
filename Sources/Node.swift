@@ -25,6 +25,15 @@ open class Node: Equatable, Hashable {
     var attributes: Attributes?
     
     @usableFromInline
+    internal var sourceRange: SourceRange? = nil
+    
+    @usableFromInline
+    internal var sourceRangeIsComplete: Bool = false
+    
+    @usableFromInline
+    internal var sourceRangeDirty: Bool = false
+    
+    @usableFromInline
     weak var parentNode: Node? {
         @inline(__always)
         didSet {
@@ -404,6 +413,37 @@ open class Node: Equatable, Hashable {
         let root = textMutationRoot()
         root.textMutationVersion &+= 1
     }
+
+    @inline(__always)
+    @usableFromInline
+    internal func markSourceDirty(force: Bool = false) {
+        if sourceRangeDirty {
+            return
+        }
+        if !force, treeBuilder?.isBulkBuilding == true {
+            return
+        }
+        sourceRangeDirty = true
+        parentNode?.markSourceDirty(force: force)
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func setSourceRange(_ range: SourceRange, complete: Bool) {
+        sourceRange = range
+        sourceRangeIsComplete = complete
+        sourceRangeDirty = false
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func setSourceRangeEnd(_ end: Int) {
+        guard var range = sourceRange else { return }
+        range.end = end
+        sourceRange = range
+        sourceRangeIsComplete = true
+        sourceRangeDirty = false
+    }
     
     /**
      Insert the specified HTML into the DOM before this node (i.e. as a preceding sibling).
@@ -638,6 +678,9 @@ open class Node: Equatable, Hashable {
         input.parentNode = self
         input.setSiblingIndex(index)
         out.parentNode = nil
+        markSourceDirty()
+        out.markSourceDirty()
+        input.markSourceDirty()
         if (out is Element) || (input is Element), let element = self as? Element {
             element.markQueryIndexesDirty()
         }
@@ -651,6 +694,7 @@ open class Node: Equatable, Hashable {
         childNodes.remove(at: index)
         reindexChildren(index)
         out.parentNode = nil
+        markSourceDirty()
         if out is Element, let element = self as? Element {
             element.markQueryIndexesDirty()
         }
@@ -670,7 +714,9 @@ open class Node: Equatable, Hashable {
             try reparentChild(child)
             childNodes.append(child)
             child.setSiblingIndex(childNodes.count - 1)
+            child.markSourceDirty()
         }
+        markSourceDirty()
         bumpTextMutationVersion()
     }
     
@@ -685,7 +731,9 @@ open class Node: Equatable, Hashable {
             try reparentChild(input)
             childNodes.insert(input, at: index)
             reindexChildren(index)
+            input.markSourceDirty()
         }
+        markSourceDirty()
         bumpTextMutationVersion()
     }
     
@@ -797,7 +845,23 @@ open class Node: Equatable, Hashable {
     
     @inline(__always)
     public func outerHtml(_ accum: StringBuilder) throws {
-        try NodeTraversor(OuterHtmlVisitor(accum, getOutputSettings())).traverse(self)
+        try outerHtmlFast(accum, 0, getOutputSettings(), allowRawSource: true)
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func outerHtmlUTF8Internal() throws -> [UInt8] {
+        let accum = StringBuilder(128)
+        try outerHtmlFast(accum, 0, getOutputSettings(), allowRawSource: true)
+        return Array(accum.buffer)
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func outerHtmlUTF8Internal(_ out: OutputSettings, allowRawSource: Bool) throws -> [UInt8] {
+        let accum = StringBuilder(128)
+        try outerHtmlFast(accum, 0, out, allowRawSource: allowRawSource)
+        return Array(accum.buffer)
     }
     
     // if this node has no document (or parent), retrieve the default output settings
@@ -816,6 +880,55 @@ open class Node: Equatable, Hashable {
     
     func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) throws {
         preconditionFailure("This method must be overridden")
+    }
+
+    @inline(__always)
+    private func rawSourceSlice(_ out: OutputSettings, allowRawSource: Bool) -> ArraySlice<UInt8>? {
+        guard allowRawSource,
+              !out.prettyPrint(),
+              out.syntax() == .html,
+              !sourceRangeDirty,
+              sourceRangeIsComplete,
+              let range = sourceRange,
+              range.isValid,
+              let doc = ownerDocument(),
+              let source = doc.sourceInput
+        else {
+            return nil
+        }
+        if range.end > source.count {
+            return nil
+        }
+        return source[range.start..<range.end]
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func sourceSliceUTF8() -> ArraySlice<UInt8>? {
+        guard let range = sourceRange,
+              range.isValid,
+              let doc = ownerDocument(),
+              let source = doc.sourceInput,
+              range.end <= source.count
+        else {
+            return nil
+        }
+        return source[range.start..<range.end]
+    }
+
+    @inline(__always)
+    private func outerHtmlFast(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings, allowRawSource: Bool) throws {
+        if let raw = rawSourceSlice(out, allowRawSource: allowRawSource) {
+            accum.append(raw)
+            return
+        }
+        try outerHtmlHead(accum, depth, out)
+        if !childNodes.isEmpty {
+            for child in childNodes {
+                try child.outerHtmlFast(accum, depth + 1, out, allowRawSource: allowRawSource)
+            }
+        }
+        try outerHtmlTail(accum, depth, out)
     }
     
     /**
@@ -950,6 +1063,9 @@ open class Node: Equatable, Hashable {
         } else {
             clone.childNodes.removeAll(keepingCapacity: true)
         }
+        clone.sourceRange = nil
+        clone.sourceRangeIsComplete = false
+        clone.sourceRangeDirty = true
 
         if rebuildIndexes, let cloneElement = clone as? Element {
             cloneElement.rebuildQueryIndexesForThisNodeOnly()

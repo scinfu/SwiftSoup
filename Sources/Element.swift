@@ -155,6 +155,7 @@ open class Element: Node {
         _tag = try Tag.valueOf(tagName, ParseSettings.preserveCase) // preserve the requested tag case
         markTagQueryIndexDirty()
         bumpTextMutationVersion()
+        markSourceDirty()
         return self
     }
     
@@ -453,6 +454,8 @@ open class Element: Node {
         try reparentChild(child)
         childNodes.append(child)
         child.setSiblingIndex(childNodes.count - 1)
+        child.markSourceDirty()
+        markSourceDirty()
         return self
     }
     
@@ -653,6 +656,7 @@ open class Element: Node {
         markQueryIndexesDirty()
         childNodes.removeAll()
         bumpTextMutationVersion()
+        markSourceDirty()
         return self
     }
     

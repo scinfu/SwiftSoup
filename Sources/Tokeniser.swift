@@ -53,6 +53,8 @@ final class Tokeniser {
     private var charsSlice: ArraySlice<UInt8>? = nil // single pending slice to avoid array allocation
     private var pendingSlices = [ArraySlice<UInt8>]()
     private var pendingSlicesCount: Int = 0
+    private var pendingCharRange: SourceRange? = nil
+    private var pendingTagStartPos: Int? = nil
     private let charsBuilder: StringBuilder = StringBuilder(256) // buffers characters to output as one token, if more than one emit per read
     let dataBuffer: StringBuilder = StringBuilder(4 * 1024) // buffers data looking for </script>
     
@@ -77,6 +79,23 @@ final class Tokeniser {
             lowercaseAttributeNames = false
             attributesNormalizedByDefault = false
         }
+    }
+
+    @inline(__always)
+    func markTagStart(_ pos: Int) {
+        pendingTagStartPos = pos
+    }
+
+    @inline(__always)
+    func ensureTagStart(_ pos: Int) {
+        if pendingTagStartPos == nil {
+            pendingTagStartPos = pos
+        }
+    }
+
+    @inline(__always)
+    func clearTagStart() {
+        pendingTagStartPos = nil
     }
     
     func read() throws -> Token {
@@ -110,6 +129,8 @@ final class Tokeniser {
             charsSlice = nil
             pendingSlices.removeAll()
             pendingSlicesCount = 0
+            charPending.sourceRange = nil
+            pendingCharRange = nil
             return charPending.data(str)
         } else if let slice = charsSlice {
             #if PROFILE
@@ -117,6 +138,8 @@ final class Tokeniser {
             defer { Profiler.end("Tokeniser.read.emitSlice", _pEmit) }
             #endif
             charsSlice = nil
+            charPending.sourceRange = pendingCharRange
+            pendingCharRange = nil
             return charPending.data(Array(slice))
         } else if !pendingSlices.isEmpty {
             #if PROFILE
@@ -132,6 +155,8 @@ final class Tokeniser {
             }
             pendingSlices.removeAll()
             pendingSlicesCount = 0
+            charPending.sourceRange = nil
+            pendingCharRange = nil
             return charPending.data(combined)
         } else {
             #if PROFILE
@@ -139,6 +164,7 @@ final class Tokeniser {
             defer { Profiler.end("Tokeniser.read.emitToken", _pEmit) }
             #endif
             isEmitPending = false
+            pendingCharRange = nil
             return emitPending!
         }
     }
@@ -163,8 +189,21 @@ final class Tokeniser {
             }
         }
     }
+
+    @inline(__always)
+    func emitRaw(_ str: ArraySlice<UInt8>, start: Int, end: Int) {
+        if charsBuilder.isEmpty && charsSlice == nil && pendingSlices.isEmpty {
+            pendingCharRange = SourceRange(start: start, end: end)
+        } else {
+            pendingCharRange = nil
+        }
+        emit(str)
+    }
     
     func emit(_ str: ArraySlice<UInt8>) {
+        if pendingCharRange != nil, (!charsBuilder.isEmpty || charsSlice != nil || !pendingSlices.isEmpty) {
+            pendingCharRange = nil
+        }
         if !charsBuilder.isEmpty {
             charsBuilder.append(str)
             return
@@ -190,6 +229,7 @@ final class Tokeniser {
     }
     
     func emit(_ str: String) {
+        pendingCharRange = nil
         if !charsBuilder.isEmpty {
             charsBuilder.append(str)
             return
@@ -221,6 +261,7 @@ final class Tokeniser {
     }
 
     func emit(_ c: UnicodeScalar) {
+        pendingCharRange = nil
         let val = c.value
         if val < 0x80 {
             emitByte(UInt8(val))
@@ -237,6 +278,7 @@ final class Tokeniser {
     }
     
     func emit(_ c: [UnicodeScalar]) {
+        pendingCharRange = nil
         guard !c.isEmpty else { return }
         ensureCharsBuilderForAppend()
         for scalar in c {
@@ -427,6 +469,12 @@ final class Tokeniser {
     @inlinable
     func emitTagPending() throws {
         try tagPending.finaliseTag()
+        if let start = pendingTagStartPos {
+            tagPending.sourceRange = SourceRange(start: start, end: reader.pos)
+        } else {
+            tagPending.sourceRange = nil
+        }
+        pendingTagStartPos = nil
         try emit(tagPending)
     }
     
@@ -435,6 +483,12 @@ final class Tokeniser {
     }
     
     func emitCommentPending() throws {
+        if let start = pendingTagStartPos {
+            commentPending.sourceRange = SourceRange(start: start, end: reader.pos)
+        } else {
+            commentPending.sourceRange = nil
+        }
+        pendingTagStartPos = nil
         try emit(commentPending)
     }
     
@@ -443,6 +497,12 @@ final class Tokeniser {
     }
     
     func emitDoctypePending() throws {
+        if let start = pendingTagStartPos {
+            doctypePending.sourceRange = SourceRange(start: start, end: reader.pos)
+        } else {
+            doctypePending.sourceRange = nil
+        }
+        pendingTagStartPos = nil
         try emit(doctypePending)
     }
     

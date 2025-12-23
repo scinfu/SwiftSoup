@@ -141,6 +141,11 @@ class HtmlTreeBuilder: TreeBuilder {
     func transition(_ state: HtmlTreeBuilderState) {
         self._state = state
     }
+
+    @inline(__always)
+    func markStructuralChange(_ node: Node? = nil) {
+        (node ?? currentElement())?.markSourceDirty(force: true)
+    }
     
     func state() -> HtmlTreeBuilderState {
         return _state
@@ -236,6 +241,9 @@ class HtmlTreeBuilder: TreeBuilder {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
         el.treeBuilder = self
+        if let range = startTag.sourceRange {
+            el.setSourceRange(range, complete: false)
+        }
         try insert(el)
         return el
     }
@@ -250,6 +258,7 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         let el: Element = Element(tag, baseUri)
         el.treeBuilder = self
+        markStructuralChange(el)
         try insert(el)
         return el
     }
@@ -291,6 +300,9 @@ class HtmlTreeBuilder: TreeBuilder {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
         el.treeBuilder = self
+        if let range = startTag.sourceRange {
+            el.setSourceRange(range, complete: true)
+        }
         try insertNode(el)
         if isSelfClosing, tag.isSelfClosing() {
             // if not acked, promulagates error
@@ -310,6 +322,9 @@ class HtmlTreeBuilder: TreeBuilder {
             el = FormElement(tag, baseUri)
         }
         setFormElement(el)
+        if let range = startTag.sourceRange {
+            el.setSourceRange(range, complete: false)
+        }
         try insertNode(el)
         if (onStack) {
             stack.append(el)
@@ -319,6 +334,9 @@ class HtmlTreeBuilder: TreeBuilder {
     
     func insert(_ commentToken: Token.Comment) throws {
         let comment: Comment = Comment(commentToken.getData(), baseUri)
+        if let range = commentToken.sourceRange {
+            comment.setSourceRange(range, complete: true)
+        }
         try insertNode(comment)
     }
     
@@ -329,15 +347,35 @@ class HtmlTreeBuilder: TreeBuilder {
         defer { Profiler.end("HtmlTreeBuilder.insert.char", _p) }
         #endif
         try Validate.notNull(obj: characterToken.getData())
-        let data = characterToken.getData()!
         let tagName: [UInt8]? = currentElement()?.tagNameUTF8()
         let node: Node
+        let useSlice: ArraySlice<UInt8>? = {
+            guard let range = characterToken.sourceRange,
+                  let source = doc.sourceInput,
+                  range.isValid,
+                  range.end <= source.count else { return nil }
+            return source[range.start..<range.end]
+        }()
         // characters in script and style go in as datanodes, not text nodes
         if (tagName == UTF8Arrays.script || tagName == UTF8Arrays.style) {
-            node = DataNode(data, baseUri)
+            if let slice = useSlice {
+                node = DataNode(slice: slice, baseUri: baseUri)
+            } else {
+                let data = characterToken.getData()!
+                node = DataNode(data, baseUri)
+            }
         } else {
-            node = TextNode(data, baseUri)
+            if let slice = useSlice {
+                node = TextNode(slice: slice, baseUri: baseUri)
+            } else {
+                let data = characterToken.getData()!
+                node = TextNode(data, baseUri)
+            }
         }
+        if let range = characterToken.sourceRange {
+            node.setSourceRange(range, complete: true)
+        }
+        node.treeBuilder = self
         try currentElement()?.appendChild(node) // doesn't use insertNode, because we don't foster these; and will always have a stack.
     }
     
@@ -355,6 +393,7 @@ class HtmlTreeBuilder: TreeBuilder {
         } else {
             try currentElement()?.appendChild(node)
         }
+        node.treeBuilder = self
         
         // connect form controls to their form element
         if let n = (node as? Element), n.tag().isFormListed() {
@@ -364,7 +403,14 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     func pop() -> Element {
-        return stack.removeLast()
+        let element = stack.removeLast()
+        if let endTag = currentToken as? Token.EndTag,
+           let endRange = endTag.sourceRange,
+           let endName = endTag.normalName(),
+           endName == element.nodeNameUTF8() {
+            element.setSourceRangeEnd(endRange.end)
+        }
+        return element
     }
     
     @inlinable
@@ -405,6 +451,14 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func popStackToClose(_ elName: [UInt8]) {
+        if let endTag = currentToken as? Token.EndTag,
+           let endRange = endTag.sourceRange,
+           let endName = endTag.normalName(),
+           endName == elName,
+           let index = stack.lastIndex(where: { $0.nodeNameUTF8() == elName }) {
+            let element = stack[index]
+            element.setSourceRangeEnd(endRange.end)
+        }
         if let index = stack.lastIndex(where: { $0.nodeNameUTF8() == elName }) {
             stack.removeSubrange(index..<stack.count)
         }
@@ -742,6 +796,7 @@ class HtmlTreeBuilder: TreeBuilder {
         //        pop()
         // }
         guard let excludeTag = excludeTag else { return }
+        markStructuralChange(currentElement())
         while true {
             let nodeName = currentElement()!.nodeNameUTF8()
             guard nodeName != excludeTag else { return }

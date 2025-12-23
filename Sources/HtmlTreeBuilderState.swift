@@ -84,6 +84,9 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 let doctype: DocumentType = DocumentType(
                 tb.settings.normalizeTag(d.getName()), d.getPubSysKey(), d.getPublicIdentifier(), d.getSystemIdentifier(), tb.getBaseUri())
                     //tb.settings.normalizeTag(d.getName()), d.getPublicIdentifier(), d.getSystemIdentifier(), tb.getBaseUri())
+                if let range = d.sourceRange {
+                    doctype.setSourceRange(range, complete: true)
+                }
                 try tb.getDocument().appendChild(doctype)
                 if (d.isForceQuirks()) {
                     tb.getDocument().quirksMode(Document.QuirksMode.quirks)

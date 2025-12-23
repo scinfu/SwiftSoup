@@ -471,4 +471,17 @@ class DocumentTest: XCTestCase {
 		XCTAssertEqual(text, "TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST")
 	}
 
+	func testRawSourceSerializationFastPath() throws {
+		let input = "<html><head></head><body><div id=\"a\">hello</div></body></html>"
+		let doc = try SwiftSoup.parse(input)
+		doc.outputSettings().prettyPrint(pretty: false)
+		XCTAssertEqual(input, try doc.outerHtml())
+
+		if let div = try doc.select("div").first() {
+			try div.text("bye")
+		}
+		XCTAssertNotEqual(input, try doc.outerHtml())
+		XCTAssertTrue(try doc.outerHtml().contains("bye"))
+	}
+
 }

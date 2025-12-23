@@ -9,6 +9,8 @@ import Foundation
 
 open class Token {
     var type: TokenType = TokenType.Doctype
+    @usableFromInline
+    internal var sourceRange: SourceRange? = nil
     
     private init() {
     }
@@ -52,6 +54,7 @@ open class Token {
         
         @discardableResult
         override func reset() -> Token {
+            sourceRange = nil
             Token.reset(name)
             pubSysKey = nil
             Token.reset(publicIdentifier)
@@ -126,6 +129,7 @@ open class Token {
         @discardableResult
         @inline(__always)
         override func reset() -> Tag {
+            sourceRange = nil
             if _tagName != nil {
                 _tagName!.removeAll(keepingCapacity: true)
             } else {
@@ -606,6 +610,7 @@ open class Token {
         @discardableResult
         @inline(__always)
         override func reset() -> Token {
+            sourceRange = nil
             Token.reset(data)
             bogus = false
             return self
@@ -638,6 +643,7 @@ open class Token {
         @discardableResult
         @inline(__always)
         override func reset() -> Token {
+            sourceRange = nil
             data = nil
             return self
         }
@@ -670,6 +676,7 @@ open class Token {
         @discardableResult
         @inline(__always)
         override func reset() -> Token {
+            sourceRange = nil
             return self
         }
     }
