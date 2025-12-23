@@ -48,7 +48,7 @@ public class TreeBuilder {
     
     public func initialiseParse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
         doc = Document(baseUri)
-        doc.sourceInput = input
+        doc.sourceBuffer = SourceBuffer(input)
         doc.parsedAsXml = false
         self.settings = settings
         reader = CharacterReader(input)

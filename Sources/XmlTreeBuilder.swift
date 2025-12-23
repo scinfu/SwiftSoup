@@ -75,6 +75,9 @@ public class XmlTreeBuilder: TreeBuilder {
             try currentElement()?.appendChild(node)
         }
         node.treeBuilder = self
+        if node.sourceBuffer == nil {
+            node.sourceBuffer = doc.sourceBuffer
+        }
     }
     
     @discardableResult
@@ -130,7 +133,7 @@ public class XmlTreeBuilder: TreeBuilder {
     func insert(_ characterToken: Token.Char)throws {
         let node: Node = {
             if let range = characterToken.sourceRange,
-               let source = doc.sourceInput,
+               let source = doc.sourceBuffer?.bytes,
                range.isValid,
                range.end <= source.count {
                 return TextNode(slice: source[range.start..<range.end], baseUri: baseUri)

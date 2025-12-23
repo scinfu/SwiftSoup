@@ -71,6 +71,8 @@ open class Element: Node {
     internal var normalizedAttributeValueIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]]? = nil
     @usableFromInline
     internal var isAttributeValueQueryIndexDirty: Bool = false
+    @usableFromInline
+    internal var suppressQueryIndexDirty: Bool = false
     
     /// Cached normalized text (UTF‑8) for trim+normalize path.
     @usableFromInline
@@ -1750,7 +1752,13 @@ open class Element: Node {
         if let treeBuilder {
             clone.treeBuilder = treeBuilder
         }
-        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
+        return copy(
+            clone: clone,
+            parent: parent,
+            copyChildren: false,
+            rebuildIndexes: false,
+            suppressQueryIndexDirty: true
+        )
     }
     
     @inline(__always)

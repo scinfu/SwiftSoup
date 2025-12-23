@@ -351,7 +351,7 @@ class HtmlTreeBuilder: TreeBuilder {
         let node: Node
         let useSlice: ArraySlice<UInt8>? = {
             guard let range = characterToken.sourceRange,
-                  let source = doc.sourceInput,
+                  let source = doc.sourceBuffer?.bytes,
                   range.isValid,
                   range.end <= source.count else { return nil }
             return source[range.start..<range.end]
@@ -375,6 +375,9 @@ class HtmlTreeBuilder: TreeBuilder {
         if let range = characterToken.sourceRange {
             node.setSourceRange(range, complete: true)
         }
+        if node.sourceBuffer == nil {
+            node.sourceBuffer = doc.sourceBuffer
+        }
         node.treeBuilder = self
         try currentElement()?.appendChild(node) // doesn't use insertNode, because we don't foster these; and will always have a stack.
     }
@@ -394,6 +397,9 @@ class HtmlTreeBuilder: TreeBuilder {
             try currentElement()?.appendChild(node)
         }
         node.treeBuilder = self
+        if node.sourceBuffer == nil {
+            node.sourceBuffer = doc.sourceBuffer
+        }
         
         // connect form controls to their form element
         if let n = (node as? Element), n.tag().isFormListed() {

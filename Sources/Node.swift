@@ -34,10 +34,16 @@ open class Node: Equatable, Hashable {
     internal var sourceRangeDirty: Bool = false
     
     @usableFromInline
+    internal var sourceBuffer: SourceBuffer? = nil
+    
+    @usableFromInline
     weak var parentNode: Node? {
         @inline(__always)
         didSet {
             guard let element = self as? Element, oldValue !== parentNode else { return }
+            if element.suppressQueryIndexDirty {
+                return
+            }
             element.markQueryIndexesDirty()
         }
     }
@@ -891,7 +897,7 @@ open class Node: Equatable, Hashable {
               let range = sourceRange,
               range.isValid,
               let doc = ownerDocument(),
-              let source = doc.sourceInput
+              let source = sourceBuffer?.bytes ?? doc.sourceBuffer?.bytes
         else {
             return nil
         }
@@ -915,8 +921,7 @@ open class Node: Equatable, Hashable {
     internal func sourceSliceUTF8() -> ArraySlice<UInt8>? {
         guard let range = sourceRange,
               range.isValid,
-              let doc = ownerDocument(),
-              let source = doc.sourceInput,
+              let source = sourceBuffer?.bytes ?? ownerDocument()?.sourceBuffer?.bytes,
               range.end <= source.count
         else {
             return nil
@@ -1009,11 +1014,11 @@ open class Node: Equatable, Hashable {
     @inline(__always)
     func copyForDeepClone(parent: Node?) -> Node {
         let clone = Node(skipChildReserve: !hasChildNodes())
-        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
+        return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false, suppressQueryIndexDirty: true)
     }
     
     public func copy(clone: Node) -> Node {
-        let thisClone = copy(clone: clone, parent: nil, copyChildren: true, rebuildIndexes: false) // splits for orphan
+        let thisClone = copy(clone: clone, parent: nil, copyChildren: true, rebuildIndexes: false, suppressQueryIndexDirty: false) // splits for orphan
         
         // BFS clone using index-based queue, preserving original nodes to avoid extra array copies.
         var queue: [(Node, Node)] = [(self, thisClone)]
@@ -1048,12 +1053,29 @@ open class Node: Equatable, Hashable {
      * Not a deep copy of children.
      */
     public func copy(clone: Node, parent: Node?) -> Node {
-        return copy(clone: clone, parent: parent, copyChildren: true, rebuildIndexes: true)
+        return copy(clone: clone, parent: parent, copyChildren: true, rebuildIndexes: true, suppressQueryIndexDirty: false)
     }
 
     @inline(__always)
     func copy(clone: Node, parent: Node?, copyChildren: Bool, rebuildIndexes: Bool) -> Node {
+        return copy(clone: clone, parent: parent, copyChildren: copyChildren, rebuildIndexes: rebuildIndexes, suppressQueryIndexDirty: false)
+    }
+
+    @inline(__always)
+    func copy(
+        clone: Node,
+        parent: Node?,
+        copyChildren: Bool,
+        rebuildIndexes: Bool,
+        suppressQueryIndexDirty: Bool
+    ) -> Node {
+        if suppressQueryIndexDirty, let element = clone as? Element {
+            element.suppressQueryIndexDirty = true
+        }
         clone.parentNode = parent // can be nil, to create an orphan split
+        if suppressQueryIndexDirty, let element = clone as? Element {
+            element.suppressQueryIndexDirty = false
+        }
         clone.siblingIndex = parent == nil ? 0 : siblingIndex
         if let attrs = attributes {
             if attrs.attributes.isEmpty {
@@ -1074,6 +1096,7 @@ open class Node: Equatable, Hashable {
         clone.sourceRange = nil
         clone.sourceRangeIsComplete = false
         clone.sourceRangeDirty = true
+        clone.sourceBuffer = nil
 
         if rebuildIndexes, let cloneElement = clone as? Element {
             cloneElement.rebuildQueryIndexesForThisNodeOnly()
@@ -1084,7 +1107,7 @@ open class Node: Equatable, Hashable {
 
     @inline(__always)
     func copy(clone: Node, parent: Node?, copyChildren: Bool) -> Node {
-        return copy(clone: clone, parent: parent, copyChildren: copyChildren, rebuildIndexes: true)
+        return copy(clone: clone, parent: parent, copyChildren: copyChildren, rebuildIndexes: true, suppressQueryIndexDirty: false)
     }
     
     private class OuterHtmlVisitor: NodeVisitor {

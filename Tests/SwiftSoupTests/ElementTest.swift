@@ -637,6 +637,18 @@ class ElementTest: XCTestCase {
 		XCTAssertEqual("<div><p>One</p><p><span>Two</span></p></div><p><span>Two</span><span>Three</span></p>", try TextUtil.stripNewlines(doc.body()!.html()))
 	}
 
+	func testCloneDoesNotDirtyQueryIndexes() throws {
+		let doc = try SwiftSoup.parse("<div id=wrap><span class=one data-x=1>Text</span></div>")
+		let original: Element = try doc.select("#wrap").first()!
+		let clone: Element = original.copy() as! Element
+
+		XCTAssertFalse(clone.isTagQueryIndexDirty)
+		XCTAssertFalse(clone.isClassQueryIndexDirty)
+		XCTAssertFalse(clone.isIdQueryIndexDirty)
+		XCTAssertFalse(clone.isAttributeQueryIndexDirty)
+		XCTAssertFalse(clone.isAttributeValueQueryIndexDirty)
+	}
+
 	func testClonesClassnames() throws {
 		let doc: Document = try SwiftSoup.parse("<div class='one two'></div>")
 		let div: Element = try doc.select("div").first()!

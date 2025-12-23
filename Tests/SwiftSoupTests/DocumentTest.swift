@@ -502,4 +502,21 @@ class DocumentTest: XCTestCase {
 		XCTAssertTrue(output.contains("<br />"))
 	}
 
+	func testRawSourceSurvivesMoveAcrossDocuments() throws {
+		let input = "<html><body><div id=\"a\">hello</div></body></html>"
+		let original = try SwiftSoup.parse(input)
+		original.outputSettings().prettyPrint(pretty: false)
+		let moved = try SwiftSoup.parse("<html><body></body></html>")
+		moved.outputSettings().prettyPrint(pretty: false)
+		if let div = try original.select("div").first(),
+		   let body = try moved.body() {
+			try div.remove()
+			try body.appendChild(div)
+			let output = try div.outerHtml()
+			XCTAssertEqual("<div id=\"a\">hello</div>", output)
+		} else {
+			XCTFail("Expected div/body")
+		}
+	}
+
 }

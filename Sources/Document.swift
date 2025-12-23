@@ -29,8 +29,6 @@ open class Document: Element {
     private var updateMetaCharset: Bool = false
     
     @usableFromInline
-    internal var sourceBuffer: SourceBuffer? = nil
-    @usableFromInline
     internal var parsedAsXml: Bool = false
 
 
@@ -402,7 +400,7 @@ open class Document: Element {
 
     @usableFromInline
     internal func sourcePatches() throws -> [SourcePatch] {
-        guard sourceInput != nil else { return [] }
+        guard sourceBuffer != nil else { return [] }
         let out = (_outputSettings.copy() as! OutputSettings).prettyPrint(pretty: false)
         var patches: [SourcePatch] = []
 
@@ -412,7 +410,7 @@ open class Document: Element {
                node.sourceRangeIsComplete,
                let range = node.sourceRange,
                range.isValid,
-               let source = sourceInput,
+               let source = sourceBuffer?.bytes,
                range.end <= source.count {
                 if let replacement = try? node.outerHtmlUTF8Internal(out, allowRawSource: false) {
                     patches.append(SourcePatch(range: range, replacement: replacement))
@@ -464,7 +462,7 @@ open class Document: Element {
         clone._outputSettings = _outputSettings.copy() as! OutputSettings
         clone._quirksMode = _quirksMode
         clone.updateMetaCharset = updateMetaCharset
-        clone.sourceInput = nil
+        clone.sourceBuffer = nil
         clone.parsedAsXml = parsedAsXml
         return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
@@ -475,7 +473,7 @@ open class Document: Element {
         clone._outputSettings = _outputSettings.copy() as! OutputSettings
         clone._quirksMode = _quirksMode
         clone.updateMetaCharset = updateMetaCharset
-        clone.sourceInput = nil
+        clone.sourceBuffer = nil
         clone.parsedAsXml = parsedAsXml
         return super.copy(clone: clone, parent: parent)
     }
