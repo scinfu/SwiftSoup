@@ -254,6 +254,7 @@ open class Element: Node {
     open func attr(_ attributeKey: [UInt8], _ attributeValue: Bool) throws -> Element {
         ensureAttributes()
         try attributes?.put(attributeKey, attributeValue)
+        markSourceDirty()
         return self
     }
     
@@ -272,6 +273,7 @@ open class Element: Node {
     open func attr(_ attributeKey: String, _ attributeValue: Bool) throws -> Element {
         ensureAttributes()
         try attributes?.put(attributeKey.utf8Array, attributeValue)
+        markSourceDirty()
         return self
     }
     

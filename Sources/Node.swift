@@ -35,10 +35,6 @@ open class Node: Equatable, Hashable {
     
     @usableFromInline
     internal var sourceBuffer: SourceBuffer? = nil
-
-    /// Owner document for detached nodes (mirrors DOM's ownerDocument semantics).
-    @usableFromInline
-    weak var ownerDocumentOverride: Document? = nil
     
     @usableFromInline
     weak var parentNode: Node? {
@@ -182,12 +178,14 @@ open class Node: Equatable, Hashable {
     @discardableResult
     open func attr(_ attributeKey: [UInt8], _ attributeValue: [UInt8]) throws -> Node {
         try attributes?.put(attributeKey, attributeValue)
+        markSourceDirty()
         return self
     }
     
     @discardableResult
     open func attr(_ attributeKey: String, _ attributeValue: String) throws -> Node {
         try attributes?.put(attributeKey, attributeValue)
+        markSourceDirty()
         return self
     }
     
@@ -232,6 +230,7 @@ open class Node: Equatable, Hashable {
     @discardableResult
     open func removeAttr(_ attributeKey: [UInt8]) throws -> Node {
         try attributes?.removeIgnoreCase(key: attributeKey)
+        markSourceDirty()
         return self
     }
     
@@ -392,11 +391,11 @@ open class Node: Equatable, Hashable {
     open func ownerDocument() -> Document? {
         if let this =  self as? Document {
             return this
+        } else if (parentNode == nil) {
+            return nil
+        } else {
+            return parentNode!.ownerDocument()
         }
-        if let parent = parentNode {
-            return parent.ownerDocument()
-        }
-        return ownerDocumentOverride
     }
     
     /**
@@ -673,7 +672,6 @@ open class Node: Equatable, Hashable {
             try self.parentNode?.removeChild(self)
         }
         self.parentNode = parentNode
-        ownerDocumentOverride = parentNode.ownerDocument()
     }
     
     @inlinable
@@ -687,7 +685,6 @@ open class Node: Equatable, Hashable {
         let index: Int = out.siblingIndex
         childNodes[index] = input
         input.parentNode = self
-        input.ownerDocumentOverride = self.ownerDocument()
         input.setSiblingIndex(index)
         out.parentNode = nil
         markSourceDirty()
@@ -1079,7 +1076,6 @@ open class Node: Equatable, Hashable {
             element.suppressQueryIndexDirty = true
         }
         clone.parentNode = parent // can be nil, to create an orphan split
-        clone.ownerDocumentOverride = parent?.ownerDocument() ?? ownerDocument()
         if suppressQueryIndexDirty, let element = clone as? Element {
             element.suppressQueryIndexDirty = false
         }
