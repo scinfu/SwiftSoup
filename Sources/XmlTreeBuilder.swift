@@ -38,6 +38,7 @@ public class XmlTreeBuilder: TreeBuilder {
         super.initialiseParse(input, baseUri, errors, settings)
         stack.append(doc) // place the document onto the stack. differs from HtmlTreeBuilder (not on stack)
         doc.outputSettings().syntax(syntax: OutputSettings.Syntax.xml)
+        doc.parsedAsXml = true
     }
     
     override public func process(_ token: Token) throws -> Bool {
@@ -68,7 +69,12 @@ public class XmlTreeBuilder: TreeBuilder {
     
     @inline(__always)
     private func insertNode(_ node: Node)throws {
-        try currentElement()?.appendChild(node)
+        if stack.isEmpty {
+            try doc.appendChild(node)
+        } else {
+            try currentElement()?.appendChild(node)
+        }
+        node.treeBuilder = self
     }
     
     @discardableResult
@@ -85,6 +91,13 @@ public class XmlTreeBuilder: TreeBuilder {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
         el.treeBuilder = self
+        if let range = startTag.sourceRange {
+            if startTag.isSelfClosing() {
+                el.setSourceRange(range, complete: true)
+            } else {
+                el.setSourceRange(range, complete: false)
+            }
+        }
         try insertNode(el)
         if (startTag.isSelfClosing()) {
             tokeniser.acknowledgeSelfClosingFlag()
@@ -107,12 +120,26 @@ public class XmlTreeBuilder: TreeBuilder {
                 insert.getAttributes()?.addAll(incoming: el.getAttributes())
             }
         }
+        if let range = commentToken.sourceRange {
+            insert.setSourceRange(range, complete: true)
+        }
         try insertNode(insert)
     }
     
     @inline(__always)
     func insert(_ characterToken: Token.Char)throws {
-        let node: Node = TextNode(characterToken.getData()!, baseUri)
+        let node: Node = {
+            if let range = characterToken.sourceRange,
+               let source = doc.sourceInput,
+               range.isValid,
+               range.end <= source.count {
+                return TextNode(slice: source[range.start..<range.end], baseUri: baseUri)
+            }
+            return TextNode(characterToken.getData()!, baseUri)
+        }()
+        if let range = characterToken.sourceRange {
+            node.setSourceRange(range, complete: true)
+        }
         try insertNode(node)
     }
     
@@ -125,6 +152,9 @@ public class XmlTreeBuilder: TreeBuilder {
             d.getSystemIdentifier(),
             baseUri
         )
+        if let range = d.sourceRange {
+            doctypeNode.setSourceRange(range, complete: true)
+        }
         try insertNode(doctypeNode)
     }
     
@@ -145,6 +175,9 @@ public class XmlTreeBuilder: TreeBuilder {
         
         // If found, remove everything from that element upward
         if let index = targetIndex {
+            if let endRange = endTag.sourceRange {
+                stack[index].setSourceRangeEnd(endRange.end)
+            }
             stack.removeSubrange(index..<stack.count)
         }
     }

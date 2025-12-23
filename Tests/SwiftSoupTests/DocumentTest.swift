@@ -484,4 +484,22 @@ class DocumentTest: XCTestCase {
 		XCTAssertTrue(try doc.outerHtml().contains("bye"))
 	}
 
+	func testRawSourceXmlParsedDocument() throws {
+		let input = "<root><br/></root>"
+		let doc = try SwiftSoup.parse(input, "", Parser.xmlParser())
+		doc.outputSettings().prettyPrint(pretty: false)
+		doc.outputSettings().syntax(syntax: .xml)
+		XCTAssertEqual(input, try doc.outerHtml())
+	}
+
+	func testRawSourceDisabledForHtmlParsedXmlOutput() throws {
+		let input = "<br>"
+		let doc = try SwiftSoup.parse(input)
+		doc.outputSettings().prettyPrint(pretty: false)
+		doc.outputSettings().syntax(syntax: .xml)
+		let output = try doc.outerHtml()
+		XCTAssertNotEqual(input, output)
+		XCTAssertTrue(output.contains("<br />"))
+	}
+
 }

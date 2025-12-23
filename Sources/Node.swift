@@ -886,7 +886,6 @@ open class Node: Equatable, Hashable {
     private func rawSourceSlice(_ out: OutputSettings, allowRawSource: Bool) -> ArraySlice<UInt8>? {
         guard allowRawSource,
               !out.prettyPrint(),
-              out.syntax() == .html,
               !sourceRangeDirty,
               sourceRangeIsComplete,
               let range = sourceRange,
@@ -894,6 +893,15 @@ open class Node: Equatable, Hashable {
               let doc = ownerDocument(),
               let source = doc.sourceInput
         else {
+            return nil
+        }
+        let syntax = out.syntax()
+        if syntax == .xml && !doc.parsedAsXml {
+            return nil
+        }
+        if syntax == .html || syntax == .xml {
+            // ok
+        } else {
             return nil
         }
         if range.end > source.count {

@@ -7,6 +7,17 @@
 
 import Foundation
 
+@usableFromInline
+internal final class SourceBuffer {
+    @usableFromInline
+    let bytes: [UInt8]
+    
+    @usableFromInline
+    init(_ bytes: [UInt8]) {
+        self.bytes = bytes
+    }
+}
+
 open class Document: Element {
     public enum QuirksMode {
         case noQuirks, quirks, limitedQuirks
@@ -18,7 +29,9 @@ open class Document: Element {
     private var updateMetaCharset: Bool = false
     
     @usableFromInline
-    internal var sourceInput: [UInt8]? = nil
+    internal var sourceBuffer: SourceBuffer? = nil
+    @usableFromInline
+    internal var parsedAsXml: Bool = false
 
 
     /**
@@ -452,18 +465,20 @@ open class Document: Element {
         clone._quirksMode = _quirksMode
         clone.updateMetaCharset = updateMetaCharset
         clone.sourceInput = nil
+        clone.parsedAsXml = parsedAsXml
         return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
 
     @inline(__always)
-	public override func copy(clone: Node, parent: Node?) -> Node {
-		let clone = clone as! Document
-		clone._outputSettings = _outputSettings.copy() as! OutputSettings
-		clone._quirksMode = _quirksMode
-		clone.updateMetaCharset = updateMetaCharset
+    public override func copy(clone: Node, parent: Node?) -> Node {
+        let clone = clone as! Document
+        clone._outputSettings = _outputSettings.copy() as! OutputSettings
+        clone._quirksMode = _quirksMode
+        clone.updateMetaCharset = updateMetaCharset
         clone.sourceInput = nil
-		return super.copy(clone: clone, parent: parent)
-	}
+        clone.parsedAsXml = parsedAsXml
+        return super.copy(clone: clone, parent: parent)
+    }
 
 }
 
