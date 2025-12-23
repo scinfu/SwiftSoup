@@ -1953,6 +1953,7 @@ internal extension Element {
         
         try? NodeTraversor(IndexBuilderVisitor { element in
             if let attrs = element.getAttributes() {
+                attrs.ensureMaterialized()
                 for attr in attrs.attributes {
                     let key = attr.getKeyUTF8().lowercased()
                     newIndex[key, default: []].append(Weak(element))
@@ -1974,6 +1975,7 @@ internal extension Element {
         
         try? NodeTraversor(IndexBuilderVisitor { element in
             if let attrs = element.getAttributes() {
+                attrs.ensureMaterialized()
                 for attr in attrs.attributes {
                     let key = attr.getKeyUTF8().lowercased()
                     guard Element.isHotAttributeKey(key) else { continue }

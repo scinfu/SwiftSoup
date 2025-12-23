@@ -281,33 +281,36 @@ open class Token {
                 _attributes = Attributes()
             }
             for pending in pendingAttributes {
-                let key: [UInt8]
+                let hasUppercase: Bool
                 if let nameBytes = pending.nameBytes {
-                    key = nameBytes
+                    hasUppercase = Attributes.containsAsciiUppercase(nameBytes)
                 } else if let nameSlice = pending.nameSlice {
-                    key = Array(nameSlice)
+                    hasUppercase = Attributes.containsAsciiUppercase(nameSlice)
                 } else {
                     continue
                 }
-                let attribute: Attribute
+
+                let value: Attributes.PendingAttrValue
                 switch pending.value {
                 case .none:
-                    attribute = try! BooleanAttribute(key: key)
+                    value = .none
                 case .empty:
-                    attribute = try! Attribute(key: key, value: [])
+                    value = .empty
                 case .slice(let slice):
-                    attribute = try! Attribute(key: key, value: Array(slice))
+                    value = .slice(slice)
                 case .slices(let slices, let count):
-                    var value: [UInt8] = []
-                    value.reserveCapacity(count)
-                    for slice in slices {
-                        value.append(contentsOf: slice)
-                    }
-                    attribute = try! Attribute(key: key, value: value)
+                    value = .slices(slices, count)
                 case .bytes(let bytes):
-                    attribute = try! Attribute(key: key, value: bytes)
+                    value = .bytes(bytes)
                 }
-                _attributes?.put(attribute: attribute)
+
+                let attr = Attributes.PendingAttribute(
+                    nameSlice: pending.nameSlice,
+                    nameBytes: pending.nameBytes,
+                    hasUppercase: hasUppercase,
+                    value: value
+                )
+                _attributes?.appendPending(attr)
             }
             _pendingAttributes = nil
         }
@@ -576,7 +579,7 @@ open class Token {
         @inline(__always)
         public override func toString() throws -> String {
             ensureAttributes()
-            if let _attributes, !_attributes.attributes.isEmpty {
+            if let _attributes, (!_attributes.attributes.isEmpty || _attributes.pendingAttributesCount > 0) {
                 return "<" + String(decoding: try name(), as: UTF8.self) + " " + (try _attributes.toString()) + ">"
             } else {
                 return "<" + String(decoding: try name(), as: UTF8.self) + ">"

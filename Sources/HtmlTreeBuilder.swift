@@ -223,7 +223,7 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         let el: Element
         if let attributes = startTag._attributes {
-            if attributes.attributes.isEmpty {
+            if attributes.attributes.isEmpty && attributes.pendingAttributesCount == 0 {
                 el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
             } else {
                 if startTag.attributesAreNormalized() || settings.preservesAttributeCase() {
@@ -280,7 +280,9 @@ class HtmlTreeBuilder: TreeBuilder {
         let skipChildReserve = isSelfClosing
         let el: Element
         if let attributes = startTag._attributes {
-            if startTag.attributesAreNormalized() || settings.preservesAttributeCase() {
+            if attributes.attributes.isEmpty && attributes.pendingAttributesCount == 0 {
+                el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
+            } else if startTag.attributesAreNormalized() || settings.preservesAttributeCase() {
                 el = Element(tag, baseUri, attributes, skipChildReserve: skipChildReserve)
             } else {
                 el = try Element(tag, baseUri, settings.normalizeAttributes(attributes), skipChildReserve: skipChildReserve)

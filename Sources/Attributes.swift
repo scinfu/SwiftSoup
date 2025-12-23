@@ -30,6 +30,23 @@ public struct AttributeMutation {
 
 open class Attributes: NSCopying {
     public static let dataPrefix: [UInt8] = "data-".utf8Array
+
+    @usableFromInline
+    internal enum PendingAttrValue {
+        case none
+        case empty
+        case slice(ArraySlice<UInt8>)
+        case slices([ArraySlice<UInt8>], Int)
+        case bytes([UInt8])
+    }
+
+    @usableFromInline
+    internal struct PendingAttribute {
+        var nameSlice: ArraySlice<UInt8>?
+        var nameBytes: [UInt8]?
+        var hasUppercase: Bool
+        var value: PendingAttrValue
+    }
     
     // Stored by lowercased key, but key case is checked against the copy inside
     // the Attribute on retrieval.
@@ -58,6 +75,12 @@ open class Attributes: NSCopying {
 
     @usableFromInline
     internal var keyIndexDirty: Bool = true
+
+    @usableFromInline
+    internal var pendingAttributes: [PendingAttribute]? = nil
+    
+    @usableFromInline
+    internal var pendingAttributesCount: Int = 0
     
     // TODO: Delegate would be cleaner...
     @usableFromInline
@@ -66,139 +89,100 @@ open class Attributes: NSCopying {
     public init() {
         attributes.reserveCapacity(16)
     }
-    
+
     @usableFromInline
     @inline(__always)
-    internal func updateLowercasedKeysCache() {
-        lowercasedKeysCache = Set(
-            attributes.map { attr in
-                attr.getKeyUTF8().map(Self.asciiLowercase)
+    internal func appendPending(_ pending: PendingAttribute) {
+        if !attributes.isEmpty {
+            // If materialized already, fall back to regular put.
+            let key: [UInt8]
+            if let nameBytes = pending.nameBytes {
+                key = nameBytes
+            } else if let nameSlice = pending.nameSlice {
+                key = Array(nameSlice)
+            } else {
+                return
             }
-        )
-    }
-    
-    @usableFromInline
-    @inline(__always)
-    internal func invalidateLowercasedKeysCache() {
-        lowercasedKeysCache = nil
-    }
-
-    @usableFromInline
-    @inline(__always)
-    internal func invalidateKeyIndex() {
-        keyIndex = nil
-        keyIndexDirty = true
-    }
-
-    @usableFromInline
-    @inline(__always)
-    func shouldBuildKeyIndex() -> Bool {
-        return attributes.count >= 12
-    }
-
-    @usableFromInline
-    @inline(__always)
-    func ensureKeyIndex() {
-        guard shouldBuildKeyIndex() else { return }
-        if keyIndexDirty || keyIndex == nil {
-            var rebuilt: [Array<UInt8>: Int] = [:]
-            rebuilt.reserveCapacity(attributes.count)
-            for (index, attr) in attributes.enumerated() {
-                rebuilt[attr.getKeyUTF8()] = index
+            let attribute: Attribute
+            switch pending.value {
+            case .none:
+                attribute = try! BooleanAttribute(key: key)
+            case .empty:
+                attribute = try! Attribute(key: key, value: [])
+            case .slice(let slice):
+                attribute = try! Attribute(key: key, value: Array(slice))
+            case .slices(let slices, let count):
+                var value: [UInt8] = []
+                value.reserveCapacity(count)
+                for slice in slices {
+                    value.append(contentsOf: slice)
+                }
+                attribute = try! Attribute(key: key, value: value)
+            case .bytes(let bytes):
+                attribute = try! Attribute(key: key, value: bytes)
             }
-            keyIndex = rebuilt
-            keyIndexDirty = false
+            putMaterialized(attribute)
+            return
         }
-    }
 
-    @usableFromInline
-    @inline(__always)
-    func indexForKey(_ key: [UInt8]) -> Int? {
-        if shouldBuildKeyIndex() {
-            ensureKeyIndex()
-            return keyIndex?[key]
-        }
-        return attributes.firstIndex(where: { $0.getKeyUTF8() == key })
-    }
-    
-    /**
-     Get an attribute value by key.
-     - parameter key: the (case-sensitive) attribute key
-     - returns: the attribute value if set; or empty string if not set.
-     - seealso: ``hasKey(key:)-(String)``
-     */
-    @inline(__always)
-    open func get(key: String) -> String {
-        return String(decoding: get(key: key.utf8Array), as: UTF8.self)
-    }
-    
-    @inline(__always)
-    open func get(key: [UInt8]) -> [UInt8] {
-        if let ix = indexForKey(key) {
-            return attributes[ix].getValueUTF8()
-        }
-        return []
-    }
-    
-    /**
-     Get an attribute's value by case-insensitive key
-     - parameter key: the attribute name
-     - returns: the first matching attribute value if set; or empty string if not set.
-     */
-    @inline(__always)
-    open func getIgnoreCase(key: String) throws -> String {
-        return try String(decoding: getIgnoreCase(key: key.utf8Array), as: UTF8.self)
-    }
-    
-    @inline(__always)
-    open func getIgnoreCase(key: [UInt8]) throws -> [UInt8] {
-        try Validate.notEmpty(string: key)
-        if lowercasedKeysCache == nil {
-            updateLowercasedKeysCache()
-        }
-        guard lowercasedKeysCache?.contains(key.lowercased()) ?? false else { return [] }
-        if let attr = attributes.first(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame }) {
-            return attr.getValueUTF8()
-        }
-        return []
-    }
-    
-    /**
-     Set a new attribute, or replace an existing one by key.
-     - parameter key: attribute key
-     - parameter value: attribute value
-     */
-    @inline(__always)
-    open func put(_ key: [UInt8], _ value: [UInt8]) throws {
-        let attr = try Attribute(key: key, value: value)
-        put(attribute: attr)
-    }
-    
-    @inline(__always)
-    open func put(_ key: String, _ value: String) throws {
-        return try put(key.utf8Array, value.utf8Array)
-    }
-    
-    /**
-     Set a new boolean attribute, remove attribute if value is false.
-     - parameter key: attribute key
-     - parameter value: attribute value
-     */
-    @inline(__always)
-    open func put(_ key: [UInt8], _ value: Bool) throws {
-        if (value) {
-            try put(attribute: BooleanAttribute(key: key))
+        if pendingAttributes == nil {
+            pendingAttributes = [pending]
+            pendingAttributesCount = 1
         } else {
-            try remove(key: key)
+            pendingAttributes!.append(pending)
+            pendingAttributesCount &+= 1
+        }
+        if !hasUppercaseKeys && pending.hasUppercase {
+            hasUppercaseKeys = true
+        }
+        invalidateLowercasedKeysCache()
+        invalidateKeyIndex()
+        ownerElement?.markClassQueryIndexDirty()
+        ownerElement?.markIdQueryIndexDirty()
+        ownerElement?.markAttributeQueryIndexDirty()
+        ownerElement?.markAttributeValueQueryIndexDirty()
+    }
+
+    @usableFromInline
+    @inline(__always)
+    internal func ensureMaterialized() {
+        guard let pending = pendingAttributes, !pending.isEmpty else { return }
+        pendingAttributes = nil
+        pendingAttributesCount = 0
+        attributes.reserveCapacity(attributes.count + pending.count)
+        for pendingAttr in pending {
+            let key: [UInt8]
+            if let nameBytes = pendingAttr.nameBytes {
+                key = nameBytes
+            } else if let nameSlice = pendingAttr.nameSlice {
+                key = Array(nameSlice)
+            } else {
+                continue
+            }
+            let attribute: Attribute
+            switch pendingAttr.value {
+            case .none:
+                attribute = try! BooleanAttribute(key: key)
+            case .empty:
+                attribute = try! Attribute(key: key, value: [])
+            case .slice(let slice):
+                attribute = try! Attribute(key: key, value: Array(slice))
+            case .slices(let slices, let count):
+                var value: [UInt8] = []
+                value.reserveCapacity(count)
+                for slice in slices {
+                    value.append(contentsOf: slice)
+                }
+                attribute = try! Attribute(key: key, value: value)
+            case .bytes(let bytes):
+                attribute = try! Attribute(key: key, value: bytes)
+            }
+            putMaterialized(attribute)
         }
     }
-    
-    /**
-     Set a new attribute, or replace an existing one by (case-sensitive) key.
-     - parameter attribute: attribute
-     */
+
     @inline(__always)
-    open func put(attribute: Attribute) {
+    internal func putMaterialized(_ attribute: Attribute) {
         let key = attribute.getKeyUTF8()
         let hasUppercase = Attributes.containsAsciiUppercase(key)
         let normalizedKey = hasUppercase ? key.lowercased() : key
@@ -227,17 +211,163 @@ open class Attributes: NSCopying {
         ownerElement?.markAttributeValueQueryIndexDirty(for: key)
     }
     
+    @usableFromInline
+    @inline(__always)
+    internal func updateLowercasedKeysCache() {
+        ensureMaterialized()
+        lowercasedKeysCache = Set(
+            attributes.map { attr in
+                attr.getKeyUTF8().map(Self.asciiLowercase)
+            }
+        )
+    }
+    
+    @usableFromInline
+    @inline(__always)
+    internal func invalidateLowercasedKeysCache() {
+        lowercasedKeysCache = nil
+    }
+
+    @usableFromInline
+    @inline(__always)
+    internal func invalidateKeyIndex() {
+        keyIndex = nil
+        keyIndexDirty = true
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func shouldBuildKeyIndex() -> Bool {
+        ensureMaterialized()
+        return attributes.count >= 12
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func ensureKeyIndex() {
+        ensureMaterialized()
+        guard shouldBuildKeyIndex() else { return }
+        if keyIndexDirty || keyIndex == nil {
+            var rebuilt: [Array<UInt8>: Int] = [:]
+            rebuilt.reserveCapacity(attributes.count)
+            for (index, attr) in attributes.enumerated() {
+                rebuilt[attr.getKeyUTF8()] = index
+            }
+            keyIndex = rebuilt
+            keyIndexDirty = false
+        }
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func indexForKey(_ key: [UInt8]) -> Int? {
+        ensureMaterialized()
+        if shouldBuildKeyIndex() {
+            ensureKeyIndex()
+            return keyIndex?[key]
+        }
+        return attributes.firstIndex(where: { $0.getKeyUTF8() == key })
+    }
+    
+    /**
+     Get an attribute value by key.
+     - parameter key: the (case-sensitive) attribute key
+     - returns: the attribute value if set; or empty string if not set.
+     - seealso: ``hasKey(key:)-(String)``
+     */
+    @inline(__always)
+    open func get(key: String) -> String {
+        return String(decoding: get(key: key.utf8Array), as: UTF8.self)
+    }
+    
+    @inline(__always)
+    open func get(key: [UInt8]) -> [UInt8] {
+        ensureMaterialized()
+        if let ix = indexForKey(key) {
+            return attributes[ix].getValueUTF8()
+        }
+        return []
+    }
+    
+    /**
+     Get an attribute's value by case-insensitive key
+     - parameter key: the attribute name
+     - returns: the first matching attribute value if set; or empty string if not set.
+     */
+    @inline(__always)
+    open func getIgnoreCase(key: String) throws -> String {
+        return try String(decoding: getIgnoreCase(key: key.utf8Array), as: UTF8.self)
+    }
+    
+    @inline(__always)
+    open func getIgnoreCase(key: [UInt8]) throws -> [UInt8] {
+        ensureMaterialized()
+        try Validate.notEmpty(string: key)
+        if lowercasedKeysCache == nil {
+            updateLowercasedKeysCache()
+        }
+        guard lowercasedKeysCache?.contains(key.lowercased()) ?? false else { return [] }
+        if let attr = attributes.first(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame }) {
+            return attr.getValueUTF8()
+        }
+        return []
+    }
+    
+    /**
+     Set a new attribute, or replace an existing one by key.
+     - parameter key: attribute key
+     - parameter value: attribute value
+     */
+    @inline(__always)
+    open func put(_ key: [UInt8], _ value: [UInt8]) throws {
+        ensureMaterialized()
+        let attr = try Attribute(key: key, value: value)
+        put(attribute: attr)
+    }
+    
+    @inline(__always)
+    open func put(_ key: String, _ value: String) throws {
+        return try put(key.utf8Array, value.utf8Array)
+    }
+    
+    /**
+     Set a new boolean attribute, remove attribute if value is false.
+     - parameter key: attribute key
+     - parameter value: attribute value
+     */
+    @inline(__always)
+    open func put(_ key: [UInt8], _ value: Bool) throws {
+        ensureMaterialized()
+        if (value) {
+            try put(attribute: BooleanAttribute(key: key))
+        } else {
+            try remove(key: key)
+        }
+    }
+    
+    /**
+     Set a new attribute, or replace an existing one by (case-sensitive) key.
+     - parameter attribute: attribute
+     */
+    @inline(__always)
+    open func put(attribute: Attribute) {
+        ensureMaterialized()
+        putMaterialized(attribute)
+    }
+    
     /**
      Remove an attribute by key. <b>Case sensitive.</b>
      - parameter key: attribute key to remove
      */
     @inline(__always)
     open func remove(key: String) throws {
+        ensureMaterialized()
         try remove(key: key.utf8Array)
     }
     
     @inlinable
     open func remove(key: [UInt8]) throws {
+        ensureMaterialized()
         try Validate.notEmpty(string: key)
         if let ix = indexForKey(key) {
             attributes.remove(at: ix)
@@ -261,6 +391,7 @@ open class Attributes: NSCopying {
      */
     @inlinable
     open func removeIgnoreCase(key: [UInt8]) throws {
+        ensureMaterialized()
         try Validate.notEmpty(string: key)
         if let ix = attributes.firstIndex(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame}) {
             let normalizedKey = key.lowercased()
@@ -284,6 +415,7 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func removeAll(keys: [[UInt8]]) {
+        ensureMaterialized()
         guard !keys.isEmpty else { return }
         guard !attributes.isEmpty else { return }
 
@@ -339,6 +471,7 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func compactAndMutate(_ body: (Attribute) -> AttributeMutation) {
+        ensureMaterialized()
         guard !attributes.isEmpty else { return }
 
         let ownerElement = self.ownerElement
@@ -414,11 +547,13 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func hasKey(key: String) -> Bool {
+        ensureMaterialized()
         return hasKey(key: key.utf8Array)
     }
     
     @inline(__always)
     open func hasKey(key: [UInt8]) -> Bool {
+        ensureMaterialized()
         return indexForKey(key) != nil
     }
     
@@ -429,6 +564,7 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func hasKeyIgnoreCase(key: String) -> Bool {
+        ensureMaterialized()
         return hasKeyIgnoreCase(key: key.utf8Array)
     }
     
@@ -440,6 +576,7 @@ open class Attributes: NSCopying {
     
     @inlinable
     open func hasKeyIgnoreCase<T: Collection>(key: T) -> Bool where T.Element == UInt8 {
+        ensureMaterialized()
         guard !key.isEmpty else { return false }
         if lowercasedKeysCache == nil {
             updateLowercasedKeysCache()
@@ -461,6 +598,7 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func size() -> Int {
+        ensureMaterialized()
         return attributes.count
     }
     
@@ -470,7 +608,9 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func addAll(incoming: Attributes?) {
+        ensureMaterialized()
         guard let incoming = incoming else { return }
+        incoming.ensureMaterialized()
         for attr in incoming.attributes {
             put(attribute: attr)
         }
@@ -483,6 +623,7 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func asList() -> [Attribute] {
+        ensureMaterialized()
         return attributes
     }
     
@@ -493,6 +634,7 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func dataset() -> [String: String] {
+        ensureMaterialized()
         let prefixLength = Attributes.dataPrefix.count
         let pairs = attributes.filter { $0.isDataAttribute() }
             .map { ($0.getKey().substring(prefixLength), $0.getValue()) }
@@ -520,9 +662,97 @@ open class Attributes: NSCopying {
         try html(accum: accum, out: Document([]).outputSettings()) // output settings a bit funky, but this html() seldom used
         return Array(accum.buffer)
     }
+
+    @usableFromInline
+    @inline(__always)
+    internal func appendPendingHtml(_ attr: PendingAttribute, _ accum: StringBuilder, _ out: OutputSettings) {
+        let keySlice: ArraySlice<UInt8>
+        if let nameSlice = attr.nameSlice {
+            keySlice = nameSlice
+        } else if let nameBytes = attr.nameBytes {
+            keySlice = nameBytes[...]
+        } else {
+            return
+        }
+        accum.append(keySlice)
+
+        var valueBytes: [UInt8]? = nil
+        var valueSlice: ArraySlice<UInt8>? = nil
+        var hasValue = false
+        switch attr.value {
+        case .none:
+            hasValue = false
+        case .empty:
+            hasValue = true
+            valueBytes = []
+        case .slice(let slice):
+            hasValue = true
+            valueSlice = slice
+        case .slices(let slices, let count):
+            hasValue = true
+            var combined: [UInt8] = []
+            combined.reserveCapacity(count)
+            for slice in slices {
+                combined.append(contentsOf: slice)
+            }
+            valueBytes = combined
+        case .bytes(let bytes):
+            hasValue = true
+            valueBytes = bytes
+        }
+
+        let keyLowerSlice: ArraySlice<UInt8>
+        if attr.hasUppercase {
+            var lower: [UInt8] = []
+            lower.reserveCapacity(keySlice.count)
+            for b in keySlice {
+                let normalized = (b >= 65 && b <= 90) ? (b &+ 32) : b
+                lower.append(normalized)
+            }
+            keyLowerSlice = lower[...]
+        } else {
+            keyLowerSlice = keySlice
+        }
+        let isImplicitBoolean = {
+            switch attr.value {
+            case .none: return true
+            default: return false
+            }
+        }()
+        let isBoolean = isImplicitBoolean || Attribute.booleanAttributes.contains(keyLowerSlice)
+
+        var shouldCollapse = false
+        if out.syntax() == OutputSettings.Syntax.html && isBoolean {
+            if !hasValue {
+                shouldCollapse = true
+            } else if let valueBytes {
+                shouldCollapse = valueBytes.isEmpty || valueBytes.equalsIgnoreCase(string: Array(keySlice))
+            } else if let valueSlice {
+                shouldCollapse = valueSlice.isEmpty || Attributes.equalsIgnoreCase(valueSlice, keySlice)
+            }
+        }
+
+        if !shouldCollapse {
+            accum.append(UTF8Arrays.attributeEqualsQuoteMark)
+            if let valueBytes {
+                Entities.escape(accum, valueBytes, out, true, false, false)
+            } else if let valueSlice {
+                Entities.escape(accum, valueSlice, out, true, false, false)
+            }
+            accum.append(UTF8Arrays.quoteMark)
+        }
+    }
     
     @inlinable
     public func html(accum: StringBuilder, out: OutputSettings ) throws {
+        if attributes.isEmpty, let pending = pendingAttributes, !pending.isEmpty {
+            for attr in pending {
+                accum.append(UTF8Arrays.whitespace)
+                appendPendingHtml(attr, accum, out)
+            }
+            return
+        }
+        ensureMaterialized()
         for attr in attributes {
             accum.append(UTF8Arrays.whitespace)
             attr.html(accum: accum, out: out)
@@ -532,6 +762,24 @@ open class Attributes: NSCopying {
     @inline(__always)
     open func toString()throws -> String {
         return try html()
+    }
+
+    @usableFromInline
+    @inline(__always)
+    internal static func equalsIgnoreCase(_ lhs: ArraySlice<UInt8>, _ rhs: ArraySlice<UInt8>) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        var i = lhs.startIndex
+        var j = rhs.startIndex
+        while i < lhs.endIndex {
+            let b1 = lhs[i]
+            let b2 = rhs[j]
+            let lower1 = (b1 >= 65 && b1 <= 90) ? (b1 &+ 32) : b1
+            let lower2 = (b2 >= 65 && b2 <= 90) ? (b2 &+ 32) : b2
+            if lower1 != lower2 { return false }
+            i = lhs.index(after: i)
+            j = rhs.index(after: j)
+        }
+        return true
     }
     
     /**
@@ -544,11 +792,14 @@ open class Attributes: NSCopying {
         if(o == nil) {return false}
         if (self === o.self) {return true}
         guard let that = o as? Attributes else {return false}
+        ensureMaterialized()
+        that.ensureMaterialized()
         return (attributes == that.attributes)
     }
     
     @inline(__always)
     open func lowercaseAllKeys() {
+        ensureMaterialized()
         guard hasUppercaseKeys else { return }
         for ix in attributes.indices {
             attributes[ix].key = attributes[ix].key.lowercased()
@@ -564,6 +815,7 @@ open class Attributes: NSCopying {
     
     @inline(__always)
     public func copy(with zone: NSZone? = nil) -> Any {
+        ensureMaterialized()
         let clone = Attributes()
         clone.attributes = attributes
         clone.hasUppercaseKeys = hasUppercaseKeys
@@ -575,6 +827,7 @@ open class Attributes: NSCopying {
     
     @inline(__always)
     open func clone() -> Attributes {
+        ensureMaterialized()
         return self.copy() as! Attributes
     }
     
@@ -584,7 +837,17 @@ open class Attributes: NSCopying {
     }
     
     @inline(__always)
-    fileprivate static func containsAsciiUppercase(_ key: [UInt8]) -> Bool {
+    internal static func containsAsciiUppercase(_ key: [UInt8]) -> Bool {
+        for b in key {
+            if b >= 65 && b <= 90 {
+                return true
+            }
+        }
+        return false
+    }
+
+    @inline(__always)
+    internal static func containsAsciiUppercase(_ key: ArraySlice<UInt8>) -> Bool {
         for b in key {
             if b >= 65 && b <= 90 {
                 return true
@@ -597,6 +860,7 @@ open class Attributes: NSCopying {
 
 extension Attributes: Sequence {
     public func makeIterator() -> AnyIterator<Attribute> {
+        ensureMaterialized()
         return AnyIterator(attributes.makeIterator())
     }
 }

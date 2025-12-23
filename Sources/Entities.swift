@@ -332,7 +332,10 @@ public final class Entities: Sendable {
                 } else {
                     let len = utf8CharLength(for: b)
                     let end = i + len <= count ? i + len : count
-                    let charBytes = string[i..<end]
+                    let startIndex = string.startIndex
+                    let sliceStart = string.index(startIndex, offsetBy: i)
+                    let sliceEnd = string.index(startIndex, offsetBy: end)
+                    let charBytes = string[sliceStart..<sliceEnd]
                     if end - i == 2 && base[i] == 0xC2 && base[i + 1] == 0xA0 {
                         // UTF-8 encoding of "\u{A0}"
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
@@ -342,6 +345,96 @@ public final class Entities: Sendable {
                         appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
                     }
                     i += len
+                }
+            }
+        }
+    }
+
+    @usableFromInline
+    @inline(__always)
+    static func escape(
+        _ accum: StringBuilder,
+        _ string: ArraySlice<UInt8>,
+        _ out: OutputSettings,
+        _ inAttribute: Bool,
+        _ normaliseWhite: Bool,
+        _ stripLeadingWhite: Bool
+    ) {
+        #if PROFILE
+        let _p = Profiler.start("Entities.escape")
+        defer { Profiler.end("Entities.escape", _p) }
+        #endif
+        let escapeMode = out.escapeMode()
+        let encoder = out.encoder()
+        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .ascii || encoder == .utf16
+        let count = string.count
+        string.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            var i = 0
+            var lastWasWhite = false, reachedNonWhite = false
+            while i < count {
+                let b = base[i]
+                if normaliseWhite && b.isWhitespace {
+                    var j = i
+                    while j < count && base[j].isWhitespace {
+                        j += 1
+                    }
+                    if (!reachedNonWhite && stripLeadingWhite) || lastWasWhite {
+                        i = j
+                        continue
+                    }
+                    accum.append(0x20)
+                    lastWasWhite = true
+                    i = j
+                    continue
+                }
+                lastWasWhite = false
+                reachedNonWhite = true
+                if b < 0x80 {
+                    switch b {
+                    case 0x26:
+                        accum.append(ampEntityUTF8)
+                    case 0x3C:
+                        if !inAttribute || escapeMode == .xhtml {
+                            accum.append(ltEntityUTF8)
+                        } else {
+                            accum.append(b)
+                        }
+                    case 0x3E:
+                        if !inAttribute {
+                            accum.append(gtEntityUTF8)
+                        } else {
+                            accum.append(b)
+                        }
+                    case 0x22:
+                        if inAttribute {
+                            accum.append(quotEntityUTF8)
+                        } else {
+                            accum.append(b)
+                        }
+                    default:
+                        if encoderKnownToBeAbleToEncode || canEncode(byte: b, encoder: encoder) {
+                            accum.append(b)
+                        } else {
+                            appendEncoded(accum: accum, escapeMode: escapeMode, bytes: [b])
+                        }
+                    }
+                    i += 1
+                } else {
+                    let len = utf8CharLength(for: b)
+                    let end = i + len <= count ? i + len : count
+                    let startIndex = string.startIndex
+                    let sliceStart = string.index(startIndex, offsetBy: i)
+                    let sliceEnd = string.index(startIndex, offsetBy: end)
+                    let charBytes = string[sliceStart..<sliceEnd]
+                    if end - i == 2 && base[i] == 0xC2 && base[i + 1] == 0xA0 {
+                        accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
+                    } else if canEncode(bytes: charBytes, encoder: encoder) {
+                        accum.append(charBytes)
+                    } else {
+                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
+                    }
+                    i = end
                 }
             }
         }
