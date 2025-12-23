@@ -142,7 +142,7 @@ open class Attribute {
      */
     @inline(__always)
     public final func shouldCollapseAttribute(out: OutputSettings) -> Bool {
-        return (value.isEmpty || value.equalsIgnoreCase(string: key))
+        return value.isEmpty
         && out.syntax() == OutputSettings.Syntax.html
         && isBooleanAttribute()
     }

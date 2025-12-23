@@ -121,6 +121,7 @@ open class Document: Element {
      */
     public func createElement(_ tagName: String) throws -> Element {
         let el = try Element(Tag.valueOf(tagName.utf8Array, ParseSettings.preserveCase), self.getBaseUriUTF8())
+        el.ownerDocumentOverride = self
         if let treeBuilder {
             el.treeBuilder = treeBuilder
         }

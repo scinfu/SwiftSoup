@@ -728,9 +728,9 @@ open class Attributes: NSCopying {
             if !hasValue {
                 shouldCollapse = true
             } else if let valueBytes {
-                shouldCollapse = valueBytes.isEmpty || valueBytes.equalsIgnoreCase(string: Array(keySlice))
+                shouldCollapse = valueBytes.isEmpty
             } else if let valueSlice {
-                shouldCollapse = valueSlice.isEmpty || Attributes.equalsIgnoreCase(valueSlice, keySlice)
+                shouldCollapse = valueSlice.isEmpty
             }
         }
 

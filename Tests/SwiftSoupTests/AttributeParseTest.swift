@@ -133,4 +133,19 @@ class AttributeParseTest: XCTestCase {
 		XCTAssertTrue(p.hasAttr("a\u{FFFD}b"))
 		XCTAssertEqual("1", try p.attr("a\u{FFFD}b"))
 	}
+
+	func testAttributeNameIncludesQuoteCharacter() throws {
+		let html = "<a data-abc\"=\"foo\"></a>"
+		let doc = try SwiftSoup.parse(html)
+		let a = try doc.select("a").first()!
+		XCTAssertTrue(a.hasAttr("data-abc\""))
+		XCTAssertEqual("foo", try a.attr("data-abc\""))
+	}
+
+	func testAttributeValuePreservesCommentTagText() throws {
+		let html = "<div><comment><img src=\"</comment><img src=x onerror=alert(38)//\">x</div>"
+		let doc = try SwiftSoup.parse(html)
+		let img = try doc.select("img").first()!
+		XCTAssertEqual("</comment><img src=x onerror=alert(38)//", try img.attr("src"))
+	}
 }

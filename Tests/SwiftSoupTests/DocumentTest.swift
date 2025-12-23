@@ -159,7 +159,7 @@ class DocumentTest: XCTestCase {
 			"<html>\n" +
 			" <head></head>\n" +
 			" <body>\n" +
-			"  <img async checked src=\"&amp;<>&quot;\" />&lt;&gt;&amp;\"\n" +
+			"  <img async checked=\"checked\" src=\"&amp;<>&quot;\" />&lt;&gt;&amp;\"\n" +
 			"  <foo />bar\n" +
 			" </body>\n" +
 			"</html>", try! doc.html())

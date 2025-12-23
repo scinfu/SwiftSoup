@@ -2501,9 +2501,17 @@ enum TokeniserState: TokeniserStateProtocol {
             try t.emitTagPending()
             t.transition(.Data)
             return true
-        case TokeniserStateVars.nullByte, TokeniserStateVars.quoteByte, TokeniserStateVars.apostropheByte, TokeniserStateVars.lessThanByte:
-            // Let the slow path handle spec edge cases.
-            t.transition(.AfterAttributeName)
+        case TokeniserStateVars.nullByte:
+            r.advanceAscii()
+            t.error(.AttributeName)
+            t.tagPending.appendAttributeName(TokeniserStateVars.replacementChar)
+            t.transition(.AttributeName)
+            return true
+        case TokeniserStateVars.quoteByte, TokeniserStateVars.apostropheByte, TokeniserStateVars.lessThanByte:
+            r.advanceAscii()
+            t.error(.AttributeName)
+            t.tagPending.appendAttributeNameByte(byte)
+            t.transition(.AttributeName)
             return true
         default:
             return false
