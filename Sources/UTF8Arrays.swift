@@ -27,6 +27,7 @@ public enum UTF8Arrays {
     public static let cite = "cite".utf8Array
     public static let a = "a".utf8Array
     public static let p = "p".utf8Array
+    public static let div = "div".utf8Array
     public static let li = "li".utf8Array
     public static let span = "span".utf8Array
     public static let img = "img".utf8Array

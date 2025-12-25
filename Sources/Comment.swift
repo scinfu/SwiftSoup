@@ -49,6 +49,7 @@ public class Comment: Node {
 		return attributes!.get(key: Comment.COMMENT_KEY)
     }
 
+
     @inline(__always)
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         if (out.prettyPrint()) {

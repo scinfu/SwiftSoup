@@ -56,6 +56,11 @@ open class StringBuilder {
     open var isEmpty: Bool {
         return size == 0
     }
+
+    @inline(__always)
+    open var lastByte: UInt8? {
+        return size > 0 ? internalBuffer[size &- 1] : nil
+    }
     
     /**
      Append a String to the object
@@ -206,6 +211,7 @@ open class StringBuilder {
         size = 0
         return self
     }
+
     
     @usableFromInline
     @inline(__always)

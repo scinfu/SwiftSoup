@@ -32,6 +32,7 @@ open class Document: Element {
     internal var parsedAsXml: Bool = false
 
 
+
     /**
      Create a new, empty Document.
      - parameter baseUri: base URI of document
@@ -46,6 +47,7 @@ open class Document: Element {
         _location = baseUri.utf8Array
         super.init(try! Tag.valueOf(UTF8Arrays.hashRoot, ParseSettings.htmlDefault), _location)
     }
+
 
     /**
      Create a valid, empty shell of a document, suitable for adding more elements to.

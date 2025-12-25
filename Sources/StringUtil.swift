@@ -5,6 +5,12 @@
 //  Created by Nabil Chatbi on 20/04/16.
 //
 
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+
 import Foundation
 
 /**
@@ -206,33 +212,113 @@ open class StringUtil {
         var reachedNonWhite = false
         var i = 0
         while i < string.count {
-            // Determine the length of the current UTF-8 encoded scalar.
             let firstByte = string[i]
-            let scalarByteCount: Int
             if firstByte < 0x80 {
-                scalarByteCount = 1
-            } else if firstByte < 0xE0 {
+                if firstByte == 0x20 || firstByte == 0x09 || firstByte == 0x0A || firstByte == 0x0C || firstByte == 0x0D {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i += 1
+                        continue
+                    }
+                    accum.append(UTF8Arrays.whitespace)
+                    lastWasWhite = true
+                } else {
+                    accum.append(firstByte)
+                    lastWasWhite = false
+                    reachedNonWhite = true
+                }
+                i += 1
+                continue
+            }
+            // Non-ASCII scalar, append as-is.
+            let scalarByteCount: Int
+            if firstByte < 0xE0 {
                 scalarByteCount = 2
             } else if firstByte < 0xF0 {
                 scalarByteCount = 3
             } else {
                 scalarByteCount = 4
             }
-            guard i + scalarByteCount <= string.count else { break }
-            let scalarBytes = Array(string[i..<i+scalarByteCount])
-            i += scalarByteCount
-            
-            if isWhitespace(scalarBytes) {
-                if (stripLeading && !reachedNonWhite) || lastWasWhite {
-                    continue
+            let end = i + scalarByteCount
+            guard end <= string.count else { break }
+            accum.append(string[i..<end])
+            lastWasWhite = false
+            reachedNonWhite = true
+            i = end
+        }
+    }
+
+    @inlinable
+    public static func appendNormalisedWhitespace(_ accum: StringBuilder, string: ArraySlice<UInt8>, stripLeading: Bool) {
+        if !string.isEmpty {
+            #if canImport(Darwin) || canImport(Glibc)
+            let count = string.count
+            let hasWhitespace = string.withUnsafeBytes { buf -> Bool in
+                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
+                    return false
                 }
-                accum.append([UInt8](" ".utf8))
-                lastWasWhite = true
-            } else {
-                accum.append(scalarBytes)
-                lastWasWhite = false
-                reachedNonWhite = true
+                return memchr(basePtr, 0x20, count) != nil ||
+                    memchr(basePtr, 0x09, count) != nil ||
+                    memchr(basePtr, 0x0A, count) != nil ||
+                    memchr(basePtr, 0x0C, count) != nil ||
+                    memchr(basePtr, 0x0D, count) != nil
             }
+            if !hasWhitespace {
+                accum.append(string)
+                return
+            }
+            #else
+            var hasWhitespace = false
+            for b in string {
+                if b == 0x20 || (b >= 0x09 && b <= 0x0D) {
+                    hasWhitespace = true
+                    break
+                }
+            }
+            if !hasWhitespace {
+                accum.append(string)
+                return
+            }
+            #endif
+        }
+        var lastWasWhite = false
+        var reachedNonWhite = false
+        var i = string.startIndex
+        let end = string.endIndex
+        while i < end {
+            let firstByte = string[i]
+            if firstByte < 0x80 {
+                if firstByte == 0x20 || firstByte == 0x09 || firstByte == 0x0A || firstByte == 0x0C || firstByte == 0x0D {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i = string.index(after: i)
+                        continue
+                    }
+                    accum.append(UTF8Arrays.whitespace)
+                    lastWasWhite = true
+                } else {
+                    accum.append(firstByte)
+                    lastWasWhite = false
+                    reachedNonWhite = true
+                }
+                i = string.index(after: i)
+                continue
+            }
+            let scalarByteCount: Int
+            if firstByte < 0xE0 {
+                scalarByteCount = 2
+            } else if firstByte < 0xF0 {
+                scalarByteCount = 3
+            } else {
+                scalarByteCount = 4
+            }
+            var next = i
+            for _ in 0..<scalarByteCount {
+                if next == end { return }
+                next = string.index(after: next)
+            }
+            accum.append(string[i..<next])
+            lastWasWhite = false
+            reachedNonWhite = true
+            i = next
         }
     }
 

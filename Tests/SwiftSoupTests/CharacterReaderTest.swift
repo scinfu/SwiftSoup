@@ -329,6 +329,36 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertFalse(r.matchesAny("π"))
     }
 
+    func testConsumeDataStopsAtAmpersandAndLt() {
+        let r = CharacterReader("ab&cd<ef")
+        let data = r.consumeData()
+        XCTAssertEqual("ab", String(decoding: data, as: UTF8.self))
+        XCTAssertEqual("&", r.consume())
+        let data2 = r.consumeData()
+        XCTAssertEqual("cd", String(decoding: data2, as: UTF8.self))
+        XCTAssertEqual("<", r.consume())
+        let data3 = r.consumeData()
+        XCTAssertEqual("ef", String(decoding: data3, as: UTF8.self))
+    }
+
+    func testConsumeDataStopsAtNullByte() {
+        let bytes: [UInt8] = [0x61, 0x62, 0x00, 0x63, 0x64]
+        let r = CharacterReader(bytes)
+        let data = r.consumeData()
+        XCTAssertEqual("ab", String(decoding: data, as: UTF8.self))
+        XCTAssertEqual(UnicodeScalar(0x00), r.current())
+        XCTAssertEqual(UnicodeScalar(0x00), r.consume())
+        let data2 = r.consumeData()
+        XCTAssertEqual("cd", String(decoding: data2, as: UTF8.self))
+    }
+
+    func testConsumeDataNoTerminators() {
+        let r = CharacterReader("abcdef")
+        let data = r.consumeData()
+        XCTAssertEqual("abcdef", String(decoding: data, as: UTF8.self))
+        XCTAssertEqual(CharacterReader.EOF, r.current())
+    }
+
     func testCachesStrings() {
         let r = CharacterReader("Check\tCheck\tCheck\tCHOKE\tA string that is longer than 16 chars")
         let one = r.consumeTo("\t")

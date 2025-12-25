@@ -65,6 +65,9 @@ open class DataNode: Node {
         return attributes!.get(key: DataNode.DATA_KEY)
     }
 
+
+
+
     /**
      Set the data contents of this node.
      - parameter data: unencoded data
@@ -80,6 +83,7 @@ open class DataNode: Node {
         markSourceDirty()
         return self
     }
+
 
     @inline(__always)
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings)throws {

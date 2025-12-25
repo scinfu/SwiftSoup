@@ -17,6 +17,41 @@ open class Tag: Hashable, @unchecked Sendable {
             preconditionFailure("Cannot initialize known tags: \(error)")
         }
     }()
+
+    // Fast known-tag lookups for common tag ids to avoid dictionary hashing on hot paths.
+    private static let tagA = knownTags[UTF8Arrays.a]!
+    private static let tagSpan = knownTags[UTF8Arrays.span]!
+    private static let tagP = knownTags[UTF8Arrays.p]!
+    private static let tagDiv = knownTags[UTF8Arrays.div]!
+    private static let tagEm = knownTags[UTF8Arrays.em]!
+    private static let tagStrong = knownTags[UTF8Arrays.strong]!
+    private static let tagB = knownTags[UTF8Arrays.b]!
+    private static let tagI = knownTags[UTF8Arrays.i]!
+    private static let tagSmall = knownTags[UTF8Arrays.small]!
+    private static let tagLi = knownTags[UTF8Arrays.li]!
+    private static let tagBody = knownTags[UTF8Arrays.body]!
+    private static let tagHtml = knownTags[UTF8Arrays.html]!
+    private static let tagHead = knownTags[UTF8Arrays.head]!
+    private static let tagTitle = knownTags[UTF8Arrays.title]!
+    private static let tagForm = knownTags[UTF8Arrays.form]!
+    private static let tagBr = knownTags[UTF8Arrays.br]!
+    private static let tagMeta = knownTags[UTF8Arrays.meta]!
+    private static let tagImg = knownTags[UTF8Arrays.img]!
+    private static let tagScript = knownTags[UTF8Arrays.script]!
+    private static let tagStyle = knownTags[UTF8Arrays.style]!
+    private static let tagCaption = knownTags[UTF8Arrays.caption]!
+    private static let tagCol = knownTags[UTF8Arrays.col]!
+    private static let tagColgroup = knownTags[UTF8Arrays.colgroup]!
+    private static let tagTable = knownTags[UTF8Arrays.table]!
+    private static let tagTbody = knownTags[UTF8Arrays.tbody]!
+    private static let tagThead = knownTags[UTF8Arrays.thead]!
+    private static let tagTfoot = knownTags[UTF8Arrays.tfoot]!
+    private static let tagTr = knownTags[UTF8Arrays.tr]!
+    private static let tagTd = knownTags[UTF8Arrays.td]!
+    private static let tagTh = knownTags[UTF8Arrays.th]!
+    private static let tagInput = knownTags[UTF8Arrays.input]!
+    private static let tagHr = knownTags[UTF8Arrays.hr]!
+
     
     #if DEBUG
     /// Compile-time check that the ``knownTags`` dictionary really is `Sendable`.
@@ -116,6 +151,89 @@ open class Tag: Hashable, @unchecked Sendable {
         traits.selfClosing = isSelfClosing
         return Tag(normalizedTagName, traits: traits)
     }
+
+    @inline(__always)
+    internal static func valueOfTagId(_ tagId: Token.Tag.TagId) -> Tag? {
+        switch tagId {
+        case .a:
+            return tagA
+        case .span:
+            return tagSpan
+        case .p:
+            return tagP
+        case .div:
+            return tagDiv
+        case .em:
+            return tagEm
+        case .strong:
+            return tagStrong
+        case .b:
+            return tagB
+        case .i:
+            return tagI
+        case .small:
+            return tagSmall
+        case .li:
+            return tagLi
+        case .body:
+            return tagBody
+        case .html:
+            return tagHtml
+        case .head:
+            return tagHead
+        case .title:
+            return tagTitle
+        case .form:
+            return tagForm
+        case .br:
+            return tagBr
+        case .meta:
+            return tagMeta
+        case .img:
+            return tagImg
+        case .script:
+            return tagScript
+        case .style:
+            return tagStyle
+        case .caption:
+            return tagCaption
+        case .col:
+            return tagCol
+        case .colgroup:
+            return tagColgroup
+        case .table:
+            return tagTable
+        case .tbody:
+            return tagTbody
+        case .thead:
+            return tagThead
+        case .tfoot:
+            return tagTfoot
+        case .tr:
+            return tagTr
+        case .td:
+            return tagTd
+        case .th:
+            return tagTh
+        case .input:
+            return tagInput
+        case .hr:
+            return tagHr
+        case .none:
+            return nil
+        }
+    }
+
+    @inline(__always)
+    internal static func isBr(_ tag: Tag) -> Bool {
+        return tag === tagBr
+    }
+
+    @inline(__always)
+    internal static func isScriptOrStyle(_ tag: Tag) -> Bool {
+        return tag === tagScript || tag === tagStyle
+    }
+
 
     internal static func valueOf(_ tagName: [UInt8], _ settings: ParseSettings, isSelfClosing: Bool) throws -> Tag {
         if let tag = Self.knownTags[tagName] {

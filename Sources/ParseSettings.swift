@@ -19,6 +19,8 @@ open class ParseSettings: @unchecked Sendable {
 
     private let preserveTagCase: Bool
     private let preserveAttributeCase: Bool
+    private let trackSourceRanges: Bool
+    private let trackAttributes: Bool
 
     /**
      Define parse settings.
@@ -28,6 +30,22 @@ open class ParseSettings: @unchecked Sendable {
     public init(_ tag: Bool, _ attribute: Bool) {
         preserveTagCase = tag
         preserveAttributeCase = attribute
+        trackSourceRanges = true
+        trackAttributes = true
+    }
+
+    public init(_ tag: Bool, _ attribute: Bool, _ trackSourceRanges: Bool) {
+        preserveTagCase = tag
+        preserveAttributeCase = attribute
+        self.trackSourceRanges = trackSourceRanges
+        trackAttributes = true
+    }
+
+    public init(_ tag: Bool, _ attribute: Bool, _ trackSourceRanges: Bool, _ trackAttributes: Bool) {
+        preserveTagCase = tag
+        preserveAttributeCase = attribute
+        self.trackSourceRanges = trackSourceRanges
+        self.trackAttributes = trackAttributes
     }
 
     @inline(__always)
@@ -38,6 +56,16 @@ open class ParseSettings: @unchecked Sendable {
     @inline(__always)
     internal func preservesAttributeCase() -> Bool {
         return preserveAttributeCase
+    }
+
+    @inline(__always)
+    internal func tracksSourceRanges() -> Bool {
+        return trackSourceRanges
+    }
+
+    @inline(__always)
+    internal func tracksAttributes() -> Bool {
+        return trackAttributes
     }
 
     open func normalizeTag(_ name: [UInt8]) -> [UInt8] {

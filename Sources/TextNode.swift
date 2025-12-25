@@ -113,6 +113,45 @@ open class TextNode: Node {
         return attributes == nil ? _text : attributes!.get(key: TextNode.TEXT_KEY)
     }
 
+    @usableFromInline
+    internal func wholeTextSlice() -> ArraySlice<UInt8> {
+        if attributes != nil {
+            return getWholeTextUTF8()[...]
+        }
+        if let slice = _textSlice {
+            return slice
+        }
+        return _text[...]
+    }
+
+    @usableFromInline
+    internal func appendSlice(_ slice: ArraySlice<UInt8>) {
+        if attributes != nil {
+            var bytes = getWholeTextUTF8()
+            bytes.append(contentsOf: slice)
+            do {
+                try attributes?.put(TextNode.TEXT_KEY, bytes)
+            } catch {}
+        } else {
+            if let existingSlice = _textSlice {
+                _text = Array(existingSlice)
+                _textSlice = nil
+            }
+            _text.append(contentsOf: slice)
+        }
+        bumpTextMutationVersion()
+        markSourceDirty()
+    }
+
+    @usableFromInline
+    internal func appendBytes(_ bytes: [UInt8]) {
+        appendSlice(bytes[...])
+    }
+
+
+
+
+
     /**
      Test if this text node is blank -- that is, empty or only whitespace (including newlines).
      - returns: true if this document is empty or only whitespace, false if it contains any text content.
@@ -206,7 +245,7 @@ open class TextNode: Node {
     @inlinable
     @inline(__always)
     static public func lastCharIsWhitespace(_ sb: StringBuilder) -> Bool {
-        return sb.buffer.last == 0x20  // 0x20 is the UTF-8 code for a space character
+        return sb.lastByte == 0x20  // 0x20 is the UTF-8 code for a space character
     }
 
     // attribute fiddling. create on first access.

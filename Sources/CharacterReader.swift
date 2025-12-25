@@ -15,6 +15,8 @@ public final class CharacterReader {
     private var mark: [UInt8].Index
     private let start: [UInt8].Index
     public let end: [UInt8].Index
+    private var hasNullChecked: Bool = false
+    private var hasNull: Bool = false
     
     private static let letters = ParsingStrings("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".map { String($0) })
     private static let digits = ParsingStrings(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"])
@@ -897,31 +899,63 @@ public final class CharacterReader {
         let _p = Profiler.start("CharacterReader.nextIndexOf")
         defer { Profiler.end("CharacterReader.nextIndexOf", _p) }
         #endif
-        if targetUtf8.count == 1 {
+        let targetCount = targetUtf8.count
+        if targetCount == 1 {
             return input[pos...].firstIndex(of: targetUtf8[0])
         }
+        let lastStart = end - targetCount
+        if pos > lastStart { return nil }
+
+        let first = targetUtf8[0]
+        if targetCount == 2 {
+            let second = targetUtf8[1]
+            var start = pos
+            while start <= lastStart {
+                guard let firstCharIx = input[start...lastStart].firstIndex(of: first) else { return nil }
+                let nextIx = firstCharIx + 1
+                if input[nextIx] == second {
+                    return firstCharIx
+                }
+                start = firstCharIx + 1
+            }
+            return nil
+        }
+
+        if targetCount == 3 {
+            let second = targetUtf8[1]
+            let third = targetUtf8[2]
+            var start = pos
+            while start <= lastStart {
+                guard let firstCharIx = input[start...lastStart].firstIndex(of: first) else { return nil }
+                let nextIx = firstCharIx + 1
+                if input[nextIx] == second && input[nextIx + 1] == third {
+                    return firstCharIx
+                }
+                start = firstCharIx + 1
+            }
+            return nil
+        }
+
         var start = pos
-        
-        while true {
-            guard let firstCharIx = input[start...].firstIndex(of: targetUtf8.first!) else { return nil }
-            
-            var current = firstCharIx
+        while start <= lastStart {
+            guard let firstCharIx = input[start...lastStart].firstIndex(of: first) else { return nil }
+            var current = firstCharIx + 1
             var matched = true
-            for utf8Byte in targetUtf8 {
-                guard current < end else { return nil }
-                if input[current] != utf8Byte {
+            var j = 1
+            while j < targetCount {
+                if input[current] != targetUtf8[j] {
                     matched = false
                     break
                 }
-                input.formIndex(after: &current)
+                current += 1
+                j += 1
             }
-            
             if matched {
                 return firstCharIx
-            } else {
-                start = input.index(after: firstCharIx)
             }
+            start = firstCharIx + 1
         }
+        return nil
     }
 
     public func consumeToAnyOfTwo(_ a: UInt8, _ b: UInt8) -> ArraySlice<UInt8> {
@@ -1097,12 +1131,31 @@ public final class CharacterReader {
             return input[start..<pos]
         }
 
+        if !hasNullChecked {
+            let totalCount = input.count
+            if totalCount >= 64 {
+                #if canImport(Darwin) || canImport(Glibc)
+                hasNull = input.withUnsafeBytes { buf in
+                    guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
+                        return false
+                    }
+                    return memchr(basePtr, 0x00, totalCount) != nil
+                }
+                #else
+                hasNull = input.contains(0)
+                #endif
+            } else {
+                hasNull = input.contains(0)
+            }
+            hasNullChecked = true
+        }
+
         // Small unrolled scan for short runs before falling back to memchr.
         var i = pos
         let scanEnd = min(end, pos + 16)
         while i < scanEnd {
             let b = input[i]
-            if b == 0x26 || b == 0x3C || b == 0x00 { // &, <, null
+            if b == 0x26 || b == 0x3C || (hasNull && b == 0x00) { // &, <, null
                 pos = i
                 return input[start..<pos]
             }
@@ -1120,63 +1173,38 @@ public final class CharacterReader {
                 guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
                     return input[start..<pos]
                 }
-                @inline(__always)
-                func hasByte(_ word: UInt64, _ byte: UInt64) -> Bool {
-                    let mask = byte &* 0x0101010101010101
-                    let x = word ^ mask
-                    return ((x &- 0x0101010101010101) & ~x & 0x8080808080808080) != 0
+                let startPtr = basePtr.advanced(by: pos)
+                let startRaw = UnsafeRawPointer(startPtr)
+                let len = end - pos
+                let pa = memchr(startPtr, 0x26, len) // &
+                let pb = memchr(startPtr, 0x3C, len) // <
+                var minOff = len
+                if let pa {
+                    let off = Int(bitPattern: pa) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
                 }
-
-                var idx = pos
-                var p = basePtr.advanced(by: pos)
-                // Align to 8 bytes for safe UInt64 loads.
-                while (Int(bitPattern: p) & 7) != 0 && idx < end {
-                    let b = input[idx]
-                    if b == 0x26 || b == 0x3C || b == 0x00 {
-                        pos = idx
-                        return input[start..<pos]
-                    }
-                    idx &+= 1
-                    p = p.advanced(by: 1)
+                if let pb {
+                    let off = Int(bitPattern: pb) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
                 }
-
-                while idx &+ 8 <= end {
-                    let w = UnsafeRawPointer(p).load(as: UInt64.self)
-                    if hasByte(w, 0x26) || hasByte(w, 0x3C) || hasByte(w, 0x00) {
-                        let limit = idx &+ 8
-                        var j = idx
-                        while j < limit {
-                            let b = input[j]
-                            if b == 0x26 || b == 0x3C || b == 0x00 {
-                                pos = j
-                                return input[start..<pos]
-                            }
-                            j &+= 1
-                        }
-                    }
-                    idx &+= 8
-                    p = p.advanced(by: 8)
+                if hasNull, let pc = memchr(startPtr, 0x00, len) {
+                    let off = Int(bitPattern: pc) - Int(bitPattern: startRaw)
+                    if off < minOff { minOff = off }
                 }
-
-                // Tail bytes.
-                while idx < end {
-                    let b = input[idx]
-                    if b == 0x26 || b == 0x3C || b == 0x00 {
-                        pos = idx
-                        return input[start..<pos]
-                    }
-                    idx &+= 1
+                if minOff != len {
+                    pos = pos + minOff
+                    return input[start..<pos]
                 }
-
                 pos = end
                 return input[start..<pos]
             }
         }
+        // No mid-tier memchr: default to scalar loop for short remaining spans.
         #endif
 
         while pos < end {
             let b = input[pos]
-            if b == 0x26 || b == 0x3C || b == 0x00 { // &, <, null
+            if b == 0x26 || b == 0x3C || (hasNull && b == 0x00) { // &, <, null
                 return input[start..<pos]
             }
             pos &+= 1
@@ -1250,25 +1278,36 @@ public final class CharacterReader {
     
     @inlinable
     public func consumeTagName() -> ArraySlice<UInt8> {
+        return consumeTagNameWithUppercaseFlag().0
+    }
+
+    @inline(__always)
+    public func consumeTagNameWithUppercaseFlag() -> (ArraySlice<UInt8>, Bool) {
         // Fast path for ASCII tag names
         if pos < end && input[pos] < 0x80 {
             let start = pos
             var i = pos
+            var hasUppercase = false
             while i < end {
                 let b = input[i]
                 if b >= 0x80 {
-                    return consumeToAny(CharacterReader.tagNameTerminators)
+                    let slice: ArraySlice<UInt8> = consumeToAny(CharacterReader.tagNameTerminators)
+                    return (slice, Attributes.containsAsciiUppercase(slice))
                 }
                 if CharacterReader.tagNameDelims[Int(b)] {
                     pos = i
-                    return input[start..<pos]
+                    return (input[start..<pos], hasUppercase)
+                }
+                if !hasUppercase && b >= 65 && b <= 90 {
+                    hasUppercase = true
                 }
                 i &+= 1
             }
             pos = i
-            return input[start..<pos]
+            return (input[start..<pos], hasUppercase)
         }
-        return consumeToAny(CharacterReader.tagNameTerminators)
+        let slice: ArraySlice<UInt8> = consumeToAny(CharacterReader.tagNameTerminators)
+        return (slice, Attributes.containsAsciiUppercase(slice))
     }
 
     public func consumeAttributeName() -> ArraySlice<UInt8> {

@@ -24,6 +24,7 @@ class HtmlParserTest: XCTestCase {
 		XCTAssertEqual("img", img.tagName())
 	}
 
+
     func testParsesSimpleDocumentFromData() throws {
         let data: Data = "<html><head><title>First!</title></head><body><p>First post! <img src=\"foo.png\" /></p></body></html>"
             .data(using: .utf8)!
@@ -76,6 +77,7 @@ class HtmlParserTest: XCTestCase {
 		let text: TextNode = p.childNode(0)as! TextNode
 		XCTAssertEqual("Hello", text.getWholeText())
 	}
+
 	
 	func testCommentStartDashDash() throws {
 		let html = "<div><!---x--></div>"
