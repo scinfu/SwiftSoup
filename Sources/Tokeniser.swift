@@ -191,76 +191,6 @@ final class Tokeniser {
         }
     }
 
-    // Fast tokeniser loop: dispatches events directly without creating Token objects.
-    func readFast(_ receiver: TokeniserEventReceiver) throws {
-        #if PROFILE
-        let _p = Profiler.start("Tokeniser.readFast")
-        defer { Profiler.end("Tokeniser.readFast", _p) }
-        #endif
-        while true {
-            if (!selfClosingFlagAcknowledged) {
-                if trackErrors {
-                    error("Self closing flag not acknowledged")
-                }
-                selfClosingFlagAcknowledged = true
-            }
-
-            while (!isEmitPendingFast && charsBuilder.isEmpty && charsSlice == nil && pendingSlices.isEmpty) {
-                if isDataState {
-                    repeat {
-                        try readDataState()
-                    } while (!isEmitPendingFast && charsBuilder.isEmpty && charsSlice == nil && pendingSlices.isEmpty && isDataState)
-                    if isEmitPendingFast || !charsBuilder.isEmpty || charsSlice != nil || !pendingSlices.isEmpty {
-                        break
-                    }
-                    continue
-                }
-                try state.read(self, reader)
-            }
-
-            if !charsBuilder.isEmpty {
-                let str = Array(charsBuilder.buffer)
-                charsBuilder.clear()
-                charsSlice = nil
-                pendingSlices.removeAll(keepingCapacity: true)
-                pendingSlicesCount = 0
-                charPending.sourceRange = nil
-                pendingCharRange = nil
-                receiver.text(str[...])
-                continue
-            } else if let slice = charsSlice {
-                charsSlice = nil
-                charPending.sourceRange = pendingCharRange
-                pendingCharRange = nil
-                receiver.text(slice)
-                continue
-            } else if !pendingSlices.isEmpty {
-                let totalCount = pendingSlicesCount
-                var combined = [UInt8]()
-                combined.reserveCapacity(totalCount)
-                for slice in pendingSlices {
-                    combined.append(contentsOf: slice)
-                }
-                pendingSlices.removeAll(keepingCapacity: true)
-                pendingSlicesCount = 0
-                charPending.sourceRange = nil
-                pendingCharRange = nil
-                receiver.text(combined[...])
-                continue
-            } else if isEmitPendingFast {
-                isEmitPending = false
-                isEmitPendingFast = false
-                pendingCharRange = nil
-                let token = emitPending!
-                emitPending = nil
-                dispatch(token, to: receiver)
-                if token.type == Token.TokenType.EOF {
-                    return
-                }
-                continue
-            }
-        }
-    }
     
     func emit(_ token: Token) throws {
         try Validate.isFalse(val: isEmitPending, msg: "There is an unread token pending!")
@@ -286,44 +216,6 @@ final class Tokeniser {
         }
     }
 
-    @inline(__always)
-    private func dispatch(_ token: Token, to receiver: TokeniserEventReceiver) {
-        switch token.type {
-        case .StartTag:
-            let start = token.asStartTag()
-            let name = start.tagNameSlice() ?? []
-            let normalName = start.normalNameSlice()
-            var attrs: Attributes? = nil
-            if start.hasAnyAttributes() {
-                start.ensureAttributes()
-                attrs = start._attributes
-            }
-            receiver.startTag(name: name, normalName: normalName, tagId: start.tagId, attributes: attrs, selfClosing: start.isSelfClosing())
-        case .EndTag:
-            let end = token.asEndTag()
-            let name = end.tagNameSlice() ?? []
-            let normalName = end.normalNameSlice()
-            receiver.endTag(name: name, normalName: normalName, tagId: end.tagId)
-        case .Comment:
-            let comment = token.asComment()
-            receiver.comment(comment.data.buffer)
-        case .Doctype:
-            let doc = token.asDoctype()
-            let name = doc.name.buffer.isEmpty ? nil : doc.name.buffer
-            let publicId = doc.publicIdentifier.buffer.isEmpty ? nil : doc.publicIdentifier.buffer
-            let systemId = doc.systemIdentifier.buffer.isEmpty ? nil : doc.systemIdentifier.buffer
-            receiver.doctype(name: name, publicId: publicId, systemId: systemId, forceQuirks: doc.forceQuirks)
-        case .Char:
-            let char = token.asCharacter()
-            if let slice = char.getDataSlice() {
-                receiver.text(slice)
-            } else if let data = char.getData() {
-                receiver.text(data[...])
-            }
-        case .EOF:
-            receiver.eof()
-        }
-    }
 
     @inline(__always)
     func emitEOF() throws {
