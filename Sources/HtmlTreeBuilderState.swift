@@ -768,7 +768,17 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     case .span:
                         return anyOtherEndTagFast(UTF8Arrays.span, tb)
                     case .div:
-                        return anyOtherEndTagFast(UTF8Arrays.div, tb)
+                        if (try !tb.inScope(UTF8Arrays.div)) {
+                            tb.error(self)
+                            return false
+                        } else {
+                            tb.generateImpliedEndTags()
+                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(UTF8Arrays.div)) {
+                                tb.error(self)
+                            }
+                            tb.popStackToClose(UTF8Arrays.div)
+                        }
+                        return true
                     case .li:
                         if (try !tb.inListItemScope(UTF8Arrays.li)) {
                             tb.error(self)
