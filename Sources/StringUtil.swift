@@ -229,6 +229,16 @@ open class StringUtil {
                 i += 1
                 continue
             }
+            if firstByte == 0xC2, i + 1 < string.count, string[i + 1] == 0xA0 {
+                if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                    i += 2
+                    continue
+                }
+                accum.append(UTF8Arrays.whitespace)
+                lastWasWhite = true
+                i += 2
+                continue
+            }
             // Non-ASCII scalar, append as-is.
             let scalarByteCount: Int
             if firstByte < 0xE0 {
@@ -260,7 +270,9 @@ open class StringUtil {
                     memchr(basePtr, 0x09, count) != nil ||
                     memchr(basePtr, 0x0A, count) != nil ||
                     memchr(basePtr, 0x0C, count) != nil ||
-                    memchr(basePtr, 0x0D, count) != nil
+                    memchr(basePtr, 0x0D, count) != nil ||
+                    memchr(basePtr, 0xA0, count) != nil ||
+                    memchr(basePtr, 0xC2, count) != nil
             }
             if !hasWhitespace {
                 accum.append(string)
@@ -301,6 +313,19 @@ open class StringUtil {
                 }
                 i = string.index(after: i)
                 continue
+            }
+            if firstByte == 0xC2 {
+                let next = string.index(after: i)
+                if next < end, string[next] == 0xA0 {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i = string.index(after: next)
+                        continue
+                    }
+                    accum.append(UTF8Arrays.whitespace)
+                    lastWasWhite = true
+                    i = string.index(after: next)
+                    continue
+                }
             }
             let scalarByteCount: Int
             if firstByte < 0xE0 {

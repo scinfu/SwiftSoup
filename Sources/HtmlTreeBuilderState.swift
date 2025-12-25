@@ -325,6 +325,9 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                            !equalsSlice(currentName, nameSlice) {
                             tb.error(self)
                         }
+                        if Constants.InBodyEndAdoptionFormatters.contains(nodeName) {
+                            tb.removeFromActiveFormattingElements(node)
+                        }
                         tb.popStackToClose(nodeName)
                         break
                     } else if (tb.isSpecial(node)) {
@@ -345,6 +348,9 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         if let currentName = tb.currentElement()?.nodeNameUTF8(),
                            !currentName.equals(name) {
                             tb.error(self)
+                        }
+                        if Constants.InBodyEndAdoptionFormatters.contains(nodeName) {
+                            tb.removeFromActiveFormattingElements(node)
                         }
                         tb.popStackToClose(nodeName)
                         break
@@ -445,7 +451,37 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     }
                     try tb.insertForm(startTag, false)
                     tb.framesetOk(false)
+                case .html:
+                    tb.error(self)
+                    if startTag.hasAnyAttributes() {
+                        startTag.ensureAttributes()
+                        if let attrs = startTag._attributes,
+                           let html = tb.getFromStack(UTF8Arrays.html) {
+                            let htmlAttrs = html.getAttributes()!
+                            for attr in attrs.asList() where !htmlAttrs.hasKeyIgnoreCase(key: attr.getKeyUTF8()) {
+                                htmlAttrs.put(attribute: attr)
+                            }
+                        }
+                    }
+                case .body:
+                    tb.error(self)
+                    guard let body = tb.getFromStack(UTF8Arrays.body) else { return false }
+                    if startTag.hasAnyAttributes() {
+                        startTag.ensureAttributes()
+                        if let attrs = startTag._attributes {
+                            let bodyAttrs = body.getAttributes()!
+                            for attr in attrs.asList() where !bodyAttrs.hasKeyIgnoreCase(key: attr.getKeyUTF8()) {
+                                bodyAttrs.put(attribute: attr)
+                            }
+                        }
+                    }
                 case .br, .img:
+                    if ensureHasFormatting() {
+                        try tb.reconstructFormattingElements()
+                    }
+                    try tb.insertEmpty(startTag)
+                    tb.framesetOk(false)
+                case .hr:
                     if ensureHasFormatting() {
                         try tb.reconstructFormattingElements()
                     }
@@ -510,6 +546,19 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 try tb.insert(startTag)
                             } else if Constants.InBodyStartToHead.contains(nameSlice) {
                                 return try tb.process(t, .InHead)
+                            } else if equalsSlice(UTF8Arrays.select, nameSlice) {
+                                if ensureHasFormatting() {
+                                    try tb.reconstructFormattingElements()
+                                }
+                                try tb.insert(startTag)
+                                tb.framesetOk(false)
+                                tb.transition(.InSelect)
+                            } else if equalsSlice(UTF8Arrays.plaintext, nameSlice) {
+                                if ensureHasFormatting() {
+                                    try tb.reconstructFormattingElements()
+                                }
+                                try tb.insert(startTag)
+                                tb.tokeniser.transition(.PLAINTEXT)
                             } else if equalsSlice(UTF8Arrays.form, nameSlice) {
                                 if tb.getFormElement() != nil {
                                     tb.error(self)
@@ -671,7 +720,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         } else if (!tb.onStack(formatEl!)) {
                             tb.error(self)
                             tb.removeFromActiveFormattingElements(formatEl!)
-                            return true
+                            return anyOtherEndTag(t, tb)
                         } else if (try !tb.inScope(formatEl!.nodeNameUTF8())) {
                             tb.error(self)
                             return false
@@ -1820,7 +1869,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         fileprivate static let DdDt = ParsingStrings(["dd", "dt"])
         fileprivate static let Formatters = ParsingStrings(["b", "big", "code", "em", "font", "i", "s", "small", "strike", "strong", "tt", "u"])
         fileprivate static let InBodyStartApplets = ParsingStrings(["applet", "marquee", "object"])
-        fileprivate static let InBodyStartEmptyFormatters = ParsingStrings(["area", "br", "embed", "img", "keygen", "wbr"])
+        fileprivate static let InBodyStartEmptyFormatters = ParsingStrings(["area", "br", "embed", "hr", "img", "keygen", "wbr"])
         fileprivate static let InBodyStartMedia = ParsingStrings(["param", "source", "track"])
         fileprivate static let InBodyStartInputAttribs = ParsingStrings(["name", "action", "prompt"])
         fileprivate static let InBodyStartOptions = ParsingStrings(["optgroup", "option"])

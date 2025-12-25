@@ -914,13 +914,15 @@ class HtmlTreeBuilder: TreeBuilder {
     
     private func isSameFormattingElement(_ a: Element, _ b: Element) -> Bool {
         // same if: same namespace, tag, and attributes. Element.equals only checks tag, might in future check children
-        if(a.attributes == nil) {
-            return false
+        let aAttrs = a.getAttributes()
+        let bAttrs = b.getAttributes()
+        if aAttrs == nil || bAttrs == nil {
+            return aAttrs == nil && bAttrs == nil && a.nodeNameUTF8() == b.nodeNameUTF8()
         }
         
         return a.nodeNameUTF8() == b.nodeNameUTF8() &&
         // a.namespace().equals(b.namespace()) &&
-        a.getAttributes()!.equals(o: b.getAttributes())
+        aAttrs!.equals(o: bAttrs!)
         // todo: namespaces
     }
     
