@@ -36,7 +36,7 @@ open class Element: Node {
         "type".utf8Array,
         "charset".utf8Array
     ].map { $0.lowercased() })
-    
+
     /// Lazily-built tag → elements index (normalized lowercase UTF‑8 keys), invalidated on mutations.
     /// Optimizes hot tag selectors while preserving document order.
     @usableFromInline
@@ -76,10 +76,7 @@ open class Element: Node {
     internal var suppressQueryIndexDirty: Bool = false
     
     /// Cached normalized text (UTF‑8) for trim+normalize path.
-    @usableFromInline
-    internal var cachedTextUTF8: [UInt8]? = nil
-    @usableFromInline
-    internal var cachedTextVersion: Int = -1
+    /// NOTE: Removed text cache; keep no per-node cache state here.
     
     /**
      Create a new, standalone Element. (Standalone in that is has no parent.)
@@ -202,6 +199,15 @@ open class Element: Node {
             return try String(decoding: attributes.getIgnoreCase(key: Element.idString), as: UTF8.self)
         } catch {}
         return ""
+    }
+
+    @inline(__always)
+    open func idUTF8() -> [UInt8] {
+        guard let attributes else { return [] }
+        do {
+            return try attributes.getIgnoreCase(key: Element.idString)
+        } catch {}
+        return []
     }
     
     // attribute fiddling. create on first access.
@@ -903,7 +909,6 @@ open class Element: Node {
         if key.isEmpty {
             return Elements()
         }
-        
         if isTagQueryIndexDirty || normalizedTagNameIndex == nil {
             rebuildQueryIndexesForAllTags()
             isTagQueryIndexDirty = false
@@ -925,7 +930,6 @@ open class Element: Node {
         if key.isEmpty {
             return Elements()
         }
-        
         if isIdQueryIndexDirty || normalizedIdIndex == nil {
             rebuildQueryIndexesForAllIds()
             isIdQueryIndexDirty = false
@@ -947,8 +951,24 @@ open class Element: Node {
     @inline(__always)
     public func getElementById(_ id: String) throws -> Element? {
         try Validate.notEmpty(string: id.utf8Array)
-        let elements = getElementsById(id.utf8Array)
-        return elements.array().isEmpty ? nil : elements.get(0)
+        let key = id.utf8Array.trim()
+        if key.isEmpty {
+            return nil
+        }
+        
+        if isIdQueryIndexDirty || normalizedIdIndex == nil {
+            rebuildQueryIndexesForAllIds()
+            isIdQueryIndexDirty = false
+        }
+        
+        if let weakElements = normalizedIdIndex?[key] {
+            for weak in weakElements {
+                if let element = weak.value {
+                    return element
+                }
+            }
+        }
+        return nil
     }
     
     /**
@@ -1007,7 +1027,6 @@ open class Element: Node {
         if key.isEmpty {
             return Elements()
         }
-
         if isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil {
             rebuildQueryIndexesForAllAttributes()
             isAttributeQueryIndexDirty = false
@@ -1310,17 +1329,11 @@ open class Element: Node {
     
     public func text(trimAndNormaliseWhitespace: Bool = true) throws -> String {
         if trimAndNormaliseWhitespace {
-            let version = textMutationRoot().textMutationVersion
-            if cachedTextVersion == version, let cachedTextUTF8 {
-                return String(decoding: cachedTextUTF8, as: UTF8.self)
-            }
             if childNodes.count == 1, let textNode = childNodes.first as? TextNode {
                 let accum = StringBuilder()
                 Element.appendNormalisedText(accum, textNode)
                 let trimmed = accum.buffer.trim()
                 let text = String(decoding: trimmed, as: UTF8.self)
-                cachedTextUTF8 = Array(trimmed)
-                cachedTextVersion = version
                 return text
             }
             let accum: StringBuilder = StringBuilder()
@@ -1331,8 +1344,6 @@ open class Element: Node {
             collectTextFast(accum, trimAndNormaliseWhitespace: true)
             let trimmed = accum.buffer.trim()
             let text = String(decoding: trimmed, as: UTF8.self)
-            cachedTextUTF8 = Array(trimmed)
-            cachedTextVersion = version
             return text
         }
         let accum: StringBuilder = StringBuilder()

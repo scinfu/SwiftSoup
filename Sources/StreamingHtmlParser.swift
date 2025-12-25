@@ -36,12 +36,8 @@ public final class StreamingHtmlParser {
     public func parse(_ html: [UInt8], _ handler: HtmlTokenReceiver) throws {
         let reader = CharacterReader(html)
         let tokeniser = Tokeniser(reader, errors, settings)
-        if ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_FAST_STREAM"] == "1" {
-            try parseSlow(tokeniser, handler)
-        } else {
-            let adapter = StreamingReceiverAdapter(handler)
-            try tokeniser.readFast(adapter)
-        }
+        let adapter = StreamingReceiverAdapter(handler)
+        try tokeniser.readFast(adapter)
     }
 }
 
@@ -74,45 +70,5 @@ private final class StreamingReceiverAdapter: TokeniserEventReceiver {
 
     func eof() {
         handler.eof()
-    }
-}
-
-private func parseSlow(_ tokeniser: Tokeniser, _ handler: HtmlTokenReceiver) throws {
-    while true {
-        let token = try tokeniser.read()
-        switch token.type {
-        case .StartTag:
-            let start = token.asStartTag()
-            let name = start.tagNameSlice() ?? []
-            var attrs: Attributes? = nil
-            if start.hasAnyAttributes() {
-                start.ensureAttributes()
-                attrs = start._attributes
-            }
-            handler.startTag(name: name, attributes: attrs, selfClosing: start.isSelfClosing())
-        case .EndTag:
-            let end = token.asEndTag()
-            let name = end.tagNameSlice() ?? []
-            handler.endTag(name: name)
-        case .Comment:
-            let comment = token.asComment()
-            handler.comment(comment.data.buffer)
-        case .Doctype:
-            let doc = token.asDoctype()
-            let name = doc.name.buffer.isEmpty ? nil : doc.name.buffer
-            let publicId = doc.publicIdentifier.buffer.isEmpty ? nil : doc.publicIdentifier.buffer
-            let systemId = doc.systemIdentifier.buffer.isEmpty ? nil : doc.systemIdentifier.buffer
-            handler.doctype(name: name, publicId: publicId, systemId: systemId, forceQuirks: doc.forceQuirks)
-        case .Char:
-            let char = token.asCharacter()
-            if let slice = char.getDataSlice() {
-                handler.text(slice)
-            } else if let data = char.getData() {
-                handler.text(data[...])
-            }
-        case .EOF:
-            handler.eof()
-            return
-        }
     }
 }

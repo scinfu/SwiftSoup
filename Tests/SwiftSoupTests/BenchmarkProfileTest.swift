@@ -30,7 +30,7 @@ final class BenchmarkProfileTest: XCTestCase {
 
         let repeatCount = envInt("SWIFTSOUP_BENCHMARK_REPEAT", 1000)
         let warmupIterations = envInt("SWIFTSOUP_BENCHMARK_WARMUP", 5)
-        let iterations = envInt("SWIFTSOUP_BENCHMARK_ITERATIONS", 20)
+        let iterations = envInt("SWIFTSOUP_BENCHMARK_ITERATIONS", 60)
         let html = buildBenchmarkHTML(repeatCount: repeatCount)
         let data = Data(html.utf8)
         let bytes = [UInt8](data)

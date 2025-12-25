@@ -79,13 +79,16 @@ open class Evaluator: @unchecked Sendable {
     public final class Id: Evaluator, @unchecked Sendable {
         @usableFromInline
         let id: String
+        @usableFromInline
+        let idBytes: [UInt8]
 
         public init(_ id: String) {
             self.id = id
+            self.idBytes = id.utf8Array
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            return (id == element.id())
+            return idBytes == element.idUTF8()
         }
 
         public override func toString() -> String {
@@ -100,13 +103,16 @@ open class Evaluator: @unchecked Sendable {
     public final class Class: Evaluator, @unchecked Sendable {
         @usableFromInline
         let className: String
+        @usableFromInline
+        let classNameBytes: [UInt8]
 
         public init(_ className: String) {
             self.className = className
+            self.classNameBytes = className.utf8Array
         }
 
         public override func matches(_ root: Element, _ element: Element) -> Bool {
-            return (element.hasClass(className))
+            return element.hasClass(classNameBytes)
         }
 
         public override func toString() -> String {
