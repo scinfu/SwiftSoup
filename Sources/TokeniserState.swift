@@ -31,24 +31,10 @@ public class TokeniserStateVars {
     static let hyphenByte: UInt8 = 0x2D
     static let bangByte: UInt8 = 0x21
     static let questionMarkByte: UInt8 = 0x3F
-    static let asciiAlphaTable: [Bool] = {
-        var table = [Bool](repeating: false, count: 128)
-        var b: UInt8 = 0x41 // A
-        while b <= 0x5A {
-            table[Int(b)] = true
-            b &+= 1
-        }
-        b = 0x61 // a
-        while b <= 0x7A {
-            table[Int(b)] = true
-            b &+= 1
-        }
-        return table
-    }()
-
     @inline(__always)
     static func isAsciiAlpha(_ byte: UInt8) -> Bool {
-        return byte < 0x80 && asciiAlphaTable[Int(byte)]
+        let lower = byte | 0x20
+        return lower >= 0x61 && lower <= 0x7A
     }
 
     static let attributeSingleValueChars = ParsingStrings(["'", UnicodeScalar.Ampersand, nullScalr])

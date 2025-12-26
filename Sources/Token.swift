@@ -124,6 +124,55 @@ open class Token {
             case th
             case input
             case hr
+            case select
+            case option
+            case optgroup
+            case textarea
+            case noscript
+            case noframes
+            case plaintext
+            case button
+            case base
+            case frame
+            case frameset
+            case iframe
+            case noembed
+            case embed
+            case dd
+            case dt
+            case dl
+            case ol
+            case ul
+            case pre
+            case listing
+            case address
+            case article
+            case aside
+            case blockquote
+            case center
+            case dir
+            case fieldset
+            case figcaption
+            case figure
+            case footer
+            case header
+            case hgroup
+            case menu
+            case nav
+            case section
+            case summary
+            case h1
+            case h2
+            case h3
+            case h4
+            case h5
+            case h6
+            case applet
+            case marquee
+            case object
+            case ruby
+            case rp
+            case rt
         }
 
         private struct TagIdEntry {
@@ -131,8 +180,12 @@ open class Token {
             let id: TagId
         }
 
+        private static let useTagIdFastPath: Bool = {
+            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TAGID_FASTPATH"] != "1"
+        }()
+
         private static let tagIdEntriesByLength: [[TagIdEntry]] = {
-            var entries = Array(repeating: [TagIdEntry](), count: 9)
+            var entries = Array(repeating: [TagIdEntry](), count: 11)
             entries[1] = [
                 TagIdEntry(bytes: UTF8Arrays.a, id: .a),
                 TagIdEntry(bytes: UTF8Arrays.p, id: .p),
@@ -145,13 +198,29 @@ open class Token {
                 TagIdEntry(bytes: UTF8Arrays.tr, id: .tr),
                 TagIdEntry(bytes: UTF8Arrays.td, id: .td),
                 TagIdEntry(bytes: UTF8Arrays.th, id: .th),
-                TagIdEntry(bytes: UTF8Arrays.hr, id: .hr)
+                TagIdEntry(bytes: UTF8Arrays.hr, id: .hr),
+                TagIdEntry(bytes: UTF8Arrays.dd, id: .dd),
+                TagIdEntry(bytes: UTF8Arrays.dt, id: .dt),
+                TagIdEntry(bytes: UTF8Arrays.dl, id: .dl),
+                TagIdEntry(bytes: UTF8Arrays.ol, id: .ol),
+                TagIdEntry(bytes: UTF8Arrays.ul, id: .ul),
+                TagIdEntry(bytes: UTF8Arrays.rp, id: .rp),
+                TagIdEntry(bytes: UTF8Arrays.rt, id: .rt),
+                TagIdEntry(bytes: UTF8Arrays.h1, id: .h1),
+                TagIdEntry(bytes: UTF8Arrays.h2, id: .h2),
+                TagIdEntry(bytes: UTF8Arrays.h3, id: .h3),
+                TagIdEntry(bytes: UTF8Arrays.h4, id: .h4),
+                TagIdEntry(bytes: UTF8Arrays.h5, id: .h5),
+                TagIdEntry(bytes: UTF8Arrays.h6, id: .h6)
             ]
             entries[3] = [
                 TagIdEntry(bytes: UTF8Arrays.div, id: .div),
                 TagIdEntry(bytes: UTF8Arrays.li, id: .li),
                 TagIdEntry(bytes: UTF8Arrays.img, id: .img),
-                TagIdEntry(bytes: UTF8Arrays.col, id: .col)
+                TagIdEntry(bytes: UTF8Arrays.col, id: .col),
+                TagIdEntry(bytes: UTF8Arrays.pre, id: .pre),
+                TagIdEntry(bytes: UTF8Arrays.nav, id: .nav),
+                TagIdEntry(bytes: UTF8Arrays.dir, id: .dir)
             ]
             entries[4] = [
                 TagIdEntry(bytes: UTF8Arrays.span, id: .span),
@@ -159,7 +228,10 @@ open class Token {
                 TagIdEntry(bytes: UTF8Arrays.html, id: .html),
                 TagIdEntry(bytes: UTF8Arrays.head, id: .head),
                 TagIdEntry(bytes: UTF8Arrays.form, id: .form),
-                TagIdEntry(bytes: UTF8Arrays.meta, id: .meta)
+                TagIdEntry(bytes: UTF8Arrays.meta, id: .meta),
+                TagIdEntry(bytes: UTF8Arrays.base, id: .base),
+                TagIdEntry(bytes: UTF8Arrays.menu, id: .menu),
+                TagIdEntry(bytes: UTF8Arrays.ruby, id: .ruby)
             ]
             entries[5] = [
                 TagIdEntry(bytes: UTF8Arrays.small, id: .small),
@@ -169,17 +241,51 @@ open class Token {
                 TagIdEntry(bytes: UTF8Arrays.tbody, id: .tbody),
                 TagIdEntry(bytes: UTF8Arrays.thead, id: .thead),
                 TagIdEntry(bytes: UTF8Arrays.tfoot, id: .tfoot),
-                TagIdEntry(bytes: UTF8Arrays.input, id: .input)
+                TagIdEntry(bytes: UTF8Arrays.input, id: .input),
+                TagIdEntry(bytes: UTF8Arrays.frame, id: .frame),
+                TagIdEntry(bytes: UTF8Arrays.embed, id: .embed),
+                TagIdEntry(bytes: UTF8Arrays.aside, id: .aside)
             ]
             entries[6] = [
                 TagIdEntry(bytes: UTF8Arrays.strong, id: .strong),
-                TagIdEntry(bytes: UTF8Arrays.script, id: .script)
+                TagIdEntry(bytes: UTF8Arrays.script, id: .script),
+                TagIdEntry(bytes: UTF8Arrays.select, id: .select),
+                TagIdEntry(bytes: UTF8Arrays.option, id: .option),
+                TagIdEntry(bytes: UTF8Arrays.button, id: .button),
+                TagIdEntry(bytes: UTF8Arrays.iframe, id: .iframe),
+                TagIdEntry(bytes: UTF8Arrays.object, id: .object),
+                TagIdEntry(bytes: UTF8Arrays.header, id: .header),
+                TagIdEntry(bytes: UTF8Arrays.footer, id: .footer),
+                TagIdEntry(bytes: UTF8Arrays.figure, id: .figure),
+                TagIdEntry(bytes: UTF8Arrays.center, id: .center),
+                TagIdEntry(bytes: UTF8Arrays.hgroup, id: .hgroup),
+                TagIdEntry(bytes: UTF8Arrays.applet, id: .applet)
             ]
             entries[7] = [
-                TagIdEntry(bytes: UTF8Arrays.caption, id: .caption)
+                TagIdEntry(bytes: UTF8Arrays.caption, id: .caption),
+                TagIdEntry(bytes: UTF8Arrays.noembed, id: .noembed),
+                TagIdEntry(bytes: UTF8Arrays.article, id: .article),
+                TagIdEntry(bytes: UTF8Arrays.summary, id: .summary),
+                TagIdEntry(bytes: UTF8Arrays.section, id: .section),
+                TagIdEntry(bytes: UTF8Arrays.listing, id: .listing),
+                TagIdEntry(bytes: UTF8Arrays.address, id: .address),
+                TagIdEntry(bytes: UTF8Arrays.marquee, id: .marquee)
             ]
             entries[8] = [
-                TagIdEntry(bytes: UTF8Arrays.colgroup, id: .colgroup)
+                TagIdEntry(bytes: UTF8Arrays.colgroup, id: .colgroup),
+                TagIdEntry(bytes: UTF8Arrays.optgroup, id: .optgroup),
+                TagIdEntry(bytes: UTF8Arrays.textarea, id: .textarea),
+                TagIdEntry(bytes: UTF8Arrays.noscript, id: .noscript),
+                TagIdEntry(bytes: UTF8Arrays.noframes, id: .noframes),
+                TagIdEntry(bytes: UTF8Arrays.frameset, id: .frameset),
+                TagIdEntry(bytes: UTF8Arrays.fieldset, id: .fieldset)
+            ]
+            entries[9] = [
+                TagIdEntry(bytes: UTF8Arrays.plaintext, id: .plaintext)
+            ]
+            entries[10] = [
+                TagIdEntry(bytes: UTF8Arrays.figcaption, id: .figcaption),
+                TagIdEntry(bytes: UTF8Arrays.blockquote, id: .blockquote)
             ]
             return entries
         }()
@@ -325,12 +431,21 @@ open class Token {
         
         @inline(__always)
         func normalName() -> [UInt8]? { // loses case, used in tree building for working out where in tree it should go
+            if tagId != .none {
+                if _normalName == nil {
+                    _normalName = tagIdName()
+                }
+                return _normalName
+            }
             if _normalName == nil {
                 if let name = _tagName, !name.isEmpty {
                     _normalName = _tagNameHasUppercase ? name.lowercased() : name
                 } else if let nameSlice = _tagNameS, !nameSlice.isEmpty {
                     _normalName = _tagNameHasUppercase ? Array(nameSlice.lowercased()) : Array(nameSlice)
                 }
+            }
+            if tagId == .none, let normal = _normalName, !normal.isEmpty {
+                setTagIdFromSlice(normal[...])
             }
             return _normalName
         }
@@ -346,6 +461,12 @@ open class Token {
 
         @inline(__always)
         func normalNameSlice() -> ArraySlice<UInt8>? {
+            if tagId != .none {
+                if _normalName == nil {
+                    _normalName = tagIdName()
+                }
+                return _normalName?[...]
+            }
             if let normal = _normalName {
                 return normal[...]
             }
@@ -353,11 +474,17 @@ open class Token {
                 if let name = _tagName, !name.isEmpty {
                     let lowered = name.lowercased()
                     _normalName = lowered
+                    if tagId == .none, !lowered.isEmpty {
+                        setTagIdFromSlice(lowered[...])
+                    }
                     return lowered[...]
                 }
                 if let nameSlice = _tagNameS, !nameSlice.isEmpty {
                     let lowered = Array(nameSlice.lowercased())
                     _normalName = lowered
+                    if tagId == .none, !lowered.isEmpty {
+                        setTagIdFromSlice(lowered[...])
+                    }
                     return lowered[...]
                 }
                 return nil
@@ -543,17 +670,30 @@ open class Token {
         }
 
         @inline(__always)
-        func setTagIdFromSlice(_ slice: ArraySlice<UInt8>) {
+        static func tagIdForSlice(_ slice: ArraySlice<UInt8>) -> TagId? {
             let count = slice.count
-            if count < Tag.tagIdEntriesByLength.count {
-                for entry in Tag.tagIdEntriesByLength[count] {
-                    if Tag.equalsSlice(entry.bytes, slice) {
-                        tagId = entry.id
-                        return
+            if count < tagIdEntriesByLength.count {
+                for entry in tagIdEntriesByLength[count] {
+                    if equalsSlice(entry.bytes, slice) {
+                        return entry.id
                     }
                 }
             }
-            tagId = .none
+            return nil
+        }
+
+        @inline(__always)
+        static func tagIdForBytes(_ bytes: [UInt8]) -> TagId? {
+            return tagIdForSlice(bytes[...])
+        }
+
+        @inline(__always)
+        func setTagIdFromSlice(_ slice: ArraySlice<UInt8>) {
+            if !Self.useTagIdFastPath {
+                tagId = .none
+                return
+            }
+            tagId = Self.tagIdForSlice(slice) ?? .none
         }
 
         @inline(__always)
@@ -573,6 +713,7 @@ open class Token {
             }
             return true
         }
+
 
         @inline(__always)
         func tagIdName() -> [UInt8]? {
@@ -643,6 +784,104 @@ open class Token {
                 return UTF8Arrays.input
             case .hr:
                 return UTF8Arrays.hr
+            case .select:
+                return UTF8Arrays.select
+            case .option:
+                return UTF8Arrays.option
+            case .optgroup:
+                return UTF8Arrays.optgroup
+            case .textarea:
+                return UTF8Arrays.textarea
+            case .noscript:
+                return UTF8Arrays.noscript
+            case .noframes:
+                return UTF8Arrays.noframes
+            case .plaintext:
+                return UTF8Arrays.plaintext
+            case .button:
+                return UTF8Arrays.button
+            case .base:
+                return UTF8Arrays.base
+            case .frame:
+                return UTF8Arrays.frame
+            case .frameset:
+                return UTF8Arrays.frameset
+            case .iframe:
+                return UTF8Arrays.iframe
+            case .noembed:
+                return UTF8Arrays.noembed
+            case .embed:
+                return UTF8Arrays.embed
+            case .dd:
+                return UTF8Arrays.dd
+            case .dt:
+                return UTF8Arrays.dt
+            case .dl:
+                return UTF8Arrays.dl
+            case .ol:
+                return UTF8Arrays.ol
+            case .ul:
+                return UTF8Arrays.ul
+            case .pre:
+                return UTF8Arrays.pre
+            case .listing:
+                return UTF8Arrays.listing
+            case .address:
+                return UTF8Arrays.address
+            case .article:
+                return UTF8Arrays.article
+            case .aside:
+                return UTF8Arrays.aside
+            case .blockquote:
+                return UTF8Arrays.blockquote
+            case .center:
+                return UTF8Arrays.center
+            case .dir:
+                return UTF8Arrays.dir
+            case .fieldset:
+                return UTF8Arrays.fieldset
+            case .figcaption:
+                return UTF8Arrays.figcaption
+            case .figure:
+                return UTF8Arrays.figure
+            case .footer:
+                return UTF8Arrays.footer
+            case .header:
+                return UTF8Arrays.header
+            case .hgroup:
+                return UTF8Arrays.hgroup
+            case .menu:
+                return UTF8Arrays.menu
+            case .nav:
+                return UTF8Arrays.nav
+            case .section:
+                return UTF8Arrays.section
+            case .summary:
+                return UTF8Arrays.summary
+            case .h1:
+                return UTF8Arrays.h1
+            case .h2:
+                return UTF8Arrays.h2
+            case .h3:
+                return UTF8Arrays.h3
+            case .h4:
+                return UTF8Arrays.h4
+            case .h5:
+                return UTF8Arrays.h5
+            case .h6:
+                return UTF8Arrays.h6
+            case .applet:
+                return UTF8Arrays.applet
+            case .marquee:
+                return UTF8Arrays.marquee
+            case .object:
+                return UTF8Arrays.object
+            case .ruby:
+                return UTF8Arrays.ruby
+            case .rp:
+                return UTF8Arrays.rp
+            case .rt:
+                return UTF8Arrays.rt
             }
         }
 

@@ -15,6 +15,10 @@ class HtmlTreeBuilder: TreeBuilder {
         case slice(ArraySlice<UInt8>)
         case bytes([UInt8])
     }
+
+    private static let useFastStackSearch: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_STACK_FAST_PATH"] != "1"
+    }()
     
     private enum TagSets {
         // tag searches
@@ -492,11 +496,98 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func isElementInQueue(_ queue: Array<Element?>, _ element: Element?) -> Bool {
-        return queue.reversed().contains(element)
+        guard let element else { return false }
+        if !Self.useFastStackSearch {
+            return queue.reversed().contains(element)
+        }
+        var i = queue.count
+        while i > 0 {
+            i &-= 1
+            if let candidate = queue[i], candidate == element {
+                return true
+            }
+        }
+        return false
+    }
+
+    @inline(__always)
+    private func lastIndexOfStackName(_ elName: [UInt8]) -> Int? {
+        if !Self.useFastStackSearch {
+            return stack.lastIndex(where: { $0.nodeNameUTF8() == elName })
+        }
+        var i = stack.count
+        while i > 0 {
+            i &-= 1
+            if stack[i].nodeNameUTF8() == elName {
+                return i
+            }
+        }
+        return nil
+    }
+
+    @inline(__always)
+    private func lastIndexOfStackName(in names: ParsingStrings) -> Int? {
+        if !Self.useFastStackSearch {
+            return stack.lastIndex(where: { names.contains($0.nodeNameUTF8()) })
+        }
+        var i = stack.count
+        while i > 0 {
+            i &-= 1
+            if names.contains(stack[i].nodeNameUTF8()) {
+                return i
+            }
+        }
+        return nil
+    }
+
+    @inline(__always)
+    private func lastIndexOfStackName(in names: [[UInt8]]) -> Int? {
+        if !Self.useFastStackSearch {
+            return stack.lastIndex(where: { names.contains($0.nodeNameUTF8()) })
+        }
+        var i = stack.count
+        while i > 0 {
+            i &-= 1
+            if names.contains(stack[i].nodeNameUTF8()) {
+                return i
+            }
+        }
+        return nil
+    }
+
+    @inline(__always)
+    private func lastIndexOfStackName(in names: Set<[UInt8]>) -> Int? {
+        if !Self.useFastStackSearch {
+            return stack.lastIndex(where: { names.contains($0.nodeNameUTF8()) })
+        }
+        var i = stack.count
+        while i > 0 {
+            i &-= 1
+            if names.contains(stack[i].nodeNameUTF8()) {
+                return i
+            }
+        }
+        return nil
+    }
+
+    @inline(__always)
+    private func lastIndexOfStackElement(_ element: Element) -> Int? {
+        if !Self.useFastStackSearch {
+            return stack.lastIndex(of: element)
+        }
+        var i = stack.count
+        while i > 0 {
+            i &-= 1
+            if stack[i] == element {
+                return i
+            }
+        }
+        return nil
     }
     
     func getFromStack(_ elName: [UInt8]) -> Element? {
-        return stack.last { $0.nodeNameUTF8() == elName }
+        guard let index = lastIndexOfStackName(elName) else { return nil }
+        return stack[index]
     }
     
     @inlinable
@@ -506,7 +597,7 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     func removeFromStack(_ el: Element) -> Bool {
-        if let index = stack.lastIndex(of: el) {
+        if let index = lastIndexOfStackElement(el) {
             stack.remove(at: index)
             return true
         }
@@ -514,23 +605,21 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func popStackToClose(_ elName: [UInt8]) {
-        if tracksSourceRanges,
-           let endTag = currentToken as? Token.EndTag,
-           let endRange = endTag.sourceRange,
-           let endName = endTag.normalName(),
-           endName == elName,
-           let index = stack.lastIndex(where: { $0.nodeNameUTF8() == elName }) {
-            let element = stack[index]
-            element.setSourceRangeEnd(endRange.end)
-        }
-        if let index = stack.lastIndex(where: { $0.nodeNameUTF8() == elName }) {
+        if let index = lastIndexOfStackName(elName) {
+            if tracksSourceRanges,
+               let endTag = currentToken as? Token.EndTag,
+               let endRange = endTag.sourceRange,
+               let endName = endTag.normalName(),
+               endName == elName {
+                stack[index].setSourceRangeEnd(endRange.end)
+            }
             stack.removeSubrange(index..<stack.count)
         }
     }
 
     
     func popStackToClose(_ elName: ParsingStrings) {
-        if let index = stack.lastIndex(where: { elName.contains($0.nodeNameUTF8()) }) {
+        if let index = lastIndexOfStackName(in: elName) {
             stack.removeSubrange(index..<stack.count)
         }
     }
@@ -540,13 +629,13 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func popStackToClose(_ elNames: [[UInt8]]) {
-        if let index = stack.lastIndex(where: { elNames.contains($0.nodeNameUTF8()) }) {
+        if let index = lastIndexOfStackName(in: elNames) {
             stack.removeSubrange(index..<stack.count)
         }
     }
     
     func popStackToClose(_ elNames: Set<[UInt8]>) {
-        if let index = stack.lastIndex(where: { elNames.contains($0.nodeNameUTF8()) }) {
+        if let index = lastIndexOfStackName(in: elNames) {
             stack.removeSubrange(index..<stack.count)
         }
     }
@@ -579,10 +668,23 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func clearStackToContext(_ nodeNames: [[UInt8]]) {
-        let index = stack.lastIndex {
-            let nextName = $0.nodeNameUTF8()
-            return nodeNames.contains(nextName) || nextName == UTF8Arrays.html
-        }
+        let index: Int? = {
+            if !Self.useFastStackSearch {
+                return stack.lastIndex {
+                    let nextName = $0.nodeNameUTF8()
+                    return nodeNames.contains(nextName) || nextName == UTF8Arrays.html
+                }
+            }
+            var i = stack.count
+            while i > 0 {
+                i &-= 1
+                let nextName = stack[i].nodeNameUTF8()
+                if nodeNames.contains(nextName) || nextName == UTF8Arrays.html {
+                    return i
+                }
+            }
+            return nil
+        }()
         
         guard let index else {
             stack.removeAll()
@@ -596,7 +698,7 @@ class HtmlTreeBuilder: TreeBuilder {
         //assert(onStack(el), "Invalid parameter")
         onStack(el)
         
-        guard let index = stack.lastIndex(of: el) else {
+        guard let index = lastIndexOfStackElement(el) else {
             return nil
         }
         
@@ -609,7 +711,7 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func insertOnStackAfter(_ after: Element, _ input: Element)throws {
-        guard let index = stack.lastIndex(of: after) else {
+        guard let index = lastIndexOfStackElement(after) else {
             try Validate.fail(msg: "Element not found")
             return
         }
@@ -622,25 +724,49 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func replaceInQueue(_ queue: Array<Element>, _ out: Element, _ input: Element)throws->Array<Element> {
-        guard let index = queue.lastIndex(of: out) else {
-            try Validate.fail(msg: "Element not found")
-            return [] // Not reached
+        if !Self.useFastStackSearch {
+            guard let index = queue.lastIndex(of: out) else {
+                try Validate.fail(msg: "Element not found")
+                return [] // Not reached
+            }
+            var queue = queue
+            queue[index] = input
+            return queue
         }
-
-        var queue = queue
-        queue[index] = input
-        return queue
+        var i = queue.count
+        while i > 0 {
+            i &-= 1
+            if queue[i] == out {
+                var queue = queue
+                queue[i] = input
+                return queue
+            }
+        }
+        try Validate.fail(msg: "Element not found")
+        return [] // Not reached
     }
     
     private func replaceInQueue(_ queue: Array<Element?>, _ out: Element, _ input: Element)throws->Array<Element?> {
         var queue = queue
-        if let index = queue.lastIndex(of: out) {
-            queue[index] = input
-            return queue
-        } else {
-            try Validate.fail(msg: "Element to replace not found")
-            return queue
+        if !Self.useFastStackSearch {
+            if let index = queue.lastIndex(of: out) {
+                queue[index] = input
+                return queue
+            } else {
+                try Validate.fail(msg: "Element to replace not found")
+                return queue
+            }
         }
+        var i = queue.count
+        while i > 0 {
+            i &-= 1
+            if queue[i] == out {
+                queue[i] = input
+                return queue
+            }
+        }
+        try Validate.fail(msg: "Element to replace not found")
+        return queue
     }
     
     func resetInsertionMode() {
@@ -694,8 +820,26 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func inSpecificScope(_ targetName: [UInt8], _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
-        for el in stack.reversed() {
-            let elName = el.nodeNameUTF8()
+        if !Self.useFastStackSearch {
+            for el in stack.reversed() {
+                let elName = el.nodeNameUTF8()
+                if elName == targetName {
+                    return true
+                }
+                if baseTypes.contains(elName) {
+                    return false
+                }
+                if let extraTypes = extraTypes, extraTypes.contains(elName) {
+                    return false
+                }
+            }
+            try Validate.fail(msg: "Should not be reachable")
+            return false
+        }
+        var i = stack.count
+        while i > 0 {
+            i &-= 1
+            let elName = stack[i].nodeNameUTF8()
             if elName == targetName {
                 return true
             }
@@ -712,8 +856,26 @@ class HtmlTreeBuilder: TreeBuilder {
 
     
     private func inSpecificScope(_ targetNames: Set<[UInt8]>, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
-        for el in stack.reversed() {
-            let elName = el.nodeNameUTF8()
+        if !Self.useFastStackSearch {
+            for el in stack.reversed() {
+                let elName = el.nodeNameUTF8()
+                if targetNames.contains(elName) {
+                    return true
+                }
+                if baseTypes.contains(elName) {
+                    return false
+                }
+                if let extraTypes = extraTypes, extraTypes.contains(elName) {
+                    return false
+                }
+            }
+            try Validate.fail(msg: "Should not be reachable")
+            return false
+        }
+        var i = stack.count
+        while i > 0 {
+            i &-= 1
+            let elName = stack[i].nodeNameUTF8()
             if targetNames.contains(elName) {
                 return true
             }
@@ -729,8 +891,26 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func inSpecificScope(_ targetNames: ParsingStrings, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
-        for el in stack.reversed() {
-            let elName = el.nodeNameUTF8()
+        if !Self.useFastStackSearch {
+            for el in stack.reversed() {
+                let elName = el.nodeNameUTF8()
+                if targetNames.contains(elName) {
+                    return true
+                }
+                if baseTypes.contains(elName) {
+                    return false
+                }
+                if let extraTypes = extraTypes, extraTypes.contains(elName) {
+                    return false
+                }
+            }
+            try Validate.fail(msg: "Should not be reachable")
+            return false
+        }
+        var i = stack.count
+        while i > 0 {
+            i &-= 1
+            let elName = stack[i].nodeNameUTF8()
             if targetNames.contains(elName) {
                 return true
             }
@@ -835,15 +1015,23 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func newPendingTableCharacters() {
-        pendingTableCharacters = Array<PendingTableCharacter>()
+        pendingTableCharacters.removeAll(keepingCapacity: true)
     }
     
-    func getPendingTableCharacters() -> Array<PendingTableCharacter> {
-        return pendingTableCharacters
+    @inline(__always)
+    func appendPendingTableCharacter(_ character: PendingTableCharacter) {
+        pendingTableCharacters.append(character)
     }
     
-    func setPendingTableCharacters(_ pendingTableCharacters: Array<PendingTableCharacter>) {
-        self.pendingTableCharacters = pendingTableCharacters
+    @inline(__always)
+    func pendingTableCharactersIsEmpty() -> Bool {
+        return pendingTableCharacters.isEmpty
+    }
+    
+    func takePendingTableCharacters() -> Array<PendingTableCharacter> {
+        let pending = pendingTableCharacters
+        pendingTableCharacters.removeAll(keepingCapacity: true)
+        return pending
     }
     
     /**
@@ -866,11 +1054,22 @@ class HtmlTreeBuilder: TreeBuilder {
         //        pop()
         // }
         guard let excludeTag = excludeTag else { return }
+        let excludeTagId = Token.Tag.tagIdForBytes(excludeTag)
         markStructuralChange(currentElement())
         while true {
-            let nodeName = currentElement()!.nodeNameUTF8()
-            guard nodeName != excludeTag else { return }
-            guard TagSets.endTags.contains(nodeName) else { return }
+            let current = currentElement()!
+            let tagId = current._tag.tagId
+            if let excludeTagId, tagId != .none {
+                guard tagId != excludeTagId else { return }
+            } else {
+                let nodeName = current.nodeNameUTF8()
+                guard nodeName != excludeTag else { return }
+            }
+            if tagId != .none {
+                guard TagSets.endTags.containsTagId(tagId) else { return }
+            } else {
+                guard TagSets.endTags.contains(current.nodeNameUTF8()) else { return }
+            }
             pop()
         }
     }
@@ -879,8 +1078,11 @@ class HtmlTreeBuilder: TreeBuilder {
     func isSpecial(_ el: Element) -> Bool {
         // todo: mathml's mi, mo, mn
         // todo: svg's foreigObject, desc, title
-        let name = el.nodeNameUTF8()
-        return TagSets.special.contains(name)
+        let tagId = el._tag.tagId
+        if tagId != .none, TagSets.special.containsTagId(tagId) {
+            return true
+        }
+        return TagSets.special.contains(el.nodeNameUTF8())
     }
     
     func lastFormattingElement() -> Element? {

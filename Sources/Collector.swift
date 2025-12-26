@@ -24,7 +24,27 @@ open class Collector {
      */
     public static func collect (_ eval: Evaluator, _ root: Element) throws -> Elements {
         let elements: Elements = Elements()
-        try NodeTraversor(Accumulator(root, elements, eval)).traverse(root)
+        if ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_COLLECTOR_FASTPATH"] == "1" {
+            try NodeTraversor(Accumulator(root, elements, eval)).traverse(root)
+            return elements
+        }
+        // Manual DFS to reduce NodeTraversor/visitor overhead in hot selector paths.
+        var stack: [Node] = []
+        stack.reserveCapacity(root.childNodes.count + 1)
+        stack.append(root)
+        while let node = stack.popLast() {
+            if let el = node as? Element {
+                if try eval.matches(root, el) {
+                    elements.add(el)
+                }
+            }
+            let children = node.childNodes
+            if !children.isEmpty {
+                for child in children.reversed() {
+                    stack.append(child)
+                }
+            }
+        }
         return elements
     }
 

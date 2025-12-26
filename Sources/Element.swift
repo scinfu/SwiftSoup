@@ -37,6 +37,7 @@ open class Element: Node {
         "charset".utf8Array
     ].map { $0.lowercased() })
 
+
     /// Lazily-built tag → elements index (normalized lowercase UTF‑8 keys), invalidated on mutations.
     /// Optimizes hot tag selectors while preserving document order.
     @usableFromInline

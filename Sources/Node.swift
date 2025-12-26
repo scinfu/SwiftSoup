@@ -71,6 +71,19 @@ open class Node: Equatable, Hashable {
     private static let absCount = abs.count
     fileprivate static let empty = "".utf8Array
     
+    @inline(__always)
+    private static func hasAbsPrefix(_ key: [UInt8]) -> Bool {
+        if key.count < absCount { return false }
+        for i in 0..<absCount {
+            let b = key[i]
+            let lower = (b >= 65 && b <= 90) ? b + 32 : b
+            if lower != abs[i] {
+                return false
+            }
+        }
+        return true
+    }
+    
     /**
      Create a new Node.
      - parameter baseUri: base URI
@@ -164,7 +177,7 @@ open class Node: Equatable, Hashable {
         let val: [UInt8] = try attributes!.getIgnoreCase(key: attributeKey)
         if !val.isEmpty {
             return val
-        } else if (attributeKey.lowercased().starts(with: Node.abs)) {
+        } else if Node.hasAbsPrefix(attributeKey) {
             return try absUrl(attributeKey.substring(Node.abs.count))
         } else {
             return Node.empty

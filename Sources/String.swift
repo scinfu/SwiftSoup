@@ -88,7 +88,7 @@ extension Array where Element == UInt8 {
         }
         return result
     }
-    
+
     @inline(__always)
     func uppercased() -> [UInt8] {
         map { $0 >= 97 && $0 <= 122 ? $0 - 32 : $0 }

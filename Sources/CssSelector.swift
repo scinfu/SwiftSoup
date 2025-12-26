@@ -193,6 +193,84 @@ open class CssSelector {
             }
             return true
         }
+        struct SimpleToken {
+            let tagBytes: [UInt8]?
+            let tagId: Token.Tag.TagId?
+            let classBytes: [UInt8]?
+        }
+
+        @inline(__always)
+        func parseSimpleToken(_ token: Substring) -> SimpleToken? {
+            if token.contains(where: { "[],:>+~#|".contains($0) }) {
+                return nil
+            }
+            if token.first == "." {
+                let classPart = token.dropFirst()
+                guard isSimpleIdent(classPart) else { return nil }
+                let classBytes = String(classPart).utf8Array.lowercased().trim()
+                return SimpleToken(tagBytes: nil, tagId: nil, classBytes: classBytes)
+            }
+            if let dot = token.firstIndex(of: ".") {
+                let tagPart = token[..<dot]
+                let classPart = token[token.index(after: dot)...]
+                guard isSimpleIdent(tagPart), isSimpleIdent(classPart) else { return nil }
+                let tagBytes = String(tagPart).utf8Array.lowercased().trim()
+                let classBytes = String(classPart).utf8Array.lowercased().trim()
+                return SimpleToken(tagBytes: tagBytes, tagId: Token.Tag.tagIdForBytes(tagBytes), classBytes: classBytes)
+            }
+            guard isSimpleIdent(token) else { return nil }
+            let tagBytes = String(token).utf8Array.lowercased().trim()
+            return SimpleToken(tagBytes: tagBytes, tagId: Token.Tag.tagIdForBytes(tagBytes), classBytes: nil)
+        }
+
+        struct RightToken {
+            let tagBytes: [UInt8]?
+            let tagId: Token.Tag.TagId?
+            let classBytes: [UInt8]?
+        }
+
+        @inline(__always)
+        func matchesSimpleToken(_ element: Element, _ token: SimpleToken) -> Bool {
+            if let tagBytes = token.tagBytes {
+                if let tagId = token.tagId {
+                    if element._tag.tagId != tagId && element.tagNameNormalUTF8() != tagBytes {
+                        return false
+                    }
+                } else if element.tagNameNormalUTF8() != tagBytes {
+                    return false
+                }
+            }
+            if let classBytes = token.classBytes {
+                if !element.hasClass(classBytes) {
+                    return false
+                }
+            }
+            return true
+        }
+
+        @inline(__always)
+        func parseRightToken(_ token: Substring) -> RightToken? {
+            if token.contains(where: { "[],:>+~#|".contains($0) }) {
+                return nil
+            }
+            if token.first == "." {
+                let classPart = token.dropFirst()
+                guard isSimpleIdent(classPart) else { return nil }
+                let classBytes = String(classPart).utf8Array.lowercased().trim()
+                return RightToken(tagBytes: nil, tagId: nil, classBytes: classBytes)
+            }
+            if let dot = token.firstIndex(of: ".") {
+                let tagPart = token[..<dot]
+                let classPart = token[token.index(after: dot)...]
+                guard isSimpleIdent(tagPart), isSimpleIdent(classPart) else { return nil }
+                let tagBytes = String(tagPart).utf8Array.lowercased().trim()
+                let classBytes = String(classPart).utf8Array.lowercased().trim()
+                return RightToken(tagBytes: tagBytes, tagId: Token.Tag.tagIdForBytes(tagBytes), classBytes: classBytes)
+            }
+            guard isSimpleIdent(token) else { return nil }
+            let tagBytes = String(token).utf8Array.lowercased().trim()
+            return RightToken(tagBytes: tagBytes, tagId: Token.Tag.tagIdForBytes(tagBytes), classBytes: nil)
+        }
         // Handle simple id or class selectors.
         if trimmed.first == "#" {
             let id = trimmed.dropFirst()
@@ -242,6 +320,73 @@ open class CssSelector {
             }
         }
         }
+        // Fast path: simple descendant selectors like "tag1 tag2" or "tag.class tag".
+        func splitTwoTokens(_ s: String) -> (Substring, Substring)? {
+            var firstStart = s.startIndex
+            while firstStart < s.endIndex, s[firstStart].isWhitespace {
+                firstStart = s.index(after: firstStart)
+            }
+            if firstStart == s.endIndex { return nil }
+            var firstEnd = firstStart
+            while firstEnd < s.endIndex, !s[firstEnd].isWhitespace {
+                firstEnd = s.index(after: firstEnd)
+            }
+            var secondStart = firstEnd
+            while secondStart < s.endIndex, s[secondStart].isWhitespace {
+                secondStart = s.index(after: secondStart)
+            }
+            if secondStart == s.endIndex { return nil }
+            var secondEnd = secondStart
+            while secondEnd < s.endIndex, !s[secondEnd].isWhitespace {
+                secondEnd = s.index(after: secondEnd)
+            }
+            var tail = secondEnd
+            while tail < s.endIndex, s[tail].isWhitespace {
+                tail = s.index(after: tail)
+            }
+            if tail != s.endIndex { return nil }
+            return (s[firstStart..<firstEnd], s[secondStart..<secondEnd])
+        }
+        if let (left, right) = splitTwoTokens(trimmed),
+           let leftToken = parseSimpleToken(left),
+           let rightToken = parseRightToken(right) {
+            let candidateElements: Elements
+            if let classBytes = rightToken.classBytes {
+                candidateElements = try root.getElementsByClass(String(decoding: classBytes, as: UTF8.self))
+            } else if let tagBytes = rightToken.tagBytes {
+                candidateElements = try root.getElementsByTagNormalized(tagBytes)
+            } else {
+                candidateElements = Elements()
+            }
+
+            if !candidateElements.isEmpty {
+                let output = Elements()
+                for el in candidateElements.array() {
+                    if let tagBytes = rightToken.tagBytes {
+                        if let tagId = rightToken.tagId {
+                            if el._tag.tagId != tagId && el.tagNameNormalUTF8() != tagBytes {
+                                continue
+                            }
+                        } else if el.tagNameNormalUTF8() != tagBytes {
+                            continue
+                        }
+                    }
+                    if let classBytes = rightToken.classBytes, !el.hasClass(classBytes) {
+                        continue
+                    }
+                    var parent = el.getParentNode()
+                    while let node = parent {
+                        if let ancestor = node as? Element, matchesSimpleToken(ancestor, leftToken) {
+                            output.add(el)
+                            break
+                        }
+                        parent = node.getParentNode()
+                    }
+                }
+                return output
+            }
+        }
+        // Fast path: three-token descendant selectors like "section .list li" or "form input[type=text]".
         // Reject any selector that includes combinators, groups, pseudos, id/class.
         for ch in trimmed {
             switch ch {

@@ -127,13 +127,16 @@ open class Evaluator: @unchecked Sendable {
     public final class Attribute: Evaluator, @unchecked Sendable {
         @usableFromInline
         let key: String
+        @usableFromInline
+        let keyBytes: [UInt8]
 
         public init(_ key: String) {
             self.key = key
+            self.keyBytes = key.trim().lowercased().utf8Array
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            return element.hasAttr(key)
+            return element.hasAttr(keyBytes)
         }
 
         public override func toString() -> String {
@@ -177,9 +180,9 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if element.hasAttr(key) {
-                let string = try element.attr(key)
-                return value.equalsIgnoreCase(string: string.trim())
+            if element.hasAttr(keyBytes) {
+                let bytes = try element.attr(keyBytes)
+                return valueBytes.equalsIgnoreCase(string: bytes.trim())
             }
             return false
         }
@@ -199,8 +202,8 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            let string = try element.attr(key)
-            return !value.equalsIgnoreCase(string: string)
+            let bytes = try element.attr(keyBytes)
+            return !valueBytes.equalsIgnoreCase(string: bytes)
         }
 
         public override func toString() -> String {
@@ -305,6 +308,8 @@ open class Evaluator: @unchecked Sendable {
     public class AttributeKeyPair: Evaluator, @unchecked Sendable {
         let key: String
         let value: String
+        let keyBytes: [UInt8]
+        let valueBytes: [UInt8]
 
         public init(_ key: String, _ value2: String)throws {
             var value2 = value2
@@ -316,6 +321,8 @@ open class Evaluator: @unchecked Sendable {
                 value2 = value2.substring(1, value2.count-2)
             }
             self.value = value2.trim().lowercased()
+            self.keyBytes = self.key.utf8Array
+            self.valueBytes = self.value.utf8Array
         }
 
         open override func matches(_ root: Element, _ element: Element)throws->Bool {

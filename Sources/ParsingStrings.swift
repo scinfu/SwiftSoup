@@ -63,6 +63,8 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
     public let multiByteByteLookupsCount: Int
     public let singleByteMask: (UInt64, UInt64, UInt64, UInt64) // Precomputed set for single-byte lookups
     public let isSingleByteOnly: Bool
+    public let tagIdMaskLo: UInt64
+    public let tagIdMaskHi: UInt64
     private let precomputedHash: Int
     private let root: TrieNode
     
@@ -94,6 +96,8 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
         self.root = trieRoot.makeImmutable()
         
         var byteMask: (UInt64, UInt64, UInt64, UInt64) = (0, 0, 0, 0)
+        var tagIdMaskLo: UInt64 = 0
+        var tagIdMaskHi: UInt64 = 0
         for char in multiByteChars {
             if char.count == 1 {
                 let byte = char[0]
@@ -104,6 +108,14 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
             } else {
                 singleByteOnly = false
             }
+            if let tagId = Token.Tag.tagIdForBytes(char) {
+                let raw = Int(tagId.rawValue)
+                if raw < 64 {
+                    tagIdMaskLo |= (1 << UInt64(raw))
+                } else if raw < 128 {
+                    tagIdMaskHi |= (1 << UInt64(raw - 64))
+                }
+            }
             for (i, byte) in char.enumerated() {
                 var mask = multiByteByteLookups[i]
                 setBit(in: &mask, forByte: byte)
@@ -112,6 +124,8 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
         }
         self.singleByteMask = byteMask
         self.isSingleByteOnly = singleByteOnly
+        self.tagIdMaskLo = tagIdMaskLo
+        self.tagIdMaskHi = tagIdMaskHi
         
         self.multiByteByteLookups = multiByteByteLookups
         multiByteByteLookupsCount = multiByteByteLookups.count
@@ -197,6 +211,18 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
         
         // If the corresponding bit is set, membership is true
         return (val & (1 << shift)) != 0
+    }
+
+    @inline(__always)
+    internal func containsTagId(_ tagId: Token.Tag.TagId) -> Bool {
+        let raw = Int(tagId.rawValue)
+        if raw < 64 {
+            return (tagIdMaskLo & (1 << UInt64(raw))) != 0
+        }
+        if raw < 128 {
+            return (tagIdMaskHi & (1 << UInt64(raw - 64))) != 0
+        }
+        return false
     }
     
     @inline(__always)
