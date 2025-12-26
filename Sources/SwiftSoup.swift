@@ -79,9 +79,12 @@ import Foundation
 	 - returns: sane HTML
 	 - seealso: ``parse(_:_:)-(String,String)``
     */
-    public func parse(_ data: Data) throws -> Document {
-        return try Parser.parse(data, "")
-    }
+	public func parse(_ data: Data) throws -> Document {
+		return try Parser.parse(data, "")
+	}
+
+
+
 
 	//todo:
 //	/**

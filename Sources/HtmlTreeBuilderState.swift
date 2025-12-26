@@ -82,7 +82,12 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 // todo: quirk state check on doctype ids
                 let d: Token.Doctype = t.asDoctype()
                 let doctype: DocumentType = DocumentType(
-                tb.settings.normalizeTag(d.getName()), d.getPubSysKey(), d.getPublicIdentifier(), d.getSystemIdentifier(), tb.getBaseUri())
+                    tb.settings.normalizeTag(d.getName()),
+                    d.getPubSysKey(),
+                    d.getPublicIdentifier(),
+                    d.getSystemIdentifier(),
+                    tb.getBaseUri()
+                )
                     //tb.settings.normalizeTag(d.getName()), d.getPublicIdentifier(), d.getSystemIdentifier(), tb.getBaseUri())
                 if let range = d.sourceRange {
                     doctype.setSourceRange(range, complete: true)
@@ -291,22 +296,67 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             }
             return true
         case .InBody:
+            @inline(__always)
+            func equalsSlice(_ array: [UInt8], _ slice: ArraySlice<UInt8>) -> Bool {
+                if array.count != slice.count {
+                    return false
+                }
+                var i = array.startIndex
+                var j = slice.startIndex
+                let end = array.endIndex
+                while i < end {
+                    if array[i] != slice[j] {
+                        return false
+                    }
+                    i = array.index(after: i)
+                    j = slice.index(after: j)
+                }
+                return true
+            }
+
             func anyOtherEndTag(_ t: Token, _ tb: HtmlTreeBuilder) -> Bool {
-                guard let name = t.asEndTag().normalName() else { return true }
+                guard let nameSlice = t.asEndTag().normalNameSlice() else { return true }
                 let stack: Array<Element> = tb.getStack()
                 for node in stack.reversed() {
-                    if node.nodeNameUTF8() == name {
-                        tb.generateImpliedEndTags(name)
-                        if (name != (tb.currentElement()?.nodeNameUTF8())!) {
+                    let nodeName = node.nodeNameUTF8()
+                    if equalsSlice(nodeName, nameSlice) {
+                        tb.generateImpliedEndTags(nodeName)
+                        if let currentName = tb.currentElement()?.nodeNameUTF8(),
+                           !equalsSlice(currentName, nameSlice) {
                             tb.error(self)
                         }
-                        tb.popStackToClose(name)
+                        if Constants.InBodyEndAdoptionFormatters.contains(nodeName) {
+                            tb.removeFromActiveFormattingElements(node)
+                        }
+                        tb.popStackToClose(nodeName)
                         break
-                    } else {
-                        if (tb.isSpecial(node)) {
+                    } else if (tb.isSpecial(node)) {
+                        tb.error(self)
+                        return false
+                    }
+                }
+                return true
+            }
+
+            @inline(__always)
+            func anyOtherEndTagFast(_ name: [UInt8], _ tb: HtmlTreeBuilder) -> Bool {
+                let stack: Array<Element> = tb.getStack()
+                for node in stack.reversed() {
+                    let nodeName = node.nodeNameUTF8()
+                    if nodeName.equals(name) {
+                        tb.generateImpliedEndTags(nodeName)
+                        if let currentName = tb.currentElement()?.nodeNameUTF8(),
+                           !currentName.equals(name) {
                             tb.error(self)
-                            return false
                         }
+                        if Constants.InBodyEndAdoptionFormatters.contains(nodeName) {
+                            tb.removeFromActiveFormattingElements(node)
+                        }
+                        tb.popStackToClose(nodeName)
+                        break
+                    } else if (tb.isSpecial(node)) {
+                        tb.error(self)
+                        return false
                     }
                 }
                 return true
@@ -315,17 +365,19 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             switch (t.type) {
             case Token.TokenType.Char:
                 let c: Token.Char = t.asCharacter()
-                let data = c.getData()
-                if (data != nil && data! == HtmlTreeBuilderState.nullString) {
+                let data = c.getDataSlice()
+                if let data, data.count == 1, data.first == 0x00 {
                     // todo confirm that check
                     tb.error(self)
                     return false
                 }
                 let wasFramesetOk = tb.framesetOk()
-                let isWhitespace = HtmlTreeBuilderState.isWhitespace(data)
-                try tb.reconstructFormattingElements()
+                let isWhitespace = wasFramesetOk ? HtmlTreeBuilderState.isWhitespace(data) : false
+                if tb.lastFormattingElement() != nil {
+                    try tb.reconstructFormattingElements()
+                }
                 try tb.insert(c)
-                if !wasFramesetOk || !isWhitespace {
+                if wasFramesetOk && !isWhitespace {
                     tb.framesetOk(false)
                 }
                 break
@@ -337,436 +389,458 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 return false
             case Token.TokenType.StartTag:
                 let startTag: Token.StartTag = t.asStartTag()
-                let name = startTag.normalName()
-                if name == UTF8Arrays.a {
-                        if (tb.getActiveFormattingElement(UTF8Arrays.a) != nil) {
-                            tb.error(self)
-                            try tb.processEndTag(UTF8Arrays.a)
-
-                            // still on stack?
-                            let remainingA: Element? = tb.getFromStack(UTF8Arrays.a)
-                            if (remainingA != nil) {
-                                tb.removeFromActiveFormattingElements(remainingA)
-                                tb.removeFromStack(remainingA!)
-                            }
-                        }
-                        try tb.reconstructFormattingElements()
-                        let a = try tb.insert(startTag)
-                        tb.pushActiveFormattingElements(a)
-                    } else if let name, Constants.InBodyStartEmptyFormatters.contains(name) {
-                        try tb.reconstructFormattingElements()
-                        try tb.insertEmpty(startTag)
-                        tb.framesetOk(false)
-                    } else if let name, Constants.InBodyStartPClosers.contains(name) {
-                        if (try tb.inButtonScope(UTF8Arrays.p)) {
-                            try tb.processEndTag(UTF8Arrays.p)
-                        }
-                        try tb.insert(startTag)
-                    } else if name == UTF8Arrays.span {
-                        // same as final else, but short circuits lots of checks
-                        try tb.reconstructFormattingElements()
-                        try tb.insert(startTag)
-                    } else if name == UTF8Arrays.li {
-                        tb.framesetOk(false)
-                        let stack: Array<Element> = tb.getStack()
-                        for el in stack.reversed() {
-                            if el.nodeNameUTF8() == UTF8Arrays.li {
-                                try tb.processEndTag(UTF8Arrays.li)
-                                break
-                            }
-                            if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
-                                break
-                            }
-                        }
-                        if (try tb.inButtonScope(UTF8Arrays.p)) {
-                            try tb.processEndTag(UTF8Arrays.p)
-                        }
-                        try tb.insert(startTag)
-                    } else if name == UTF8Arrays.html {
+                var hasFormatting = false
+                var hasFormattingChecked = false
+                @inline(__always)
+                func ensureHasFormatting() -> Bool {
+                    if !hasFormattingChecked {
+                        hasFormatting = tb.lastFormattingElement() != nil
+                        hasFormattingChecked = true
+                    }
+                    return hasFormatting
+                }
+                switch startTag.tagId {
+                case .a:
+                    if (tb.getActiveFormattingElement(UTF8Arrays.a) != nil) {
                         tb.error(self)
-                        // merge attributes onto real html
-                        let html: Element = tb.getStack()[0]
-                        for attribute in startTag.getAttributes() {
-                            if (!html.hasAttr(attribute.getKey())) {
-                                html.getAttributes()?.put(attribute: attribute)
-                            }
-                        }
-                    } else if let name, Constants.InBodyStartToHead.contains(name) {
-                        return try tb.process(t, .InHead)
-                    } else if name == UTF8Arrays.body {
-                        tb.error(self)
-                        let stack: Array<Element> = tb.getStack()
-                        if stack.count == 1 || (stack.count > 2 && stack[1].nodeName() != "body") {
-                            // only in fragment case
-                            return false // ignore
-                        } else {
-                            tb.framesetOk(false)
-                            let body: Element = stack[1]
-                            for attribute: Attribute in startTag.getAttributes() {
-                                if (!body.hasAttr(attribute.getKey())) {
-                                    body.getAttributes()?.put(attribute: attribute)
-                                }
-                            }
-                        }
-                    } else if name == UTF8Arrays.frameset {
-                        tb.error(self)
-                        var stack: Array<Element> = tb.getStack()
-                        if (stack.count == 1 || (stack.count > 2 && stack[1].nodeName() != "body")) {
-                            // only in fragment case
-                            return false // ignore
-                        } else if (!tb.framesetOk()) {
-                            return false // ignore frameset
-                        } else {
-                            let second: Element = stack[1]
-                            if (second.parent() != nil) {
-                                try second.remove()
-                            }
-                            // pop up to html element
-                            while (stack.count > 1) {
-                                stack.removeLast()
-                            }
-                            try tb.insert(startTag)
-                            tb.transition(.InFrameset)
-                        }
-                    } else if let name, Constants.Headings.contains(name) {
-                        if (try tb.inButtonScope(UTF8Arrays.p)) {
-                            try tb.processEndTag(UTF8Arrays.p)
-                        }
-                        if (tb.currentElement() != nil && Constants.Headings.contains(tb.currentElement()!.nodeNameUTF8())) {
-                            tb.error(self)
-                            tb.pop()
-                        }
-                        try tb.insert(startTag)
-                    } else if let name, Constants.InBodyStartPreListing.contains(name) {
-                        if (try tb.inButtonScope(UTF8Arrays.p)) {
-                            try tb.processEndTag(UTF8Arrays.p)
-                        }
-                        try tb.insert(startTag)
-                        // todo: ignore LF if next token
-                        tb.framesetOk(false)
-                    } else if name == UTF8Arrays.form {
-                        if (tb.getFormElement() != nil) {
-                            tb.error(self)
-                            return false
-                        }
-                        if (try tb.inButtonScope(UTF8Arrays.p)) {
-                            try tb.processEndTag(UTF8Arrays.p)
-                        }
-                        try tb.insertForm(startTag, true)
-                    } else if let name, Constants.DdDt.contains(name) {
-                        tb.framesetOk(false)
-                        let stack: Array<Element> = tb.getStack()
-                        for i in (1..<stack.count).reversed() {
-                            let el: Element = stack[i]
-                            if Constants.DdDt.contains(el.nodeNameUTF8()) {
-                                try tb.processEndTag(el.nodeNameUTF8())
-                                break
-                            }
-                            if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
-                                break
-                            }
-                        }
-                        if (try tb.inButtonScope(UTF8Arrays.p)) {
-                            try tb.processEndTag(UTF8Arrays.p)
-                        }
-                        try tb.insert(startTag)
-                    } else if name == UTF8Arrays.plaintext {
-                        if (try tb.inButtonScope(UTF8Arrays.p)) {
-                            try tb.processEndTag(UTF8Arrays.p)
-                        }
-                        try tb.insert(startTag)
-                        tb.tokeniser.transition(TokeniserState.PLAINTEXT) // once in, never gets out
-                    } else if name == UTF8Arrays.button {
-                        if try tb.inButtonScope(UTF8Arrays.button) {
-                            // close and reprocess
-                            tb.error(self)
-                            try tb.processEndTag(UTF8Arrays.button)
-                            try tb.process(startTag)
-                        } else {
-                            try tb.reconstructFormattingElements()
-                            try tb.insert(startTag)
-                            tb.framesetOk(false)
-                        }
-                    } else if let name, Constants.Formatters.contains(name) {
-                        try tb.reconstructFormattingElements()
-                        let el: Element = try tb.insert(startTag)
-                        tb.pushActiveFormattingElements(el)
-                    } else if name == UTF8Arrays.nobr {
-                        try tb.reconstructFormattingElements()
-                        if try tb.inScope(UTF8Arrays.nobr) {
-                            tb.error(self)
-                            try tb.processEndTag(UTF8Arrays.nobr)
-                            try tb.reconstructFormattingElements()
-                        }
-                        let el: Element = try tb.insert(startTag)
-                        tb.pushActiveFormattingElements(el)
-                    } else if let name, Constants.InBodyStartApplets.contains(name) {
-                        try tb.reconstructFormattingElements()
-                        try tb.insert(startTag)
-                        tb.insertMarkerToFormattingElements()
-                        tb.framesetOk(false)
-                    } else if name == UTF8Arrays.table {
-                        if try tb.getDocument().quirksMode() != Document.QuirksMode.quirks && tb.inButtonScope(UTF8Arrays.p) {
-                            try tb.processEndTag(UTF8Arrays.p)
-                        }
-                        try tb.insert(startTag)
-                        tb.framesetOk(false)
-                        tb.transition(.InTable)
-                    } else if name == UTF8Arrays.input {
-                        try tb.reconstructFormattingElements()
-                        let el: Element = try tb.insertEmpty(startTag)
-                        if (try !el.attr("type").equalsIgnoreCase(string: "hidden")) {
-                            tb.framesetOk(false)
-                        }
-                    } else if let name, Constants.InBodyStartMedia.contains(name) {
-                        try tb.insertEmpty(startTag)
-                    } else if name == UTF8Arrays.hr {
-                        if try tb.inButtonScope(UTF8Arrays.p) {
-                            try tb.processEndTag(UTF8Arrays.p)
-                        }
-                        try tb.insertEmpty(startTag)
-                        tb.framesetOk(false)
-                    } else if name == UTF8Arrays.image {
-                        if tb.getFromStack(UTF8Arrays.svg) == nil {
-                            return try tb.process(startTag.name(UTF8Arrays.img)) // change <image> to <img>, unless in svg
-                        } else {
-                            try tb.insert(startTag)
-                        }
-                    } else if name == UTF8Arrays.isindex {
-                        // how much do we care about the early 90s?
-                        tb.error(self)
-                        if (tb.getFormElement() != nil) {
-                            return false
-                        }
+                        try tb.processEndTag(UTF8Arrays.a)
 
-                        tb.tokeniser.acknowledgeSelfClosingFlag()
-                        try tb.processStartTag(UTF8Arrays.form)
-                        startTag.ensureAttributes()
-                        if startTag._attributes?.hasKey(key: UTF8Arrays.action) ?? false {
-                            if let form: Element = tb.getFormElement() {
-                                try form.attr(UTF8Arrays.action, startTag._attributes?.get(key: UTF8Arrays.action) ?? [])
-                            }
+                        // still on stack?
+                        let remainingA: Element? = tb.getFromStack(UTF8Arrays.a)
+                        if (remainingA != nil) {
+                            tb.removeFromActiveFormattingElements(remainingA)
+                            tb.removeFromStack(remainingA!)
                         }
-                        try tb.processStartTag(UTF8Arrays.hr)
-                        try tb.processStartTag(UTF8Arrays.label)
-                        // hope you like english.
-                        let prompt: [UInt8] = (startTag._attributes?.hasKey(key: UTF8Arrays.prompt) ?? false) ?
-                        startTag._attributes?.get(key: UTF8Arrays.prompt) ?? [] :
-                        "self is a searchable index. Enter search keywords: ".utf8Array
-
-                        try tb.process(Token.Char().data(prompt))
-
-                        // input
-                        let inputAttribs: Attributes = Attributes()
-                        if let attributes = startTag._attributes {
-                            for attr: Attribute in attributes {
-                                if (!Constants.InBodyStartInputAttribs.contains(attr.getKeyUTF8())) {
-                                    inputAttribs.put(attribute: attr)
-                                }
-                            }
-                        }
-                        try inputAttribs.put(UTF8Arrays.name, UTF8Arrays.isindex)
-                        try tb.processStartTag(UTF8Arrays.input, inputAttribs)
-                        try tb.processEndTag(UTF8Arrays.label)
-                        try tb.processStartTag(UTF8Arrays.hr)
-                        try tb.processEndTag(UTF8Arrays.form)
-                    } else if name == UTF8Arrays.textarea {
-                        try tb.insert(startTag)
-                        // todo: If the next token is a U+000A LINE FEED (LF) character token, then ignore that token and move on to the next one. (Newlines at the start of textarea elements are ignored as an authoring convenience.)
-                        tb.tokeniser.transition(TokeniserState.Rcdata)
-                        tb.markInsertionMode()
-                        tb.framesetOk(false)
-                        tb.transition(.Text)
-                    } else if name == UTF8Arrays.xmp {
-                        if try tb.inButtonScope(UTF8Arrays.p) {
-                            try tb.processEndTag(UTF8Arrays.p)
-                        }
+                    }
+                    if ensureHasFormatting() {
                         try tb.reconstructFormattingElements()
-                        tb.framesetOk(false)
-                        try HtmlTreeBuilderState.handleRawtext(startTag, tb)
-                    } else if name == UTF8Arrays.iframe {
-                        tb.framesetOk(false)
-                        try HtmlTreeBuilderState.handleRawtext(startTag, tb)
-                    } else if name == UTF8Arrays.noembed {
-                        // also handle noscript if script enabled
-                        try HtmlTreeBuilderState.handleRawtext(startTag, tb)
-                    } else if name == UTF8Arrays.select {
+                    }
+                    let a = try tb.insert(startTag)
+                    tb.pushActiveFormattingElements(a)
+                case .span:
+                    // same as final else, but short circuits lots of checks
+                    if ensureHasFormatting() {
                         try tb.reconstructFormattingElements()
-                        try tb.insert(startTag)
-                        tb.framesetOk(false)
-
-                        let state: HtmlTreeBuilderState = tb.state()
-                        if (state.equals(.InTable) || state.equals(.InCaption) || state.equals(.InTableBody) || state.equals(.InRow) || state.equals(.InCell)) {
-                            tb.transition(.InSelectInTable)
-                        } else {
-                            tb.transition(.InSelect)
-                        }
-                    } else if let name, Constants.InBodyStartOptions.contains(name) {
-                        if tb.currentElement() != nil && tb.currentElement()!.nodeNameUTF8() == UTF8Arrays.option {
-                            try tb.processEndTag(UTF8Arrays.option)
-                        }
+                    }
+                    try tb.insert(startTag)
+                case .p, .div:
+                    if (try tb.inButtonScope(UTF8Arrays.p)) {
+                        try tb.processEndTag(UTF8Arrays.p)
+                    }
+                    try tb.insert(startTag)
+                case .em, .strong, .b, .i, .small:
+                    if ensureHasFormatting() {
                         try tb.reconstructFormattingElements()
-                        try tb.insert(startTag)
-                    } else if let name, Constants.InBodyStartRuby.contains(name) {
-                        if (try tb.inScope(UTF8Arrays.ruby)) {
-                            tb.generateImpliedEndTags()
-                            if tb.currentElement() != nil && !(tb.currentElement()!.nodeNameUTF8() == UTF8Arrays.ruby) {
-                                tb.error(self)
-                                tb.popStackToBefore(UTF8Arrays.ruby) // i.e. close up to but not include name
-                            }
-                            try tb.insert(startTag)
-                        }
-                    } else if name == UTF8Arrays.math {
-                        try tb.reconstructFormattingElements()
-                        // todo: handle A start tag whose tag name is "math" (i.e. foreign, mathml)
-                        try tb.insert(startTag)
-                        tb.tokeniser.acknowledgeSelfClosingFlag()
-                    } else if name == UTF8Arrays.svg {
-                        try tb.reconstructFormattingElements()
-                        // todo: handle A start tag whose tag name is "svg" (xlink, svg)
-                        try tb.insert(startTag)
-                        tb.tokeniser.acknowledgeSelfClosingFlag()
-                    } else if let name, Constants.InBodyStartDrop.contains(name) {
+                    }
+                    let el: Element = try tb.insert(startTag)
+                    tb.pushActiveFormattingElements(el)
+                case .table:
+                    if (try tb.inButtonScope(UTF8Arrays.p)) {
+                        try tb.processEndTag(UTF8Arrays.p)
+                    }
+                    try tb.insert(startTag)
+                    tb.framesetOk(false)
+                    tb.transition(.InTable)
+                case .form:
+                    if tb.getFormElement() != nil {
                         tb.error(self)
                         return false
+                    }
+                    if (try tb.inButtonScope(UTF8Arrays.p)) {
+                        try tb.processEndTag(UTF8Arrays.p)
+                    }
+                    try tb.insertForm(startTag, false)
+                    tb.framesetOk(false)
+                case .html:
+                    tb.error(self)
+                    if startTag.hasAnyAttributes() {
+                        startTag.ensureAttributes()
+                        if let attrs = startTag._attributes,
+                           let html = tb.getFromStack(UTF8Arrays.html) {
+                            let htmlAttrs = html.getAttributes()!
+                            for attr in attrs.asList() where !htmlAttrs.hasKeyIgnoreCase(key: attr.getKeyUTF8()) {
+                                htmlAttrs.put(attribute: attr)
+                            }
+                        }
+                    }
+                case .body:
+                    tb.error(self)
+                    guard let body = tb.getFromStack(UTF8Arrays.body) else { return false }
+                    if startTag.hasAnyAttributes() {
+                        startTag.ensureAttributes()
+                        if let attrs = startTag._attributes {
+                            let bodyAttrs = body.getAttributes()!
+                            for attr in attrs.asList() where !bodyAttrs.hasKeyIgnoreCase(key: attr.getKeyUTF8()) {
+                                bodyAttrs.put(attribute: attr)
+                            }
+                        }
+                    }
+                case .br, .img:
+                    if ensureHasFormatting() {
+                        try tb.reconstructFormattingElements()
+                    }
+                    try tb.insertEmpty(startTag)
+                    tb.framesetOk(false)
+                case .hr:
+                    if ensureHasFormatting() {
+                        try tb.reconstructFormattingElements()
+                    }
+                    try tb.insertEmpty(startTag)
+                    tb.framesetOk(false)
+                case .meta, .script, .style, .title:
+                    return try tb.process(t, .InHead)
+                default:
+                    if let nameSlice = startTag.normalNameSlice() {
+                        switch HtmlTreeBuilderState.fastStartTag(nameSlice) {
+                        case .a:
+                            if (tb.getActiveFormattingElement(UTF8Arrays.a) != nil) {
+                                tb.error(self)
+                                try tb.processEndTag(UTF8Arrays.a)
+
+                                // still on stack?
+                                let remainingA: Element? = tb.getFromStack(UTF8Arrays.a)
+                                if (remainingA != nil) {
+                                    tb.removeFromActiveFormattingElements(remainingA)
+                                    tb.removeFromStack(remainingA!)
+                                }
+                            }
+                            if ensureHasFormatting() {
+                                try tb.reconstructFormattingElements()
+                            }
+                            let a = try tb.insert(startTag)
+                            tb.pushActiveFormattingElements(a)
+                        case .span:
+                            // same as final else, but short circuits lots of checks
+                            if ensureHasFormatting() {
+                                try tb.reconstructFormattingElements()
+                            }
+                            try tb.insert(startTag)
+                        case .p, .div:
+                            if (try tb.inButtonScope(UTF8Arrays.p)) {
+                                try tb.processEndTag(UTF8Arrays.p)
+                            }
+                            try tb.insert(startTag)
+                        case .em, .strong, .b, .i, .small:
+                            if ensureHasFormatting() {
+                                try tb.reconstructFormattingElements()
+                            }
+                            let el: Element = try tb.insert(startTag)
+                            tb.pushActiveFormattingElements(el)
+                        case .unknown:
+                            if Constants.Formatters.contains(nameSlice) {
+                                if ensureHasFormatting() {
+                                    try tb.reconstructFormattingElements()
+                                }
+                                let el: Element = try tb.insert(startTag)
+                                tb.pushActiveFormattingElements(el)
+                            } else if Constants.InBodyStartEmptyFormatters.contains(nameSlice) {
+                                if ensureHasFormatting() {
+                                    try tb.reconstructFormattingElements()
+                                }
+                                try tb.insertEmpty(startTag)
+                                tb.framesetOk(false)
+                            } else if Constants.InBodyStartPClosers.contains(nameSlice) {
+                                if (try tb.inButtonScope(UTF8Arrays.p)) {
+                                    try tb.processEndTag(UTF8Arrays.p)
+                                }
+                                try tb.insert(startTag)
+                            } else if Constants.InBodyStartToHead.contains(nameSlice) {
+                                return try tb.process(t, .InHead)
+                            } else if equalsSlice(UTF8Arrays.select, nameSlice) {
+                                if ensureHasFormatting() {
+                                    try tb.reconstructFormattingElements()
+                                }
+                                try tb.insert(startTag)
+                                tb.framesetOk(false)
+                                tb.transition(.InSelect)
+                            } else if equalsSlice(UTF8Arrays.plaintext, nameSlice) {
+                                if ensureHasFormatting() {
+                                    try tb.reconstructFormattingElements()
+                                }
+                                try tb.insert(startTag)
+                                tb.tokeniser.transition(.PLAINTEXT)
+                            } else if equalsSlice(UTF8Arrays.form, nameSlice) {
+                                if tb.getFormElement() != nil {
+                                    tb.error(self)
+                                    return false
+                                }
+                                if (try tb.inButtonScope(UTF8Arrays.p)) {
+                                    try tb.processEndTag(UTF8Arrays.p)
+                                }
+                                try tb.insertForm(startTag, false)
+                                tb.framesetOk(false)
+                            } else if equalsSlice(UTF8Arrays.table, nameSlice) {
+                                if (try tb.inButtonScope(UTF8Arrays.p)) {
+                                    try tb.processEndTag(UTF8Arrays.p)
+                                }
+                                try tb.insert(startTag)
+                                tb.framesetOk(false)
+                                tb.transition(.InTable)
+                            } else if Constants.Headings.contains(nameSlice) {
+                                if (try tb.inButtonScope(UTF8Arrays.p)) {
+                                    try tb.processEndTag(UTF8Arrays.p)
+                                }
+                                if (tb.currentElement() != nil && Constants.Headings.contains(tb.currentElement()!.nodeNameUTF8())) {
+                                    tb.error(self)
+                                    tb.pop()
+                                }
+                                try tb.insert(startTag)
+                            } else if Constants.InBodyStartPreListing.contains(nameSlice) {
+                                if (try tb.inButtonScope(UTF8Arrays.p)) {
+                                    try tb.processEndTag(UTF8Arrays.p)
+                                }
+                                try tb.insert(startTag)
+                                // todo: ignore LF if next token
+                                tb.framesetOk(false)
+                            } else if equalsSlice(UTF8Arrays.li, nameSlice) {
+                                tb.framesetOk(false)
+                                let stack: Array<Element> = tb.getStack()
+                                for i in (1..<stack.count).reversed() {
+                                    let el: Element = stack[i]
+                                    if el.nodeNameUTF8().equals(UTF8Arrays.li) {
+                                        try tb.processEndTag(UTF8Arrays.li)
+                                        break
+                                    }
+                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
+                                        break
+                                    }
+                                }
+                                if (try tb.inButtonScope(UTF8Arrays.p)) {
+                                    try tb.processEndTag(UTF8Arrays.p)
+                                }
+                                try tb.insert(startTag)
+                            } else if Constants.DdDt.contains(nameSlice) {
+                                tb.framesetOk(false)
+                                let stack: Array<Element> = tb.getStack()
+                                for i in (1..<stack.count).reversed() {
+                                    let el: Element = stack[i]
+                                    if Constants.DdDt.contains(el.nodeNameUTF8()) {
+                                        try tb.processEndTag(el.nodeNameUTF8())
+                                        break
+                                    }
+                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
+                                        break
+                                    }
+                                }
+                                if (try tb.inButtonScope(UTF8Arrays.p)) {
+                                    try tb.processEndTag(UTF8Arrays.p)
+                                }
+                                try tb.insert(startTag)
+                            } else if Constants.InBodyStartApplets.contains(nameSlice) {
+                                if ensureHasFormatting() {
+                                    try tb.reconstructFormattingElements()
+                                }
+                                try tb.insert(startTag)
+                                tb.insertMarkerToFormattingElements()
+                                tb.framesetOk(false)
+                            } else if Constants.InBodyStartMedia.contains(nameSlice) {
+                                try tb.insertEmpty(startTag)
+                            } else if Constants.InBodyStartOptions.contains(nameSlice) {
+                                if tb.currentElement() != nil && tb.currentElement()!.nodeNameUTF8() == UTF8Arrays.option {
+                                    try tb.processEndTag(UTF8Arrays.option)
+                                }
+                                if ensureHasFormatting() {
+                                    try tb.reconstructFormattingElements()
+                                }
+                                try tb.insert(startTag)
+                            } else if Constants.InBodyStartRuby.contains(nameSlice) {
+                                if (try tb.inScope(UTF8Arrays.ruby)) {
+                                    tb.generateImpliedEndTags()
+                                    if tb.currentElement() != nil && !(tb.currentElement()!.nodeNameUTF8() == UTF8Arrays.ruby) {
+                                        tb.error(self)
+                                        tb.popStackToBefore(UTF8Arrays.ruby) // i.e. close up to but not include name
+                                    }
+                                    try tb.insert(startTag)
+                                }
+                            } else if Constants.InBodyStartDrop.contains(nameSlice) {
+                                tb.error(self)
+                                return false
+                            } else {
+                                // Fallback path (includes previously the "name == nil" case): always reconstruct and insert.
+                                if ensureHasFormatting() {
+                                    try tb.reconstructFormattingElements()
+                                }
+                                try tb.insert(startTag)
+                            }
+                        }
                     } else {
                         // Fallback path (includes previously the "name == nil" case): always reconstruct and insert.
-                        try tb.reconstructFormattingElements()
+                        if ensureHasFormatting() {
+                            try tb.reconstructFormattingElements()
+                        }
                         try tb.insert(startTag)
                     }
+                }
                 break
 
             case .EndTag:
                 let endTag: Token.EndTag = t.asEndTag()
-                if let name = endTag.normalName() {
-                    if Constants.InBodyEndAdoptionFormatters.contains(name) {
-                        // Adoption Agency Algorithm.
-                        for _ in 0..<8 {
-                            let formatEl: Element? = tb.getActiveFormattingElement(name)
-                            if (formatEl == nil) {
-                                return anyOtherEndTag(t, tb)
-                            } else if (!tb.onStack(formatEl!)) {
-                                tb.error(self)
-                                tb.removeFromActiveFormattingElements(formatEl!)
-                                return true
-                            } else if (try !tb.inScope(formatEl!.nodeNameUTF8())) {
-                                tb.error(self)
-                                return false
-                            } else if (tb.currentElement() != formatEl!) {
-                                tb.error(self)
-                            }
-
-                            var furthestBlock: Element? = nil
-                            var commonAncestor: Element? = nil
-                            var seenFormattingElement: Bool = false
-                            let stack: Array<Element> = tb.getStack()
-                            // the spec doesn't limit to < 64, but in degenerate cases (9000+ stack depth) self prevents
-                            // run-aways
-                            var stackSize = stack.count
-                            if(stackSize > 64) {stackSize = 64}
-                            for si in 0..<stackSize {
-                                let el: Element = stack[si]
-                                if (el == formatEl) {
-                                    commonAncestor = stack[si - 1]
-                                    seenFormattingElement = true
-                                } else if (seenFormattingElement && tb.isSpecial(el)) {
-                                    furthestBlock = el
-                                    break
-                                }
-                            }
-                            if (furthestBlock == nil) {
-                                tb.popStackToClose(formatEl!.nodeNameUTF8())
-                                tb.removeFromActiveFormattingElements(formatEl)
-                                return true
-                            }
-
-                            // todo: Let a bookmark note the position of the formatting element in the list of active formatting elements relative to the elements on either side of it in the list.
-                            // does that mean: int pos of format el in list?
-                            var node: Element? = furthestBlock
-                            var lastNode: Element? = furthestBlock
-                            for _ in 0..<3 {
-                                if (node != nil && tb.onStack(node!)) {
-                                    node = tb.aboveOnStack(node!)
-                                }
-                                // note no bookmark check
-                                if (node != nil && !tb.isInActiveFormattingElements(node!)) {
-                                    tb.removeFromStack(node!)
-                                    continue
-                                } else if (node == formatEl) {
-                                    break
-                                }
-
-                                let replacement: Element = try Element(Tag.valueOf(node!.nodeNameUTF8(), ParseSettings.preserveCase), tb.getBaseUri())
-                                replacement.treeBuilder = tb
-                                // case will follow the original node (so honours ParseSettings)
-                                try tb.replaceActiveFormattingElement(node!, replacement)
-                                try tb.replaceOnStack(node!, replacement)
-                                node = replacement
-
-                                if (lastNode == furthestBlock) {
-                                    // todo: move the aforementioned bookmark to be immediately after the node in the list of active formatting elements.
-                                    // not getting how self bookmark both straddles the element above, but is inbetween here...
-                                }
-                                if (lastNode!.parent() != nil) {
-                                    try lastNode?.remove()
-                                }
-                                try node!.appendChild(lastNode!)
-
-                                lastNode = node
-                            }
-
-                            if Constants.InBodyEndTableFosters.contains(commonAncestor!.nodeNameUTF8()) {
-                                if (lastNode!.parent() != nil) {
-                                    try lastNode!.remove()
-                                }
-                                try tb.insertInFosterParent(lastNode!)
-                            } else {
-                                if (lastNode!.parent() != nil) {
-                                    try lastNode!.remove()
-                                }
-                                try commonAncestor!.appendChild(lastNode!)
-                            }
-
-                            let adopter: Element = Element(formatEl!.tag(), tb.getBaseUri())
-                            adopter.treeBuilder = tb
-                            adopter.getAttributes()?.addAll(incoming: formatEl!.getAttributes())
-                            let childNodes: [Node] = furthestBlock!.getChildNodes()
-                            for childNode: Node in childNodes {
-                                try adopter.appendChild(childNode) // append will reparent. thus the clone to avoid concurrent mod.
-                            }
-                            try furthestBlock?.appendChild(adopter)
-                            tb.removeFromActiveFormattingElements(formatEl)
-                            // todo: insert the element into the list of active formatting elements at the position of the aforementioned bookmark.
-                            tb.removeFromStack(formatEl!)
-                            try tb.insertOnStackAfter(furthestBlock!, adopter)
+                var adoptionName: [UInt8]? = nil
+                switch endTag.tagId {
+                case .a:
+                    adoptionName = UTF8Arrays.a
+                case .em:
+                    adoptionName = UTF8Arrays.em
+                case .strong:
+                    adoptionName = UTF8Arrays.strong
+                case .b:
+                    adoptionName = UTF8Arrays.b
+                case .i:
+                    adoptionName = UTF8Arrays.i
+                case .small:
+                    adoptionName = UTF8Arrays.small
+                default:
+                    break
+                }
+                if adoptionName == nil,
+                   let nameSlice = endTag.normalNameSlice(),
+                   Constants.InBodyEndAdoptionFormatters.contains(nameSlice) {
+                    if equalsSlice(UTF8Arrays.a, nameSlice) {
+                        adoptionName = UTF8Arrays.a
+                    } else if equalsSlice(UTF8Arrays.em, nameSlice) {
+                        adoptionName = UTF8Arrays.em
+                    } else if equalsSlice(UTF8Arrays.strong, nameSlice) {
+                        adoptionName = UTF8Arrays.strong
+                    } else if equalsSlice(UTF8Arrays.b, nameSlice) {
+                        adoptionName = UTF8Arrays.b
+                    } else if equalsSlice(UTF8Arrays.i, nameSlice) {
+                        adoptionName = UTF8Arrays.i
+                    } else if equalsSlice(UTF8Arrays.small, nameSlice) {
+                        adoptionName = UTF8Arrays.small
+                    } else {
+                        adoptionName = Array(nameSlice)
+                    }
+                }
+                if let name = adoptionName {
+                    // Adoption Agency Algorithm.
+                    for _ in 0..<8 {
+                        let formatEl: Element? = tb.getActiveFormattingElement(name)
+                        if (formatEl == nil) {
+                            return anyOtherEndTag(t, tb)
+                        } else if (!tb.onStack(formatEl!)) {
+                            tb.error(self)
+                            tb.removeFromActiveFormattingElements(formatEl!)
+                            return anyOtherEndTag(t, tb)
+                        } else if (try !tb.inScope(formatEl!.nodeNameUTF8())) {
+                            tb.error(self)
+                            return false
+                        } else if (tb.currentElement() != formatEl!) {
+                            tb.error(self)
                         }
-                    } else if Constants.InBodyEndClosers.contains(name) {
-                        if (try !tb.inScope(name)) {
-                            // nothing to close
+
+                        var furthestBlock: Element? = nil
+                        var commonAncestor: Element? = nil
+                        var seenFormattingElement: Bool = false
+                        let stack: Array<Element> = tb.getStack()
+                        // the spec doesn't limit to < 64, but in degenerate cases (9000+ stack depth) self prevents
+                        // run-aways
+                        var stackSize = stack.count
+                        if(stackSize > 64) {stackSize = 64}
+                        for si in 0..<stackSize {
+                            let el: Element = stack[si]
+                            if (el == formatEl) {
+                                commonAncestor = stack[si - 1]
+                                seenFormattingElement = true
+                            } else if (seenFormattingElement && tb.isSpecial(el)) {
+                                furthestBlock = el
+                                break
+                            }
+                        }
+                        if (furthestBlock == nil) {
+                            tb.popStackToClose(formatEl!.nodeNameUTF8())
+                            tb.removeFromActiveFormattingElements(formatEl)
+                            return true
+                        }
+
+                        // todo: Let a bookmark note the position of the formatting element in the list of active formatting elements relative to the elements on either side of it in the list.
+                        // does that mean: int pos of format el in list?
+                        var node: Element? = furthestBlock
+                        var lastNode: Element? = furthestBlock
+                        for _ in 0..<3 {
+                            if (node != nil && tb.onStack(node!)) {
+                                node = tb.aboveOnStack(node!)
+                            }
+                            // note no bookmark check
+                            if (node != nil && !tb.isInActiveFormattingElements(node!)) {
+                                tb.removeFromStack(node!)
+                                continue
+                            } else if (node == formatEl) {
+                                break
+                            }
+
+                            let replacement: Element = try Element(Tag.valueOf(node!.nodeNameUTF8(), ParseSettings.preserveCase), tb.getBaseUri())
+                            replacement.treeBuilder = tb
+                            // case will follow the original node (so honours ParseSettings)
+                            try tb.replaceActiveFormattingElement(node!, replacement)
+                            try tb.replaceOnStack(node!, replacement)
+                            node = replacement
+
+                            if (lastNode == furthestBlock) {
+                                // todo: move the aforementioned bookmark to be immediately after the node in the list of active formatting elements.
+                                // not getting how self bookmark both straddles the element above, but is inbetween here...
+                            }
+                            if (lastNode!.parent() != nil) {
+                                try lastNode?.remove()
+                            }
+                            try node!.appendChild(lastNode!)
+
+                            lastNode = node
+                        }
+
+                        if Constants.InBodyEndTableFosters.contains(commonAncestor!.nodeNameUTF8()) {
+                            if (lastNode!.parent() != nil) {
+                                try lastNode!.remove()
+                            }
+                            try tb.insertInFosterParent(lastNode!)
+                        } else {
+                            if (lastNode!.parent() != nil) {
+                                try lastNode!.remove()
+                            }
+                            try commonAncestor!.appendChild(lastNode!)
+                        }
+
+                        let adopter: Element = Element(formatEl!.tag(), tb.getBaseUri())
+                        adopter.treeBuilder = tb
+                        adopter.getAttributes()?.addAll(incoming: formatEl!.getAttributes())
+                        let childNodes: [Node] = furthestBlock!.getChildNodes()
+                        for childNode: Node in childNodes {
+                            try adopter.appendChild(childNode) // append will reparent. thus the clone to avoid concurrent mod.
+                        }
+                        try furthestBlock?.appendChild(adopter)
+                        tb.removeFromActiveFormattingElements(formatEl)
+                        // todo: insert the element into the list of active formatting elements at the position of the aforementioned bookmark.
+                        tb.removeFromStack(formatEl!)
+                        try tb.insertOnStackAfter(furthestBlock!, adopter)
+                    }
+                } else {
+                    switch endTag.tagId {
+                    case .span:
+                        return anyOtherEndTagFast(UTF8Arrays.span, tb)
+                    case .div:
+                        if (try !tb.inScope(UTF8Arrays.div)) {
                             tb.error(self)
                             return false
                         } else {
                             tb.generateImpliedEndTags()
-                            if (!tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(UTF8Arrays.div)) {
                                 tb.error(self)
                             }
-                            tb.popStackToClose(name)
+                            tb.popStackToClose(UTF8Arrays.div)
                         }
-                    } else if name == UTF8Arrays.span {
-                        // same as final fall through, but saves short circuit
-                        return anyOtherEndTag(t, tb)
-                    } else if name == UTF8Arrays.li {
-                        if (try !tb.inListItemScope(name)) {
+                        return true
+                    case .li:
+                        if (try !tb.inListItemScope(UTF8Arrays.li)) {
                             tb.error(self)
                             return false
                         } else {
-                            tb.generateImpliedEndTags(name)
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                            tb.generateImpliedEndTags(UTF8Arrays.li)
+                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(UTF8Arrays.li)) {
                                 tb.error(self)
                             }
-                            tb.popStackToClose(name)
+                            tb.popStackToClose(UTF8Arrays.li)
                         }
-                    } else if name == UTF8Arrays.body {
+                        return true
+                    case .body:
                         if try !tb.inScope(UTF8Arrays.body) {
                             tb.error(self)
                             return false
@@ -774,84 +848,158 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             // todo: error if stack contains something not dd, dt, li, optgroup, option, p, rp, rt, tbody, td, tfoot, th, thead, tr, body, html
                             tb.transition(.AfterBody)
                         }
-                    } else if name == UTF8Arrays.html {
+                        return true
+                    case .html:
                         let notIgnored: Bool = try tb.processEndTag(UTF8Arrays.body)
                         if (notIgnored) {
                             return try tb.process(endTag)
                         }
-                    } else if name == UTF8Arrays.form {
+                        return true
+                    case .form:
                         let currentForm: Element? = tb.getFormElement()
                         tb.setFormElement(nil)
-                        if (try currentForm == nil || !tb.inScope(name)) {
+                        if (try currentForm == nil || !tb.inScope(UTF8Arrays.form)) {
                             tb.error(self)
                             return false
                         } else {
                             tb.generateImpliedEndTags()
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(UTF8Arrays.form)) {
                                 tb.error(self)
                             }
                             // remove currentForm from stack. will shift anything under up.
                             tb.removeFromStack(currentForm!)
                         }
-                    } else if name == UTF8Arrays.p {
-                        if (try !tb.inButtonScope(name)) {
+                        return true
+                    case .p:
+                        if (try !tb.inButtonScope(UTF8Arrays.p)) {
                             tb.error(self)
-                            try tb.processStartTag(name) // if no p to close, creates an empty <p></p>
+                            try tb.processStartTag(UTF8Arrays.p) // if no p to close, creates an empty <p></p>
                             return try tb.process(endTag)
                         } else {
-                            tb.generateImpliedEndTags(name)
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                            tb.generateImpliedEndTags(UTF8Arrays.p)
+                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(UTF8Arrays.p)) {
                                 tb.error(self)
                             }
-                            tb.popStackToClose(name)
+                            tb.popStackToClose(UTF8Arrays.p)
                         }
-                    } else if Constants.DdDt.contains(name) {
-                        if (try !tb.inScope(name)) {
-                            tb.error(self)
-                            return false
-                        } else {
-                            tb.generateImpliedEndTags(name)
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                        return true
+                    default:
+                        break
+                    }
+                    if let name = endTag.normalName() {
+                        if Constants.InBodyEndClosers.contains(name) {
+                            if (try !tb.inScope(name)) {
+                                // nothing to close
                                 tb.error(self)
+                                return false
+                            } else {
+                                tb.generateImpliedEndTags()
+                                if (!tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                                    tb.error(self)
+                                }
+                                tb.popStackToClose(name)
                             }
-                            tb.popStackToClose(name)
-                        }
-                    } else if Constants.Headings.contains(name) {
-                        if (try !tb.inScope(Constants.Headings)) {
-                            tb.error(self)
-                            return false
-                        } else {
-                            tb.generateImpliedEndTags(name)
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                        } else if name == UTF8Arrays.span {
+                            // same as final fall through, but saves short circuit
+                            return anyOtherEndTag(t, tb)
+                        } else if name == UTF8Arrays.li {
+                            if (try !tb.inListItemScope(name)) {
                                 tb.error(self)
+                                return false
+                            } else {
+                                tb.generateImpliedEndTags(name)
+                                if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                                    tb.error(self)
+                                }
+                                tb.popStackToClose(name)
                             }
-                            tb.popStackToClose(Constants.Headings)
-                        }
-                    } else if name == UTF8Arrays.sarcasm {
-                        // *sigh*
-                        return anyOtherEndTag(t, tb)
-                    } else if Constants.InBodyStartApplets.contains(name) {
-                        if (try !tb.inScope(UTF8Arrays.name)) {
+                        } else if name == UTF8Arrays.body {
+                            if try !tb.inScope(UTF8Arrays.body) {
+                                tb.error(self)
+                                return false
+                            } else {
+                                // todo: error if stack contains something not dd, dt, li, optgroup, option, p, rp, rt, tbody, td, tfoot, th, thead, tr, body, html
+                                tb.transition(.AfterBody)
+                            }
+                        } else if name == UTF8Arrays.html {
+                            let notIgnored: Bool = try tb.processEndTag(UTF8Arrays.body)
+                            if (notIgnored) {
+                                return try tb.process(endTag)
+                            }
+                        } else if name == UTF8Arrays.form {
+                            let currentForm: Element? = tb.getFormElement()
+                            tb.setFormElement(nil)
+                            if (try currentForm == nil || !tb.inScope(name)) {
+                                tb.error(self)
+                                return false
+                            } else {
+                                tb.generateImpliedEndTags()
+                                if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                                    tb.error(self)
+                                }
+                                // remove currentForm from stack. will shift anything under up.
+                                tb.removeFromStack(currentForm!)
+                            }
+                        } else if name == UTF8Arrays.p {
+                            if (try !tb.inButtonScope(name)) {
+                                tb.error(self)
+                                try tb.processStartTag(name) // if no p to close, creates an empty <p></p>
+                                return try tb.process(endTag)
+                            } else {
+                                tb.generateImpliedEndTags(name)
+                                if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                                    tb.error(self)
+                                }
+                                tb.popStackToClose(name)
+                            }
+                        } else if Constants.DdDt.contains(name) {
                             if (try !tb.inScope(name)) {
                                 tb.error(self)
                                 return false
+                            } else {
+                                tb.generateImpliedEndTags(name)
+                                if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                                    tb.error(self)
+                                }
+                                tb.popStackToClose(name)
                             }
-                            tb.generateImpliedEndTags()
-                            if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                        } else if Constants.Headings.contains(name) {
+                            if (try !tb.inScope(Constants.Headings)) {
                                 tb.error(self)
+                                return false
+                            } else {
+                                tb.generateImpliedEndTags(name)
+                                if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                                    tb.error(self)
+                                }
+                                tb.popStackToClose(Constants.Headings)
                             }
-                            tb.popStackToClose(name)
-                            tb.clearFormattingElementsToLastMarker()
+                        } else if name == UTF8Arrays.sarcasm {
+                            // *sigh*
+                            return anyOtherEndTag(t, tb)
+                        } else if Constants.InBodyStartApplets.contains(name) {
+                            if (try !tb.inScope(UTF8Arrays.name)) {
+                                if (try !tb.inScope(name)) {
+                                    tb.error(self)
+                                    return false
+                                }
+                                tb.generateImpliedEndTags()
+                                if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                                    tb.error(self)
+                                }
+                                tb.popStackToClose(name)
+                                tb.clearFormattingElementsToLastMarker()
+                            }
+                        } else if name == UTF8Arrays.br {
+                            tb.error(self)
+                            try tb.processStartTag(UTF8Arrays.br)
+                            return false
+                        } else {
+                            return anyOtherEndTag(t, tb)
                         }
-                    } else if name == UTF8Arrays.br {
-                        tb.error(self)
-                        try tb.processStartTag(UTF8Arrays.br)
-                        return false
                     } else {
                         return anyOtherEndTag(t, tb)
                     }
-                } else {
-                    return anyOtherEndTag(t, tb)
                 }
 
                 break
@@ -903,6 +1051,64 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 return false
             } else if (t.isStartTag()) {
                 let startTag: Token.StartTag = t.asStartTag()
+                if startTag.tagId != .none {
+                    switch startTag.tagId {
+                    case .table:
+                        tb.error(self)
+                        let processed: Bool = try tb.processEndTag(UTF8Arrays.table)
+                        if (processed) { return try tb.process(t) }
+                        return true
+                    case .tbody, .thead, .tfoot:
+                        tb.clearStackToTableContext()
+                        try tb.insert(startTag)
+                        tb.transition(.InTableBody)
+                        return true
+                    case .td, .th, .tr:
+                        try tb.processStartTag(UTF8Arrays.tbody)
+                        return try tb.process(t)
+                    case .caption:
+                        tb.clearStackToTableContext()
+                        tb.insertMarkerToFormattingElements()
+                        try tb.insert(startTag)
+                        tb.transition(.InCaption)
+                        return true
+                    case .colgroup:
+                        tb.clearStackToTableContext()
+                        try tb.insert(startTag)
+                        tb.transition(.InColumnGroup)
+                        return true
+                    case .col:
+                        try tb.processStartTag(UTF8Arrays.colgroup)
+                        return try tb.process(t)
+                    case .script, .style:
+                        return try tb.process(t, .InHead)
+                    case .input:
+                        let isHidden: Bool
+                        if startTag.hasAnyAttributes() {
+                            startTag.ensureAttributes()
+                            let typeValue = startTag._attributes?.get(key: UTF8Arrays.type) ?? []
+                            isHidden = typeValue.equalsIgnoreCase(string: UTF8Arrays.hidden)
+                        } else {
+                            isHidden = false
+                        }
+                        if !isHidden {
+                            return try anythingElse(t, tb)
+                        } else {
+                            try tb.insertEmpty(startTag)
+                        }
+                        return true
+                    case .form:
+                        tb.error(self)
+                        if (tb.getFormElement() != nil) {
+                            return false
+                        } else {
+                            try tb.insertForm(startTag, false)
+                        }
+                        return true
+                    default:
+                        break
+                    }
+                }
                 if let name = startTag.normalName() {
                     if name == UTF8Arrays.caption {
                         tb.clearStackToTableContext()
@@ -931,8 +1137,15 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     } else if name == UTF8Arrays.style || name == UTF8Arrays.script {
                         return try tb.process(t, .InHead)
                     } else if name == UTF8Arrays.input {
-                        startTag.ensureAttributes()
-                        if !(startTag._attributes?.get(key: UTF8Arrays.type).equalsIgnoreCase(string: UTF8Arrays.hidden) ?? false) {
+                        let isHidden: Bool
+                        if startTag.hasAnyAttributes() {
+                            startTag.ensureAttributes()
+                            let typeValue = startTag._attributes?.get(key: UTF8Arrays.type) ?? []
+                            isHidden = typeValue.equalsIgnoreCase(string: UTF8Arrays.hidden)
+                        } else {
+                            isHidden = false
+                        }
+                        if !isHidden {
                             return try anythingElse(t, tb)
                         } else {
                             try tb.insertEmpty(startTag)
@@ -951,6 +1164,16 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 return true // todo: check if should return processed http://www.whatwg.org/specs/web-apps/current-work/multipage/tree-construction.html#parsing-main-intable
             } else if (t.isEndTag()) {
                 let endTag: Token.EndTag = t.asEndTag()
+                if endTag.tagId == .table {
+                    if (try !tb.inTableScope(UTF8Arrays.table)) {
+                        tb.error(self)
+                        return false
+                    } else {
+                        tb.popStackToClose(UTF8Arrays.table)
+                    }
+                    tb.resetInsertionMode()
+                    return true
+                }
                 if let name = endTag.normalName() {
                     if name == UTF8Arrays.table {
                         if (try !tb.inTableScope(name)) {
@@ -981,12 +1204,16 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             switch (t.type) {
             case .Char:
                 let c: Token.Char = t.asCharacter()
-                if (c.getData() != nil && c.getData()!.equals(HtmlTreeBuilderState.nullString)) {
+                if let data = c.getDataSlice(), data.count == 1, data.first == 0x00 {
                     tb.error(self)
                     return false
                 } else {
                     var a = tb.getPendingTableCharacters()
-                    a.append(c.getData()!)
+                    if let data = c.getDataSlice() {
+                        a.append(.slice(data))
+                    } else if let data = c.getData() {
+                        a.append(.bytes(data))
+                    }
                     tb.setPendingTableCharacters(a)
                 }
                 break
@@ -994,18 +1221,35 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 // todo - don't really like the way these table character data lists are built
                 if (!tb.getPendingTableCharacters().isEmpty) {
                     for character in tb.getPendingTableCharacters() {
-                        if (!HtmlTreeBuilderState.isWhitespace(character)) {
-                            // InTable anything else section:
-                            tb.error(self)
-                            if tb.currentElement() != nil && TagSets.table.contains(tb.currentElement()!.nodeNameUTF8()) {
-                                tb.setFosterInserts(true)
-                                try tb.process(Token.Char().data(character), .InBody)
-                                tb.setFosterInserts(false)
+                        switch character {
+                        case .slice(let slice):
+                            if (!HtmlTreeBuilderState.isWhitespace(slice)) {
+                                // InTable anything else section:
+                                tb.error(self)
+                                if tb.currentElement() != nil && TagSets.table.contains(tb.currentElement()!.nodeNameUTF8()) {
+                                    tb.setFosterInserts(true)
+                                    try tb.process(Token.Char().data(slice), .InBody)
+                                    tb.setFosterInserts(false)
+                                } else {
+                                    try tb.process(Token.Char().data(slice), .InBody)
+                                }
                             } else {
-                                try tb.process(Token.Char().data(character), .InBody)
+                                try tb.insert(Token.Char().data(slice))
                             }
-                        } else {
-                            try tb.insert(Token.Char().data(character))
+                        case .bytes(let bytes):
+                            if (!HtmlTreeBuilderState.isWhitespace(bytes)) {
+                                // InTable anything else section:
+                                tb.error(self)
+                                if tb.currentElement() != nil && TagSets.table.contains(tb.currentElement()!.nodeNameUTF8()) {
+                                    tb.setFosterInserts(true)
+                                    try tb.process(Token.Char().data(bytes), .InBody)
+                                    tb.setFosterInserts(false)
+                                } else {
+                                    try tb.process(Token.Char().data(bytes), .InBody)
+                                }
+                            } else {
+                                try tb.insert(Token.Char().data(bytes))
+                            }
                         }
                     }
                     tb.newPendingTableCharacters()
@@ -1136,6 +1380,8 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     tb.error(self)
                     try tb.processStartTag(UTF8Arrays.tr)
                     return try tb.process(startTag)
+                } else if startTag.tagId == .caption || startTag.tagId == .col || startTag.tagId == .colgroup {
+                    return try exitTableBody(t, tb)
                 } else if let name = name, TagSets.tableMix3.contains(name) {
                     return try exitTableBody(t, tb)
                 } else {
@@ -1209,13 +1455,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     tb.transition(.InTableBody)
                 } else if UTF8Arrays.table == name {
                     return try handleMissingTr(t, tb)
-                } else if let name, TagSets.tableSections.contains(name) {
-                    if (try !tb.inTableScope(name)) {
-                        tb.error(self)
-                        return false
-                    }
-                    try tb.processEndTag(UTF8Arrays.tr)
-                    return try tb.process(t)
                 } else if let name = name, TagSets.tableMix6.contains(name) {
                     tb.error(self)
                     return false
@@ -1289,7 +1528,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             switch (t.type) {
             case .Char:
                 let c: Token.Char = t.asCharacter()
-                if HtmlTreeBuilderState.nullString == c.getData() {
+                if let data = c.getDataSlice(), data.count == 1, data.first == 0x00 {
                     tb.error(self)
                     return false
                 } else {
@@ -1305,6 +1544,21 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             case .StartTag:
                 let start: Token.StartTag = t.asStartTag()
                 let name = start.normalName()
+                if start.tagId != .none {
+                    switch start.tagId {
+                    case .input:
+                        tb.error(self)
+                        if (try !tb.inSelectScope(UTF8Arrays.select)) {
+                            return false // frag
+                        }
+                        try tb.processEndTag(UTF8Arrays.select)
+                        return try tb.process(start)
+                    case .script:
+                        return try tb.process(t, .InHead)
+                    default:
+                        break
+                    }
+                }
                 if name == UTF8Arrays.html {
                     return try tb.process(start, .InBody)
                 } else if name == UTF8Arrays.option {
@@ -1373,21 +1627,47 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             }
             return true
         case .InSelectInTable:
+            if t.isStartTag() {
+                let startTag = t.asStartTag()
+                switch startTag.tagId {
+                case .caption, .table, .tbody, .tfoot, .thead, .tr, .td, .th:
+                    tb.error(self)
+                    try tb.processEndTag(UTF8Arrays.select)
+                    return try tb.process(t)
+                default:
+                    break
+                }
+            }
             if t.startTagNormalNameIn(TagSets.tableMix8) {
                 tb.error(self)
                 try tb.processEndTag(UTF8Arrays.select)
                 return try tb.process(t)
-            } else if t.endTagNormalNameIn(TagSets.tableMix8) {
-                tb.error(self)
-                if try tb.inTableScope(t.asEndTag().normalName()!) {
-                    try tb.processEndTag(UTF8Arrays.select)
-                    return try (tb.process(t))
-                } else {
-                    return false
+            } else if t.isEndTag() {
+                let endTag = t.asEndTag()
+                switch endTag.tagId {
+                case .caption, .table, .tbody, .tfoot, .thead, .tr, .td, .th:
+                    tb.error(self)
+                    if try tb.inTableScope(t.asEndTag().normalName()!) {
+                        try tb.processEndTag(UTF8Arrays.select)
+                        return try (tb.process(t))
+                    } else {
+                        return false
+                    }
+                default:
+                    break
                 }
-            } else {
+                if t.endTagNormalNameIn(TagSets.tableMix8) {
+                    tb.error(self)
+                    if try tb.inTableScope(t.asEndTag().normalName()!) {
+                        try tb.processEndTag(UTF8Arrays.select)
+                        return try (tb.process(t))
+                    } else {
+                        return false
+                    }
+                }
                 return try tb.process(t, .InSelect)
             }
+            return try tb.process(t, .InSelect)
         case .AfterBody:
             if (HtmlTreeBuilderState.isWhitespace(t)) {
                 return try tb.process(t, .InBody)
@@ -1512,15 +1792,45 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
     private static func isWhitespace(_ t: Token) -> Bool {
         if (t.isCharacter()) {
-            let data = t.asCharacter().getData()
+            let data = t.asCharacter().getDataSlice()
             return isWhitespace(data)
         }
         return false
     }
 
-    private static func isWhitespace(_ data: [UInt8]?) -> Bool {
-        // ASCII whitespace only: \t, \n, \f, \r, space
+    private static func isWhitespace(_ data: ArraySlice<UInt8>?) -> Bool {
         guard let data else { return true }
+        if data.isEmpty { return true }
+        if data.count == 1 {
+            switch data.first! {
+            case 0x09, 0x0A, 0x0C, 0x0D, 0x20:
+                return true
+            default:
+                return false
+            }
+        }
+        for b in data {
+            switch b {
+            case 0x09, 0x0A, 0x0C, 0x0D, 0x20:
+                continue
+            default:
+                return false
+            }
+        }
+        return true
+    }
+
+    private static func isWhitespace(_ data: [UInt8]?) -> Bool {
+        guard let data else { return true }
+        if data.isEmpty { return true }
+        if data.count == 1 {
+            switch data[0] {
+            case 0x09, 0x0A, 0x0C, 0x0D, 0x20:
+                return true
+            default:
+                return false
+            }
+        }
         for b in data {
             switch b {
             case 0x09, 0x0A, 0x0C, 0x0D, 0x20:
@@ -1559,7 +1869,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         fileprivate static let DdDt = ParsingStrings(["dd", "dt"])
         fileprivate static let Formatters = ParsingStrings(["b", "big", "code", "em", "font", "i", "s", "small", "strike", "strong", "tt", "u"])
         fileprivate static let InBodyStartApplets = ParsingStrings(["applet", "marquee", "object"])
-        fileprivate static let InBodyStartEmptyFormatters = ParsingStrings(["area", "br", "embed", "img", "keygen", "wbr"])
+        fileprivate static let InBodyStartEmptyFormatters = ParsingStrings(["area", "br", "embed", "hr", "img", "keygen", "wbr"])
         fileprivate static let InBodyStartMedia = ParsingStrings(["param", "source", "track"])
         fileprivate static let InBodyStartInputAttribs = ParsingStrings(["name", "action", "prompt"])
         fileprivate static let InBodyStartOptions = ParsingStrings(["optgroup", "option"])
@@ -1571,6 +1881,96 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         fileprivate static let InBodyEndAdoptionFormatters = ParsingStrings(["a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong", "tt", "u"])
         fileprivate static let InBodyEndTableFosters = ParsingStrings(["table", "tbody", "tfoot", "thead", "tr"])
     }
+
+    private enum FastStartTag {
+        case a
+        case span
+        case p
+        case div
+        case em
+        case strong
+        case b
+        case i
+        case small
+        case unknown
+    }
+
+    @inline(__always)
+    private static func fastStartTag(_ slice: ArraySlice<UInt8>) -> FastStartTag {
+        let start = slice.startIndex
+        switch slice.count {
+        case 1:
+            let b0 = slice[start]
+            if b0 == 0x61 { return .a } // a
+            if b0 == 0x70 { return .p } // p
+            if b0 == 0x62 { return .b } // b
+            if b0 == 0x69 { return .i } // i
+        case 2:
+            let b0 = slice[start]
+            if b0 == 0x65 { // e
+                let b1 = slice[slice.index(after: start)]
+                if b1 == 0x6D { return .em } // em
+            }
+        case 3:
+            let b0 = slice[start]
+            if b0 == 0x64 { // d
+                let i1 = slice.index(after: start)
+                if slice[i1] == 0x69 { // i
+                    let i2 = slice.index(after: i1)
+                    if slice[i2] == 0x76 { return .div } // v
+                }
+            }
+        case 4:
+            let b0 = slice[start]
+            if b0 == 0x73 { // s
+                let i1 = slice.index(after: start)
+                if slice[i1] == 0x70 { // p
+                    let i2 = slice.index(after: i1)
+                    if slice[i2] == 0x61 { // a
+                        let i3 = slice.index(after: i2)
+                        if slice[i3] == 0x6E { return .span } // n
+                    }
+                }
+            }
+        case 5:
+            let b0 = slice[start]
+            if b0 == 0x73 { // s
+                let i1 = slice.index(after: start)
+                if slice[i1] == 0x6D { // m
+                    let i2 = slice.index(after: i1)
+                    if slice[i2] == 0x61 { // a
+                        let i3 = slice.index(after: i2)
+                        if slice[i3] == 0x6C { // l
+                            let i4 = slice.index(after: i3)
+                            if slice[i4] == 0x6C { return .small } // l
+                        }
+                    }
+                }
+            }
+        case 6:
+            let b0 = slice[start]
+            if b0 == 0x73 { // s
+                let i1 = slice.index(after: start)
+                if slice[i1] == 0x74 { // t
+                    let i2 = slice.index(after: i1)
+                    if slice[i2] == 0x72 { // r
+                        let i3 = slice.index(after: i2)
+                        if slice[i3] == 0x6F { // o
+                            let i4 = slice.index(after: i3)
+                            if slice[i4] == 0x6E { // n
+                                let i5 = slice.index(after: i4)
+                                if slice[i5] == 0x67 { return .strong } // g
+                            }
+                        }
+                    }
+                }
+            }
+        default:
+            break
+        }
+        return .unknown
+    }
+
 }
 
 fileprivate extension Token {

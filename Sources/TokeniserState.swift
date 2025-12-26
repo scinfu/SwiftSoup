@@ -152,7 +152,7 @@ enum TokeniserState: TokeniserStateProtocol {
         switch self {
         case .Data:
             if r.pos >= r.end {
-                try t.emit(Token.EOF())
+                try t.emitEOF()
                 break
             }
             let dataStart = r.pos
@@ -162,7 +162,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             }
             if r.pos >= r.end {
-                try t.emit(Token.EOF())
+                try t.emitEOF()
                 break
             }
             let byte = r.input[r.pos]
@@ -252,7 +252,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .Rcdata:
             if r.isEmpty() {
-                try t.emit(Token.EOF())
+                try t.emitEOF()
                 break
             }
             let byte = r.currentByte()!
@@ -287,7 +287,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .PLAINTEXT:
             if r.isEmpty() {
-                try t.emit(Token.EOF())
+                try t.emitEOF()
                 break
             }
             let byte = r.currentByte()!
@@ -2203,7 +2203,7 @@ enum TokeniserState: TokeniserStateProtocol {
 
     private static func readData(_ t: Tokeniser, _ r: CharacterReader, _ current: TokeniserState, _ advance: TokeniserState)throws {
         if r.isEmpty() {
-            try t.emit(Token.EOF())
+            try t.emitEOF()
             return
         }
         let byte = r.currentByte()!
@@ -2226,16 +2226,16 @@ enum TokeniserState: TokeniserStateProtocol {
     }
 
     @inline(__always)
-    private static func readTagName(_ state: TokeniserState, _ t: Tokeniser, _ r: CharacterReader) throws {
+    internal static func readTagName(_ state: TokeniserState, _ t: Tokeniser, _ r: CharacterReader) throws {
         #if PROFILE
         let _pConsume = Profiler.start("TokeniserState.TagName.consumeTagName")
         #endif
-        let tagName: ArraySlice<UInt8> = r.consumeTagName()
+        let (tagName, hasUppercase) = r.consumeTagNameWithUppercaseFlag()
         #if PROFILE
         Profiler.end("TokeniserState.TagName.consumeTagName", _pConsume)
         let _pAppend = Profiler.start("TokeniserState.TagName.appendTagName")
         #endif
-        t.tagPending.appendTagName(tagName)
+        t.tagPending.appendTagName(tagName, hasUppercase: hasUppercase)
         #if PROFILE
         Profiler.end("TokeniserState.TagName.appendTagName", _pAppend)
         #endif
@@ -2276,13 +2276,67 @@ enum TokeniserState: TokeniserStateProtocol {
     }
 
     @inline(__always)
-    private static func readTagNameFromTagOpen(_ t: Tokeniser, _ r: CharacterReader, _ isStart: Bool) throws -> Bool {
+    internal static func readTagNameFromTagOpen(_ t: Tokeniser, _ r: CharacterReader, _ isStart: Bool) throws -> Bool {
         if r.isEmpty() {
             return false
         }
         t.createTagPending(isStart)
-        let tagName: ArraySlice<UInt8> = r.consumeTagName()
-        t.tagPending.appendTagName(tagName)
+        let (tagName, hasUppercase) = r.consumeTagNameWithUppercaseFlag()
+        t.tagPending.appendTagName(tagName, hasUppercase: hasUppercase)
+        if !hasUppercase {
+            t.tagPending.setTagIdFromSlice(tagName)
+        } else {
+            t.tagPending.tagId = .none
+        }
+        if !t.trackAttributes {
+            var i = r.pos
+            var inSingle = false
+            var inDouble = false
+            while i < r.end {
+                let b = r.input[i]
+                if inSingle {
+                    if b == 0x27 { // '
+                        inSingle = false
+                    }
+                    i &+= 1
+                    continue
+                }
+                if inDouble {
+                    if b == 0x22 { // "
+                        inDouble = false
+                    }
+                    i &+= 1
+                    continue
+                }
+                switch b {
+                case 0x27:
+                    inSingle = true
+                case 0x22:
+                    inDouble = true
+                case 0x2F:
+                    let next = i &+ 1
+                    if next < r.end, r.input[next] == 0x3E { // '/>'
+                        t.tagPending._selfClosing = true
+                        r.pos = next &+ 1
+                        try t.emitTagPending()
+                        t.transition(.Data)
+                        return true
+                    }
+                case 0x3E: // '>'
+                    r.pos = i &+ 1
+                    try t.emitTagPending()
+                    t.transition(.Data)
+                    return true
+                default:
+                    break
+                }
+                i &+= 1
+            }
+            r.pos = r.end
+            t.eofError(.TagName)
+            t.transition(.Data)
+            return true
+        }
         if r.isEmpty() {
             t.eofError(.TagName)
             t.transition(.Data)
@@ -2318,6 +2372,7 @@ enum TokeniserState: TokeniserStateProtocol {
             return true
         }
     }
+
 
     @inline(__always)
     private static func readAttributeName(_ state: TokeniserState, _ t: Tokeniser, _ r: CharacterReader) throws {

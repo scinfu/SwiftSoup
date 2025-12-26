@@ -70,6 +70,7 @@ public class DocumentType: Node {
         return "#doctype"
     }
 
+
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         if (out.syntax() == OutputSettings.Syntax.html && !has(DocumentType.PUBLIC_ID) && !has(DocumentType.SYSTEM_ID)) {
             // looks like a html5 doctype, go lowercase for aesthetics

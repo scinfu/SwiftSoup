@@ -284,6 +284,9 @@ open class Attributes: NSCopying {
     
     @inline(__always)
     open func get(key: [UInt8]) -> [UInt8] {
+        if attributes.isEmpty, let pendingValue = pendingValueCaseSensitive(key) {
+            return pendingValue
+        }
         ensureMaterialized()
         if let ix = indexForKey(key) {
             return attributes[ix].getValueUTF8()
@@ -303,6 +306,9 @@ open class Attributes: NSCopying {
     
     @inline(__always)
     open func getIgnoreCase(key: [UInt8]) throws -> [UInt8] {
+        if attributes.isEmpty, let pendingValue = pendingValueIgnoreCase(key) {
+            return pendingValue
+        }
         ensureMaterialized()
         try Validate.notEmpty(string: key)
         if lowercasedKeysCache == nil {
@@ -549,12 +555,14 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func hasKey(key: String) -> Bool {
-        ensureMaterialized()
         return hasKey(key: key.utf8Array)
     }
     
     @inline(__always)
     open func hasKey(key: [UInt8]) -> Bool {
+        if attributes.isEmpty, pendingHasKeyCaseSensitive(key) {
+            return true
+        }
         ensureMaterialized()
         return indexForKey(key) != nil
     }
@@ -566,7 +574,6 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func hasKeyIgnoreCase(key: String) -> Bool {
-        ensureMaterialized()
         return hasKeyIgnoreCase(key: key.utf8Array)
     }
     
@@ -578,6 +585,9 @@ open class Attributes: NSCopying {
     
     @inlinable
     open func hasKeyIgnoreCase<T: Collection>(key: T) -> Bool where T.Element == UInt8 {
+        if attributes.isEmpty, pendingHasKeyIgnoreCase(key) {
+            return true
+        }
         ensureMaterialized()
         guard !key.isEmpty else { return false }
         if lowercasedKeysCache == nil {
@@ -592,6 +602,131 @@ open class Attributes: NSCopying {
             lowerQuery.append(Self.asciiLowercase(b))
         }
         return lowercasedKeysCache!.contains(lowerQuery)
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func pendingHasKeyCaseSensitive(_ key: [UInt8]) -> Bool {
+        return pendingValueCaseSensitive(key) != nil
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func pendingHasKeyIgnoreCase<T: Collection>(_ key: T) -> Bool where T.Element == UInt8 {
+        return pendingValueIgnoreCase(key) != nil
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func pendingValueCaseSensitive(_ key: [UInt8]) -> [UInt8]? {
+        guard !key.isEmpty, attributes.isEmpty, let pending = pendingAttributes, !pending.isEmpty else {
+            return nil
+        }
+        for pendingAttr in pending {
+            if let nameBytes = pendingAttr.nameBytes {
+                if nameBytes == key {
+                    return materializePendingValue(pendingAttr.value)
+                }
+            } else if let nameSlice = pendingAttr.nameSlice {
+                if equalsSlice(nameSlice, key) {
+                    return materializePendingValue(pendingAttr.value)
+                }
+            }
+        }
+        return nil
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func pendingValueIgnoreCase<T: Collection>(_ key: T) -> [UInt8]? where T.Element == UInt8 {
+        guard !key.isEmpty, attributes.isEmpty, let pending = pendingAttributes, !pending.isEmpty else {
+            return nil
+        }
+        for pendingAttr in pending {
+            if let nameBytes = pendingAttr.nameBytes {
+                if equalsIgnoreCase(nameBytes, key) {
+                    return materializePendingValue(pendingAttr.value)
+                }
+            } else if let nameSlice = pendingAttr.nameSlice {
+                if equalsIgnoreCase(nameSlice, key) {
+                    return materializePendingValue(pendingAttr.value)
+                }
+            }
+        }
+        return nil
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func materializePendingValue(_ value: PendingAttrValue) -> [UInt8] {
+        switch value {
+        case .none:
+            return []
+        case .empty:
+            return []
+        case .slice(let slice):
+            return Array(slice)
+        case .slices(let slices, let count):
+            var bytes: [UInt8] = []
+            bytes.reserveCapacity(count)
+            for slice in slices {
+                bytes.append(contentsOf: slice)
+            }
+            return bytes
+        case .bytes(let bytes):
+            return bytes
+        }
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func equalsSlice(_ slice: ArraySlice<UInt8>, _ key: [UInt8]) -> Bool {
+        if slice.count != key.count {
+            return false
+        }
+        var i = key.startIndex
+        var j = slice.startIndex
+        let end = key.endIndex
+        while i < end {
+            if key[i] != slice[j] {
+                return false
+            }
+            i = key.index(after: i)
+            j = slice.index(after: j)
+        }
+        return true
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func equalsIgnoreCase<T: Collection>(_ bytes: [UInt8], _ key: T) -> Bool where T.Element == UInt8 {
+        if bytes.count != key.count {
+            return false
+        }
+        var i = bytes.startIndex
+        for b in key {
+            if Self.asciiLowercase(bytes[i]) != Self.asciiLowercase(b) {
+                return false
+            }
+            i = bytes.index(after: i)
+        }
+        return true
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func equalsIgnoreCase<T: Collection>(_ slice: ArraySlice<UInt8>, _ key: T) -> Bool where T.Element == UInt8 {
+        if slice.count != key.count {
+            return false
+        }
+        var i = slice.startIndex
+        for b in key {
+            if Self.asciiLowercase(slice[i]) != Self.asciiLowercase(b) {
+                return false
+            }
+            i = slice.index(after: i)
+        }
+        return true
     }
     
     /**

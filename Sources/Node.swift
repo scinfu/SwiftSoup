@@ -82,11 +82,25 @@ open class Node: Equatable, Hashable {
         _ attributes: Attributes,
         skipChildReserve: Bool = false
     ) {
-        childNodes = []
+        self.childNodes = []
         if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
         
+        self.baseUri = baseUri.trim()
+        self.attributes = attributes
+    }
+
+    public init(
+        _ baseUri: [UInt8],
+        attributes: Attributes?,
+        skipChildReserve: Bool = false
+    ) {
+        childNodes = []
+        if !skipChildReserve && self is Element || self is DocumentType {
+            childNodes.reserveCapacity(32)
+        }
+
         self.baseUri = baseUri.trim()
         self.attributes = attributes
     }

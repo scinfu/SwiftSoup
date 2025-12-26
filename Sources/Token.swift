@@ -90,9 +90,105 @@ open class Token {
     }
     
     class Tag: Token {
+        enum TagId: UInt8 {
+            case none = 0
+            case a
+            case span
+            case p
+            case div
+            case em
+            case strong
+            case b
+            case i
+            case small
+            case li
+            case body
+            case html
+            case head
+            case title
+            case form
+            case br
+            case meta
+            case img
+            case script
+            case style
+            case caption
+            case col
+            case colgroup
+            case table
+            case tbody
+            case thead
+            case tfoot
+            case tr
+            case td
+            case th
+            case input
+            case hr
+        }
+
+        private struct TagIdEntry {
+            let bytes: [UInt8]
+            let id: TagId
+        }
+
+        private static let tagIdEntriesByLength: [[TagIdEntry]] = {
+            var entries = Array(repeating: [TagIdEntry](), count: 9)
+            entries[1] = [
+                TagIdEntry(bytes: UTF8Arrays.a, id: .a),
+                TagIdEntry(bytes: UTF8Arrays.p, id: .p),
+                TagIdEntry(bytes: UTF8Arrays.b, id: .b),
+                TagIdEntry(bytes: UTF8Arrays.i, id: .i)
+            ]
+            entries[2] = [
+                TagIdEntry(bytes: UTF8Arrays.em, id: .em),
+                TagIdEntry(bytes: UTF8Arrays.br, id: .br),
+                TagIdEntry(bytes: UTF8Arrays.tr, id: .tr),
+                TagIdEntry(bytes: UTF8Arrays.td, id: .td),
+                TagIdEntry(bytes: UTF8Arrays.th, id: .th),
+                TagIdEntry(bytes: UTF8Arrays.hr, id: .hr)
+            ]
+            entries[3] = [
+                TagIdEntry(bytes: UTF8Arrays.div, id: .div),
+                TagIdEntry(bytes: UTF8Arrays.li, id: .li),
+                TagIdEntry(bytes: UTF8Arrays.img, id: .img),
+                TagIdEntry(bytes: UTF8Arrays.col, id: .col)
+            ]
+            entries[4] = [
+                TagIdEntry(bytes: UTF8Arrays.span, id: .span),
+                TagIdEntry(bytes: UTF8Arrays.body, id: .body),
+                TagIdEntry(bytes: UTF8Arrays.html, id: .html),
+                TagIdEntry(bytes: UTF8Arrays.head, id: .head),
+                TagIdEntry(bytes: UTF8Arrays.form, id: .form),
+                TagIdEntry(bytes: UTF8Arrays.meta, id: .meta)
+            ]
+            entries[5] = [
+                TagIdEntry(bytes: UTF8Arrays.small, id: .small),
+                TagIdEntry(bytes: UTF8Arrays.style, id: .style),
+                TagIdEntry(bytes: UTF8Arrays.table, id: .table),
+                TagIdEntry(bytes: UTF8Arrays.title, id: .title),
+                TagIdEntry(bytes: UTF8Arrays.tbody, id: .tbody),
+                TagIdEntry(bytes: UTF8Arrays.thead, id: .thead),
+                TagIdEntry(bytes: UTF8Arrays.tfoot, id: .tfoot),
+                TagIdEntry(bytes: UTF8Arrays.input, id: .input)
+            ]
+            entries[6] = [
+                TagIdEntry(bytes: UTF8Arrays.strong, id: .strong),
+                TagIdEntry(bytes: UTF8Arrays.script, id: .script)
+            ]
+            entries[7] = [
+                TagIdEntry(bytes: UTF8Arrays.caption, id: .caption)
+            ]
+            entries[8] = [
+                TagIdEntry(bytes: UTF8Arrays.colgroup, id: .colgroup)
+            ]
+            return entries
+        }()
+
         public var _tagName: [UInt8]?
         private var _tagNameS: ArraySlice<UInt8>?
         public var _normalName: [UInt8]? // lc version of tag name, for case insensitive tree build
+        private var _tagNameHasUppercase: Bool = false
+        private var _pendingAttributeNameHasUppercase: Bool = false
         private var _pendingAttributeName: [UInt8]? // attribute names are generally caught in one hop, not accumulated
         private var _pendingAttributeNameS: ArraySlice<UInt8>? // fast path to avoid copying name slices
         private let _pendingAttributeValue: StringBuilder = StringBuilder() // but values are accumulated, from e.g. & in hrefs
@@ -105,8 +201,10 @@ open class Token {
         public var _selfClosing: Bool = false
         private var _lowercaseAttributeNames: Bool = false
         fileprivate var _attributesAreNormalized: Bool = false
+        fileprivate var _hasUppercaseAttributeNames: Bool = false
         // start tags get attributes on construction. End tags get attributes on first new attribute (but only for parser convenience, not used).
         public var _attributes: Attributes?
+        var tagId: TagId = .none
 
         fileprivate enum PendingAttrValue {
             case none
@@ -119,6 +217,7 @@ open class Token {
         fileprivate struct PendingAttribute {
             var nameSlice: ArraySlice<UInt8>?
             var nameBytes: [UInt8]?
+            var hasUppercase: Bool
             var value: PendingAttrValue
         }
 
@@ -137,6 +236,8 @@ open class Token {
             }
             _tagNameS = nil
             _normalName = nil
+            _tagNameHasUppercase = false
+            _pendingAttributeNameHasUppercase = false
             _pendingAttributeName = nil
             _pendingAttributeNameS = nil
             Token.reset(_pendingAttributeValue)
@@ -149,7 +250,9 @@ open class Token {
             _selfClosing = false
             _lowercaseAttributeNames = false
             _attributesAreNormalized = false
+            _hasUppercaseAttributeNames = false
             _attributes = nil
+            tagId = .none
             return self
         }
         
@@ -178,6 +281,7 @@ open class Token {
                 let pending = PendingAttribute(
                     nameSlice: hasNameSlice ? pendingNameSlice : nil,
                     nameBytes: hasNameBytes ? pendingNameBytes : nil,
+                    hasUppercase: _pendingAttributeNameHasUppercase,
                     value: value
                 )
                 if _pendingAttributes == nil {
@@ -185,9 +289,13 @@ open class Token {
                 } else {
                     _pendingAttributes!.append(pending)
                 }
+                if _pendingAttributeNameHasUppercase {
+                    _hasUppercaseAttributeNames = true
+                }
             }
             _pendingAttributeName = nil
             _pendingAttributeNameS = nil
+            _pendingAttributeNameHasUppercase = false
             _hasEmptyAttributeValue = false
             _hasPendingAttributeValue = false
             Token.reset(_pendingAttributeValue)
@@ -219,9 +327,9 @@ open class Token {
         func normalName() -> [UInt8]? { // loses case, used in tree building for working out where in tree it should go
             if _normalName == nil {
                 if let name = _tagName, !name.isEmpty {
-                    _normalName = name.lowercased()
+                    _normalName = _tagNameHasUppercase ? name.lowercased() : name
                 } else if let nameSlice = _tagNameS, !nameSlice.isEmpty {
-                    _normalName = Array(nameSlice.lowercased())
+                    _normalName = _tagNameHasUppercase ? Array(nameSlice.lowercased()) : Array(nameSlice)
                 }
             }
             return _normalName
@@ -235,6 +343,31 @@ open class Token {
             return _tagNameS
         }
 
+
+        @inline(__always)
+        func normalNameSlice() -> ArraySlice<UInt8>? {
+            if let normal = _normalName {
+                return normal[...]
+            }
+            if _tagNameHasUppercase {
+                if let name = _tagName, !name.isEmpty {
+                    let lowered = name.lowercased()
+                    _normalName = lowered
+                    return lowered[...]
+                }
+                if let nameSlice = _tagNameS, !nameSlice.isEmpty {
+                    let lowered = Array(nameSlice.lowercased())
+                    _normalName = lowered
+                    return lowered[...]
+                }
+                return nil
+            }
+            if let name = _tagName {
+                return name[...]
+            }
+            return _tagNameS
+        }
+
         @inline(__always)
         func normalNameEquals(_ lower: [UInt8]) -> Bool {
             return normalNameEquals(lower[...])
@@ -242,11 +375,55 @@ open class Token {
 
         @inline(__always)
         func normalNameEquals(_ lower: ArraySlice<UInt8>) -> Bool {
+            @inline(__always)
+            func equalsArraySlice(_ array: [UInt8], _ slice: ArraySlice<UInt8>) -> Bool {
+                if array.count != slice.count {
+                    return false
+                }
+                var i = array.startIndex
+                var j = slice.startIndex
+                let end = array.endIndex
+                while i < end {
+                    if array[i] != slice[j] {
+                        return false
+                    }
+                    i = array.index(after: i)
+                    j = slice.index(after: j)
+                }
+                return true
+            }
+
+            if let normal = _normalName {
+                return equalsArraySlice(normal, lower)
+            }
             if let name = _tagName, !name.isEmpty {
-                return Token.Tag.equalsLowercased(name[...], lower)
+                if _tagNameHasUppercase {
+                    let lowered = name.lowercased()
+                    _normalName = lowered
+                    return equalsArraySlice(lowered, lower)
+                }
+                return equalsArraySlice(name, lower)
             }
             if let nameSlice = _tagNameS, !nameSlice.isEmpty {
-                return Token.Tag.equalsLowercased(nameSlice, lower)
+                if _tagNameHasUppercase {
+                    let lowered = Array(nameSlice.lowercased())
+                    _normalName = lowered
+                    return equalsArraySlice(lowered, lower)
+                }
+                if nameSlice.count != lower.count {
+                    return false
+                }
+                var nameIndex = nameSlice.startIndex
+                var lowerIndex = lower.startIndex
+                let nameEnd = nameSlice.endIndex
+                while nameIndex < nameEnd {
+                    if nameSlice[nameIndex] != lower[lowerIndex] {
+                        return false
+                    }
+                    nameIndex = nameSlice.index(after: nameIndex)
+                    lowerIndex = lower.index(after: lowerIndex)
+                }
+                return true
             }
             return false
         }
@@ -256,12 +433,19 @@ open class Token {
             _tagName = name
             _tagNameS = nil
             _normalName = nil
+            _tagNameHasUppercase = Attributes.containsAsciiUppercase(name)
+            tagId = .none
             return self
         }
 
         @inline(__always)
         func attributesAreNormalized() -> Bool {
             return _attributesAreNormalized
+        }
+
+        @inline(__always)
+        func hasUppercaseAttributeNames() -> Bool {
+            return _hasUppercaseAttributeNames
         }
         
         @inline(__always)
@@ -285,15 +469,6 @@ open class Token {
                 _attributes = Attributes()
             }
             for pending in pendingAttributes {
-                let hasUppercase: Bool
-                if let nameBytes = pending.nameBytes {
-                    hasUppercase = Attributes.containsAsciiUppercase(nameBytes)
-                } else if let nameSlice = pending.nameSlice {
-                    hasUppercase = Attributes.containsAsciiUppercase(nameSlice)
-                } else {
-                    continue
-                }
-
                 let value: Attributes.PendingAttrValue
                 switch pending.value {
                 case .none:
@@ -311,7 +486,7 @@ open class Token {
                 let attr = Attributes.PendingAttribute(
                     nameSlice: pending.nameSlice,
                     nameBytes: pending.nameBytes,
-                    hasUppercase: hasUppercase,
+                    hasUppercase: pending.hasUppercase,
                     value: value
                 )
                 _attributes?.appendPending(attr)
@@ -328,7 +503,13 @@ open class Token {
         // these appenders are rarely hit in not null state-- caused by null chars.
         @inline(__always)
         func appendTagName(_ append: ArraySlice<UInt8>) {
+            appendTagName(append, hasUppercase: Attributes.containsAsciiUppercase(append))
+        }
+
+        @inline(__always)
+        func appendTagName(_ append: ArraySlice<UInt8>, hasUppercase: Bool) {
             guard !append.isEmpty else { return }
+            tagId = .none
             if _tagName == nil {
                 if _tagNameS == nil {
                     _tagNameS = append
@@ -338,6 +519,9 @@ open class Token {
                 }
             } else {
                 _tagName!.append(contentsOf: append)
+            }
+            if !_tagNameHasUppercase && hasUppercase {
+                _tagNameHasUppercase = true
             }
             _normalName = nil
         }
@@ -349,9 +533,117 @@ open class Token {
 
         @inline(__always)
         func appendTagNameByte(_ byte: UInt8) {
+            tagId = .none
             ensureTagName()
             _tagName!.append(byte)
+            if !_tagNameHasUppercase, byte >= 65 && byte <= 90 {
+                _tagNameHasUppercase = true
+            }
             _normalName = nil
+        }
+
+        @inline(__always)
+        func setTagIdFromSlice(_ slice: ArraySlice<UInt8>) {
+            let count = slice.count
+            if count < Tag.tagIdEntriesByLength.count {
+                for entry in Tag.tagIdEntriesByLength[count] {
+                    if Tag.equalsSlice(entry.bytes, slice) {
+                        tagId = entry.id
+                        return
+                    }
+                }
+            }
+            tagId = .none
+        }
+
+        @inline(__always)
+        private static func equalsSlice(_ array: [UInt8], _ slice: ArraySlice<UInt8>) -> Bool {
+            if array.count != slice.count {
+                return false
+            }
+            var i = array.startIndex
+            var j = slice.startIndex
+            let end = array.endIndex
+            while i < end {
+                if array[i] != slice[j] {
+                    return false
+                }
+                i = array.index(after: i)
+                j = slice.index(after: j)
+            }
+            return true
+        }
+
+        @inline(__always)
+        func tagIdName() -> [UInt8]? {
+            switch tagId {
+            case .none:
+                return nil
+            case .a:
+                return UTF8Arrays.a
+            case .span:
+                return UTF8Arrays.span
+            case .p:
+                return UTF8Arrays.p
+            case .div:
+                return UTF8Arrays.div
+            case .em:
+                return UTF8Arrays.em
+            case .strong:
+                return UTF8Arrays.strong
+            case .b:
+                return UTF8Arrays.b
+            case .i:
+                return UTF8Arrays.i
+            case .small:
+                return UTF8Arrays.small
+            case .li:
+                return UTF8Arrays.li
+            case .body:
+                return UTF8Arrays.body
+            case .html:
+                return UTF8Arrays.html
+            case .head:
+                return UTF8Arrays.head
+            case .title:
+                return UTF8Arrays.title
+            case .form:
+                return UTF8Arrays.form
+            case .br:
+                return UTF8Arrays.br
+            case .meta:
+                return UTF8Arrays.meta
+            case .img:
+                return UTF8Arrays.img
+            case .script:
+                return UTF8Arrays.script
+            case .style:
+                return UTF8Arrays.style
+            case .caption:
+                return UTF8Arrays.caption
+            case .col:
+                return UTF8Arrays.col
+            case .colgroup:
+                return UTF8Arrays.colgroup
+            case .table:
+                return UTF8Arrays.table
+            case .tbody:
+                return UTF8Arrays.tbody
+            case .thead:
+                return UTF8Arrays.thead
+            case .tfoot:
+                return UTF8Arrays.tfoot
+            case .tr:
+                return UTF8Arrays.tr
+            case .td:
+                return UTF8Arrays.td
+            case .th:
+                return UTF8Arrays.th
+            case .input:
+                return UTF8Arrays.input
+            case .hr:
+                return UTF8Arrays.hr
+            }
         }
 
         @inline(__always)
@@ -406,10 +698,15 @@ open class Token {
                     }
                     if !hasUppercase {
                         _pendingAttributeNameS = append
+                        _pendingAttributeNameHasUppercase = false
                         return
                     }
                 } else {
                     _pendingAttributeNameS = append
+                    _pendingAttributeNameHasUppercase = Attributes.containsAsciiUppercase(append)
+                    if _pendingAttributeNameHasUppercase {
+                        _hasUppercaseAttributeNames = true
+                    }
                     return
                 }
             }
@@ -419,8 +716,15 @@ open class Token {
                     let normalized = (b >= 65 && b <= 90) ? (b &+ 32) : b
                     _pendingAttributeName!.append(normalized)
                 }
+                _pendingAttributeNameHasUppercase = false
             } else {
                 _pendingAttributeName!.append(contentsOf: append)
+                if !_pendingAttributeNameHasUppercase {
+                    _pendingAttributeNameHasUppercase = Attributes.containsAsciiUppercase(append)
+                }
+                if _pendingAttributeNameHasUppercase {
+                    _hasUppercaseAttributeNames = true
+                }
             }
         }
         
@@ -435,8 +739,13 @@ open class Token {
             if _lowercaseAttributeNames {
                 let normalized = (byte >= 65 && byte <= 90) ? (byte &+ 32) : byte
                 _pendingAttributeName!.append(normalized)
+                _pendingAttributeNameHasUppercase = false
             } else {
                 _pendingAttributeName!.append(byte)
+                if !_pendingAttributeNameHasUppercase && byte >= 65 && byte <= 90 {
+                    _pendingAttributeNameHasUppercase = true
+                    _hasUppercaseAttributeNames = true
+                }
             }
         }
 
@@ -448,6 +757,25 @@ open class Token {
         @inline(__always)
         func setAttributesNormalized(_ normalized: Bool) {
             _attributesAreNormalized = normalized
+            if normalized {
+                _hasUppercaseAttributeNames = false
+            }
+        }
+
+        @inline(__always)
+        func hasPendingAttributes() -> Bool {
+            return _pendingAttributes != nil
+        }
+
+        @inline(__always)
+        func hasAnyAttributes() -> Bool {
+            if _pendingAttributes != nil {
+                return true
+            }
+            if let attrs = _attributes {
+                return !attrs.attributes.isEmpty || attrs.pendingAttributesCount > 0
+            }
+            return false
         }
         
         @inline(__always)
@@ -528,12 +856,15 @@ open class Token {
                             lowercased.append(normalized)
                         }
                         _pendingAttributeName = lowercased
+                        _pendingAttributeNameHasUppercase = false
                     } else {
                         _pendingAttributeName = Array(pendingSlice)
+                        _pendingAttributeNameHasUppercase = Attributes.containsAsciiUppercase(pendingSlice)
                     }
                     _pendingAttributeNameS = nil
                 } else {
                     _pendingAttributeName = []
+                    _pendingAttributeNameHasUppercase = false
                 }
             }
         }
@@ -634,6 +965,7 @@ open class Token {
     
     final class Char: Token {
         public var data: [UInt8]?
+        public var dataSlice: ArraySlice<UInt8>?
         
         override init() {
             super.init()
@@ -645,6 +977,7 @@ open class Token {
         override func reset() -> Token {
             sourceRange = nil
             data = nil
+            dataSlice = nil
             return self
         }
         
@@ -652,17 +985,46 @@ open class Token {
         @inline(__always)
         func data(_ data: [UInt8]) -> Char {
             self.data = data
+            self.dataSlice = nil
             return self
         }
-        
+
+        @inline(__always)
+        func data(_ dataSlice: ArraySlice<UInt8>) -> Char {
+            self.data = nil
+            self.dataSlice = dataSlice
+            return self
+        }
+
         @inline(__always)
         func getData() -> [UInt8]? {
-            return data
+            if let data {
+                return data
+            }
+            if let dataSlice {
+                let materialized = Array(dataSlice)
+                self.data = materialized
+                self.dataSlice = nil
+                return materialized
+            }
+            return nil
         }
+
+        @inline(__always)
+        func getDataSlice() -> ArraySlice<UInt8>? {
+            if let dataSlice {
+                return dataSlice
+            }
+            if let data {
+                return data[...]
+            }
+            return nil
+        }
+
         
         @inline(__always)
         public override func toString() throws -> String {
-            try Validate.notNull(obj: data)
+            try Validate.notNull(obj: getData())
             return String(decoding: getData()!, as: UTF8.self)
         }
     }

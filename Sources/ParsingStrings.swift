@@ -171,7 +171,14 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
             }
             index &+= 1
         }
-        return multiByteSet.contains(slice)
+        var node = root
+        for byte in slice {
+            guard let next = node.children[Int(byte)] else {
+                return false
+            }
+            node = next
+        }
+        return node.isTerminal
     }
     
     @inline(__always)

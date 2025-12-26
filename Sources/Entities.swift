@@ -445,19 +445,19 @@ public final class Entities: Sendable {
         if let name = escapeMode.nameForCodepoint(bytes) {
             accum.append(0x26) // '&'
             accum.append(name)
-            accum.append(0x3B) // ';'
+            accum.append(UTF8Arrays.semicolon[0]) // ';'
         } else {
             var iterator = bytes.makeIterator()
             var utf8Decoder = UTF8()
             guard case .scalarValue(let scalar) = utf8Decoder.decode(&iterator) else {
                 accum.append([0x26, 0x23, 0x78]) // '&#x'
                 for b in bytes { appendHex(Int(b), accum) }
-                accum.append(0x3B)
+                accum.append(UTF8Arrays.semicolon[0])
                 return
             }
             accum.append([0x26, 0x23, 0x78])
             appendHex(Int(scalar.value), accum)
-            accum.append(0x3B)
+            accum.append(UTF8Arrays.semicolon[0])
         }
     }
 

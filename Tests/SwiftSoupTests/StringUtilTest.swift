@@ -101,6 +101,20 @@ class StringUtilTest: XCTestCase {
         XCTAssertEqual(test71540charsExpectedSingleWhitespace, extractedText)
     }
 
+    func testAppendNormalisedWhitespaceNoWhitespaceSlice() {
+        let sb = StringBuilder()
+        let bytes = "alphaβ".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb, string: bytes[...], stripLeading: true)
+        XCTAssertEqual("alphaβ", sb.toString())
+    }
+
+    func testAppendNormalisedWhitespaceWithWhitespaceSlice() {
+        let sb = StringBuilder()
+        let bytes = " alpha \n beta ".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb, string: bytes[...], stripLeading: true)
+        XCTAssertEqual("alpha beta ", sb.toString())
+    }
+
     func testResolvesRelativeUrls() {
         XCTAssertEqual("http://example.com/one/two?three", StringUtil.resolve("http://example.com", relUrl: "./one/two?three"))
         XCTAssertEqual("http://example.com/one/two?three", StringUtil.resolve("http://example.com?one", relUrl: "./one/two?three"))

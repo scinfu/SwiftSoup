@@ -99,6 +99,9 @@ open class CssSelector {
      - throws ``Exception`` with ``ExceptionType/SelectorParseException`` (unchecked) on an invalid CSS query.
      */
     public static func select(_ query: String, _ root: Element)throws->Elements {
+        if let fast = try fastSelectQuery(query, root) {
+            return fast
+        }
         return try CssSelector(query, root).select()
     }
 
@@ -122,6 +125,9 @@ open class CssSelector {
      */
     public static func select(_ query: String, _ roots: Array<Element>)throws->Elements {
         try Validate.notEmpty(string: query.utf8Array)
+        if let fast = try fastSelectQuery(query, roots) {
+            return fast
+        }
         let evaluator: Evaluator = try QueryParser.parse(query)
         return try self.select(evaluator, roots)
     }
@@ -152,10 +158,189 @@ open class CssSelector {
     }
 
     private func select()throws->Elements {
+        #if PROFILE
+        let _p = Profiler.start("CssSelector.select")
+        defer { Profiler.end("CssSelector.select", _p) }
+        #endif
         if let fast = try CssSelector.fastSelect(evaluator, root) {
             return fast
         }
         return try Collector.collect(evaluator, root)
+    }
+
+    /// Ultra-fast path for very simple selectors without combinators or pseudos.
+    private static func fastSelectQuery(_ query: String, _ root: Element) throws -> Elements? {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return nil
+        }
+        @inline(__always)
+        func isIdentChar(_ ch: Character) -> Bool {
+            switch ch {
+            case "a"..."z", "A"..."Z", "0"..."9", "-", "_":
+                return true
+            default:
+                return false
+            }
+        }
+        @inline(__always)
+        func isSimpleIdent(_ s: Substring) -> Bool {
+            guard !s.isEmpty else { return false }
+            for ch in s {
+                if !isIdentChar(ch) {
+                    return false
+                }
+            }
+            return true
+        }
+        // Handle simple id or class selectors.
+        if trimmed.first == "#" {
+            let id = trimmed.dropFirst()
+            if !id.isEmpty, !id.contains(where: { " \t\n\r,>+~:.[#".contains($0) }) {
+                return root.getElementsById(String(id).utf8Array)
+            }
+            return nil
+        }
+        if trimmed.first == "." {
+            let className = trimmed.dropFirst()
+            if !className.isEmpty, !className.contains(where: { " \t\n\r,>+~:.[#".contains($0) }) {
+                return try root.getElementsByClass(String(className))
+            }
+            return nil
+        }
+        if trimmed == "*" {
+            return try root.getAllElements()
+        }
+        // Handle simple tag.class or tag#id forms.
+        if !trimmed.contains("[") {
+            if let dot = trimmed.firstIndex(of: ".") {
+                let tagPart = trimmed[..<dot]
+                let classPart = trimmed[trimmed.index(after: dot)...]
+                if isSimpleIdent(tagPart), isSimpleIdent(classPart) {
+                    let classElements = try root.getElementsByClass(String(classPart))
+                    if classElements.isEmpty { return classElements }
+                    let tagBytes = String(tagPart).utf8Array.lowercased().trim()
+                    let output = Elements()
+                    for el in classElements.array() where el.tagNameNormalUTF8() == tagBytes {
+                        output.add(el)
+                    }
+                    return output
+                }
+            }
+            if let hash = trimmed.firstIndex(of: "#") {
+                let tagPart = trimmed[..<hash]
+                let idPart = trimmed[trimmed.index(after: hash)...]
+                if isSimpleIdent(tagPart), isSimpleIdent(idPart) {
+                    let idElements = root.getElementsById(String(idPart).utf8Array)
+                    if idElements.isEmpty { return idElements }
+                let tagBytes = String(tagPart).utf8Array.lowercased().trim()
+                let output = Elements()
+                for el in idElements.array() where el.tagNameNormalUTF8() == tagBytes {
+                    output.add(el)
+                }
+                return output
+            }
+        }
+        }
+        // Reject any selector that includes combinators, groups, pseudos, id/class.
+        for ch in trimmed {
+            switch ch {
+            case " ", "\t", "\n", "\r", ",", ">", "+", "~", ":", "#", ".", "*", "|":
+                return nil
+            default:
+                break
+            }
+        }
+        if let open = trimmed.firstIndex(of: "["), let close = trimmed.lastIndex(of: "]"), close == trimmed.index(before: trimmed.endIndex) {
+            let tagPart = trimmed[..<open]
+            let attrPart = trimmed[trimmed.index(after: open)..<close]
+            if attrPart.isEmpty {
+                return nil
+            }
+            if tagPart.contains(where: { $0 == "*" || $0 == "|" || $0 == ":" }) {
+                return nil
+            }
+            if attrPart.first == "^" {
+                return nil
+            }
+            if let eq = attrPart.firstIndex(of: "=") {
+                // Only support plain '=' (no prefix/suffix operators)
+                let opIndex = attrPart.index(before: eq)
+                if opIndex >= attrPart.startIndex {
+                    let op = attrPart[opIndex]
+                    if op == "!" || op == "^" || op == "$" || op == "*" || op == "~" || op == "|" {
+                        return nil
+                    }
+                }
+                let keyPart = attrPart[..<eq]
+                var valuePart = attrPart[attrPart.index(after: eq)...]
+                if keyPart.isEmpty || valuePart.isEmpty {
+                    return nil
+                }
+                if (valuePart.first == "\"" && valuePart.last == "\"") || (valuePart.first == "'" && valuePart.last == "'") {
+                    valuePart = valuePart.dropFirst().dropLast()
+                }
+                if valuePart.isEmpty {
+                    return nil
+                }
+                let key = String(keyPart)
+                let value = String(valuePart)
+                if tagPart.isEmpty {
+                    return try root.getElementsByAttributeValue(key, value)
+                }
+                let attrElements = try root.getElementsByAttributeValue(key, value)
+                if attrElements.isEmpty {
+                    return attrElements
+                }
+                let tagBytes = String(tagPart).utf8Array.lowercased().trim()
+                let output = Elements()
+                for el in attrElements.array() where el.tagNameNormalUTF8() == tagBytes {
+                    output.add(el)
+                }
+                return output
+            }
+            if attrPart.contains("\"") || attrPart.contains("'") {
+                return nil
+            }
+            if tagPart.isEmpty {
+                return try root.getElementsByAttribute(String(attrPart))
+            }
+            if root.isTagQueryIndexDirty || root.normalizedTagNameIndex == nil {
+                let tagBytes = String(tagPart).utf8Array.lowercased().trim()
+                let evaluator = CombiningEvaluator.And(Evaluator.Tag(tagBytes), Evaluator.Attribute(String(attrPart)))
+                return try Collector.collect(evaluator, root)
+            }
+            let tagBytes = String(tagPart).utf8Array.lowercased().trim()
+            let attrKeyBytes = String(attrPart).utf8Array.lowercased().trim()
+            let attrElements = root.getElementsByAttributeNormalized(attrKeyBytes)
+            if attrElements.isEmpty {
+                return attrElements
+            }
+            let output = Elements()
+            for el in attrElements.array() where el.tagNameNormalUTF8() == tagBytes {
+                output.add(el)
+            }
+            return output
+        }
+        if !trimmed.contains("[") {
+            return try root.getElementsByTag(trimmed)
+        }
+        return nil
+    }
+
+    private static func fastSelectQuery(_ query: String, _ roots: Array<Element>) throws -> Elements? {
+        var elements: Array<Element> = Array<Element>()
+        var seenElements: Array<Element> = Array<Element>()
+        for root in roots {
+            guard let found = try fastSelectQuery(query, root) else {
+                return nil
+            }
+            for el in found.array() where !seenElements.contains(el) {
+                elements.append(el)
+                seenElements.append(el)
+            }
+        }
+        return Elements(elements)
     }
     
     /// Fast‑path for simple selectors that map directly onto indexed queries.

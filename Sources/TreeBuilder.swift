@@ -16,6 +16,8 @@ public class TreeBuilder {
     public var currentToken: Token? // currentToken is used only for error tracking.
     public var errors: ParseErrorList // null when not tracking errors
     public var settings: ParseSettings
+    public var tracksSourceRanges: Bool = false
+    public var tracksErrors: Bool = false
     
     private let start: Token.StartTag = Token.StartTag() // start tag to process
     private let end: Token.EndTag  = Token.EndTag()
@@ -48,12 +50,18 @@ public class TreeBuilder {
     
     public func initialiseParse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
         doc = Document(baseUri)
-        doc.sourceBuffer = SourceBuffer(input)
+        tracksSourceRanges = settings.tracksSourceRanges()
+        if tracksSourceRanges {
+            doc.sourceBuffer = SourceBuffer(input)
+        } else {
+            doc.sourceBuffer = nil
+        }
         doc.parsedAsXml = false
         self.settings = settings
         reader = CharacterReader(input)
         self.errors = errors
-        tokeniser = Tokeniser(reader, errors, settings)
+        tracksErrors = errors.getMaxSize() > 0
+        tokeniser = Tokeniser(reader, tracksErrors ? errors : nil, settings)
         stack = Array<Element>()
         self.baseUri = baseUri
     }
@@ -81,7 +89,6 @@ public class TreeBuilder {
         while (true) {
             let token: Token = try tokeniser.read()
             try process(token)
-            token.reset()
             
             if (token.type == Token.TokenType.EOF) {
                 break

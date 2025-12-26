@@ -25,6 +25,7 @@ open class Elements: NSCopying {
 		this.append(contentsOf: a)
 	}
 
+
 	/**
 	 Creates a deep copy of these elements.
 	 - returns: a deep copy

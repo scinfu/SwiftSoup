@@ -86,7 +86,7 @@ public class XmlTreeBuilder: TreeBuilder {
         // For unknown tags, remember this is self closing for output
         let tag: Tag = try Tag.valueOf(startTag.name(), settings, isSelfClosing: startTag.isSelfClosing())
         // todo: wonder if for xml parsing, should treat all tags as unknown? because it's not html.
-        let skipChildReserve = startTag.isSelfClosing()
+        let skipChildReserve = startTag.isSelfClosing() || isBulkBuilding
         let el: Element
         if let attributes = startTag._attributes {
             el = try Element(tag, baseUri, settings.normalizeAttributes(attributes), skipChildReserve: skipChildReserve)
