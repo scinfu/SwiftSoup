@@ -15,33 +15,9 @@ open class Element: Node {
     @usableFromInline
     internal static let idString = "id".utf8Array
     private static let rootString = "#root".utf8Array
-    @usableFromInline
-    internal static let useIndexRebuildFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_INDEX_REBUILD_FASTPATH"] != "1"
-    @usableFromInline
-    internal static let useCombinedIndexBuild: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_COMBINED_QUERY_INDEX_BUILD"] != "1"
-    @usableFromInline
-    internal static let useClassParseFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_CLASS_PARSE_FASTPATH"] != "1"
-    @usableFromInline
-    internal static let useClassIndexUppercaseFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_CLASS_INDEX_UPPERCASE_FASTPATH"] != "1"
-    @usableFromInline
-    internal static let useNormalizedClassKeyFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_NORMALIZED_CLASS_KEY_FASTPATH"] != "1"
-    @usableFromInline
-    internal static let useQueryIndexes: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_QUERY_INDEXES"] != "1"
     /// Build per-key attribute value indexes on-demand to accelerate repeated attribute selectors.
     @usableFromInline
-    internal static let useDynamicAttributeValueIndex: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DYNAMIC_ATTRVALUE_INDEX"] != "1"
-    @usableFromInline
-    internal static let dynamicAttributeValueIndexMaxKeys: Int = {
-        let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_DYNAMIC_ATTRVALUE_INDEX_MAX"]
-        return max(0, Int(raw ?? "") ?? 8)
-    }()
+    internal static let dynamicAttributeValueIndexMaxKeys: Int = 8
     @usableFromInline
     internal static let hotAttributeIndexKeys: Set<[UInt8]> = Set([
         "href".utf8Array,
@@ -107,25 +83,20 @@ open class Element: Node {
     internal var dynamicAttributeValueIndexKeyOrder: [[UInt8]]? = nil
     @usableFromInline
     internal var suppressQueryIndexDirty: Bool = false
+
+    /// Small LRU cache for selector results on this root, invalidated on mutations.
+    @usableFromInline
+    internal static let selectorResultCacheCapacity: Int = 32
+    @usableFromInline
+    internal var selectorResultCache: [String: Elements]? = nil
+    @usableFromInline
+    internal var selectorResultCacheOrder: [String] = []
+    @usableFromInline
+    internal var selectorResultTextVersion: Int = 0
     
     /// Cached normalized text (UTF‑8) for trim+normalize path.
     /// NOTE: Removed text cache; keep no per-node cache state here.
     
-    private static let useSplitTextTraverseFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TEXT_TRAVERSE_SPLIT_FASTPATH"] != "1"
-    }()
-    private static let useTrimmedTextTrailingTrimFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TEXT_TRAILING_TRIM_FASTPATH"] != "1"
-    }()
-    private static let useTextTraverseReverseIndexFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TEXT_TRAVERSE_REVERSE_INDEX_FASTPATH"] != "1"
-    }()
-    private static let useTextTraverseWhitespaceTrackingFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TEXT_TRAVERSE_WHITESPACE_TRACKING_FASTPATH"] != "1"
-    }()
-    private static let useTextTraverseTextSliceFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TEXT_TRAVERSE_TEXT_SLICE_FASTPATH"] != "1"
-    }()
     
     /**
      Create a new, standalone Element. (Standalone in that is has no parent.)
@@ -909,7 +880,7 @@ open class Element: Node {
     
     
     // MARK: DOM type methods
-    
+
     /**
      Finds elements, including and recursively under this element, with the specified tag name.
      - parameter tagName: The tag name to search for (case insensitively).
@@ -931,9 +902,6 @@ open class Element: Node {
         let trimmed = tagName.trim()
         if trimmed.isEmpty {
             return Elements()
-        }
-        if !Element.useQueryIndexes {
-            return try Collector.collect(Evaluator.Tag(trimmed), self)
         }
         if !Attributes.containsAsciiUppercase(trimmed) {
             return try getElementsByTagNormalized(trimmed)
@@ -960,9 +928,6 @@ open class Element: Node {
         if key.isEmpty {
             return Elements()
         }
-        if !Element.useQueryIndexes {
-            return try Collector.collect(Evaluator.Tag(key), self)
-        }
         if isTagQueryIndexDirty || normalizedTagNameIndex == nil {
             rebuildQueryIndexesForAllTags()
             isTagQueryIndexDirty = false
@@ -982,10 +947,6 @@ open class Element: Node {
         let key = id.trim()
         if key.isEmpty {
             return Elements()
-        }
-        if !Element.useQueryIndexes {
-            let evaluator = Evaluator.Id(String(decoding: key, as: UTF8.self))
-            return (try? Collector.collect(evaluator, self)) ?? Elements()
         }
         if isIdQueryIndexDirty || normalizedIdIndex == nil {
             rebuildQueryIndexesForAllIds()
@@ -1012,10 +973,6 @@ open class Element: Node {
         if key.isEmpty {
             return nil
         }
-        if !Element.useQueryIndexes {
-            return try Collector.collect(Evaluator.Id(id), self).first()
-        }
-        
         if isIdQueryIndexDirty || normalizedIdIndex == nil {
             rebuildQueryIndexesForAllIds()
             isIdQueryIndexDirty = false
@@ -1045,16 +1002,13 @@ open class Element: Node {
     public func getElementsByClass(_ className: String) throws -> Elements {
         DebugTrace.log("Element.getElementsByClass: \(className)")
         let key = className.utf8Array
-        if !Element.useQueryIndexes {
-            return try Collector.collect(Evaluator.Class(className), self)
-        }
         if isClassQueryIndexDirty || normalizedClassNameIndex == nil {
             DebugTrace.log("Element.getElementsByClass: rebuilding class index")
             rebuildQueryIndexesForAllClasses()
             isClassQueryIndexDirty = false
         }
         let normalizedKey: [UInt8]
-        if Element.useNormalizedClassKeyFastPath && !Attributes.containsAsciiUppercase(key) {
+        if !Attributes.containsAsciiUppercase(key) {
             normalizedKey = key
         } else {
             normalizedKey = key.lowercased()
@@ -1068,10 +1022,6 @@ open class Element: Node {
     internal func getElementsByClassNormalizedBytes(_ normalizedClassName: [UInt8]) -> Elements {
         if normalizedClassName.isEmpty {
             return Elements()
-        }
-        if !Element.useQueryIndexes {
-            let classString = String(decoding: normalizedClassName, as: UTF8.self)
-            return (try? Collector.collect(Evaluator.Class(classString), self)) ?? Elements()
         }
         if isClassQueryIndexDirty || normalizedClassNameIndex == nil {
             rebuildQueryIndexesForAllClasses()
@@ -1095,10 +1045,6 @@ open class Element: Node {
             return try Collector.collect(Evaluator.Attribute(key), self)
         }
         let normalizedKey = key.utf8Array.lowercased().trim()
-        if !Element.useQueryIndexes {
-            return try Collector.collect(Evaluator.Attribute(String(decoding: normalizedKey, as: UTF8.self)), self)
-        }
-        
         if isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil {
             rebuildQueryIndexesForAllAttributes()
             isAttributeQueryIndexDirty = false
@@ -1119,15 +1065,10 @@ open class Element: Node {
         if key.isEmpty {
             return Elements()
         }
-        if !Element.useQueryIndexes {
-            let evaluator = Evaluator.Attribute(String(decoding: key, as: UTF8.self))
-            return (try? Collector.collect(evaluator, self)) ?? Elements()
-        }
         if isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil {
             rebuildQueryIndexesForAllAttributes()
             isAttributeQueryIndexDirty = false
         }
-        
         let results = normalizedAttributeNameIndex?[key]?.compactMap { $0.value } ?? []
         return Elements(results)
     }
@@ -1158,8 +1099,7 @@ open class Element: Node {
             return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
         }
         let normalizedKey = key.utf8Array.lowercased().trim()
-        if Element.useDynamicAttributeValueIndex,
-           Element.dynamicAttributeValueIndexMaxKeys > 0,
+        if Element.dynamicAttributeValueIndexMaxKeys > 0,
            !Element.isHotAttributeKey(normalizedKey) {
             ensureDynamicAttributeValueIndexKey(normalizedKey)
         }
@@ -1404,81 +1344,34 @@ open class Element: Node {
         var stack: [Node] = []
         stack.reserveCapacity(childNodes.count + 1)
         stack.append(self)
-        if Self.useTextTraverseWhitespaceTrackingFastPath {
-            var lastWasWhite = false
-            while let node = stack.popLast() {
-                if let textNode = node as? TextNode {
-                    if trimAndNormaliseWhitespace {
-                        Element.appendNormalisedTextTracking(accum, textNode, lastWasWhite: &lastWasWhite)
-                    } else {
-                        if Self.useTextTraverseTextSliceFastPath {
-                            let slice = textNode.wholeTextSlice()
-                            accum.append(slice)
-                            if let last = slice.last {
-                                lastWasWhite = (last == TokeniserStateVars.spaceByte)
-                            }
-                        } else {
-                            accum.append(textNode.wholeTextSlice())
-                            if let last = textNode.wholeTextSlice().last {
-                                lastWasWhite = (last == TokeniserStateVars.spaceByte)
-                            }
-                        }
-                    }
-                    continue
-                }
-                if let element = node as? Element {
-                    if !accum.isEmpty &&
-                        (element.isBlock() || Tag.isBr(element._tag)) &&
-                        !lastWasWhite {
-                        accum.append(UTF8Arrays.whitespace)
-                        lastWasWhite = true
+        var lastWasWhite = false
+        while let node = stack.popLast() {
+            if let textNode = node as? TextNode {
+                if trimAndNormaliseWhitespace {
+                    Element.appendNormalisedTextTracking(accum, textNode, lastWasWhite: &lastWasWhite)
+                } else {
+                    let slice = textNode.wholeTextSlice()
+                    accum.append(slice)
+                    if let last = slice.last {
+                        lastWasWhite = (last == TokeniserStateVars.spaceByte)
                     }
                 }
-                let children = node.childNodes
-                if !children.isEmpty {
-                    if Self.useTextTraverseReverseIndexFastPath {
-                        var i = children.count - 1
-                        while i >= 0 {
-                            stack.append(children[i])
-                            i -= 1
-                        }
-                    } else {
-                        for child in children.reversed() {
-                            stack.append(child)
-                        }
-                    }
+                continue
+            }
+            if let element = node as? Element {
+                if !accum.isEmpty &&
+                    (element.isBlock() || Tag.isBr(element._tag)) &&
+                    !lastWasWhite {
+                    accum.append(UTF8Arrays.whitespace)
+                    lastWasWhite = true
                 }
             }
-        } else {
-            while let node = stack.popLast() {
-                if let textNode = node as? TextNode {
-                    if trimAndNormaliseWhitespace {
-                        Element.appendNormalisedText(accum, textNode)
-                    } else {
-                        accum.append(textNode.wholeTextSlice())
-                    }
-                    continue
-                }
-                if let element = node as? Element {
-                    if !accum.isEmpty &&
-                        (element.isBlock() || Tag.isBr(element._tag)) &&
-                        !TextNode.lastCharIsWhitespace(accum) {
-                        accum.append(UTF8Arrays.whitespace)
-                    }
-                }
-                let children = node.childNodes
-                if !children.isEmpty {
-                    if Self.useTextTraverseReverseIndexFastPath {
-                        var i = children.count - 1
-                        while i >= 0 {
-                            stack.append(children[i])
-                            i -= 1
-                        }
-                    } else {
-                        for child in children.reversed() {
-                            stack.append(child)
-                        }
-                    }
+            let children = node.childNodes
+            if !children.isEmpty {
+                var i = children.count - 1
+                while i >= 0 {
+                    stack.append(children[i])
+                    i -= 1
                 }
             }
         }
@@ -1489,62 +1382,26 @@ open class Element: Node {
         var stack: [Node] = []
         stack.reserveCapacity(childNodes.count + 1)
         stack.append(self)
-        if Self.useTextTraverseWhitespaceTrackingFastPath {
-            var lastWasWhite = false
-            while let node = stack.popLast() {
-                if let textNode = node as? TextNode {
-                    Element.appendNormalisedTextTracking(accum, textNode, lastWasWhite: &lastWasWhite)
-                    continue
-                }
-                if let element = node as? Element {
-                    if !accum.isEmpty &&
-                        (element.isBlock() || Tag.isBr(element._tag)) &&
-                        !lastWasWhite {
-                        accum.append(UTF8Arrays.whitespace)
-                        lastWasWhite = true
-                    }
-                }
-                let children = node.childNodes
-                if !children.isEmpty {
-                    if Self.useTextTraverseReverseIndexFastPath {
-                        var i = children.count - 1
-                        while i >= 0 {
-                            stack.append(children[i])
-                            i -= 1
-                        }
-                    } else {
-                        for child in children.reversed() {
-                            stack.append(child)
-                        }
-                    }
+        var lastWasWhite = false
+        while let node = stack.popLast() {
+            if let textNode = node as? TextNode {
+                Element.appendNormalisedTextTracking(accum, textNode, lastWasWhite: &lastWasWhite)
+                continue
+            }
+            if let element = node as? Element {
+                if !accum.isEmpty &&
+                    (element.isBlock() || Tag.isBr(element._tag)) &&
+                    !lastWasWhite {
+                    accum.append(UTF8Arrays.whitespace)
+                    lastWasWhite = true
                 }
             }
-        } else {
-            while let node = stack.popLast() {
-                if let textNode = node as? TextNode {
-                    Element.appendNormalisedText(accum, textNode)
-                    continue
-                }
-                if let element = node as? Element {
-                    if !accum.isEmpty &&
-                        (element.isBlock() || Tag.isBr(element._tag)) &&
-                        !TextNode.lastCharIsWhitespace(accum) {
-                        accum.append(UTF8Arrays.whitespace)
-                    }
-                }
-                let children = node.childNodes
-                if !children.isEmpty {
-                    if Self.useTextTraverseReverseIndexFastPath {
-                        var i = children.count - 1
-                        while i >= 0 {
-                            stack.append(children[i])
-                            i -= 1
-                        }
-                    } else {
-                        for child in children.reversed() {
-                            stack.append(child)
-                        }
-                    }
+            let children = node.childNodes
+            if !children.isEmpty {
+                var i = children.count - 1
+                while i >= 0 {
+                    stack.append(children[i])
+                    i -= 1
                 }
             }
         }
@@ -1555,73 +1412,30 @@ open class Element: Node {
         var stack: [Node] = []
         stack.reserveCapacity(childNodes.count + 1)
         stack.append(self)
-        if Self.useTextTraverseWhitespaceTrackingFastPath {
-            var lastWasWhite = false
-            while let node = stack.popLast() {
-                if let textNode = node as? TextNode {
-                    if Self.useTextTraverseTextSliceFastPath {
-                        let slice = textNode.wholeTextSlice()
-                        accum.append(slice)
-                        if let last = slice.last {
-                            lastWasWhite = (last == TokeniserStateVars.spaceByte)
-                        }
-                    } else {
-                        accum.append(textNode.wholeTextSlice())
-                        if let last = textNode.wholeTextSlice().last {
-                            lastWasWhite = (last == TokeniserStateVars.spaceByte)
-                        }
-                    }
-                    continue
+        var lastWasWhite = false
+        while let node = stack.popLast() {
+            if let textNode = node as? TextNode {
+                let slice = textNode.wholeTextSlice()
+                accum.append(slice)
+                if let last = slice.last {
+                    lastWasWhite = (last == TokeniserStateVars.spaceByte)
                 }
-                if let element = node as? Element {
-                    if !accum.isEmpty &&
-                        (element.isBlock() || Tag.isBr(element._tag)) &&
-                        !lastWasWhite {
-                        accum.append(UTF8Arrays.whitespace)
-                        lastWasWhite = true
-                    }
-                }
-                let children = node.childNodes
-                if !children.isEmpty {
-                    if Self.useTextTraverseReverseIndexFastPath {
-                        var i = children.count - 1
-                        while i >= 0 {
-                            stack.append(children[i])
-                            i -= 1
-                        }
-                    } else {
-                        for child in children.reversed() {
-                            stack.append(child)
-                        }
-                    }
+                continue
+            }
+            if let element = node as? Element {
+                if !accum.isEmpty &&
+                    (element.isBlock() || Tag.isBr(element._tag)) &&
+                    !lastWasWhite {
+                    accum.append(UTF8Arrays.whitespace)
+                    lastWasWhite = true
                 }
             }
-        } else {
-            while let node = stack.popLast() {
-                if let textNode = node as? TextNode {
-                    accum.append(textNode.wholeTextSlice())
-                    continue
-                }
-                if let element = node as? Element {
-                    if !accum.isEmpty &&
-                        (element.isBlock() || Tag.isBr(element._tag)) &&
-                        !TextNode.lastCharIsWhitespace(accum) {
-                        accum.append(UTF8Arrays.whitespace)
-                    }
-                }
-                let children = node.childNodes
-                if !children.isEmpty {
-                    if Self.useTextTraverseReverseIndexFastPath {
-                        var i = children.count - 1
-                        while i >= 0 {
-                            stack.append(children[i])
-                            i -= 1
-                        }
-                    } else {
-                        for child in children.reversed() {
-                            stack.append(child)
-                        }
-                    }
+            let children = node.childNodes
+            if !children.isEmpty {
+                var i = children.count - 1
+                while i >= 0 {
+                    stack.append(children[i])
+                    i -= 1
                 }
             }
         }
@@ -1629,51 +1443,38 @@ open class Element: Node {
     
     public func text(trimAndNormaliseWhitespace: Bool = true) throws -> String {
         if trimAndNormaliseWhitespace {
+            if let slice = singleTextNoWhitespaceSlice() {
+                return String(decoding: slice, as: UTF8.self)
+            }
             if childNodes.count == 1, let textNode = childNodes.first as? TextNode {
                 let accum = StringBuilder()
                 Element.appendNormalisedText(accum, textNode)
-                if Self.useTrimmedTextTrailingTrimFastPath {
-                    if let first = accum.buffer.first, first.isWhitespace {
-                        let trimmed = accum.buffer.trim()
-                        return String(decoding: trimmed, as: UTF8.self)
-                    }
-                    accum.trimTrailingWhitespace()
-                    let text = String(decoding: accum.buffer, as: UTF8.self)
-                    return text
+                if let first = accum.buffer.first, first.isWhitespace {
+                    let trimmed = accum.buffer.trim()
+                    return String(decoding: trimmed, as: UTF8.self)
                 }
-                let trimmed = accum.buffer.trim()
-                return String(decoding: trimmed, as: UTF8.self)
+                accum.trimTrailingWhitespace()
+                let text = String(decoding: accum.buffer, as: UTF8.self)
+                return text
             }
             let accum: StringBuilder = StringBuilder()
             #if PROFILE
             let _p = Profiler.start("Element.text.traverse")
             defer { Profiler.end("Element.text.traverse", _p) }
             #endif
-            if Self.useSplitTextTraverseFastPath {
-                collectTextFastTrimmed(accum)
-            } else {
-                collectTextFast(accum, trimAndNormaliseWhitespace: true)
+            collectTextFastTrimmed(accum)
+            if let first = accum.buffer.first, first.isWhitespace {
+                let trimmed = accum.buffer.trim()
+                return String(decoding: trimmed, as: UTF8.self)
             }
-            if Self.useTrimmedTextTrailingTrimFastPath {
-                if let first = accum.buffer.first, first.isWhitespace {
-                    let trimmed = accum.buffer.trim()
-                    return String(decoding: trimmed, as: UTF8.self)
-                }
-                accum.trimTrailingWhitespace()
-                return String(decoding: accum.buffer, as: UTF8.self)
-            }
-            let trimmed = accum.buffer.trim()
-            return String(decoding: trimmed, as: UTF8.self)
+            accum.trimTrailingWhitespace()
+            return String(decoding: accum.buffer, as: UTF8.self)
         }
         let accum: StringBuilder = StringBuilder()
-        if Self.useSplitTextTraverseFastPath {
-            if trimAndNormaliseWhitespace {
-                collectTextFastTrimmed(accum)
-            } else {
-                collectTextFastRaw(accum)
-            }
+        if trimAndNormaliseWhitespace {
+            collectTextFastTrimmed(accum)
         } else {
-            collectTextFast(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)
+            collectTextFastRaw(accum)
         }
         let text = accum.toString()
         if trimAndNormaliseWhitespace {
@@ -1683,53 +1484,64 @@ open class Element: Node {
     }
     
     public func textUTF8(trimAndNormaliseWhitespace: Bool = true) throws -> [UInt8] {
+        if trimAndNormaliseWhitespace, let slice = singleTextNoWhitespaceSlice() {
+            return Array(slice)
+        }
         let accum: StringBuilder = StringBuilder()
-        if Self.useSplitTextTraverseFastPath {
-            if trimAndNormaliseWhitespace {
-                collectTextFastTrimmed(accum)
-            } else {
-                collectTextFastRaw(accum)
-            }
+        if trimAndNormaliseWhitespace {
+            collectTextFastTrimmed(accum)
         } else {
-            collectTextFast(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)
+            collectTextFastRaw(accum)
         }
         let text = accum.buffer
         if trimAndNormaliseWhitespace {
-            if Self.useTrimmedTextTrailingTrimFastPath {
-                if let first = accum.buffer.first, first.isWhitespace {
-                    return Array(accum.buffer.trim())
-                }
-                accum.trimTrailingWhitespace()
-                return Array(accum.buffer)
+            if let first = accum.buffer.first, first.isWhitespace {
+                return Array(accum.buffer.trim())
             }
-            return Array(text.trim())
+            accum.trimTrailingWhitespace()
+            return Array(accum.buffer)
         }
         return Array(text)
     }
     
     public func textUTF8Slice(trimAndNormaliseWhitespace: Bool = true) throws -> ArraySlice<UInt8> {
+        if trimAndNormaliseWhitespace, let slice = singleTextNoWhitespaceSlice() {
+            return slice
+        }
         let accum: StringBuilder = StringBuilder()
-        if Self.useSplitTextTraverseFastPath {
-            if trimAndNormaliseWhitespace {
-                collectTextFastTrimmed(accum)
-            } else {
-                collectTextFastRaw(accum)
-            }
+        if trimAndNormaliseWhitespace {
+            collectTextFastTrimmed(accum)
         } else {
-            collectTextFast(accum, trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)
+            collectTextFastRaw(accum)
         }
         let text = accum.buffer
         if trimAndNormaliseWhitespace {
-            if Self.useTrimmedTextTrailingTrimFastPath {
-                if let first = accum.buffer.first, first.isWhitespace {
-                    return accum.buffer.trim()
-                }
-                accum.trimTrailingWhitespace()
-                return accum.buffer
+            if let first = accum.buffer.first, first.isWhitespace {
+                return accum.buffer.trim()
             }
-            return text.trim()
+            accum.trimTrailingWhitespace()
+            return accum.buffer
         }
         return text
+    }
+
+    @inline(__always)
+    private func singleTextNoWhitespaceSlice() -> ArraySlice<UInt8>? {
+        guard childNodes.count == 1, let textNode = childNodes.first as? TextNode else {
+            return nil
+        }
+        let slice = textNode.wholeTextSlice()
+        if slice.isEmpty {
+            return slice
+        }
+        for b in slice {
+            if StringUtil.isAsciiWhitespaceByte(b) ||
+                b == StringUtil.utf8NBSPLead ||
+                b == StringUtil.utf8NBSPTrail {
+                return nil
+            }
+        }
+        return slice
     }
 
     /**
@@ -1761,14 +1573,11 @@ open class Element: Node {
     public func ownTextUTF8() -> [UInt8] {
         let sb: StringBuilder = StringBuilder()
         ownText(sb)
-        if Self.useTrimmedTextTrailingTrimFastPath {
-            if let first = sb.buffer.first, first.isWhitespace {
-                return Array(sb.buffer.trim())
-            }
-            sb.trimTrailingWhitespace()
-            return Array(sb.buffer)
+        if let first = sb.buffer.first, first.isWhitespace {
+            return Array(sb.buffer.trim())
         }
-        return Array(sb.buffer.trim())
+        sb.trimTrailingWhitespace()
+        return Array(sb.buffer)
     }
     
     private func ownText(_ accum: StringBuilder) {
@@ -1812,6 +1621,210 @@ open class Element: Node {
             stripLeading: accum.isEmpty || lastWasWhite,
             lastWasWhite: &lastWasWhite
         )
+    }
+
+    @inline(__always)
+    private static func lowerAscii(_ byte: UInt8) -> UInt8 {
+        if byte >= 65 && byte <= 90 {
+            return byte &+ 32
+        }
+        return byte
+    }
+
+    private struct AsciiKMPMatcher {
+        let needle: [UInt8]
+        let lps: [Int]
+        var j: Int = 0
+
+        init(_ needle: [UInt8]) {
+            self.needle = needle
+            var lps = [Int](repeating: 0, count: needle.count)
+            var length = 0
+            var i = 1
+            while i < needle.count {
+                if needle[i] == needle[length] {
+                    length += 1
+                    lps[i] = length
+                    i += 1
+                } else if length != 0 {
+                    length = lps[length - 1]
+                } else {
+                    lps[i] = 0
+                    i += 1
+                }
+            }
+            self.lps = lps
+        }
+
+        @inline(__always)
+        mutating func feed(_ byte: UInt8) -> Bool {
+            let c = Element.lowerAscii(byte)
+            while j > 0 && c != needle[j] {
+                j = lps[j - 1]
+            }
+            if c == needle[j] {
+                j += 1
+                if j == needle.count {
+                    return true
+                }
+            }
+            return false
+        }
+    }
+
+    @inline(__always)
+    private static func emitNormalizedSlice(_ slice: ArraySlice<UInt8>,
+                                            stripLeading: Bool,
+                                            emittedAny: inout Bool,
+                                            lastWasWhite: inout Bool,
+                                            matcher: inout AsciiKMPMatcher) -> Bool {
+        var reachedNonWhite = false
+        var i = slice.startIndex
+        let end = slice.endIndex
+        while i < end {
+            let firstByte = slice[i]
+            if firstByte < 0x80 {
+                if StringUtil.isAsciiWhitespaceByte(firstByte) {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i = slice.index(after: i)
+                        continue
+                    }
+                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
+                    lastWasWhite = true
+                    emittedAny = true
+                    i = slice.index(after: i)
+                    continue
+                }
+                var j = i
+                while j < end {
+                    let b = slice[j]
+                    if b >= 0x80 || StringUtil.isAsciiWhitespaceByte(b) {
+                        break
+                    }
+                    if matcher.feed(b) { return true }
+                    j = slice.index(after: j)
+                }
+                if i != j {
+                    emittedAny = true
+                    lastWasWhite = false
+                    reachedNonWhite = true
+                    i = j
+                    continue
+                }
+                i = slice.index(after: i)
+                continue
+            }
+            if firstByte == StringUtil.utf8NBSPLead {
+                let next = slice.index(after: i)
+                if next < end, slice[next] == StringUtil.utf8NBSPTrail {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i = slice.index(after: next)
+                        continue
+                    }
+                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
+                    lastWasWhite = true
+                    emittedAny = true
+                    reachedNonWhite = true
+                    i = slice.index(after: next)
+                    continue
+                }
+            }
+            let scalarByteCount: Int
+            if firstByte < 0xE0 {
+                scalarByteCount = 2
+            } else if firstByte < 0xF0 {
+                scalarByteCount = 3
+            } else {
+                scalarByteCount = 4
+            }
+            var next = i
+            for _ in 0..<scalarByteCount {
+                if next == end { return false }
+                let b = slice[next]
+                if matcher.feed(b) { return true }
+                next = slice.index(after: next)
+            }
+            emittedAny = true
+            lastWasWhite = false
+            reachedNonWhite = true
+            i = next
+        }
+        return false
+    }
+
+    @inline(__always)
+    internal func containsNormalizedTextASCII(_ needleLower: [UInt8]) -> Bool {
+        if needleLower.isEmpty {
+            return true
+        }
+        var matcher = AsciiKMPMatcher(needleLower)
+        var stack: [Node] = []
+        stack.reserveCapacity(childNodes.count + 1)
+        stack.append(self)
+        var lastWasWhite = false
+        var emittedAny = false
+        while let node = stack.popLast() {
+            if let textNode = node as? TextNode {
+                let slice = textNode.wholeTextSlice()
+                let stripLeading = !emittedAny || lastWasWhite
+                if Element.emitNormalizedSlice(slice,
+                                               stripLeading: stripLeading,
+                                               emittedAny: &emittedAny,
+                                               lastWasWhite: &lastWasWhite,
+                                               matcher: &matcher) {
+                    return true
+                }
+                continue
+            }
+            if let element = node as? Element {
+                if emittedAny,
+                   (element.isBlock() || Tag.isBr(element._tag)),
+                   !lastWasWhite {
+                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
+                    emittedAny = true
+                    lastWasWhite = true
+                }
+            }
+            let children = node.childNodes
+            if !children.isEmpty {
+                var i = children.count - 1
+                while i >= 0 {
+                    stack.append(children[i])
+                    i -= 1
+                }
+            }
+        }
+        return false
+    }
+
+    @inline(__always)
+    internal func containsOwnTextASCII(_ needleLower: [UInt8]) -> Bool {
+        if needleLower.isEmpty {
+            return true
+        }
+        var matcher = AsciiKMPMatcher(needleLower)
+        var lastWasWhite = false
+        var emittedAny = false
+        for child in childNodes {
+            if let textNode = child as? TextNode {
+                let slice = textNode.wholeTextSlice()
+                let stripLeading = !emittedAny || lastWasWhite
+                if Element.emitNormalizedSlice(slice,
+                                               stripLeading: stripLeading,
+                                               emittedAny: &emittedAny,
+                                               lastWasWhite: &lastWasWhite,
+                                               matcher: &matcher) {
+                    return true
+                }
+            } else if let element = child as? Element {
+                if emittedAny, Tag.isBr(element._tag), !lastWasWhite {
+                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
+                    emittedAny = true
+                    lastWasWhite = true
+                }
+            }
+        }
+        return false
     }
     
     private static func appendWhitespaceIfBr(_ element: Element, _ accum: StringBuilder) {
@@ -2343,6 +2356,7 @@ internal extension Element {
                 el.isIdQueryIndexDirty = true
                 el.isAttributeQueryIndexDirty = true
                 el.isAttributeValueQueryIndexDirty = true
+                el.invalidateSelectorResultCache()
             }
             current = node.parentNode
         }
@@ -2356,6 +2370,7 @@ internal extension Element {
         while let node = current {
             if let el = node as? Element {
                 el.isTagQueryIndexDirty = true
+                el.invalidateSelectorResultCache()
             }
             current = node.parentNode
         }
@@ -2369,6 +2384,7 @@ internal extension Element {
         while let node = current {
             if let el = node as? Element {
                 el.isClassQueryIndexDirty = true
+                el.invalidateSelectorResultCache()
             }
             current = node.parentNode
         }
@@ -2382,6 +2398,7 @@ internal extension Element {
         while let node = current {
             if let el = node as? Element {
                 el.isIdQueryIndexDirty = true
+                el.invalidateSelectorResultCache()
             }
             current = node.parentNode
         }
@@ -2395,6 +2412,7 @@ internal extension Element {
         while let node = current {
             if let el = node as? Element {
                 el.isAttributeQueryIndexDirty = true
+                el.invalidateSelectorResultCache()
             }
             current = node.parentNode
         }
@@ -2408,6 +2426,7 @@ internal extension Element {
         while let node = current {
             if let el = node as? Element {
                 el.isAttributeValueQueryIndexDirty = true
+                el.invalidateSelectorResultCache()
             }
             current = node.parentNode
         }
@@ -2419,6 +2438,53 @@ internal extension Element {
         let normalizedKey = key.lowercased()
         if Element.isHotAttributeKey(normalizedKey) {
             markAttributeValueQueryIndexDirty()
+        }
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func cachedSelectorResult(_ query: String) -> Elements? {
+        guard let cache = selectorResultCache else { return nil }
+        let currentTextVersion = textMutationVersionToken()
+        if currentTextVersion != selectorResultTextVersion {
+            invalidateSelectorResultCache()
+            selectorResultTextVersion = currentTextVersion
+            return nil
+        }
+        return cache[query]
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func storeSelectorResult(_ query: String, _ result: Elements) {
+        if selectorResultCache == nil {
+            selectorResultCache = [:]
+            selectorResultCacheOrder = []
+        }
+        selectorResultTextVersion = textMutationVersionToken()
+        if selectorResultCache![query] != nil {
+            return
+        }
+        selectorResultCache![query] = result
+        selectorResultCacheOrder.append(query)
+        let capacity = Element.selectorResultCacheCapacity
+        if selectorResultCacheOrder.count > capacity {
+            let overflow = selectorResultCacheOrder.count - capacity
+            if overflow > 0 {
+                for _ in 0..<overflow {
+                    let removedKey = selectorResultCacheOrder.removeFirst()
+                    selectorResultCache?.removeValue(forKey: removedKey)
+                }
+            }
+        }
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func invalidateSelectorResultCache() {
+        if selectorResultCache != nil {
+            selectorResultCache = nil
+            selectorResultCacheOrder.removeAll(keepingCapacity: true)
         }
     }
     
@@ -2497,8 +2563,7 @@ internal extension Element {
 
     @inline(__always)
     private func ensureDynamicAttributeValueIndexKey(_ key: [UInt8]) {
-        guard Element.useDynamicAttributeValueIndex,
-              Element.dynamicAttributeValueIndexMaxKeys > 0,
+        guard Element.dynamicAttributeValueIndexMaxKeys > 0,
               !Element.isHotAttributeKey(key) else {
             return
         }
@@ -2540,7 +2605,7 @@ internal extension Element {
         var idIndex: [[UInt8]: [Weak<Element>]] = [:]
         var attributeIndex: [[UInt8]: [Weak<Element>]] = [:]
         var hotAttributeIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]] = [:]
-        let dynamicKeys = Element.useDynamicAttributeValueIndex ? dynamicAttributeValueIndexKeySet : nil
+        let dynamicKeys = dynamicAttributeValueIndexKeySet
 
         let childNodeCount = childNodeSize()
         if needsTags {
@@ -2572,25 +2637,9 @@ internal extension Element {
                    !classValue.isEmpty {
                     let trimmed = classValue.trim()
                     if !trimmed.isEmpty {
-                        if Element.useClassParseFastPath {
-                            if Element.useClassIndexUppercaseFastPath {
-                                Element.forEachClassNameWithUppercase(in: trimmed) { className, hasUppercase in
-                                    let key = hasUppercase ? Array(className.lowercased()) : Array(className)
-                                    classIndex[key, default: []].append(Weak(element))
-                                }
-                            } else {
-                                Element.forEachClassName(in: trimmed) { className in
-                                    classIndex[Array(className.lowercased()), default: []].append(Weak(element))
-                                }
-                            }
-                        } else if let classNames = try? element.unorderedClassNamesUTF8() {
-                            for className in classNames {
-                                if Element.useClassIndexUppercaseFastPath && !Attributes.containsAsciiUppercase(className) {
-                                    classIndex[Array(className), default: []].append(Weak(element))
-                                } else {
-                                    classIndex[Array(className.lowercased()), default: []].append(Weak(element))
-                                }
-                            }
+                        Element.forEachClassNameWithUppercase(in: trimmed) { className, hasUppercase in
+                            let key = hasUppercase ? Array(className.lowercased()) : Array(className)
+                            classIndex[key, default: []].append(Weak(element))
                         }
                     }
                 }
@@ -2607,9 +2656,11 @@ internal extension Element {
                 DebugTrace.log("rebuildQueryIndexesCombined: attrs for \(element.tagName())")
                 if let attrs = element.attributes {
                     attrs.ensureMaterialized()
+                    let lowerKeys = attrs.hasUppercaseKeys
                     for attr in attrs.attributes {
                         DebugTrace.log("rebuildQueryIndexesCombined: attr key \(String(decoding: attr.getKeyUTF8(), as: UTF8.self))")
-                        let key = attr.getKeyUTF8().lowercased()
+                        let keyBytes = attr.getKeyUTF8()
+                        let key = lowerKeys ? keyBytes.lowercased() : keyBytes
                         if needsAttributes {
                             attributeIndex[key, default: []].append(Weak(element))
                         }
@@ -2650,26 +2701,24 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForAllTags() {
-        if Element.useCombinedIndexBuild {
-            let needsClasses = isClassQueryIndexDirty || normalizedClassNameIndex == nil
-            let needsIds = isIdQueryIndexDirty || normalizedIdIndex == nil
-            let needsAttributes = isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil
-            let needsHotAttributes = isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil
-            let combinedCount = 1 +
-                (needsClasses ? 1 : 0) +
-                (needsIds ? 1 : 0) +
-                (needsAttributes ? 1 : 0) +
-                (needsHotAttributes ? 1 : 0)
-            if combinedCount > 1 {
-                rebuildQueryIndexesCombined(
-                    needsTags: true,
-                    needsClasses: needsClasses,
-                    needsIds: needsIds,
-                    needsAttributes: needsAttributes,
-                    needsHotAttributes: needsHotAttributes
-                )
-                return
-            }
+        let needsClasses = isClassQueryIndexDirty || normalizedClassNameIndex == nil
+        let needsIds = isIdQueryIndexDirty || normalizedIdIndex == nil
+        let needsAttributes = isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil
+        let needsHotAttributes = isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil
+        let combinedCount = 1 +
+            (needsClasses ? 1 : 0) +
+            (needsIds ? 1 : 0) +
+            (needsAttributes ? 1 : 0) +
+            (needsHotAttributes ? 1 : 0)
+        if combinedCount > 1 {
+            rebuildQueryIndexesCombined(
+                needsTags: true,
+                needsClasses: needsClasses,
+                needsIds: needsIds,
+                needsAttributes: needsAttributes,
+                needsHotAttributes: needsHotAttributes
+            )
+            return
         }
         /// Index build is depth‑first to preserve document order.
         var newIndex: [[UInt8]: [Weak<Element>]] = [:]
@@ -2677,16 +2726,9 @@ internal extension Element {
         let childNodeCount = childNodeSize()
         newIndex.reserveCapacity(childNodeCount * 4)
         
-        if Element.useIndexRebuildFastPath {
-            traverseElementsDepthFirst { element in
-                let key = element.tagNameNormalUTF8()
-                newIndex[key, default: []].append(Weak(element))
-            }
-        } else {
-            try? NodeTraversor(IndexBuilderVisitor { element in
-                let key = element.tagNameNormalUTF8()
-                newIndex[key, default: []].append(Weak(element))
-            }).traverse(self)
+        traverseElementsDepthFirst { element in
+            let key = element.tagNameNormalUTF8()
+            newIndex[key, default: []].append(Weak(element))
         }
         
         normalizedTagNameIndex = newIndex
@@ -2696,27 +2738,25 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForAllClasses() {
-        if Element.useCombinedIndexBuild {
-            let needsTags = isTagQueryIndexDirty || normalizedTagNameIndex == nil
-            let needsIds = isIdQueryIndexDirty || normalizedIdIndex == nil
-            let needsAttributes = isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil
-            let needsHotAttributes = isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil
-            let combinedCount = 1 +
-                (needsTags ? 1 : 0) +
-                (needsIds ? 1 : 0) +
-                (needsAttributes ? 1 : 0) +
-                (needsHotAttributes ? 1 : 0)
-            if combinedCount > 1 {
-                DebugTrace.log("Element.rebuildQueryIndexesForAllClasses: combined rebuild")
-                rebuildQueryIndexesCombined(
-                    needsTags: needsTags,
-                    needsClasses: true,
-                    needsIds: needsIds,
-                    needsAttributes: needsAttributes,
-                    needsHotAttributes: needsHotAttributes
-                )
-                return
-            }
+        let needsTags = isTagQueryIndexDirty || normalizedTagNameIndex == nil
+        let needsIds = isIdQueryIndexDirty || normalizedIdIndex == nil
+        let needsAttributes = isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil
+        let needsHotAttributes = isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil
+        let combinedCount = 1 +
+            (needsTags ? 1 : 0) +
+            (needsIds ? 1 : 0) +
+            (needsAttributes ? 1 : 0) +
+            (needsHotAttributes ? 1 : 0)
+        if combinedCount > 1 {
+            DebugTrace.log("Element.rebuildQueryIndexesForAllClasses: combined rebuild")
+            rebuildQueryIndexesCombined(
+                needsTags: needsTags,
+                needsClasses: true,
+                needsIds: needsIds,
+                needsAttributes: needsAttributes,
+                needsHotAttributes: needsHotAttributes
+            )
+            return
         }
         DebugTrace.log("Element.rebuildQueryIndexesForAllClasses: solo rebuild")
         /// Index build is depth‑first to preserve document order.
@@ -2724,66 +2764,18 @@ internal extension Element {
         let childNodeCount = childNodeSize()
         newIndex.reserveCapacity(childNodeCount * 4)
 
-        if Element.useIndexRebuildFastPath {
-            traverseElementsDepthFirst { element in
-                if let attrs = element.attributes,
-                   let classValue = try? attrs.getIgnoreCase(key: Element.classString),
-                   !classValue.isEmpty {
-                    let trimmed = classValue.trim()
-                    if !trimmed.isEmpty {
-                        if Element.useClassParseFastPath {
-                            if Element.useClassIndexUppercaseFastPath {
-                                Element.forEachClassNameWithUppercase(in: trimmed) { className, hasUppercase in
-                                    let key = hasUppercase ? Array(className.lowercased()) : Array(className)
-                                    newIndex[key, default: []].append(Weak(element))
-                                }
-                            } else {
-                                Element.forEachClassName(in: trimmed) { className in
-                                    newIndex[Array(className.lowercased()), default: []].append(Weak(element))
-                                }
-                            }
-                        } else if let classNames = try? element.unorderedClassNamesUTF8() {
-                            for className in classNames {
-                                if Element.useClassIndexUppercaseFastPath && !Attributes.containsAsciiUppercase(className) {
-                                    newIndex[Array(className), default: []].append(Weak(element))
-                                } else {
-                                    newIndex[Array(className.lowercased()), default: []].append(Weak(element))
-                                }
-                            }
-                        }
+        traverseElementsDepthFirst { element in
+            if let attrs = element.attributes,
+               let classValue = try? attrs.getIgnoreCase(key: Element.classString),
+               !classValue.isEmpty {
+                let trimmed = classValue.trim()
+                if !trimmed.isEmpty {
+                    Element.forEachClassNameWithUppercase(in: trimmed) { className, hasUppercase in
+                        let key = hasUppercase ? Array(className.lowercased()) : Array(className)
+                        newIndex[key, default: []].append(Weak(element))
                     }
                 }
             }
-        } else {
-            try? NodeTraversor(IndexBuilderVisitor { element in
-                if let attrs = element.attributes,
-                   let classValue = try? attrs.getIgnoreCase(key: Element.classString),
-                   !classValue.isEmpty {
-                    let trimmed = classValue.trim()
-                    if !trimmed.isEmpty {
-                        if Element.useClassParseFastPath {
-                            if Element.useClassIndexUppercaseFastPath {
-                                Element.forEachClassNameWithUppercase(in: trimmed) { className, hasUppercase in
-                                    let key = hasUppercase ? Array(className.lowercased()) : Array(className)
-                                    newIndex[key, default: []].append(Weak(element))
-                                }
-                            } else {
-                                Element.forEachClassName(in: trimmed) { className in
-                                    newIndex[Array(className.lowercased()), default: []].append(Weak(element))
-                                }
-                            }
-                        } else if let classNames = try? element.unorderedClassNamesUTF8() {
-                            for className in classNames {
-                                if Element.useClassIndexUppercaseFastPath && !Attributes.containsAsciiUppercase(className) {
-                                    newIndex[Array(className), default: []].append(Weak(element))
-                                } else {
-                                    newIndex[Array(className.lowercased()), default: []].append(Weak(element))
-                                }
-                            }
-                        }
-                    }
-                }
-            }).traverse(self)
         }
         normalizedClassNameIndex = newIndex
         isClassQueryIndexDirty = false
@@ -2792,26 +2784,24 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForAllIds() {
-        if Element.useCombinedIndexBuild {
-            let needsTags = isTagQueryIndexDirty || normalizedTagNameIndex == nil
-            let needsClasses = isClassQueryIndexDirty || normalizedClassNameIndex == nil
-            let needsAttributes = isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil
-            let needsHotAttributes = isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil
-            let combinedCount = 1 +
-                (needsTags ? 1 : 0) +
-                (needsClasses ? 1 : 0) +
-                (needsAttributes ? 1 : 0) +
-                (needsHotAttributes ? 1 : 0)
-            if combinedCount > 1 {
-                rebuildQueryIndexesCombined(
-                    needsTags: needsTags,
-                    needsClasses: needsClasses,
-                    needsIds: true,
-                    needsAttributes: needsAttributes,
-                    needsHotAttributes: needsHotAttributes
-                )
-                return
-            }
+        let needsTags = isTagQueryIndexDirty || normalizedTagNameIndex == nil
+        let needsClasses = isClassQueryIndexDirty || normalizedClassNameIndex == nil
+        let needsAttributes = isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil
+        let needsHotAttributes = isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil
+        let combinedCount = 1 +
+            (needsTags ? 1 : 0) +
+            (needsClasses ? 1 : 0) +
+            (needsAttributes ? 1 : 0) +
+            (needsHotAttributes ? 1 : 0)
+        if combinedCount > 1 {
+            rebuildQueryIndexesCombined(
+                needsTags: needsTags,
+                needsClasses: needsClasses,
+                needsIds: true,
+                needsAttributes: needsAttributes,
+                needsHotAttributes: needsHotAttributes
+            )
+            return
         }
         /// Index build is depth‑first to preserve document order.
         var newIndex: [[UInt8]: [Weak<Element>]] = [:]
@@ -2819,22 +2809,12 @@ internal extension Element {
         let childNodeCount = childNodeSize()
         newIndex.reserveCapacity(childNodeCount)
         
-        if Element.useIndexRebuildFastPath {
-            traverseElementsDepthFirst { element in
-                if let attrs = element.attributes {
-                    if let idValue = try? attrs.getIgnoreCase(key: Element.idString), !idValue.isEmpty {
-                        newIndex[idValue, default: []].append(Weak(element))
-                    }
+        traverseElementsDepthFirst { element in
+            if let attrs = element.attributes {
+                if let idValue = try? attrs.getIgnoreCase(key: Element.idString), !idValue.isEmpty {
+                    newIndex[idValue, default: []].append(Weak(element))
                 }
             }
-        } else {
-            try? NodeTraversor(IndexBuilderVisitor { element in
-                if let attrs = element.attributes {
-                    if let idValue = try? attrs.getIgnoreCase(key: Element.idString), !idValue.isEmpty {
-                        newIndex[idValue, default: []].append(Weak(element))
-                    }
-                }
-            }).traverse(self)
         }
         
         normalizedIdIndex = newIndex
@@ -2844,26 +2824,24 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForAllAttributes() {
-        if Element.useCombinedIndexBuild {
-            let needsTags = isTagQueryIndexDirty || normalizedTagNameIndex == nil
-            let needsClasses = isClassQueryIndexDirty || normalizedClassNameIndex == nil
-            let needsIds = isIdQueryIndexDirty || normalizedIdIndex == nil
-            let needsHotAttributes = isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil
-            let combinedCount = 1 +
-                (needsTags ? 1 : 0) +
-                (needsClasses ? 1 : 0) +
-                (needsIds ? 1 : 0) +
-                (needsHotAttributes ? 1 : 0)
-            if combinedCount > 1 {
-                rebuildQueryIndexesCombined(
-                    needsTags: needsTags,
-                    needsClasses: needsClasses,
-                    needsIds: needsIds,
-                    needsAttributes: true,
-                    needsHotAttributes: needsHotAttributes
-                )
-                return
-            }
+        let needsTags = isTagQueryIndexDirty || normalizedTagNameIndex == nil
+        let needsClasses = isClassQueryIndexDirty || normalizedClassNameIndex == nil
+        let needsIds = isIdQueryIndexDirty || normalizedIdIndex == nil
+        let needsHotAttributes = isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil
+        let combinedCount = 1 +
+            (needsTags ? 1 : 0) +
+            (needsClasses ? 1 : 0) +
+            (needsIds ? 1 : 0) +
+            (needsHotAttributes ? 1 : 0)
+        if combinedCount > 1 {
+            rebuildQueryIndexesCombined(
+                needsTags: needsTags,
+                needsClasses: needsClasses,
+                needsIds: needsIds,
+                needsAttributes: true,
+                needsHotAttributes: needsHotAttributes
+            )
+            return
         }
         /// Index build is depth‑first to preserve document order.
         var newIndex: [[UInt8]: [Weak<Element>]] = [:]
@@ -2871,26 +2849,16 @@ internal extension Element {
         let childNodeCount = childNodeSize()
         newIndex.reserveCapacity(childNodeCount * 4)
         
-        if Element.useIndexRebuildFastPath {
-            traverseElementsDepthFirst { element in
-                if let attrs = element.attributes {
-                    attrs.ensureMaterialized()
-                    for attr in attrs.attributes {
-                        let key = attr.getKeyUTF8().lowercased()
-                        newIndex[key, default: []].append(Weak(element))
-                    }
+        traverseElementsDepthFirst { element in
+            if let attrs = element.attributes {
+                attrs.ensureMaterialized()
+                let lowerKeys = attrs.hasUppercaseKeys
+                for attr in attrs.attributes {
+                    let keyBytes = attr.getKeyUTF8()
+                    let key = lowerKeys ? keyBytes.lowercased() : keyBytes
+                    newIndex[key, default: []].append(Weak(element))
                 }
             }
-        } else {
-            try? NodeTraversor(IndexBuilderVisitor { element in
-                if let attrs = element.attributes {
-                    attrs.ensureMaterialized()
-                    for attr in attrs.attributes {
-                        let key = attr.getKeyUTF8().lowercased()
-                        newIndex[key, default: []].append(Weak(element))
-                    }
-                }
-            }).traverse(self)
         }
         
         normalizedAttributeNameIndex = newIndex
@@ -2901,59 +2869,43 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForHotAttributes() {
-        if Element.useCombinedIndexBuild {
-            let needsTags = isTagQueryIndexDirty || normalizedTagNameIndex == nil
-            let needsClasses = isClassQueryIndexDirty || normalizedClassNameIndex == nil
-            let needsIds = isIdQueryIndexDirty || normalizedIdIndex == nil
-            let needsAttributes = isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil
-            let combinedCount = 1 +
-                (needsTags ? 1 : 0) +
-                (needsClasses ? 1 : 0) +
-                (needsIds ? 1 : 0) +
-                (needsAttributes ? 1 : 0)
-            if combinedCount > 1 {
-                rebuildQueryIndexesCombined(
-                    needsTags: needsTags,
-                    needsClasses: needsClasses,
-                    needsIds: needsIds,
-                    needsAttributes: needsAttributes,
-                    needsHotAttributes: true
-                )
-                return
-            }
+        let needsTags = isTagQueryIndexDirty || normalizedTagNameIndex == nil
+        let needsClasses = isClassQueryIndexDirty || normalizedClassNameIndex == nil
+        let needsIds = isIdQueryIndexDirty || normalizedIdIndex == nil
+        let needsAttributes = isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil
+        let combinedCount = 1 +
+            (needsTags ? 1 : 0) +
+            (needsClasses ? 1 : 0) +
+            (needsIds ? 1 : 0) +
+            (needsAttributes ? 1 : 0)
+        if combinedCount > 1 {
+            rebuildQueryIndexesCombined(
+                needsTags: needsTags,
+                needsClasses: needsClasses,
+                needsIds: needsIds,
+                needsAttributes: needsAttributes,
+                needsHotAttributes: true
+            )
+            return
         }
         /// Index build is depth‑first to preserve document order for stable selector results.
         var newIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]] = [:]
-        let dynamicKeys = Element.useDynamicAttributeValueIndex ? dynamicAttributeValueIndexKeySet : nil
+        let dynamicKeys = dynamicAttributeValueIndexKeySet
         newIndex.reserveCapacity(Element.hotAttributeIndexKeys.count + (dynamicKeys?.count ?? 0))
-        if Element.useIndexRebuildFastPath {
-            traverseElementsDepthFirst { element in
-                if let attrs = element.getAttributes() {
-                    attrs.ensureMaterialized()
-                    for attr in attrs.attributes {
-                        let key = attr.getKeyUTF8().lowercased()
-                        guard Element.isHotAttributeKey(key) || (dynamicKeys?.contains(key) ?? false) else { continue }
-                        let value = attr.getValueUTF8().trim().lowercased()
-                        var valueIndex = newIndex[key] ?? [:]
-                        valueIndex[value, default: []].append(Weak(element))
-                        newIndex[key] = valueIndex
-                    }
+        traverseElementsDepthFirst { element in
+            if let attrs = element.getAttributes() {
+                attrs.ensureMaterialized()
+                let lowerKeys = attrs.hasUppercaseKeys
+                for attr in attrs.attributes {
+                    let keyBytes = attr.getKeyUTF8()
+                    let key = lowerKeys ? keyBytes.lowercased() : keyBytes
+                    guard Element.isHotAttributeKey(key) || (dynamicKeys?.contains(key) ?? false) else { continue }
+                    let value = attr.getValueUTF8().trim().lowercased()
+                    var valueIndex = newIndex[key] ?? [:]
+                    valueIndex[value, default: []].append(Weak(element))
+                    newIndex[key] = valueIndex
                 }
             }
-        } else {
-            try? NodeTraversor(IndexBuilderVisitor { element in
-                if let attrs = element.getAttributes() {
-                    attrs.ensureMaterialized()
-                    for attr in attrs.attributes {
-                        let key = attr.getKeyUTF8().lowercased()
-                        guard Element.isHotAttributeKey(key) || (dynamicKeys?.contains(key) ?? false) else { continue }
-                        let value = attr.getValueUTF8().trim().lowercased()
-                        var valueIndex = newIndex[key] ?? [:]
-                        valueIndex[value, default: []].append(Weak(element))
-                        newIndex[key] = valueIndex
-                    }
-                }
-            }).traverse(self)
         }
         
         normalizedAttributeValueIndex = newIndex

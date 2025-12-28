@@ -380,6 +380,37 @@ class SelectorTest: XCTestCase {
         XCTAssertEqual("1", els.get(0).id())
         XCTAssertEqual("3", els.get(1).id())
     }
+
+    func testSelectorCacheInvalidatesOnMutation() throws {
+        let doc = try SwiftSoup.parse("<div id=one class=hit></div><div id=two></div>")
+        let root = doc.body()!
+        XCTAssertEqual(1, try root.select(".hit").size())
+        // Second call should hit selector cache.
+        XCTAssertEqual(1, try root.select(".hit").size())
+        try doc.getElementById("two")?.addClass("hit")
+        // Cache should be invalidated after mutation.
+        XCTAssertEqual(2, try root.select(".hit").size())
+    }
+
+    func testSelectorCacheInvalidatesOnTextMutation() throws {
+        let doc = try SwiftSoup.parse("<div id=one>foo</div><div id=two>bar</div>")
+        let root = doc.body()!
+        XCTAssertEqual(1, try root.select("div:contains(foo)").size())
+        // Second call should hit selector cache.
+        XCTAssertEqual(1, try root.select("div:contains(foo)").size())
+        try doc.getElementById("two")?.text("foo")
+        // Cache should be invalidated after text mutation.
+        XCTAssertEqual(2, try root.select("div:contains(foo)").size())
+    }
+
+    func testSelectorCacheSingleRootForSelectRoots() throws {
+        let doc = try SwiftSoup.parse("<div id=one class=hit></div><div id=two></div>")
+        let root = doc.body()!
+        XCTAssertEqual(1, try CssSelector.select(".hit", [root]).size())
+        XCTAssertEqual(1, try CssSelector.select(".hit", [root]).size())
+        try doc.getElementById("two")?.addClass("hit")
+        XCTAssertEqual(2, try CssSelector.select(".hit", [root]).size())
+    }
     
     func testSelectAttributeAbsFallback() throws {
         let doc = try SwiftSoup.parse("<a href=/one id=1></a><a href=/two id=2></a>")

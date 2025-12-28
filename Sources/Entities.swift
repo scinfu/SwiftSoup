@@ -13,8 +13,6 @@ import Foundation
  Source: [W3C HTML named character references](http://www.w3.org/TR/html5/named-character-references.html#named-character-references)
  */
 public final class Entities: Sendable {
-    private static let usePackedNamedEntityFastPath = ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_PACKED_ENTITY_FASTPATH"] != "1"
-    private static let usePackedNamedEntityCodepointsCache = ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_PACKED_ENTITY_CODEPOINTS_CACHE"] != "1"
     private static let commonNamedEntities: [ArraySlice<UInt8>: [UnicodeScalar]] = [
         "lt".utf8ArraySlice: [UnicodeScalar(0x3C)!],
         "gt".utf8ArraySlice: [UnicodeScalar(0x3E)!],
@@ -43,13 +41,7 @@ public final class Entities: Sendable {
 
         @inline(__always)
         func codepoints() -> [UnicodeScalar] {
-            if Entities.usePackedNamedEntityCodepointsCache {
-                return cachedCodepoints
-            }
-            if let multipoints {
-                return multipoints
-            }
-            return [scalar!]
+            return cachedCodepoints
         }
     }
 
@@ -99,7 +91,7 @@ public final class Entities: Sendable {
 
     @inline(__always)
     fileprivate static func lookupNamedEntityFast(_ name: ArraySlice<UInt8>, allowExtended: Bool) -> PackedNamedEntityEntry? {
-        guard usePackedNamedEntityFastPath, let key = packAsciiEntityKey(name) else { return nil }
+        guard let key = packAsciiEntityKey(name) else { return nil }
         guard let entry = packedNamedEntityLookup[key] else { return nil }
         if allowExtended || entry.isBase {
             return entry

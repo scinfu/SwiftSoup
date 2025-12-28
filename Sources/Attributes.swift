@@ -49,13 +49,8 @@ open class Attributes: NSCopying {
     }
 
     @usableFromInline
-    static let disableLowercasedKeyIndex: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_LOWERCASED_KEY_INDEX"] == "1"
+    static let disableLowercasedKeyIndex: Bool = false
     
-    @usableFromInline
-    static let usePendingAttributesReuseFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_ATTRIBUTES_PENDING_REUSE_FASTPATH"] != "1"
-
     
     // Stored by lowercased key, but key case is checked against the copy inside
     // the Attribute on retrieval.
@@ -142,13 +137,9 @@ open class Attributes: NSCopying {
         }
 
         if pendingAttributes == nil {
-            if Self.usePendingAttributesReuseFastPath {
-                pendingAttributes = []
-                pendingAttributes!.reserveCapacity(16)
-                pendingAttributes!.append(pending)
-            } else {
-                pendingAttributes = [pending]
-            }
+            pendingAttributes = []
+            pendingAttributes!.reserveCapacity(16)
+            pendingAttributes!.append(pending)
             pendingAttributesCount = 1
         } else {
             pendingAttributes!.append(pending)
@@ -172,9 +163,6 @@ open class Attributes: NSCopying {
         guard let pending = pendingAttributes, !pending.isEmpty else { return }
         DebugTrace.log("Attributes.ensureMaterialized: pending=\(pending.count)")
         pendingAttributesCount = 0
-        if !Self.usePendingAttributesReuseFastPath {
-            pendingAttributes = nil
-        }
         let shouldIndex = shouldBuildKeyIndex()
         var localIndex: [Array<UInt8>: Int]? = nil
         if shouldIndex {
@@ -264,9 +252,7 @@ open class Attributes: NSCopying {
         ownerElement?.markAttributeQueryIndexDirty()
         ownerElement?.markAttributeValueQueryIndexDirty()
         ownerElement?.markSourceDirty()
-        if Self.usePendingAttributesReuseFastPath {
-            pendingAttributes?.removeAll(keepingCapacity: true)
-        }
+        pendingAttributes?.removeAll(keepingCapacity: true)
     }
 
     @inline(__always)

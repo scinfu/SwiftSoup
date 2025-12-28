@@ -16,12 +16,6 @@ open class Collector {
     private init() {
     }
 
-    private static let useAndSeedFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_AND_SEED_FASTPATH"] != "1"
-    private static let useSimpleEvaluatorFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SIMPLE_EVAL_FASTPATH"] != "1"
-    private static let useAllElementsFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_ALL_ELEMENTS_FASTPATH"] != "1"
 
     /**
      Build a list of elements, by visiting root and every descendant of root, and testing it against the evaluator.
@@ -30,7 +24,7 @@ open class Collector {
      - returns: list of matches; empty if none
      */
     public static func collect (_ eval: Evaluator, _ root: Element) throws -> Elements {
-        if useAllElementsFastPath, eval is Evaluator.AllElements {
+        if eval is Evaluator.AllElements {
             let elements = Elements()
             var stack: [Element] = []
             stack.reserveCapacity(root.childNodes.count + 1)
@@ -48,9 +42,11 @@ open class Collector {
             }
             return elements
         }
+        if let hasEval = eval as? StructuralEvaluator.Has {
+            return try collectHas(hasEval, root: root)
+        }
         let elements: Elements = Elements()
-        if useAndSeedFastPath,
-           let andEval = eval as? CombiningEvaluator.And,
+        if let andEval = eval as? CombiningEvaluator.And,
            let seeded = try seedCandidates(for: andEval, root: root) {
             if seeded.isEmpty {
                 return seeded
@@ -62,14 +58,8 @@ open class Collector {
             }
             return elements
         }
-        if useSimpleEvaluatorFastPath,
-           Element.useQueryIndexes,
-           let fast = try simpleEvaluatorFastPath(eval, root: root) {
+        if let fast = try simpleEvaluatorFastPath(eval, root: root) {
             return fast
-        }
-        if ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_COLLECTOR_FASTPATH"] == "1" {
-            try NodeTraversor(Accumulator(root, elements, eval)).traverse(root)
-            return elements
         }
         // Manual DFS to reduce NodeTraversor/visitor overhead in hot selector paths.
         var stack: [Element] = []
@@ -77,6 +67,44 @@ open class Collector {
         stack.append(root)
         while let el = stack.popLast() {
             if try eval.matches(root, el) {
+                elements.add(el)
+            }
+            let children = el.childNodes
+            if !children.isEmpty {
+                for child in children.reversed() {
+                    if let childEl = child as? Element {
+                        stack.append(childEl)
+                    }
+                }
+            }
+        }
+        return elements
+    }
+
+    private static func collectHas(_ hasEval: StructuralEvaluator.Has, root: Element) throws -> Elements {
+        let matches = try collect(hasEval.evaluator, root)
+        if matches.isEmpty {
+            return Elements()
+        }
+        var hasDescendant = Set<ObjectIdentifier>()
+        hasDescendant.reserveCapacity(matches.size() * 2)
+        for el in matches.array() {
+            var parent = el.parent()
+            while let current = parent {
+                hasDescendant.insert(ObjectIdentifier(current))
+                if current === root { break }
+                parent = current.parent()
+            }
+        }
+        if hasDescendant.isEmpty {
+            return Elements()
+        }
+        let elements = Elements()
+        var stack: [Element] = []
+        stack.reserveCapacity(root.childNodes.count + 1)
+        stack.append(root)
+        while let el = stack.popLast() {
+            if hasDescendant.contains(ObjectIdentifier(el)) {
                 elements.add(el)
             }
             let children = el.childNodes
@@ -101,7 +129,7 @@ open class Collector {
         if let classEval = eval as? Evaluator.Class {
             let classBytes = classEval.classNameBytes
             let normalizedClass: [UInt8]
-            if Element.useNormalizedClassKeyFastPath && !Attributes.containsAsciiUppercase(classBytes) {
+            if !Attributes.containsAsciiUppercase(classBytes) {
                 normalizedClass = classBytes
             } else {
                 normalizedClass = classBytes.lowercased()
@@ -116,7 +144,7 @@ open class Collector {
             let absPrefix = "abs:".utf8Array
             if !normalizedKey.starts(with: absPrefix),
                (Element.isHotAttributeKey(normalizedKey) ||
-                (Element.useDynamicAttributeValueIndex && Element.dynamicAttributeValueIndexMaxKeys > 0)) {
+                (Element.dynamicAttributeValueIndexMaxKeys > 0)) {
                 return try root.getElementsByAttributeValue(attrValueEval.key, attrValueEval.value)
             }
         }
@@ -141,7 +169,7 @@ open class Collector {
                 break
             }
         }
-        if let idEval, Element.useQueryIndexes {
+        if let idEval {
             return root.getElementsById(idEval.idBytes)
         }
 
@@ -154,7 +182,7 @@ open class Collector {
         if let attrValueEval,
            !(attrValueEval.keyBytes.lowercased().starts(with: "abs:".utf8Array)),
            (Element.isHotAttributeKey(attrValueEval.keyBytes) ||
-            (Element.useDynamicAttributeValueIndex && Element.dynamicAttributeValueIndexMaxKeys > 0)) {
+            (Element.dynamicAttributeValueIndexMaxKeys > 0)) {
             return try root.getElementsByAttributeValue(attrValueEval.key, attrValueEval.value)
         }
 
@@ -164,10 +192,10 @@ open class Collector {
                 break
             }
         }
-        if let classEval, Element.useQueryIndexes {
+        if let classEval {
             let classBytes = classEval.classNameBytes
             let normalizedClass: [UInt8]
-            if Element.useNormalizedClassKeyFastPath && !Attributes.containsAsciiUppercase(classBytes) {
+            if !Attributes.containsAsciiUppercase(classBytes) {
                 normalizedClass = classBytes
             } else {
                 normalizedClass = classBytes.lowercased()
@@ -181,7 +209,7 @@ open class Collector {
                 break
             }
         }
-        if let tagEval, Element.useQueryIndexes {
+        if let tagEval {
             return try root.getElementsByTagNormalized(tagEval.tagNameNormal)
         }
 
@@ -191,7 +219,7 @@ open class Collector {
                 break
             }
         }
-        if let attrEval, Element.useQueryIndexes {
+        if let attrEval {
             return root.getElementsByAttributeNormalized(attrEval.keyBytes)
         }
 
@@ -201,7 +229,7 @@ open class Collector {
                 break
             }
         }
-        if let attrMatchingEval, Element.useQueryIndexes {
+        if let attrMatchingEval {
             return root.getElementsByAttributeNormalized(attrMatchingEval.key.utf8Array)
         }
 
@@ -214,7 +242,7 @@ open class Collector {
                 break
             }
         }
-        if let attrKeyPairEval, Element.useQueryIndexes {
+        if let attrKeyPairEval {
             return root.getElementsByAttributeNormalized(attrKeyPairEval.keyBytes)
         }
 

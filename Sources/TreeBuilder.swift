@@ -28,10 +28,6 @@ public class TreeBuilder {
     @usableFromInline
     var isBulkBuilding: Bool = false
     
-    private static let useBulkBuild: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_BULK_BUILD"] != "1"
-    private static let usePendingAttributesMaterializeFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_PENDING_ATTR_MATERIALIZE_FASTPATH"] != "1"
     
     public func defaultSettings() -> ParseSettings {preconditionFailure("This method must be overridden")}
     
@@ -86,37 +82,24 @@ public class TreeBuilder {
         // Associate builder for node-level checks
         doc.treeBuilder = self
         
-        let shouldBulkBuild = Self.useBulkBuild
-        if shouldBulkBuild {
-            // Suppress per-append index invalidation; rebuild once at end
-            beginBulkAppend()
-        }
-        defer {
-            if shouldBulkBuild {
-                endBulkAppend()
-            }
-        }
+        // Suppress per-append index invalidation; rebuild once at end
+        beginBulkAppend()
+        defer { endBulkAppend() }
         
         initialiseParse(input, baseUri, errors, settings)
         try runParser()
-        if !tracksSourceRanges {
-            if Self.usePendingAttributesMaterializeFastPath {
-                if !pendingAttributeElements.isEmpty {
-                    for element in pendingAttributeElements {
-                        element.attributes?.ensureMaterialized()
-                    }
-                    pendingAttributeElements.removeAll(keepingCapacity: true)
-                }
-            } else {
-                doc.materializeAttributesRecursively()
+        if !tracksSourceRanges, !pendingAttributeElements.isEmpty {
+            for element in pendingAttributeElements {
+                element.attributes?.ensureMaterialized()
             }
+            pendingAttributeElements.removeAll(keepingCapacity: true)
         }
         return doc
     }
     
     @inline(__always)
     func registerPendingAttributes(_ element: Element) {
-        guard Self.usePendingAttributesMaterializeFastPath, !tracksSourceRanges else { return }
+        guard !tracksSourceRanges else { return }
         if let attributes = element.attributes,
            attributes.pendingAttributesCount > 0 {
             pendingAttributeElements.append(element)

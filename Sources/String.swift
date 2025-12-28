@@ -264,29 +264,24 @@ extension ArraySlice where Element == UInt8 {
 }
 
 extension String {
-    @usableFromInline
-    internal static let useUtf8ArrayFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_UTF8_STRING_FASTPATH"] != "1"
 
     @inline(__always)
     public var utf8Array: [UInt8] {
-        if String.useUtf8ArrayFastPath {
-            if let out = self.utf8.withContiguousStorageIfAvailable({ buffer -> [UInt8] in
-                let count = buffer.count
-                if count == 0 { return [] }
-                guard let srcBase = buffer.baseAddress else {
-                    return Array(self.utf8)
-                }
-                var out = [UInt8](repeating: 0, count: count)
-                out.withUnsafeMutableBytes { dst in
-                    if let dstBase = dst.baseAddress {
-                        dstBase.copyMemory(from: srcBase, byteCount: count)
-                    }
-                }
-                return out
-            }) {
-                return out
+        if let out = self.utf8.withContiguousStorageIfAvailable({ buffer -> [UInt8] in
+            let count = buffer.count
+            if count == 0 { return [] }
+            guard let srcBase = buffer.baseAddress else {
+                return Array(self.utf8)
             }
+            var out = [UInt8](repeating: 0, count: count)
+            out.withUnsafeMutableBytes { dst in
+                if let dstBase = dst.baseAddress {
+                    dstBase.copyMemory(from: srcBase, byteCount: count)
+                }
+            }
+            return out
+        }) {
+            return out
         }
         return Array(self.utf8)
     }
