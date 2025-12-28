@@ -149,11 +149,19 @@ enum TokeniserState: TokeniserStateProtocol {
                 try t.emitEOF()
                 break
             }
-            let dataStart = r.pos
-            let data: ArraySlice<UInt8> = r.consumeData()
-            if !data.isEmpty {
-                t.emitRaw(data, start: dataStart, end: r.pos)
-                break
+            if t.isTrackingSourceRanges() {
+                let dataStart = r.pos
+                let data: ArraySlice<UInt8> = r.consumeData()
+                if !data.isEmpty {
+                    t.emitRaw(data, start: dataStart, end: r.pos)
+                    break
+                }
+            } else {
+                let data: ArraySlice<UInt8> = r.consumeData()
+                if !data.isEmpty {
+                    t.emitRaw(data)
+                    break
+                }
             }
             if r.pos >= r.end {
                 try t.emitEOF()
@@ -2887,6 +2895,13 @@ enum TokeniserState: TokeniserStateProtocol {
             t.emit(UnicodeScalar.Ampersand)
             t.transition(advance)
             return
+        }
+        if let b = t.currentByte(), b != TokeniserStateVars.hashByte {
+            if isLikelyQueryStringAmpersand(t.readerRef) {
+                t.emit(UnicodeScalar.Ampersand)
+                t.transition(advance)
+                return
+            }
         }
         if let entity = t.consumeBasicNamedEntityIfPresent() {
             t.emit(entity)

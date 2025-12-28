@@ -1160,6 +1160,16 @@ final class BenchmarkProfileTest: XCTestCase {
             return
         }
 
+        let benchmarkFilter = ProcessInfo.processInfo.environment["SWIFTSOUP_BENCHMARK_SET"]?
+            .lowercased()
+            .split(whereSeparator: { $0 == "," || $0 == " " || $0 == ";" })
+            .map(String.init) ?? []
+        let benchmarkFilterSet = Set(benchmarkFilter)
+        @inline(__always)
+        func includeBenchmark(_ name: String) -> Bool {
+            return benchmarkFilterSet.isEmpty || benchmarkFilterSet.contains(name)
+        }
+
         let scale = max(1, envInt("SWIFTSOUP_BENCHMARK_SCALE", 1))
         func scaled(_ value: Int) -> Int {
             return value == 0 ? 0 : value * scale
@@ -1211,252 +1221,246 @@ final class BenchmarkProfileTest: XCTestCase {
         let selectorRepeat = envInt("SWIFTSOUP_BENCHMARK_SELECTOR_REPEAT", 3)
         let selectorStressRepeat = envInt("SWIFTSOUP_BENCHMARK_SELECTOR_STRESS_REPEAT", 5)
         let attributeSelectorStressRepeat = envInt("SWIFTSOUP_BENCHMARK_ATTRIBUTE_SELECTOR_STRESS_REPEAT", 4)
-        let html = buildBenchmarkHTML(repeatCount: repeatCount)
-        let htmlLarge = buildLargeBenchmarkHTML(repeatCount: largeRepeatCount)
-        let htmlHuge = buildHugeBenchmarkHTML(repeatCount: hugeRepeatCount)
-        let htmlGiant = buildGiantBenchmarkHTML(repeatCount: giantRepeatCount)
-        let htmlMega = buildMegaBenchmarkHTML(repeatCount: megaRepeatCount)
-        let htmlColossal = buildColossalBenchmarkHTML(repeatCount: colossalRepeatCount)
-        let htmlTitan = buildTitanBenchmarkHTML(repeatCount: titanRepeatCount)
-        let htmlOmega = buildOmegaBenchmarkHTML(repeatCount: omegaRepeatCount)
-        let data = Data(html.utf8)
-        let bytes = [UInt8](data)
-        let largeData = Data(htmlLarge.utf8)
-        let largeBytes = [UInt8](largeData)
-        var inputs: [(data: Data, bytes: [UInt8])] = [
-            (data: data, bytes: bytes),
-            (data: largeData, bytes: largeBytes)
-        ]
-        var inputStrings: [String] = [
-            html,
-            htmlLarge
-        ]
-        if hugeRepeatCount > 0 {
+        var inputs: [(data: Data, bytes: [UInt8])] = []
+        var inputStrings: [String] = []
+        if includeBenchmark("base") {
+            let html = buildBenchmarkHTML(repeatCount: repeatCount)
+            let data = Data(html.utf8)
+            inputs.append((data: data, bytes: [UInt8](data)))
+            inputStrings.append(html)
+        }
+        if includeBenchmark("large") {
+            let htmlLarge = buildLargeBenchmarkHTML(repeatCount: largeRepeatCount)
+            let largeData = Data(htmlLarge.utf8)
+            inputs.append((data: largeData, bytes: [UInt8](largeData)))
+            inputStrings.append(htmlLarge)
+        }
+        if includeBenchmark("huge"), hugeRepeatCount > 0 {
+            let htmlHuge = buildHugeBenchmarkHTML(repeatCount: hugeRepeatCount)
             let hugeData = Data(htmlHuge.utf8)
-            let hugeBytes = [UInt8](hugeData)
-            inputs.append((data: hugeData, bytes: hugeBytes))
+            inputs.append((data: hugeData, bytes: [UInt8](hugeData)))
             inputStrings.append(htmlHuge)
         }
-        if giantRepeatCount > 0 {
+        if includeBenchmark("giant"), giantRepeatCount > 0 {
+            let htmlGiant = buildGiantBenchmarkHTML(repeatCount: giantRepeatCount)
             let giantData = Data(htmlGiant.utf8)
-            let giantBytes = [UInt8](giantData)
-            inputs.append((data: giantData, bytes: giantBytes))
+            inputs.append((data: giantData, bytes: [UInt8](giantData)))
             inputStrings.append(htmlGiant)
         }
-        if megaRepeatCount > 0 {
+        if includeBenchmark("mega"), megaRepeatCount > 0 {
+            let htmlMega = buildMegaBenchmarkHTML(repeatCount: megaRepeatCount)
             let megaData = Data(htmlMega.utf8)
-            let megaBytes = [UInt8](megaData)
-            inputs.append((data: megaData, bytes: megaBytes))
+            inputs.append((data: megaData, bytes: [UInt8](megaData)))
             inputStrings.append(htmlMega)
         }
-        if colossalRepeatCount > 0 {
+        if includeBenchmark("colossal"), colossalRepeatCount > 0 {
+            let htmlColossal = buildColossalBenchmarkHTML(repeatCount: colossalRepeatCount)
             let colossalData = Data(htmlColossal.utf8)
-            let colossalBytes = [UInt8](colossalData)
-            inputs.append((data: colossalData, bytes: colossalBytes))
+            inputs.append((data: colossalData, bytes: [UInt8](colossalData)))
             inputStrings.append(htmlColossal)
         }
-        if titanRepeatCount > 0 {
+        if includeBenchmark("titan"), titanRepeatCount > 0 {
+            let htmlTitan = buildTitanBenchmarkHTML(repeatCount: titanRepeatCount)
             let titanData = Data(htmlTitan.utf8)
-            let titanBytes = [UInt8](titanData)
-            inputs.append((data: titanData, bytes: titanBytes))
+            inputs.append((data: titanData, bytes: [UInt8](titanData)))
             inputStrings.append(htmlTitan)
         }
-        if omegaRepeatCount > 0 {
+        if includeBenchmark("omega"), omegaRepeatCount > 0 {
+            let htmlOmega = buildOmegaBenchmarkHTML(repeatCount: omegaRepeatCount)
             let omegaData = Data(htmlOmega.utf8)
-            let omegaBytes = [UInt8](omegaData)
-            inputs.append((data: omegaData, bytes: omegaBytes))
+            inputs.append((data: omegaData, bytes: [UInt8](omegaData)))
             inputStrings.append(htmlOmega)
         }
-        if atlasRepeatCount > 0 {
+        if includeBenchmark("atlas"), atlasRepeatCount > 0 {
             let htmlAtlas = buildAtlasBenchmarkHTML(repeatCount: atlasRepeatCount)
             let atlasData = Data(htmlAtlas.utf8)
             let atlasBytes = [UInt8](atlasData)
             inputs.append((data: atlasData, bytes: atlasBytes))
             inputStrings.append(htmlAtlas)
         }
-        if hyperionRepeatCount > 0 {
+        if includeBenchmark("hyperion"), hyperionRepeatCount > 0 {
             let htmlHyperion = buildHyperionBenchmarkHTML(repeatCount: hyperionRepeatCount)
             let hyperionData = Data(htmlHyperion.utf8)
             let hyperionBytes = [UInt8](hyperionData)
             inputs.append((data: hyperionData, bytes: hyperionBytes))
             inputStrings.append(htmlHyperion)
         }
-        if gargantuaRepeatCount > 0 {
+        if includeBenchmark("gargantua"), gargantuaRepeatCount > 0 {
             let htmlGargantua = buildGargantuaBenchmarkHTML(repeatCount: gargantuaRepeatCount)
             let gargantuaData = Data(htmlGargantua.utf8)
             let gargantuaBytes = [UInt8](gargantuaData)
             inputs.append((data: gargantuaData, bytes: gargantuaBytes))
             inputStrings.append(htmlGargantua)
         }
-        if leviathanRepeatCount > 0 {
+        if includeBenchmark("leviathan"), leviathanRepeatCount > 0 {
             let htmlLeviathan = buildLeviathanBenchmarkHTML(repeatCount: leviathanRepeatCount)
             let leviathanData = Data(htmlLeviathan.utf8)
             let leviathanBytes = [UInt8](leviathanData)
             inputs.append((data: leviathanData, bytes: leviathanBytes))
             inputStrings.append(htmlLeviathan)
         }
-        if behemothRepeatCount > 0 {
+        if includeBenchmark("behemoth"), behemothRepeatCount > 0 {
             let htmlBehemoth = buildBehemothBenchmarkHTML(repeatCount: behemothRepeatCount)
             let behemothData = Data(htmlBehemoth.utf8)
             let behemothBytes = [UInt8](behemothData)
             inputs.append((data: behemothData, bytes: behemothBytes))
             inputStrings.append(htmlBehemoth)
         }
-        if colossusRepeatCount > 0 {
+        if includeBenchmark("colossus"), colossusRepeatCount > 0 {
             let htmlColossus = buildColossusBenchmarkHTML(repeatCount: colossusRepeatCount)
             let colossusData = Data(htmlColossus.utf8)
             let colossusBytes = [UInt8](colossusData)
             inputs.append((data: colossusData, bytes: colossusBytes))
             inputStrings.append(htmlColossus)
         }
-        if nebulaRepeatCount > 0 {
+        if includeBenchmark("nebula"), nebulaRepeatCount > 0 {
             let htmlNebula = buildNebulaBenchmarkHTML(repeatCount: nebulaRepeatCount)
             let nebulaData = Data(htmlNebula.utf8)
             let nebulaBytes = [UInt8](nebulaData)
             inputs.append((data: nebulaData, bytes: nebulaBytes))
             inputStrings.append(htmlNebula)
         }
-        if scriptHeavyRepeatCount > 0 {
+        if includeBenchmark("script-heavy"), scriptHeavyRepeatCount > 0 {
             let htmlScriptHeavy = buildScriptHeavyBenchmarkHTML(repeatCount: scriptHeavyRepeatCount)
             let scriptHeavyData = Data(htmlScriptHeavy.utf8)
             let scriptHeavyBytes = [UInt8](scriptHeavyData)
             inputs.append((data: scriptHeavyData, bytes: scriptHeavyBytes))
             inputStrings.append(htmlScriptHeavy)
         }
-        if rcdataHeavyRepeatCount > 0 {
+        if includeBenchmark("rcdata-heavy"), rcdataHeavyRepeatCount > 0 {
             let htmlRcdataHeavy = buildRcdataHeavyBenchmarkHTML(repeatCount: rcdataHeavyRepeatCount)
             let rcdataHeavyData = Data(htmlRcdataHeavy.utf8)
             let rcdataHeavyBytes = [UInt8](rcdataHeavyData)
             inputs.append((data: rcdataHeavyData, bytes: rcdataHeavyBytes))
             inputStrings.append(htmlRcdataHeavy)
         }
-        if entityHeavyRepeatCount > 0 {
+        if includeBenchmark("entity-heavy"), entityHeavyRepeatCount > 0 {
             let htmlEntityHeavy = buildEntityHeavyBenchmarkHTML(repeatCount: entityHeavyRepeatCount)
             let entityHeavyData = Data(htmlEntityHeavy.utf8)
             let entityHeavyBytes = [UInt8](entityHeavyData)
             inputs.append((data: entityHeavyData, bytes: entityHeavyBytes))
             inputStrings.append(htmlEntityHeavy)
         }
-        if entityStormRepeatCount > 0 {
+        if includeBenchmark("entity-storm"), entityStormRepeatCount > 0 {
             let htmlEntityStorm = buildEntityStormBenchmarkHTML(repeatCount: entityStormRepeatCount)
             let entityStormData = Data(htmlEntityStorm.utf8)
             let entityStormBytes = [UInt8](entityStormData)
             inputs.append((data: entityStormData, bytes: entityStormBytes))
             inputStrings.append(htmlEntityStorm)
         }
-        if entityNamedRepeatCount > 0 {
+        if includeBenchmark("entity-named"), entityNamedRepeatCount > 0 {
             let htmlEntityNamed = buildEntityNamedBenchmarkHTML(repeatCount: entityNamedRepeatCount)
             let entityNamedData = Data(htmlEntityNamed.utf8)
             let entityNamedBytes = [UInt8](entityNamedData)
             inputs.append((data: entityNamedData, bytes: entityNamedBytes))
             inputStrings.append(htmlEntityNamed)
         }
-        if entityNamedStormRepeatCount > 0 {
+        if includeBenchmark("entity-named-storm"), entityNamedStormRepeatCount > 0 {
             let htmlEntityNamedStorm = buildEntityNamedStormBenchmarkHTML(repeatCount: entityNamedStormRepeatCount)
             let entityNamedStormData = Data(htmlEntityNamedStorm.utf8)
             let entityNamedStormBytes = [UInt8](entityNamedStormData)
             inputs.append((data: entityNamedStormData, bytes: entityNamedStormBytes))
             inputStrings.append(htmlEntityNamedStorm)
         }
-        if entityNamedExtendedRepeatCount > 0 {
+        if includeBenchmark("entity-named-extended"), entityNamedExtendedRepeatCount > 0 {
             let htmlEntityNamedExtended = buildEntityNamedExtendedBenchmarkHTML(repeatCount: entityNamedExtendedRepeatCount)
             let entityNamedExtendedData = Data(htmlEntityNamedExtended.utf8)
             let entityNamedExtendedBytes = [UInt8](entityNamedExtendedData)
             inputs.append((data: entityNamedExtendedData, bytes: entityNamedExtendedBytes))
             inputStrings.append(htmlEntityNamedExtended)
         }
-        if ampersandHeavyRepeatCount > 0 {
+        if includeBenchmark("ampersand-heavy"), ampersandHeavyRepeatCount > 0 {
             let htmlAmpersandHeavy = buildAmpersandHeavyBenchmarkHTML(repeatCount: ampersandHeavyRepeatCount)
             let ampersandHeavyData = Data(htmlAmpersandHeavy.utf8)
             let ampersandHeavyBytes = [UInt8](ampersandHeavyData)
             inputs.append((data: ampersandHeavyData, bytes: ampersandHeavyBytes))
             inputStrings.append(htmlAmpersandHeavy)
         }
-        if listHeavyRepeatCount > 0 {
+        if includeBenchmark("list-heavy"), listHeavyRepeatCount > 0 {
             let htmlListHeavy = buildListHeavyBenchmarkHTML(repeatCount: listHeavyRepeatCount)
             let listHeavyData = Data(htmlListHeavy.utf8)
             let listHeavyBytes = [UInt8](listHeavyData)
             inputs.append((data: listHeavyData, bytes: listHeavyBytes))
             inputStrings.append(htmlListHeavy)
         }
-        if attributeHeavyRepeatCount > 0 {
+        if includeBenchmark("attribute-heavy"), attributeHeavyRepeatCount > 0 {
             let htmlAttributeHeavy = buildAttributeHeavyBenchmarkHTML(repeatCount: attributeHeavyRepeatCount)
             let attributeHeavyData = Data(htmlAttributeHeavy.utf8)
             let attributeHeavyBytes = [UInt8](attributeHeavyData)
             inputs.append((data: attributeHeavyData, bytes: attributeHeavyBytes))
             inputStrings.append(htmlAttributeHeavy)
         }
-        if attributeMegaRepeatCount > 0 {
+        if includeBenchmark("attribute-mega"), attributeMegaRepeatCount > 0 {
             let htmlAttributeMega = buildAttributeMegaBenchmarkHTML(repeatCount: attributeMegaRepeatCount)
             let attributeMegaData = Data(htmlAttributeMega.utf8)
             let attributeMegaBytes = [UInt8](attributeMegaData)
             inputs.append((data: attributeMegaData, bytes: attributeMegaBytes))
             inputStrings.append(htmlAttributeMega)
         }
-        if attributeStormRepeatCount > 0 {
+        if includeBenchmark("attribute-storm"), attributeStormRepeatCount > 0 {
             let htmlAttributeStorm = buildAttributeStormBenchmarkHTML(repeatCount: attributeStormRepeatCount)
             let attributeStormData = Data(htmlAttributeStorm.utf8)
             let attributeStormBytes = [UInt8](attributeStormData)
             inputs.append((data: attributeStormData, bytes: attributeStormBytes))
             inputStrings.append(htmlAttributeStorm)
         }
-        if queryStringHeavyRepeatCount > 0 {
+        if includeBenchmark("querystring"), queryStringHeavyRepeatCount > 0 {
             let htmlQueryStringHeavy = buildQueryStringHeavyBenchmarkHTML(repeatCount: queryStringHeavyRepeatCount)
             let queryStringData = Data(htmlQueryStringHeavy.utf8)
             let queryStringBytes = [UInt8](queryStringData)
             inputs.append((data: queryStringData, bytes: queryStringBytes))
             inputStrings.append(htmlQueryStringHeavy)
         }
-        if denseTextRepeatCount > 0 {
+        if includeBenchmark("dense-text"), denseTextRepeatCount > 0 {
             let htmlDenseText = buildDenseTextBenchmarkHTML(repeatCount: denseTextRepeatCount)
             let denseTextData = Data(htmlDenseText.utf8)
             let denseTextBytes = [UInt8](denseTextData)
             inputs.append((data: denseTextData, bytes: denseTextBytes))
             inputStrings.append(htmlDenseText)
         }
-        if tableHeavyRepeatCount > 0 {
+        if includeBenchmark("table-heavy"), tableHeavyRepeatCount > 0 {
             let htmlTableHeavy = buildTableHeavyBenchmarkHTML(repeatCount: tableHeavyRepeatCount)
             let tableHeavyData = Data(htmlTableHeavy.utf8)
             let tableHeavyBytes = [UInt8](tableHeavyData)
             inputs.append((data: tableHeavyData, bytes: tableHeavyBytes))
             inputStrings.append(htmlTableHeavy)
         }
-        if dataHeavyRepeatCount > 0 {
+        if includeBenchmark("data-heavy"), dataHeavyRepeatCount > 0 {
             let htmlDataHeavy = buildDataHeavyBenchmarkHTML(repeatCount: dataHeavyRepeatCount)
             let dataHeavyData = Data(htmlDataHeavy.utf8)
             let dataHeavyBytes = [UInt8](dataHeavyData)
             inputs.append((data: dataHeavyData, bytes: dataHeavyBytes))
             inputStrings.append(htmlDataHeavy)
         }
-        if plainTextRepeatCount > 0 {
+        if includeBenchmark("plaintext"), plainTextRepeatCount > 0 {
             let htmlPlainText = buildPlainTextBenchmarkHTML(repeatCount: plainTextRepeatCount)
             let plainTextData = Data(htmlPlainText.utf8)
             let plainTextBytes = [UInt8](plainTextData)
             inputs.append((data: plainTextData, bytes: plainTextBytes))
             inputStrings.append(htmlPlainText)
         }
-        if dataStormRepeatCount > 0 {
+        if includeBenchmark("data-storm"), dataStormRepeatCount > 0 {
             let htmlDataStorm = buildDataStormBenchmarkHTML(repeatCount: dataStormRepeatCount)
             let dataStormData = Data(htmlDataStorm.utf8)
             let dataStormBytes = [UInt8](dataStormData)
             inputs.append((data: dataStormData, bytes: dataStormBytes))
             inputStrings.append(htmlDataStorm)
         }
-        if tagHeavyRepeatCount > 0 {
+        if includeBenchmark("tag-heavy"), tagHeavyRepeatCount > 0 {
             let htmlTagHeavy = buildTagHeavyBenchmarkHTML(repeatCount: tagHeavyRepeatCount)
             let tagHeavyData = Data(htmlTagHeavy.utf8)
             let tagHeavyBytes = [UInt8](tagHeavyData)
             inputs.append((data: tagHeavyData, bytes: tagHeavyBytes))
             inputStrings.append(htmlTagHeavy)
         }
-        if customTagRepeatCount > 0 {
+        if includeBenchmark("custom-tag"), customTagRepeatCount > 0 {
             let htmlCustomTags = buildCustomTagBenchmarkHTML(repeatCount: customTagRepeatCount)
             let customTagData = Data(htmlCustomTags.utf8)
             let customTagBytes = [UInt8](customTagData)
             inputs.append((data: customTagData, bytes: customTagBytes))
             inputStrings.append(htmlCustomTags)
         }
-        if deepNestRepeatCount > 0 {
+        if includeBenchmark("deep-nest"), deepNestRepeatCount > 0 {
             let htmlDeepNest = buildDeepNestingBenchmarkHTML(
                 repeatCount: deepNestRepeatCount,
                 depth: deepNestDepth,
@@ -1467,7 +1471,7 @@ final class BenchmarkProfileTest: XCTestCase {
             inputs.append((data: deepNestData, bytes: deepNestBytes))
             inputStrings.append(htmlDeepNest)
         }
-        if whitespaceHeavyRepeatCount > 0 {
+        if includeBenchmark("whitespace-heavy"), whitespaceHeavyRepeatCount > 0 {
             let htmlWhitespace = buildWhitespaceHeavyBenchmarkHTML(repeatCount: whitespaceHeavyRepeatCount)
             let whitespaceData = Data(htmlWhitespace.utf8)
             let whitespaceBytes = [UInt8](whitespaceData)
@@ -1475,7 +1479,7 @@ final class BenchmarkProfileTest: XCTestCase {
             inputStrings.append(htmlWhitespace)
         }
         let fileLimit = envInt("SWIFTSOUP_BENCHMARK_FILE_LIMIT", 0)
-        if ProcessInfo.processInfo.environment["SWIFTSOUP_BENCHMARK_FILES"] != "0" {
+        if includeBenchmark("files"), ProcessInfo.processInfo.environment["SWIFTSOUP_BENCHMARK_FILES"] != "0" {
             let cwd = FileManager.default.currentDirectoryPath
             let benchmarksURL = URL(fileURLWithPath: cwd).appendingPathComponent("Resources/benchmarks")
             if let files = try? FileManager.default.contentsOfDirectory(at: benchmarksURL, includingPropertiesForKeys: nil),

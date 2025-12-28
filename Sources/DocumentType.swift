@@ -62,6 +62,7 @@ public class DocumentType: Node {
         } catch {}
     }
 
+
     public override func nodeNameUTF8() -> [UInt8] {
         return nodeName().utf8Array
     }

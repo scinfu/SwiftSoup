@@ -83,6 +83,16 @@ open class Element: Node {
     internal var dynamicAttributeValueIndexKeyOrder: [[UInt8]]? = nil
     @usableFromInline
     internal var suppressQueryIndexDirty: Bool = false
+
+    /// Small LRU cache for selector results on this root, invalidated on mutations.
+    @usableFromInline
+    internal static let selectorResultCacheCapacity: Int = 32
+    @usableFromInline
+    internal var selectorResultCache: [String: Elements]? = nil
+    @usableFromInline
+    internal var selectorResultCacheOrder: [String] = []
+    @usableFromInline
+    internal var selectorResultTextVersion: Int = 0
     
     /// Cached normalized text (UTF‑8) for trim+normalize path.
     /// NOTE: Removed text cache; keep no per-node cache state here.
@@ -870,7 +880,7 @@ open class Element: Node {
     
     
     // MARK: DOM type methods
-    
+
     /**
      Finds elements, including and recursively under this element, with the specified tag name.
      - parameter tagName: The tag name to search for (case insensitively).
@@ -1059,7 +1069,6 @@ open class Element: Node {
             rebuildQueryIndexesForAllAttributes()
             isAttributeQueryIndexDirty = false
         }
-        
         let results = normalizedAttributeNameIndex?[key]?.compactMap { $0.value } ?? []
         return Elements(results)
     }
@@ -1613,6 +1622,210 @@ open class Element: Node {
             lastWasWhite: &lastWasWhite
         )
     }
+
+    @inline(__always)
+    private static func lowerAscii(_ byte: UInt8) -> UInt8 {
+        if byte >= 65 && byte <= 90 {
+            return byte &+ 32
+        }
+        return byte
+    }
+
+    private struct AsciiKMPMatcher {
+        let needle: [UInt8]
+        let lps: [Int]
+        var j: Int = 0
+
+        init(_ needle: [UInt8]) {
+            self.needle = needle
+            var lps = [Int](repeating: 0, count: needle.count)
+            var length = 0
+            var i = 1
+            while i < needle.count {
+                if needle[i] == needle[length] {
+                    length += 1
+                    lps[i] = length
+                    i += 1
+                } else if length != 0 {
+                    length = lps[length - 1]
+                } else {
+                    lps[i] = 0
+                    i += 1
+                }
+            }
+            self.lps = lps
+        }
+
+        @inline(__always)
+        mutating func feed(_ byte: UInt8) -> Bool {
+            let c = Element.lowerAscii(byte)
+            while j > 0 && c != needle[j] {
+                j = lps[j - 1]
+            }
+            if c == needle[j] {
+                j += 1
+                if j == needle.count {
+                    return true
+                }
+            }
+            return false
+        }
+    }
+
+    @inline(__always)
+    private static func emitNormalizedSlice(_ slice: ArraySlice<UInt8>,
+                                            stripLeading: Bool,
+                                            emittedAny: inout Bool,
+                                            lastWasWhite: inout Bool,
+                                            matcher: inout AsciiKMPMatcher) -> Bool {
+        var reachedNonWhite = false
+        var i = slice.startIndex
+        let end = slice.endIndex
+        while i < end {
+            let firstByte = slice[i]
+            if firstByte < 0x80 {
+                if StringUtil.isAsciiWhitespaceByte(firstByte) {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i = slice.index(after: i)
+                        continue
+                    }
+                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
+                    lastWasWhite = true
+                    emittedAny = true
+                    i = slice.index(after: i)
+                    continue
+                }
+                var j = i
+                while j < end {
+                    let b = slice[j]
+                    if b >= 0x80 || StringUtil.isAsciiWhitespaceByte(b) {
+                        break
+                    }
+                    if matcher.feed(b) { return true }
+                    j = slice.index(after: j)
+                }
+                if i != j {
+                    emittedAny = true
+                    lastWasWhite = false
+                    reachedNonWhite = true
+                    i = j
+                    continue
+                }
+                i = slice.index(after: i)
+                continue
+            }
+            if firstByte == StringUtil.utf8NBSPLead {
+                let next = slice.index(after: i)
+                if next < end, slice[next] == StringUtil.utf8NBSPTrail {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i = slice.index(after: next)
+                        continue
+                    }
+                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
+                    lastWasWhite = true
+                    emittedAny = true
+                    reachedNonWhite = true
+                    i = slice.index(after: next)
+                    continue
+                }
+            }
+            let scalarByteCount: Int
+            if firstByte < 0xE0 {
+                scalarByteCount = 2
+            } else if firstByte < 0xF0 {
+                scalarByteCount = 3
+            } else {
+                scalarByteCount = 4
+            }
+            var next = i
+            for _ in 0..<scalarByteCount {
+                if next == end { return false }
+                let b = slice[next]
+                if matcher.feed(b) { return true }
+                next = slice.index(after: next)
+            }
+            emittedAny = true
+            lastWasWhite = false
+            reachedNonWhite = true
+            i = next
+        }
+        return false
+    }
+
+    @inline(__always)
+    internal func containsNormalizedTextASCII(_ needleLower: [UInt8]) -> Bool {
+        if needleLower.isEmpty {
+            return true
+        }
+        var matcher = AsciiKMPMatcher(needleLower)
+        var stack: [Node] = []
+        stack.reserveCapacity(childNodes.count + 1)
+        stack.append(self)
+        var lastWasWhite = false
+        var emittedAny = false
+        while let node = stack.popLast() {
+            if let textNode = node as? TextNode {
+                let slice = textNode.wholeTextSlice()
+                let stripLeading = !emittedAny || lastWasWhite
+                if Element.emitNormalizedSlice(slice,
+                                               stripLeading: stripLeading,
+                                               emittedAny: &emittedAny,
+                                               lastWasWhite: &lastWasWhite,
+                                               matcher: &matcher) {
+                    return true
+                }
+                continue
+            }
+            if let element = node as? Element {
+                if emittedAny,
+                   (element.isBlock() || Tag.isBr(element._tag)),
+                   !lastWasWhite {
+                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
+                    emittedAny = true
+                    lastWasWhite = true
+                }
+            }
+            let children = node.childNodes
+            if !children.isEmpty {
+                var i = children.count - 1
+                while i >= 0 {
+                    stack.append(children[i])
+                    i -= 1
+                }
+            }
+        }
+        return false
+    }
+
+    @inline(__always)
+    internal func containsOwnTextASCII(_ needleLower: [UInt8]) -> Bool {
+        if needleLower.isEmpty {
+            return true
+        }
+        var matcher = AsciiKMPMatcher(needleLower)
+        var lastWasWhite = false
+        var emittedAny = false
+        for child in childNodes {
+            if let textNode = child as? TextNode {
+                let slice = textNode.wholeTextSlice()
+                let stripLeading = !emittedAny || lastWasWhite
+                if Element.emitNormalizedSlice(slice,
+                                               stripLeading: stripLeading,
+                                               emittedAny: &emittedAny,
+                                               lastWasWhite: &lastWasWhite,
+                                               matcher: &matcher) {
+                    return true
+                }
+            } else if let element = child as? Element {
+                if emittedAny, Tag.isBr(element._tag), !lastWasWhite {
+                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
+                    emittedAny = true
+                    lastWasWhite = true
+                }
+            }
+        }
+        return false
+    }
     
     private static func appendWhitespaceIfBr(_ element: Element, _ accum: StringBuilder) {
         if (Tag.isBr(element._tag) && !TextNode.lastCharIsWhitespace(accum)) {
@@ -2143,6 +2356,7 @@ internal extension Element {
                 el.isIdQueryIndexDirty = true
                 el.isAttributeQueryIndexDirty = true
                 el.isAttributeValueQueryIndexDirty = true
+                el.invalidateSelectorResultCache()
             }
             current = node.parentNode
         }
@@ -2156,6 +2370,7 @@ internal extension Element {
         while let node = current {
             if let el = node as? Element {
                 el.isTagQueryIndexDirty = true
+                el.invalidateSelectorResultCache()
             }
             current = node.parentNode
         }
@@ -2169,6 +2384,7 @@ internal extension Element {
         while let node = current {
             if let el = node as? Element {
                 el.isClassQueryIndexDirty = true
+                el.invalidateSelectorResultCache()
             }
             current = node.parentNode
         }
@@ -2182,6 +2398,7 @@ internal extension Element {
         while let node = current {
             if let el = node as? Element {
                 el.isIdQueryIndexDirty = true
+                el.invalidateSelectorResultCache()
             }
             current = node.parentNode
         }
@@ -2195,6 +2412,7 @@ internal extension Element {
         while let node = current {
             if let el = node as? Element {
                 el.isAttributeQueryIndexDirty = true
+                el.invalidateSelectorResultCache()
             }
             current = node.parentNode
         }
@@ -2208,6 +2426,7 @@ internal extension Element {
         while let node = current {
             if let el = node as? Element {
                 el.isAttributeValueQueryIndexDirty = true
+                el.invalidateSelectorResultCache()
             }
             current = node.parentNode
         }
@@ -2219,6 +2438,53 @@ internal extension Element {
         let normalizedKey = key.lowercased()
         if Element.isHotAttributeKey(normalizedKey) {
             markAttributeValueQueryIndexDirty()
+        }
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func cachedSelectorResult(_ query: String) -> Elements? {
+        guard let cache = selectorResultCache else { return nil }
+        let currentTextVersion = textMutationVersionToken()
+        if currentTextVersion != selectorResultTextVersion {
+            invalidateSelectorResultCache()
+            selectorResultTextVersion = currentTextVersion
+            return nil
+        }
+        return cache[query]
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func storeSelectorResult(_ query: String, _ result: Elements) {
+        if selectorResultCache == nil {
+            selectorResultCache = [:]
+            selectorResultCacheOrder = []
+        }
+        selectorResultTextVersion = textMutationVersionToken()
+        if selectorResultCache![query] != nil {
+            return
+        }
+        selectorResultCache![query] = result
+        selectorResultCacheOrder.append(query)
+        let capacity = Element.selectorResultCacheCapacity
+        if selectorResultCacheOrder.count > capacity {
+            let overflow = selectorResultCacheOrder.count - capacity
+            if overflow > 0 {
+                for _ in 0..<overflow {
+                    let removedKey = selectorResultCacheOrder.removeFirst()
+                    selectorResultCache?.removeValue(forKey: removedKey)
+                }
+            }
+        }
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func invalidateSelectorResultCache() {
+        if selectorResultCache != nil {
+            selectorResultCache = nil
+            selectorResultCacheOrder.removeAll(keepingCapacity: true)
         }
     }
     
@@ -2390,9 +2656,11 @@ internal extension Element {
                 DebugTrace.log("rebuildQueryIndexesCombined: attrs for \(element.tagName())")
                 if let attrs = element.attributes {
                     attrs.ensureMaterialized()
+                    let lowerKeys = attrs.hasUppercaseKeys
                     for attr in attrs.attributes {
                         DebugTrace.log("rebuildQueryIndexesCombined: attr key \(String(decoding: attr.getKeyUTF8(), as: UTF8.self))")
-                        let key = attr.getKeyUTF8().lowercased()
+                        let keyBytes = attr.getKeyUTF8()
+                        let key = lowerKeys ? keyBytes.lowercased() : keyBytes
                         if needsAttributes {
                             attributeIndex[key, default: []].append(Weak(element))
                         }
@@ -2584,8 +2852,10 @@ internal extension Element {
         traverseElementsDepthFirst { element in
             if let attrs = element.attributes {
                 attrs.ensureMaterialized()
+                let lowerKeys = attrs.hasUppercaseKeys
                 for attr in attrs.attributes {
-                    let key = attr.getKeyUTF8().lowercased()
+                    let keyBytes = attr.getKeyUTF8()
+                    let key = lowerKeys ? keyBytes.lowercased() : keyBytes
                     newIndex[key, default: []].append(Weak(element))
                 }
             }
@@ -2625,8 +2895,10 @@ internal extension Element {
         traverseElementsDepthFirst { element in
             if let attrs = element.getAttributes() {
                 attrs.ensureMaterialized()
+                let lowerKeys = attrs.hasUppercaseKeys
                 for attr in attrs.attributes {
-                    let key = attr.getKeyUTF8().lowercased()
+                    let keyBytes = attr.getKeyUTF8()
+                    let key = lowerKeys ? keyBytes.lowercased() : keyBytes
                     guard Element.isHotAttributeKey(key) || (dynamicKeys?.contains(key) ?? false) else { continue }
                     let value = attr.getValueUTF8().trim().lowercased()
                     var valueIndex = newIndex[key] ?? [:]

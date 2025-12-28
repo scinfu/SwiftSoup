@@ -325,7 +325,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
             func anyOtherEndTag(_ t: Token, _ tb: HtmlTreeBuilder) -> Bool {
                 let endTag = t.asEndTag()
-                let useCurrentTagIdFastPath = Constants.useCurrentTagIdFastPath
                 if let tagName = endTag.tagIdName() {
                     let tagId = endTag.tagId
                     if let current = tb.currentElement(), current._tag.tagId == tagId {
@@ -336,60 +335,31 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         tb.popStackToClose(tagName)
                         return true
                     }
-                    let stack: Array<Element> = Constants.useDirectStackAccess ? tb.stack : tb.getStack()
-                    if Constants.useInBodyReverseStackIndexFastPath {
-                        var i = stack.count
-                        while i > 0 {
-                            i -= 1
-                            let node = stack[i]
-                            if node._tag.tagId == tagId {
-                                tb.generateImpliedEndTags(tagName)
-                                if useCurrentTagIdFastPath {
-                                    if let currentTagId = tb.currentElement()?._tag.tagId, currentTagId != tagId {
-                                        tb.error(self)
-                                    }
-                                } else if let currentName = tb.currentElement()?.nodeNameUTF8(),
-                                          !currentName.equals(tagName) {
-                                    tb.error(self)
-                                }
-                                if Constants.InBodyEndAdoptionFormatters.containsTagId(tagId) {
-                                    tb.removeFromActiveFormattingElements(node)
-                                }
-                                tb.popStackToClose(tagName)
-                                break
-                            } else if (tb.isSpecial(node)) {
+                    let stack: Array<Element> = tb.stack
+                    var i = stack.count
+                    while i > 0 {
+                        i -= 1
+                        let node = stack[i]
+                        if node._tag.tagId == tagId {
+                            tb.generateImpliedEndTags(tagName)
+                            if let currentTagId = tb.currentElement()?._tag.tagId, currentTagId != tagId {
                                 tb.error(self)
-                                return false
                             }
-                        }
-                    } else {
-                        for node in stack.reversed() {
-                            if node._tag.tagId == tagId {
-                                tb.generateImpliedEndTags(tagName)
-                                if useCurrentTagIdFastPath {
-                                    if let currentTagId = tb.currentElement()?._tag.tagId, currentTagId != tagId {
-                                        tb.error(self)
-                                    }
-                                } else if let currentName = tb.currentElement()?.nodeNameUTF8(),
-                                          !currentName.equals(tagName) {
-                                    tb.error(self)
-                                }
-                                if Constants.InBodyEndAdoptionFormatters.containsTagId(tagId) {
-                                    tb.removeFromActiveFormattingElements(node)
-                                }
-                                tb.popStackToClose(tagName)
-                                break
-                            } else if (tb.isSpecial(node)) {
-                                tb.error(self)
-                                return false
+                            if Constants.InBodyEndAdoptionFormatters.containsTagId(tagId) {
+                                tb.removeFromActiveFormattingElements(node)
                             }
+                            tb.popStackToClose(tagName)
+                            break
+                        } else if (tb.isSpecial(node)) {
+                            tb.error(self)
+                            return false
                         }
                     }
                     return true
                 }
                 guard let nameSlice = endTag.normalNameSlice() else { return true }
                 let tagId: Token.Tag.TagId?
-                if Constants.useInBodyEndTagReuseTagIdFastPath, endTag.tagId != .none {
+                if endTag.tagId != .none {
                     tagId = endTag.tagId
                 } else {
                     tagId = Token.Tag.tagIdForSlice(nameSlice)
@@ -404,87 +374,38 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     tb.popStackToClose(tagName)
                     return true
                 }
-                let stack: Array<Element> = Constants.useDirectStackAccess ? tb.stack : tb.getStack()
-                if Constants.useInBodyReverseStackIndexFastPath {
-                    var i = stack.count
-                    while i > 0 {
-                        i -= 1
-                        let node = stack[i]
-                        if let tagId, let tagName, node._tag.tagId == tagId {
-                            tb.generateImpliedEndTags(tagName)
-                            if useCurrentTagIdFastPath {
-                                if let currentTagId = tb.currentElement()?._tag.tagId, currentTagId != tagId {
-                                    tb.error(self)
-                                }
-                            } else if let currentName = tb.currentElement()?.nodeNameUTF8(),
-                                      !equalsSlice(currentName, nameSlice) {
-                                tb.error(self)
-                            }
-                            if Constants.InBodyEndAdoptionFormatters.containsTagId(tagId) {
-                                tb.removeFromActiveFormattingElements(node)
-                            }
-                            tb.popStackToClose(tagName)
-                            break
-                        }
-                        let nodeName = node.nodeNameUTF8()
-                        if equalsSlice(nodeName, nameSlice) {
-                            tb.generateImpliedEndTags(nodeName)
-                            if useCurrentTagIdFastPath, let tagId {
-                                if let currentTagId = tb.currentElement()?._tag.tagId, currentTagId != tagId {
-                                    tb.error(self)
-                                }
-                            } else if let currentName = tb.currentElement()?.nodeNameUTF8(),
-                                      !equalsSlice(currentName, nameSlice) {
-                                tb.error(self)
-                            }
-                            if Constants.InBodyEndAdoptionFormatters.contains(nodeName) {
-                                tb.removeFromActiveFormattingElements(node)
-                            }
-                            tb.popStackToClose(nodeName)
-                            break
-                        } else if (tb.isSpecial(node)) {
+                let stack: Array<Element> = tb.stack
+                var i = stack.count
+                while i > 0 {
+                    i -= 1
+                    let node = stack[i]
+                    if let tagId, let tagName, node._tag.tagId == tagId {
+                        tb.generateImpliedEndTags(tagName)
+                        if let currentTagId = tb.currentElement()?._tag.tagId, currentTagId != tagId {
                             tb.error(self)
-                            return false
                         }
+                        if Constants.InBodyEndAdoptionFormatters.containsTagId(tagId) {
+                            tb.removeFromActiveFormattingElements(node)
+                        }
+                        tb.popStackToClose(tagName)
+                        break
                     }
-                } else {
-                    for node in stack.reversed() {
-                        if let tagId, let tagName, node._tag.tagId == tagId {
-                            tb.generateImpliedEndTags(tagName)
-                            if useCurrentTagIdFastPath {
-                                if let currentTagId = tb.currentElement()?._tag.tagId, currentTagId != tagId {
-                                    tb.error(self)
-                                }
-                            } else if let currentName = tb.currentElement()?.nodeNameUTF8(),
-                                      !equalsSlice(currentName, nameSlice) {
-                                tb.error(self)
-                            }
-                            if Constants.InBodyEndAdoptionFormatters.containsTagId(tagId) {
-                                tb.removeFromActiveFormattingElements(node)
-                            }
-                            tb.popStackToClose(tagName)
-                            break
-                        }
-                        let nodeName = node.nodeNameUTF8()
-                        if equalsSlice(nodeName, nameSlice) {
-                            tb.generateImpliedEndTags(nodeName)
-                            if useCurrentTagIdFastPath, let tagId {
-                                if let currentTagId = tb.currentElement()?._tag.tagId, currentTagId != tagId {
-                                    tb.error(self)
-                                }
-                            } else if let currentName = tb.currentElement()?.nodeNameUTF8(),
-                                      !equalsSlice(currentName, nameSlice) {
-                                tb.error(self)
-                            }
-                            if Constants.InBodyEndAdoptionFormatters.contains(nodeName) {
-                                tb.removeFromActiveFormattingElements(node)
-                            }
-                            tb.popStackToClose(nodeName)
-                            break
-                        } else if (tb.isSpecial(node)) {
+                    let nodeName = node.nodeNameUTF8()
+                    if equalsSlice(nodeName, nameSlice) {
+                        tb.generateImpliedEndTags(nodeName)
+                        if let tagId,
+                           let currentTagId = tb.currentElement()?._tag.tagId,
+                           currentTagId != tagId {
                             tb.error(self)
-                            return false
                         }
+                        if Constants.InBodyEndAdoptionFormatters.contains(nodeName) {
+                            tb.removeFromActiveFormattingElements(node)
+                        }
+                        tb.popStackToClose(nodeName)
+                        break
+                    } else if (tb.isSpecial(node)) {
+                        tb.error(self)
+                        return false
                     }
                 }
                 return true
@@ -493,7 +414,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             @inline(__always)
             func anyOtherEndTagFast(_ name: [UInt8], _ tb: HtmlTreeBuilder) -> Bool {
                 let tagId = Token.Tag.tagIdForBytes(name)
-                let useCurrentTagIdFastPath = Constants.useCurrentTagIdFastPath
                 if let tagId, let current = tb.currentElement(), current._tag.tagId == tagId {
                     tb.generateImpliedEndTags(name)
                     if Constants.InBodyEndAdoptionFormatters.containsTagId(tagId) {
@@ -502,81 +422,38 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     tb.popStackToClose(name)
                     return true
                 }
-                let stack: Array<Element> = Constants.useDirectStackAccess ? tb.stack : tb.getStack()
-                if Constants.useInBodyReverseStackIndexFastPath {
-                    var i = stack.count
-                    while i > 0 {
-                        i -= 1
-                        let node = stack[i]
-                        if let tagId {
-                            if node._tag.tagId == tagId {
-                                tb.generateImpliedEndTags(name)
-                                if useCurrentTagIdFastPath {
-                                    if let currentTagId = tb.currentElement()?._tag.tagId, currentTagId != tagId {
-                                        tb.error(self)
-                                    }
-                                } else if let currentName = tb.currentElement()?.nodeNameUTF8(),
-                                          !currentName.equals(name) {
-                                    tb.error(self)
-                                }
-                                if Constants.InBodyEndAdoptionFormatters.containsTagId(tagId) {
-                                    tb.removeFromActiveFormattingElements(node)
-                                }
-                                tb.popStackToClose(name)
-                                break
-                            }
-                        } else if node.nodeNameUTF8().equals(name) {
+                let stack: Array<Element> = tb.stack
+                var i = stack.count
+                while i > 0 {
+                    i -= 1
+                    let node = stack[i]
+                    if let tagId {
+                        if node._tag.tagId == tagId {
                             tb.generateImpliedEndTags(name)
-                            if let currentName = tb.currentElement()?.nodeNameUTF8(),
-                               !currentName.equals(name) {
+                            if let currentTagId = tb.currentElement()?._tag.tagId, currentTagId != tagId {
                                 tb.error(self)
                             }
-                            if Constants.InBodyEndAdoptionFormatters.contains(name) {
+                            if Constants.InBodyEndAdoptionFormatters.containsTagId(tagId) {
                                 tb.removeFromActiveFormattingElements(node)
                             }
                             tb.popStackToClose(name)
                             break
                         }
-                        if (tb.isSpecial(node)) {
+                    } else if node.nodeNameUTF8().equals(name) {
+                        tb.generateImpliedEndTags(name)
+                        if let currentName = tb.currentElement()?.nodeNameUTF8(),
+                           !currentName.equals(name) {
                             tb.error(self)
-                            return false
                         }
+                        if Constants.InBodyEndAdoptionFormatters.contains(name) {
+                            tb.removeFromActiveFormattingElements(node)
+                        }
+                        tb.popStackToClose(name)
+                        break
                     }
-                } else {
-                    for node in stack.reversed() {
-                        if let tagId {
-                            if node._tag.tagId == tagId {
-                                tb.generateImpliedEndTags(name)
-                                if useCurrentTagIdFastPath {
-                                    if let currentTagId = tb.currentElement()?._tag.tagId, currentTagId != tagId {
-                                        tb.error(self)
-                                    }
-                                } else if let currentName = tb.currentElement()?.nodeNameUTF8(),
-                                          !currentName.equals(name) {
-                                    tb.error(self)
-                                }
-                                if Constants.InBodyEndAdoptionFormatters.containsTagId(tagId) {
-                                    tb.removeFromActiveFormattingElements(node)
-                                }
-                                tb.popStackToClose(name)
-                                break
-                            }
-                        } else if node.nodeNameUTF8().equals(name) {
-                            tb.generateImpliedEndTags(name)
-                            if let currentName = tb.currentElement()?.nodeNameUTF8(),
-                               !currentName.equals(name) {
-                                tb.error(self)
-                            }
-                            if Constants.InBodyEndAdoptionFormatters.contains(name) {
-                                tb.removeFromActiveFormattingElements(node)
-                            }
-                            tb.popStackToClose(name)
-                            break
-                        }
-                        if (tb.isSpecial(node)) {
-                            tb.error(self)
-                            return false
-                        }
+                    if (tb.isSpecial(node)) {
+                        tb.error(self)
+                        return false
                     }
                 }
                 return true
@@ -584,6 +461,10 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
             switch (t.type) {
             case Token.TokenType.Char:
+#if PROFILE
+                let _pChar = Profiler.start("HtmlTreeBuilderState.InBody.char")
+                defer { Profiler.end("HtmlTreeBuilderState.InBody.char", _pChar) }
+#endif
                 let c: Token.Char = t.asCharacter()
                 let data = c.getDataSlice()
                 if let data, data.count == 1, data.first == 0x00 {
@@ -592,7 +473,19 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     return false
                 }
                 let wasFramesetOk = tb.framesetOk()
-                let isWhitespace = wasFramesetOk ? HtmlTreeBuilderState.isWhitespace(data) : false
+                let isWhitespace: Bool
+                if wasFramesetOk, let data {
+                    if data.count == 1 {
+                        isWhitespace = HtmlTreeBuilderState.whitespaceTable[Int(data.first!)]
+                    } else if let first = data.first,
+                              !HtmlTreeBuilderState.whitespaceTable[Int(first)] {
+                        isWhitespace = false
+                    } else {
+                        isWhitespace = HtmlTreeBuilderState.isWhitespace(data)
+                    }
+                } else {
+                    isWhitespace = false
+                }
                 if tb.lastFormattingElement() != nil {
                     try tb.reconstructFormattingElements()
                 }
@@ -608,9 +501,12 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 tb.error(self)
                 return false
             case Token.TokenType.StartTag:
+#if PROFILE
+                let _pStart = Profiler.start("HtmlTreeBuilderState.InBody.startTag")
+                defer { Profiler.end("HtmlTreeBuilderState.InBody.startTag", _pStart) }
+#endif
                 let startTag: Token.StartTag = t.asStartTag()
-                let useCurrentTagIdFastPath = Constants.useCurrentTagIdFastPath
-                let currentTagId = useCurrentTagIdFastPath ? tb.currentElement()?._tag.tagId : nil
+                let currentTagId = tb.currentElement()?._tag.tagId
                 var hasFormatting = false
                 var hasFormattingChecked = false
                 @inline(__always)
@@ -620,9 +516,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         hasFormattingChecked = true
                     }
                     return hasFormatting
-                }
-                if startTag.tagId == .none {
-                    _ = startTag.normalNameSlice()
                 }
                 switch startTag.tagId {
                 case .a:
@@ -658,58 +551,32 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 case .li:
                     tb.framesetOk(false)
                     var didCloseLi = false
-                    if Constants.useInBodyStackTopCloseFastPath,
-                       let currentTagId, currentTagId == .li {
+                    if let currentTagId, currentTagId == .li {
                         try tb.processEndTag(UTF8Arrays.li)
                         didCloseLi = true
                     }
                     if !didCloseLi {
-                        let stack: Array<Element> = Constants.useDirectStackAccess ? tb.stack : tb.getStack()
-                        let useStackTagIdFastPath = Constants.useInBodyStackTagIdFastPath
-                        if Constants.useInBodyReverseStackIndexFastPath {
-                            var i = stack.count
-                            while i > 1 {
-                                i -= 1
-                                let el: Element = stack[i]
-                                let tagId = el._tag.tagId
-                                if useStackTagIdFastPath, tagId != .none {
-                                    if tagId == .li {
-                                        try tb.processEndTag(UTF8Arrays.li)
-                                        break
-                                    }
-                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.containsTagId(tagId)) {
-                                        break
-                                    }
-                                } else {
-                                    if el.nodeNameUTF8().equals(UTF8Arrays.li) {
-                                        try tb.processEndTag(UTF8Arrays.li)
-                                        break
-                                    }
-                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
-                                        break
-                                    }
+                        let stack: Array<Element> = tb.stack
+                        var i = stack.count
+                        while i > 1 {
+                            i -= 1
+                            let el: Element = stack[i]
+                            let tagId = el._tag.tagId
+                            if tagId != .none {
+                                if tagId == .li {
+                                    try tb.processEndTag(UTF8Arrays.li)
+                                    break
                                 }
-                            }
-                        } else {
-                            for i in (1..<stack.count).reversed() {
-                                let el: Element = stack[i]
-                                let tagId = el._tag.tagId
-                                if useStackTagIdFastPath, tagId != .none {
-                                    if tagId == .li {
-                                        try tb.processEndTag(UTF8Arrays.li)
-                                        break
-                                    }
-                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.containsTagId(tagId)) {
-                                        break
-                                    }
-                                } else {
-                                    if el.nodeNameUTF8().equals(UTF8Arrays.li) {
-                                        try tb.processEndTag(UTF8Arrays.li)
-                                        break
-                                    }
-                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
-                                        break
-                                    }
+                                if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.containsTagId(tagId)) {
+                                    break
+                                }
+                            } else {
+                                if el.nodeNameUTF8().equals(UTF8Arrays.li) {
+                                    try tb.processEndTag(UTF8Arrays.li)
+                                    break
+                                }
+                                if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
+                                    break
                                 }
                             }
                         }
@@ -729,8 +596,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 case .dd, .dt:
                     tb.framesetOk(false)
                     var didCloseDdDt = false
-                    if Constants.useInBodyStackTopCloseFastPath,
-                       let currentTagId,
+                    if let currentTagId,
                        currentTagId == .dd || currentTagId == .dt {
                         if currentTagId == .dd {
                             try tb.processEndTag(UTF8Arrays.dd)
@@ -740,52 +606,27 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         didCloseDdDt = true
                     }
                     if !didCloseDdDt {
-                        let stack: Array<Element> = Constants.useDirectStackAccess ? tb.stack : tb.getStack()
-                        let useStackTagIdFastPath = Constants.useInBodyStackTagIdFastPath
-                        if Constants.useInBodyReverseStackIndexFastPath {
-                            var i = stack.count
-                            while i > 1 {
-                                i -= 1
-                                let el: Element = stack[i]
-                                let tagId = el._tag.tagId
-                                if useStackTagIdFastPath, tagId != .none {
-                                    if tagId == .dd || tagId == .dt {
-                                        try tb.processEndTag(el.nodeNameUTF8())
-                                        break
-                                    }
-                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.containsTagId(tagId)) {
-                                        break
-                                    }
-                                } else {
-                                    if tagId == .dd || tagId == .dt || Constants.DdDt.contains(el.nodeNameUTF8()) {
-                                        try tb.processEndTag(el.nodeNameUTF8())
-                                        break
-                                    }
-                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
-                                        break
-                                    }
+                        let stack: Array<Element> = tb.stack
+                        var i = stack.count
+                        while i > 1 {
+                            i -= 1
+                            let el: Element = stack[i]
+                            let tagId = el._tag.tagId
+                            if tagId != .none {
+                                if tagId == .dd || tagId == .dt {
+                                    try tb.processEndTag(el.nodeNameUTF8())
+                                    break
                                 }
-                            }
-                        } else {
-                            for i in (1..<stack.count).reversed() {
-                                let el: Element = stack[i]
-                                let tagId = el._tag.tagId
-                                if useStackTagIdFastPath, tagId != .none {
-                                    if tagId == .dd || tagId == .dt {
-                                        try tb.processEndTag(el.nodeNameUTF8())
-                                        break
-                                    }
-                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.containsTagId(tagId)) {
-                                        break
-                                    }
-                                } else {
-                                    if tagId == .dd || tagId == .dt || Constants.DdDt.contains(el.nodeNameUTF8()) {
-                                        try tb.processEndTag(el.nodeNameUTF8())
-                                        break
-                                    }
-                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
-                                        break
-                                    }
+                                if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.containsTagId(tagId)) {
+                                    break
+                                }
+                            } else {
+                                if tagId == .dd || tagId == .dt || Constants.DdDt.contains(el.nodeNameUTF8()) {
+                                    try tb.processEndTag(el.nodeNameUTF8())
+                                    break
+                                }
+                                if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
+                                    break
                                 }
                             }
                         }
@@ -810,12 +651,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         try tb.processEndTag(UTF8Arrays.p)
 
                     }
-                    if useCurrentTagIdFastPath {
-                        if let currentTagId, Constants.Headings.containsTagId(currentTagId) {
-                            tb.error(self)
-                            tb.pop()
-                        }
-                    } else if (tb.currentElement() != nil && Constants.Headings.contains(tb.currentElement()!.nodeNameUTF8())) {
+                    if let currentTagId, Constants.Headings.containsTagId(currentTagId) {
                         tb.error(self)
                         tb.pop()
                     }
@@ -842,12 +678,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 case .rp, .rt:
                     if (try tb.inScope(UTF8Arrays.ruby)) {
                         tb.generateImpliedEndTags()
-                        if useCurrentTagIdFastPath {
-                            if let currentTagId, currentTagId != .ruby {
-                                tb.error(self)
-                                tb.popStackToBefore(UTF8Arrays.ruby) // i.e. close up to but not include name
-                            }
-                        } else if tb.currentElement() != nil && !(tb.currentElement()!.nodeNameUTF8() == UTF8Arrays.ruby) {
+                        if let currentTagId, currentTagId != .ruby {
                             tb.error(self)
                             tb.popStackToBefore(UTF8Arrays.ruby) // i.e. close up to but not include name
                         }
@@ -926,11 +757,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     try tb.insert(startTag)
                     tb.tokeniser.transition(.PLAINTEXT)
                 case .option, .optgroup:
-                    if useCurrentTagIdFastPath {
-                        if let currentTagId, currentTagId == .option {
-                            try tb.processEndTag(UTF8Arrays.option)
-                        }
-                    } else if tb.currentElement() != nil && tb.currentElement()!.nodeNameUTF8() == UTF8Arrays.option {
+                    if let currentTagId, currentTagId == .option {
                         try tb.processEndTag(UTF8Arrays.option)
                     }
                     if ensureHasFormatting() {
@@ -941,52 +768,27 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     @inline(__always)
                     func handleLiStart() throws {
                         tb.framesetOk(false)
-                        let stack: Array<Element> = Constants.useDirectStackAccess ? tb.stack : tb.getStack()
-                        let useStackTagIdFastPath = Constants.useInBodyStackTagIdFastPath
-                        if Constants.useInBodyReverseStackIndexFastPath {
-                            var i = stack.count
-                            while i > 1 {
-                                i -= 1
-                                let el: Element = stack[i]
-                                let tagId = el._tag.tagId
-                                if useStackTagIdFastPath, tagId != .none {
-                                    if tagId == .li {
-                                        try tb.processEndTag(UTF8Arrays.li)
-                                        break
-                                    }
-                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.containsTagId(tagId)) {
-                                        break
-                                    }
-                                } else {
-                                    if el.nodeNameUTF8().equals(UTF8Arrays.li) {
-                                        try tb.processEndTag(UTF8Arrays.li)
-                                        break
-                                    }
-                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
-                                        break
-                                    }
+                        let stack: Array<Element> = tb.stack
+                        var i = stack.count
+                        while i > 1 {
+                            i -= 1
+                            let el: Element = stack[i]
+                            let tagId = el._tag.tagId
+                            if tagId != .none {
+                                if tagId == .li {
+                                    try tb.processEndTag(UTF8Arrays.li)
+                                    break
                                 }
-                            }
-                        } else {
-                            for i in (1..<stack.count).reversed() {
-                                let el: Element = stack[i]
-                                let tagId = el._tag.tagId
-                                if useStackTagIdFastPath, tagId != .none {
-                                    if tagId == .li {
-                                        try tb.processEndTag(UTF8Arrays.li)
-                                        break
-                                    }
-                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.containsTagId(tagId)) {
-                                        break
-                                    }
-                                } else {
-                                    if el.nodeNameUTF8().equals(UTF8Arrays.li) {
-                                        try tb.processEndTag(UTF8Arrays.li)
-                                        break
-                                    }
-                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
-                                        break
-                                    }
+                                if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.containsTagId(tagId)) {
+                                    break
+                                }
+                            } else {
+                                if el.nodeNameUTF8().equals(UTF8Arrays.li) {
+                                    try tb.processEndTag(UTF8Arrays.li)
+                                    break
+                                }
+                                if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
+                                    break
                                 }
                             }
                         }
@@ -998,32 +800,30 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
                     @inline(__always)
                     func handleTagIdStart(_ tagId: Token.Tag.TagId) throws -> Bool? {
-                        if Constants.useInBodyStartStructuralTagIdFastPath {
-                            if tagId == .form {
-                                if tb.getFormElement() != nil {
-                                    tb.error(self)
-                                    return false
-                                }
-                                if (try tb.inButtonScope(UTF8Arrays.p)) {
-                                    try tb.processEndTag(UTF8Arrays.p)
-                                }
-                                try tb.insertForm(startTag, false)
-                                tb.framesetOk(false)
-                                return true
+                        if tagId == .form {
+                            if tb.getFormElement() != nil {
+                                tb.error(self)
+                                return false
                             }
-                            if tagId == .table {
-                                if (try tb.inButtonScope(UTF8Arrays.p)) {
-                                    try tb.processEndTag(UTF8Arrays.p)
-                                }
-                                try tb.insert(startTag)
-                                tb.framesetOk(false)
-                                tb.transition(.InTable)
-                                return true
+                            if (try tb.inButtonScope(UTF8Arrays.p)) {
+                                try tb.processEndTag(UTF8Arrays.p)
                             }
-                            if tagId == .li {
-                                try handleLiStart()
-                                return true
+                            try tb.insertForm(startTag, false)
+                            tb.framesetOk(false)
+                            return true
+                        }
+                        if tagId == .table {
+                            if (try tb.inButtonScope(UTF8Arrays.p)) {
+                                try tb.processEndTag(UTF8Arrays.p)
                             }
+                            try tb.insert(startTag)
+                            tb.framesetOk(false)
+                            tb.transition(.InTable)
+                            return true
+                        }
+                        if tagId == .li {
+                            try handleLiStart()
+                            return true
                         }
                         if Constants.Formatters.containsTagId(tagId) {
                             if ensureHasFormatting() {
@@ -1059,12 +859,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 try tb.processEndTag(UTF8Arrays.p)
 
                             }
-                            if useCurrentTagIdFastPath {
-                                if let currentTagId, Constants.Headings.containsTagId(currentTagId) {
-                                    tb.error(self)
-                                    tb.pop()
-                                }
-                            } else if (tb.currentElement() != nil && Constants.Headings.contains(tb.currentElement()!.nodeNameUTF8())) {
+                            if let currentTagId, Constants.Headings.containsTagId(currentTagId) {
                                 tb.error(self)
                                 tb.pop()
                             }
@@ -1096,11 +891,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             return true
                         }
                         if Constants.InBodyStartOptions.containsTagId(tagId) {
-                            if useCurrentTagIdFastPath {
-                                if let currentTagId, currentTagId == .option {
-                                    try tb.processEndTag(UTF8Arrays.option)
-                                }
-                            } else if tb.currentElement() != nil && tb.currentElement()!.nodeNameUTF8() == UTF8Arrays.option {
+                            if let currentTagId, currentTagId == .option {
                                 try tb.processEndTag(UTF8Arrays.option)
                             }
                             if ensureHasFormatting() {
@@ -1112,12 +903,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         if Constants.InBodyStartRuby.containsTagId(tagId) {
                             if (try tb.inScope(UTF8Arrays.ruby)) {
                                 tb.generateImpliedEndTags()
-                                if useCurrentTagIdFastPath {
-                                    if let currentTagId, currentTagId != .ruby {
-                                        tb.error(self)
-                                        tb.popStackToBefore(UTF8Arrays.ruby) // i.e. close up to but not include name
-                                    }
-                                } else if tb.currentElement() != nil && !(tb.currentElement()!.nodeNameUTF8() == UTF8Arrays.ruby) {
+                                if let currentTagId, currentTagId != .ruby {
                                     tb.error(self)
                                     tb.popStackToBefore(UTF8Arrays.ruby) // i.e. close up to but not include name
                                 }
@@ -1133,13 +919,11 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     }
 
                     var nameSlice: ArraySlice<UInt8>? = nil
-                    if Constants.useInBodyTagIdFastPath {
-                        if startTag.tagId == .none {
-                            nameSlice = startTag.normalNameSlice()
-                        }
-                        if startTag.tagId != .none, let handled = try handleTagIdStart(startTag.tagId) {
-                            return handled
-                        }
+                    if startTag.tagId == .none {
+                        nameSlice = startTag.normalNameSlice()
+                    }
+                    if startTag.tagId != .none, let handled = try handleTagIdStart(startTag.tagId) {
+                        return handled
                     }
                     if nameSlice == nil {
                         nameSlice = startTag.normalNameSlice()
@@ -1193,12 +977,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 try tb.processEndTag(UTF8Arrays.p)
 
                             }
-                            if useCurrentTagIdFastPath {
-                                if let currentTagId, Constants.Headings.containsTagId(currentTagId) {
-                                    tb.error(self)
-                                    tb.pop()
-                                }
-                            } else if (tb.currentElement() != nil && Constants.Headings.contains(tb.currentElement()!.nodeNameUTF8())) {
+                            if let currentTagId, Constants.Headings.containsTagId(currentTagId) {
                                 tb.error(self)
                                 tb.pop()
                             }
@@ -1216,52 +995,27 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             try handleLiStart()
                         } else if Constants.DdDt.contains(nameSlice) {
                             tb.framesetOk(false)
-                            let stack: Array<Element> = Constants.useDirectStackAccess ? tb.stack : tb.getStack()
-                            let useStackTagIdFastPath = Constants.useInBodyStackTagIdFastPath
-                            if Constants.useInBodyReverseStackIndexFastPath {
-                                var i = stack.count
-                                while i > 1 {
-                                    i -= 1
-                                    let el: Element = stack[i]
-                                    let tagId = el._tag.tagId
-                                    if useStackTagIdFastPath, tagId != .none {
-                                        if tagId == .dd || tagId == .dt {
-                                            try tb.processEndTag(el.nodeNameUTF8())
-                                            break
-                                        }
-                                        if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.containsTagId(tagId)) {
-                                            break
-                                        }
-                                    } else {
-                                        if Constants.DdDt.contains(el.nodeNameUTF8()) {
-                                            try tb.processEndTag(el.nodeNameUTF8())
-                                            break
-                                        }
-                                        if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
-                                            break
-                                        }
+                            let stack: Array<Element> = tb.stack
+                            var i = stack.count
+                            while i > 1 {
+                                i -= 1
+                                let el: Element = stack[i]
+                                let tagId = el._tag.tagId
+                                if tagId != .none {
+                                    if tagId == .dd || tagId == .dt {
+                                        try tb.processEndTag(el.nodeNameUTF8())
+                                        break
                                     }
-                                }
-                            } else {
-                                for i in (1..<stack.count).reversed() {
-                                    let el: Element = stack[i]
-                                    let tagId = el._tag.tagId
-                                    if useStackTagIdFastPath, tagId != .none {
-                                        if tagId == .dd || tagId == .dt {
-                                            try tb.processEndTag(el.nodeNameUTF8())
-                                            break
-                                        }
-                                        if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.containsTagId(tagId)) {
-                                            break
-                                        }
-                                    } else {
-                                        if Constants.DdDt.contains(el.nodeNameUTF8()) {
-                                            try tb.processEndTag(el.nodeNameUTF8())
-                                            break
-                                        }
-                                        if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
-                                            break
-                                        }
+                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.containsTagId(tagId)) {
+                                        break
+                                    }
+                                } else {
+                                    if Constants.DdDt.contains(el.nodeNameUTF8()) {
+                                        try tb.processEndTag(el.nodeNameUTF8())
+                                        break
+                                    }
+                                    if (tb.isSpecial(el) && !Constants.InBodyStartLiBreakers.contains(el.nodeNameUTF8())) {
+                                        break
                                     }
                                 }
                             }
@@ -1281,11 +1035,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         } else if Constants.InBodyStartMedia.contains(nameSlice) {
                             try tb.insertEmpty(startTag)
                         } else if Constants.InBodyStartOptions.contains(nameSlice) {
-                            if useCurrentTagIdFastPath {
-                                if let currentTagId, currentTagId == .option {
-                                    try tb.processEndTag(UTF8Arrays.option)
-                                }
-                            } else if tb.currentElement() != nil && tb.currentElement()!.nodeNameUTF8() == UTF8Arrays.option {
+                            if let currentTagId, currentTagId == .option {
                                 try tb.processEndTag(UTF8Arrays.option)
                             }
                             if ensureHasFormatting() {
@@ -1295,12 +1045,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         } else if Constants.InBodyStartRuby.contains(nameSlice) {
                             if (try tb.inScope(UTF8Arrays.ruby)) {
                                 tb.generateImpliedEndTags()
-                                if useCurrentTagIdFastPath {
-                                    if let currentTagId, currentTagId != .ruby {
-                                        tb.error(self)
-                                        tb.popStackToBefore(UTF8Arrays.ruby) // i.e. close up to but not include name
-                                    }
-                                } else if tb.currentElement() != nil && !(tb.currentElement()!.nodeNameUTF8() == UTF8Arrays.ruby) {
+                                if let currentTagId, currentTagId != .ruby {
                                     tb.error(self)
                                     tb.popStackToBefore(UTF8Arrays.ruby) // i.e. close up to but not include name
                                 }
@@ -1327,9 +1072,12 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 break
 
             case .EndTag:
+#if PROFILE
+                let _pEnd = Profiler.start("HtmlTreeBuilderState.InBody.endTag")
+                defer { Profiler.end("HtmlTreeBuilderState.InBody.endTag", _pEnd) }
+#endif
                 let endTag: Token.EndTag = t.asEndTag()
-                let useCurrentTagIdFastPath = Constants.useCurrentTagIdFastPath
-                let currentTagId = useCurrentTagIdFastPath ? tb.currentElement()?._tag.tagId : nil
+                let currentTagId = tb.currentElement()?._tag.tagId
                 var adoptionName: [UInt8]? = nil
                 switch endTag.tagId {
                 case .a:
@@ -1386,7 +1134,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         var furthestBlock: Element? = nil
                         var commonAncestor: Element? = nil
                         var seenFormattingElement: Bool = false
-                        let stack: Array<Element> = Constants.useDirectStackAccess ? tb.stack : tb.getStack()
+                        let stack: Array<Element> = tb.stack
                         // the spec doesn't limit to < 64, but in degenerate cases (9000+ stack depth) self prevents
                         // run-aways
                         var stackSize = stack.count
@@ -1479,11 +1227,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             return false
                         } else {
                             tb.generateImpliedEndTags()
-                            if useCurrentTagIdFastPath {
-                                if currentTagId != .div {
-                                    tb.error(self)
-                                }
-                            } else if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(UTF8Arrays.div)) {
+                            if let currentTagId, currentTagId != .div {
                                 tb.error(self)
                             }
                             tb.popStackToClose(UTF8Arrays.div)
@@ -1495,11 +1239,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             return false
                         } else {
                             tb.generateImpliedEndTags(UTF8Arrays.li)
-                            if useCurrentTagIdFastPath {
-                                if currentTagId != .li {
-                                    tb.error(self)
-                                }
-                            } else if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(UTF8Arrays.li)) {
+                            if let currentTagId, currentTagId != .li {
                                 tb.error(self)
                             }
                             tb.popStackToClose(UTF8Arrays.li)
@@ -1528,11 +1268,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             return false
                         } else {
                             tb.generateImpliedEndTags()
-                            if useCurrentTagIdFastPath {
-                                if currentTagId != .form {
-                                    tb.error(self)
-                                }
-                            } else if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(UTF8Arrays.form)) {
+                            if let currentTagId, currentTagId != .form {
                                 tb.error(self)
                             }
                             // remove currentForm from stack. will shift anything under up.
@@ -1546,11 +1282,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             return try tb.process(endTag)
                         } else {
                             tb.generateImpliedEndTags(UTF8Arrays.p)
-                            if useCurrentTagIdFastPath {
-                                if currentTagId != .p {
-                                    tb.error(self)
-                                }
-                            } else if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(UTF8Arrays.p)) {
+                            if let currentTagId, currentTagId != .p {
                                 tb.error(self)
                             }
                             tb.popStackToClose(UTF8Arrays.p)
@@ -1559,7 +1291,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     default:
                         break
                     }
-                    if Constants.useInBodyEndTagIdFastPath, endTag.tagId != .none, let name = endTag.tagIdName() {
+                    if endTag.tagId != .none, let name = endTag.tagIdName() {
                         let tagId = endTag.tagId
                         if Constants.InBodyEndClosers.containsTagId(tagId) {
                             if (try !tb.inScope(name)) {
@@ -1568,11 +1300,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 return false
                             } else {
                                 tb.generateImpliedEndTags()
-                                if useCurrentTagIdFastPath {
-                                    if currentTagId != tagId {
-                                        tb.error(self)
-                                    }
-                                } else if (!tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                                if let currentTagId, currentTagId != tagId {
                                     tb.error(self)
                                 }
                                 tb.popStackToClose(name)
@@ -1583,11 +1311,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 return false
                             } else {
                                 tb.generateImpliedEndTags(name)
-                                if useCurrentTagIdFastPath {
-                                    if currentTagId != tagId {
-                                        tb.error(self)
-                                    }
-                                } else if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                                if let currentTagId, currentTagId != tagId {
                                     tb.error(self)
                                 }
                                 tb.popStackToClose(name)
@@ -1598,11 +1322,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 return false
                             } else {
                                 tb.generateImpliedEndTags(name)
-                                if useCurrentTagIdFastPath {
-                                    if currentTagId != tagId {
-                                        tb.error(self)
-                                    }
-                                } else if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                                if let currentTagId, currentTagId != tagId {
                                     tb.error(self)
                                 }
                                 tb.popStackToClose(Constants.Headings)
@@ -1614,11 +1334,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                     return false
                                 }
                                 tb.generateImpliedEndTags()
-                                if useCurrentTagIdFastPath {
-                                    if currentTagId != tagId {
-                                        tb.error(self)
-                                    }
-                                } else if (tb.currentElement() != nil && !tb.currentElement()!.nodeNameUTF8().equals(name)) {
+                                if let currentTagId, currentTagId != tagId {
                                     tb.error(self)
                                 }
                                 tb.popStackToClose(name)
@@ -2782,6 +2498,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
     }
 
+    @inline(__always)
     internal static func isWhitespace(_ t: Token) -> Bool {
         if (t.isCharacter()) {
             let data = t.asCharacter().getDataSlice()
@@ -2790,10 +2507,14 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         return false
     }
 
+    @inline(__always)
     internal static func isWhitespace(_ data: ArraySlice<UInt8>?) -> Bool {
         guard let data else { return true }
         if data.isEmpty { return true }
         let table = HtmlTreeBuilderState.whitespaceTable
+        if let first = data.first, !table[Int(first)] {
+            return false
+        }
         var it = data.startIndex
         while it < data.endIndex {
             if !table[Int(data[it])] {
@@ -2804,10 +2525,14 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         return true
     }
 
+    @inline(__always)
     internal static func isWhitespace(_ data: [UInt8]?) -> Bool {
         guard let data else { return true }
         if data.isEmpty { return true }
         let table = HtmlTreeBuilderState.whitespaceTable
+        if let first = data.first, !table[Int(first)] {
+            return false
+        }
         var i = 0
         while i < data.count {
             if !table[Int(data[i])] {
@@ -2835,15 +2560,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     // lists of tags to search through. A little harder to read here, but causes less GC than dynamic varargs.
     // was contributing around 10% of parse GC load.
     fileprivate final class Constants {
-        fileprivate static let useInBodyTagIdFastPath = true
-        fileprivate static let useInBodyEndTagIdFastPath = true
-        fileprivate static let useInBodyEndTagReuseTagIdFastPath = true
-        fileprivate static let useInBodyStartStructuralTagIdFastPath = true
-        fileprivate static let useCurrentTagIdFastPath = true
-        fileprivate static let useInBodyStackTagIdFastPath = true
-        fileprivate static let useDirectStackAccess = true
-        fileprivate static let useInBodyReverseStackIndexFastPath = true
-        fileprivate static let useInBodyStackTopCloseFastPath = true
         fileprivate static let InBodyStartToHead = ParsingStrings(["base", "basefont", "bgsound", "command", "link", "meta", "noframes", "script", "style", "title"])
         fileprivate static let InBodyStartPClosers = ParsingStrings(["address", "article", "aside", "blockquote", "center", "details", "dir", "div", "dl",
                                                                 "fieldset", "figcaption", "figure", "footer", "header", "hgroup", "menu", "nav", "ol",

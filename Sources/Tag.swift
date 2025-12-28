@@ -219,173 +219,94 @@ open class Tag: Hashable, @unchecked Sendable {
 
     @inline(__always)
     internal static func valueOfTagId(_ tagId: Token.Tag.TagId) -> Tag? {
-        switch tagId {
-        case .a:
-            return tagA
-        case .span:
-            return tagSpan
-        case .p:
-            return tagP
-        case .div:
-            return tagDiv
-        case .em:
-            return tagEm
-        case .strong:
-            return tagStrong
-        case .b:
-            return tagB
-        case .i:
-            return tagI
-        case .small:
-            return tagSmall
-        case .li:
-            return tagLi
-        case .body:
-            return tagBody
-        case .html:
-            return tagHtml
-        case .head:
-            return tagHead
-        case .title:
-            return tagTitle
-        case .form:
-            return tagForm
-        case .br:
-            return tagBr
-        case .meta:
-            return tagMeta
-        case .img:
-            return tagImg
-        case .script:
-            return tagScript
-        case .style:
-            return tagStyle
-        case .caption:
-            return tagCaption
-        case .col:
-            return tagCol
-        case .colgroup:
-            return tagColgroup
-        case .table:
-            return tagTable
-        case .tbody:
-            return tagTbody
-        case .thead:
-            return tagThead
-        case .tfoot:
-            return tagTfoot
-        case .tr:
-            return tagTr
-        case .td:
-            return tagTd
-        case .th:
-            return tagTh
-        case .input:
-            return tagInput
-        case .hr:
-            return tagHr
-        case .select:
-            return tagSelect
-        case .option:
-            return tagOption
-        case .optgroup:
-            return tagOptgroup
-        case .textarea:
-            return tagTextarea
-        case .noscript:
-            return tagNoscript
-        case .noframes:
-            return tagNoframes
-        case .plaintext:
-            return tagPlaintext
-        case .button:
-            return tagButton
-        case .base:
-            return tagBase
-        case .frame:
-            return tagFrame
-        case .frameset:
-            return tagFrameset
-        case .iframe:
-            return tagIframe
-        case .noembed:
-            return tagNoembed
-        case .embed:
-            return tagEmbed
-        case .dd:
-            return tagDd
-        case .dt:
-            return tagDt
-        case .dl:
-            return tagDl
-        case .ol:
-            return tagOl
-        case .ul:
-            return tagUl
-        case .pre:
-            return tagPre
-        case .listing:
-            return tagListing
-        case .address:
-            return tagAddress
-        case .article:
-            return tagArticle
-        case .aside:
-            return tagAside
-        case .blockquote:
-            return tagBlockquote
-        case .center:
-            return tagCenter
-        case .dir:
-            return tagDir
-        case .fieldset:
-            return tagFieldset
-        case .figcaption:
-            return tagFigcaption
-        case .figure:
-            return tagFigure
-        case .footer:
-            return tagFooter
-        case .header:
-            return tagHeader
-        case .hgroup:
-            return tagHgroup
-        case .menu:
-            return tagMenu
-        case .nav:
-            return tagNav
-        case .section:
-            return tagSection
-        case .summary:
-            return tagSummary
-        case .h1:
-            return tagH1
-        case .h2:
-            return tagH2
-        case .h3:
-            return tagH3
-        case .h4:
-            return tagH4
-        case .h5:
-            return tagH5
-        case .h6:
-            return tagH6
-        case .applet:
-            return tagApplet
-        case .marquee:
-            return tagMarquee
-        case .object:
-            return tagObject
-        case .ruby:
-            return tagRuby
-        case .rp:
-            return tagRp
-        case .rt:
-            return tagRt
-        case .none:
-            return nil
-        }
+        return tagIdLookup[Int(tagId.rawValue)]
     }
+
+    private static let tagIdLookup: [Tag?] = {
+        var lookup = [Tag?](repeating: nil, count: Int(Token.Tag.TagId.rt.rawValue) + 1)
+        lookup[Int(Token.Tag.TagId.a.rawValue)] = tagA
+        lookup[Int(Token.Tag.TagId.span.rawValue)] = tagSpan
+        lookup[Int(Token.Tag.TagId.p.rawValue)] = tagP
+        lookup[Int(Token.Tag.TagId.div.rawValue)] = tagDiv
+        lookup[Int(Token.Tag.TagId.em.rawValue)] = tagEm
+        lookup[Int(Token.Tag.TagId.strong.rawValue)] = tagStrong
+        lookup[Int(Token.Tag.TagId.b.rawValue)] = tagB
+        lookup[Int(Token.Tag.TagId.i.rawValue)] = tagI
+        lookup[Int(Token.Tag.TagId.small.rawValue)] = tagSmall
+        lookup[Int(Token.Tag.TagId.li.rawValue)] = tagLi
+        lookup[Int(Token.Tag.TagId.body.rawValue)] = tagBody
+        lookup[Int(Token.Tag.TagId.html.rawValue)] = tagHtml
+        lookup[Int(Token.Tag.TagId.head.rawValue)] = tagHead
+        lookup[Int(Token.Tag.TagId.title.rawValue)] = tagTitle
+        lookup[Int(Token.Tag.TagId.form.rawValue)] = tagForm
+        lookup[Int(Token.Tag.TagId.br.rawValue)] = tagBr
+        lookup[Int(Token.Tag.TagId.meta.rawValue)] = tagMeta
+        lookup[Int(Token.Tag.TagId.img.rawValue)] = tagImg
+        lookup[Int(Token.Tag.TagId.script.rawValue)] = tagScript
+        lookup[Int(Token.Tag.TagId.style.rawValue)] = tagStyle
+        lookup[Int(Token.Tag.TagId.caption.rawValue)] = tagCaption
+        lookup[Int(Token.Tag.TagId.col.rawValue)] = tagCol
+        lookup[Int(Token.Tag.TagId.colgroup.rawValue)] = tagColgroup
+        lookup[Int(Token.Tag.TagId.table.rawValue)] = tagTable
+        lookup[Int(Token.Tag.TagId.tbody.rawValue)] = tagTbody
+        lookup[Int(Token.Tag.TagId.thead.rawValue)] = tagThead
+        lookup[Int(Token.Tag.TagId.tfoot.rawValue)] = tagTfoot
+        lookup[Int(Token.Tag.TagId.tr.rawValue)] = tagTr
+        lookup[Int(Token.Tag.TagId.td.rawValue)] = tagTd
+        lookup[Int(Token.Tag.TagId.th.rawValue)] = tagTh
+        lookup[Int(Token.Tag.TagId.input.rawValue)] = tagInput
+        lookup[Int(Token.Tag.TagId.hr.rawValue)] = tagHr
+        lookup[Int(Token.Tag.TagId.select.rawValue)] = tagSelect
+        lookup[Int(Token.Tag.TagId.option.rawValue)] = tagOption
+        lookup[Int(Token.Tag.TagId.optgroup.rawValue)] = tagOptgroup
+        lookup[Int(Token.Tag.TagId.textarea.rawValue)] = tagTextarea
+        lookup[Int(Token.Tag.TagId.noscript.rawValue)] = tagNoscript
+        lookup[Int(Token.Tag.TagId.noframes.rawValue)] = tagNoframes
+        lookup[Int(Token.Tag.TagId.plaintext.rawValue)] = tagPlaintext
+        lookup[Int(Token.Tag.TagId.button.rawValue)] = tagButton
+        lookup[Int(Token.Tag.TagId.base.rawValue)] = tagBase
+        lookup[Int(Token.Tag.TagId.frame.rawValue)] = tagFrame
+        lookup[Int(Token.Tag.TagId.frameset.rawValue)] = tagFrameset
+        lookup[Int(Token.Tag.TagId.iframe.rawValue)] = tagIframe
+        lookup[Int(Token.Tag.TagId.noembed.rawValue)] = tagNoembed
+        lookup[Int(Token.Tag.TagId.embed.rawValue)] = tagEmbed
+        lookup[Int(Token.Tag.TagId.dd.rawValue)] = tagDd
+        lookup[Int(Token.Tag.TagId.dt.rawValue)] = tagDt
+        lookup[Int(Token.Tag.TagId.dl.rawValue)] = tagDl
+        lookup[Int(Token.Tag.TagId.ol.rawValue)] = tagOl
+        lookup[Int(Token.Tag.TagId.ul.rawValue)] = tagUl
+        lookup[Int(Token.Tag.TagId.pre.rawValue)] = tagPre
+        lookup[Int(Token.Tag.TagId.listing.rawValue)] = tagListing
+        lookup[Int(Token.Tag.TagId.address.rawValue)] = tagAddress
+        lookup[Int(Token.Tag.TagId.article.rawValue)] = tagArticle
+        lookup[Int(Token.Tag.TagId.aside.rawValue)] = tagAside
+        lookup[Int(Token.Tag.TagId.blockquote.rawValue)] = tagBlockquote
+        lookup[Int(Token.Tag.TagId.center.rawValue)] = tagCenter
+        lookup[Int(Token.Tag.TagId.dir.rawValue)] = tagDir
+        lookup[Int(Token.Tag.TagId.fieldset.rawValue)] = tagFieldset
+        lookup[Int(Token.Tag.TagId.figcaption.rawValue)] = tagFigcaption
+        lookup[Int(Token.Tag.TagId.figure.rawValue)] = tagFigure
+        lookup[Int(Token.Tag.TagId.footer.rawValue)] = tagFooter
+        lookup[Int(Token.Tag.TagId.header.rawValue)] = tagHeader
+        lookup[Int(Token.Tag.TagId.hgroup.rawValue)] = tagHgroup
+        lookup[Int(Token.Tag.TagId.menu.rawValue)] = tagMenu
+        lookup[Int(Token.Tag.TagId.nav.rawValue)] = tagNav
+        lookup[Int(Token.Tag.TagId.section.rawValue)] = tagSection
+        lookup[Int(Token.Tag.TagId.summary.rawValue)] = tagSummary
+        lookup[Int(Token.Tag.TagId.h1.rawValue)] = tagH1
+        lookup[Int(Token.Tag.TagId.h2.rawValue)] = tagH2
+        lookup[Int(Token.Tag.TagId.h3.rawValue)] = tagH3
+        lookup[Int(Token.Tag.TagId.h4.rawValue)] = tagH4
+        lookup[Int(Token.Tag.TagId.h5.rawValue)] = tagH5
+        lookup[Int(Token.Tag.TagId.h6.rawValue)] = tagH6
+        lookup[Int(Token.Tag.TagId.applet.rawValue)] = tagApplet
+        lookup[Int(Token.Tag.TagId.marquee.rawValue)] = tagMarquee
+        lookup[Int(Token.Tag.TagId.object.rawValue)] = tagObject
+        lookup[Int(Token.Tag.TagId.ruby.rawValue)] = tagRuby
+        lookup[Int(Token.Tag.TagId.rp.rawValue)] = tagRp
+        lookup[Int(Token.Tag.TagId.rt.rawValue)] = tagRt
+        return lookup
+    }()
 
     @inline(__always)
     internal static func isBr(_ tag: Tag) -> Bool {

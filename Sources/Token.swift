@@ -764,173 +764,94 @@ open class Token {
 
         @inline(__always)
         static func tagIdName(_ tagId: TagId) -> [UInt8]? {
-            switch tagId {
-            case .none:
-                return nil
-            case .a:
-                return UTF8Arrays.a
-            case .span:
-                return UTF8Arrays.span
-            case .p:
-                return UTF8Arrays.p
-            case .div:
-                return UTF8Arrays.div
-            case .em:
-                return UTF8Arrays.em
-            case .strong:
-                return UTF8Arrays.strong
-            case .b:
-                return UTF8Arrays.b
-            case .i:
-                return UTF8Arrays.i
-            case .small:
-                return UTF8Arrays.small
-            case .li:
-                return UTF8Arrays.li
-            case .body:
-                return UTF8Arrays.body
-            case .html:
-                return UTF8Arrays.html
-            case .head:
-                return UTF8Arrays.head
-            case .title:
-                return UTF8Arrays.title
-            case .form:
-                return UTF8Arrays.form
-            case .br:
-                return UTF8Arrays.br
-            case .meta:
-                return UTF8Arrays.meta
-            case .img:
-                return UTF8Arrays.img
-            case .script:
-                return UTF8Arrays.script
-            case .style:
-                return UTF8Arrays.style
-            case .caption:
-                return UTF8Arrays.caption
-            case .col:
-                return UTF8Arrays.col
-            case .colgroup:
-                return UTF8Arrays.colgroup
-            case .table:
-                return UTF8Arrays.table
-            case .tbody:
-                return UTF8Arrays.tbody
-            case .thead:
-                return UTF8Arrays.thead
-            case .tfoot:
-                return UTF8Arrays.tfoot
-            case .tr:
-                return UTF8Arrays.tr
-            case .td:
-                return UTF8Arrays.td
-            case .th:
-                return UTF8Arrays.th
-            case .input:
-                return UTF8Arrays.input
-            case .hr:
-                return UTF8Arrays.hr
-            case .select:
-                return UTF8Arrays.select
-            case .option:
-                return UTF8Arrays.option
-            case .optgroup:
-                return UTF8Arrays.optgroup
-            case .textarea:
-                return UTF8Arrays.textarea
-            case .noscript:
-                return UTF8Arrays.noscript
-            case .noframes:
-                return UTF8Arrays.noframes
-            case .plaintext:
-                return UTF8Arrays.plaintext
-            case .button:
-                return UTF8Arrays.button
-            case .base:
-                return UTF8Arrays.base
-            case .frame:
-                return UTF8Arrays.frame
-            case .frameset:
-                return UTF8Arrays.frameset
-            case .iframe:
-                return UTF8Arrays.iframe
-            case .noembed:
-                return UTF8Arrays.noembed
-            case .embed:
-                return UTF8Arrays.embed
-            case .dd:
-                return UTF8Arrays.dd
-            case .dt:
-                return UTF8Arrays.dt
-            case .dl:
-                return UTF8Arrays.dl
-            case .ol:
-                return UTF8Arrays.ol
-            case .ul:
-                return UTF8Arrays.ul
-            case .pre:
-                return UTF8Arrays.pre
-            case .listing:
-                return UTF8Arrays.listing
-            case .address:
-                return UTF8Arrays.address
-            case .article:
-                return UTF8Arrays.article
-            case .aside:
-                return UTF8Arrays.aside
-            case .blockquote:
-                return UTF8Arrays.blockquote
-            case .center:
-                return UTF8Arrays.center
-            case .dir:
-                return UTF8Arrays.dir
-            case .fieldset:
-                return UTF8Arrays.fieldset
-            case .figcaption:
-                return UTF8Arrays.figcaption
-            case .figure:
-                return UTF8Arrays.figure
-            case .footer:
-                return UTF8Arrays.footer
-            case .header:
-                return UTF8Arrays.header
-            case .hgroup:
-                return UTF8Arrays.hgroup
-            case .menu:
-                return UTF8Arrays.menu
-            case .nav:
-                return UTF8Arrays.nav
-            case .section:
-                return UTF8Arrays.section
-            case .summary:
-                return UTF8Arrays.summary
-            case .h1:
-                return UTF8Arrays.h1
-            case .h2:
-                return UTF8Arrays.h2
-            case .h3:
-                return UTF8Arrays.h3
-            case .h4:
-                return UTF8Arrays.h4
-            case .h5:
-                return UTF8Arrays.h5
-            case .h6:
-                return UTF8Arrays.h6
-            case .applet:
-                return UTF8Arrays.applet
-            case .marquee:
-                return UTF8Arrays.marquee
-            case .object:
-                return UTF8Arrays.object
-            case .ruby:
-                return UTF8Arrays.ruby
-            case .rp:
-                return UTF8Arrays.rp
-            case .rt:
-                return UTF8Arrays.rt
-            }
+            return tagIdNameLookup[Int(tagId.rawValue)]
         }
+
+        private static let tagIdNameLookup: [[UInt8]?] = {
+            var lookup = [[UInt8]?](repeating: nil, count: Int(TagId.rt.rawValue) + 1)
+            lookup[Int(TagId.a.rawValue)] = UTF8Arrays.a
+            lookup[Int(TagId.span.rawValue)] = UTF8Arrays.span
+            lookup[Int(TagId.p.rawValue)] = UTF8Arrays.p
+            lookup[Int(TagId.div.rawValue)] = UTF8Arrays.div
+            lookup[Int(TagId.em.rawValue)] = UTF8Arrays.em
+            lookup[Int(TagId.strong.rawValue)] = UTF8Arrays.strong
+            lookup[Int(TagId.b.rawValue)] = UTF8Arrays.b
+            lookup[Int(TagId.i.rawValue)] = UTF8Arrays.i
+            lookup[Int(TagId.small.rawValue)] = UTF8Arrays.small
+            lookup[Int(TagId.li.rawValue)] = UTF8Arrays.li
+            lookup[Int(TagId.body.rawValue)] = UTF8Arrays.body
+            lookup[Int(TagId.html.rawValue)] = UTF8Arrays.html
+            lookup[Int(TagId.head.rawValue)] = UTF8Arrays.head
+            lookup[Int(TagId.title.rawValue)] = UTF8Arrays.title
+            lookup[Int(TagId.form.rawValue)] = UTF8Arrays.form
+            lookup[Int(TagId.br.rawValue)] = UTF8Arrays.br
+            lookup[Int(TagId.meta.rawValue)] = UTF8Arrays.meta
+            lookup[Int(TagId.img.rawValue)] = UTF8Arrays.img
+            lookup[Int(TagId.script.rawValue)] = UTF8Arrays.script
+            lookup[Int(TagId.style.rawValue)] = UTF8Arrays.style
+            lookup[Int(TagId.caption.rawValue)] = UTF8Arrays.caption
+            lookup[Int(TagId.col.rawValue)] = UTF8Arrays.col
+            lookup[Int(TagId.colgroup.rawValue)] = UTF8Arrays.colgroup
+            lookup[Int(TagId.table.rawValue)] = UTF8Arrays.table
+            lookup[Int(TagId.tbody.rawValue)] = UTF8Arrays.tbody
+            lookup[Int(TagId.thead.rawValue)] = UTF8Arrays.thead
+            lookup[Int(TagId.tfoot.rawValue)] = UTF8Arrays.tfoot
+            lookup[Int(TagId.tr.rawValue)] = UTF8Arrays.tr
+            lookup[Int(TagId.td.rawValue)] = UTF8Arrays.td
+            lookup[Int(TagId.th.rawValue)] = UTF8Arrays.th
+            lookup[Int(TagId.input.rawValue)] = UTF8Arrays.input
+            lookup[Int(TagId.hr.rawValue)] = UTF8Arrays.hr
+            lookup[Int(TagId.select.rawValue)] = UTF8Arrays.select
+            lookup[Int(TagId.option.rawValue)] = UTF8Arrays.option
+            lookup[Int(TagId.optgroup.rawValue)] = UTF8Arrays.optgroup
+            lookup[Int(TagId.textarea.rawValue)] = UTF8Arrays.textarea
+            lookup[Int(TagId.noscript.rawValue)] = UTF8Arrays.noscript
+            lookup[Int(TagId.noframes.rawValue)] = UTF8Arrays.noframes
+            lookup[Int(TagId.plaintext.rawValue)] = UTF8Arrays.plaintext
+            lookup[Int(TagId.button.rawValue)] = UTF8Arrays.button
+            lookup[Int(TagId.base.rawValue)] = UTF8Arrays.base
+            lookup[Int(TagId.frame.rawValue)] = UTF8Arrays.frame
+            lookup[Int(TagId.frameset.rawValue)] = UTF8Arrays.frameset
+            lookup[Int(TagId.iframe.rawValue)] = UTF8Arrays.iframe
+            lookup[Int(TagId.noembed.rawValue)] = UTF8Arrays.noembed
+            lookup[Int(TagId.embed.rawValue)] = UTF8Arrays.embed
+            lookup[Int(TagId.dd.rawValue)] = UTF8Arrays.dd
+            lookup[Int(TagId.dt.rawValue)] = UTF8Arrays.dt
+            lookup[Int(TagId.dl.rawValue)] = UTF8Arrays.dl
+            lookup[Int(TagId.ol.rawValue)] = UTF8Arrays.ol
+            lookup[Int(TagId.ul.rawValue)] = UTF8Arrays.ul
+            lookup[Int(TagId.pre.rawValue)] = UTF8Arrays.pre
+            lookup[Int(TagId.listing.rawValue)] = UTF8Arrays.listing
+            lookup[Int(TagId.address.rawValue)] = UTF8Arrays.address
+            lookup[Int(TagId.article.rawValue)] = UTF8Arrays.article
+            lookup[Int(TagId.aside.rawValue)] = UTF8Arrays.aside
+            lookup[Int(TagId.blockquote.rawValue)] = UTF8Arrays.blockquote
+            lookup[Int(TagId.center.rawValue)] = UTF8Arrays.center
+            lookup[Int(TagId.dir.rawValue)] = UTF8Arrays.dir
+            lookup[Int(TagId.fieldset.rawValue)] = UTF8Arrays.fieldset
+            lookup[Int(TagId.figcaption.rawValue)] = UTF8Arrays.figcaption
+            lookup[Int(TagId.figure.rawValue)] = UTF8Arrays.figure
+            lookup[Int(TagId.footer.rawValue)] = UTF8Arrays.footer
+            lookup[Int(TagId.header.rawValue)] = UTF8Arrays.header
+            lookup[Int(TagId.hgroup.rawValue)] = UTF8Arrays.hgroup
+            lookup[Int(TagId.menu.rawValue)] = UTF8Arrays.menu
+            lookup[Int(TagId.nav.rawValue)] = UTF8Arrays.nav
+            lookup[Int(TagId.section.rawValue)] = UTF8Arrays.section
+            lookup[Int(TagId.summary.rawValue)] = UTF8Arrays.summary
+            lookup[Int(TagId.h1.rawValue)] = UTF8Arrays.h1
+            lookup[Int(TagId.h2.rawValue)] = UTF8Arrays.h2
+            lookup[Int(TagId.h3.rawValue)] = UTF8Arrays.h3
+            lookup[Int(TagId.h4.rawValue)] = UTF8Arrays.h4
+            lookup[Int(TagId.h5.rawValue)] = UTF8Arrays.h5
+            lookup[Int(TagId.h6.rawValue)] = UTF8Arrays.h6
+            lookup[Int(TagId.applet.rawValue)] = UTF8Arrays.applet
+            lookup[Int(TagId.marquee.rawValue)] = UTF8Arrays.marquee
+            lookup[Int(TagId.object.rawValue)] = UTF8Arrays.object
+            lookup[Int(TagId.ruby.rawValue)] = UTF8Arrays.ruby
+            lookup[Int(TagId.rp.rawValue)] = UTF8Arrays.rp
+            lookup[Int(TagId.rt.rawValue)] = UTF8Arrays.rt
+            return lookup
+        }()
 
         @inline(__always)
         private func ensureTagName() {

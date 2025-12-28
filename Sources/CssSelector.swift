@@ -115,12 +115,19 @@ open class CssSelector {
      */
     public static func select(_ query: String, _ root: Element)throws->Elements {
         DebugTrace.log("CssSelector.select(query): \(query)")
+        if let cached = root.cachedSelectorResult(query) {
+            DebugTrace.log("CssSelector.select(query): selector cache hit")
+            return cached
+        }
         if let fast = try fastSelectQuery(query, root) {
             DebugTrace.log("CssSelector.select(query): fast path hit")
+            root.storeSelectorResult(query, fast)
             return fast
         }
         DebugTrace.log("CssSelector.select(query): slow path")
-        return try CssSelector(query, root).select()
+        let result = try CssSelector(query, root).select()
+        root.storeSelectorResult(query, result)
+        return result
     }
 
     /**
@@ -143,11 +150,23 @@ open class CssSelector {
      */
     public static func select(_ query: String, _ roots: Array<Element>)throws->Elements {
         try Validate.notEmpty(string: query.utf8Array)
+        if roots.count == 1, let root = roots.first {
+            if let cached = root.cachedSelectorResult(query) {
+                return cached
+            }
+        }
         if let fast = try fastSelectQuery(query, roots) {
+            if roots.count == 1, let root = roots.first {
+                root.storeSelectorResult(query, fast)
+            }
             return fast
         }
         let evaluator: Evaluator = try cachedEvaluator(query)
-        return try self.select(evaluator, roots)
+        let result = try self.select(evaluator, roots)
+        if roots.count == 1, let root = roots.first {
+            root.storeSelectorResult(query, result)
+        }
+        return result
     }
 
     /**

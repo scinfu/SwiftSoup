@@ -182,6 +182,11 @@ final class Tokeniser {
     private let trackSourceRanges: Bool
     private let trackErrors: Bool
     let trackAttributes: Bool
+
+    @inline(__always)
+    func isTrackingSourceRanges() -> Bool {
+        return trackSourceRanges
+    }
     
     init(_ reader: CharacterReader, _ errors: ParseErrorList?, _ settings: ParseSettings? = nil) {
         self.reader = reader
@@ -205,6 +210,12 @@ final class Tokeniser {
     @inline(__always)
     func currentByte() -> UInt8? {
         return reader.currentByte()
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal var readerRef: CharacterReader {
+        return reader
     }
 
     @inline(__always)
@@ -402,7 +413,7 @@ final class Tokeniser {
                 return
             }
             let dataStart = reader.pos
-            let data = reader.consumeData()
+            let data = remaining >= 128 ? reader.consumeDataFastNoNull() : reader.consumeData()
             if !data.isEmpty {
                 let dataEnd = reader.pos
                 emitRaw(data, start: dataStart, end: dataEnd)
@@ -541,7 +552,7 @@ final class Tokeniser {
                 try handleDataStateDelimiter()
                 return
             }
-            let data = reader.consumeData()
+            let data = remaining >= 128 ? reader.consumeDataFastNoNull() : reader.consumeData()
             if !data.isEmpty {
                 emitInputSlice(data)
                 return
@@ -668,6 +679,12 @@ final class Tokeniser {
         } else {
             pendingCharRange = nil
         }
+        emitInputSlice(str)
+    }
+
+    @inline(__always)
+    func emitRaw(_ str: ArraySlice<UInt8>) {
+        pendingCharRange = nil
         emitInputSlice(str)
     }
     
@@ -881,6 +898,45 @@ final class Tokeniser {
             if first == TokeniserStateVars.lowerXByte || first == TokeniserStateVars.upperXByte {
                 isHexMode = true
                 i &+= 1
+            }
+            if !isHexMode {
+                let maxIndex = end &- 1
+                if i <= maxIndex {
+                    let d1 = reader.input[i]
+                    if d1 >= 0x30 && d1 <= 0x39 {
+                        if i + 1 <= maxIndex {
+                            let d2 = reader.input[i + 1]
+                            if d2 >= 0x30 && d2 <= 0x39 {
+                                if i + 2 <= maxIndex {
+                                    let d3 = reader.input[i + 2]
+                                    if d3 == TokeniserStateVars.semicolonByte {
+                                        let value = Int(d1 - 0x30) * 10 + Int(d2 - 0x30)
+                                        reader.pos = i + 2
+                                        reader.advanceAscii()
+                                        return Self.numericCharRefCache[value]
+                                    }
+                                    if d3 >= 0x30 && d3 <= 0x39, i + 3 <= maxIndex,
+                                       reader.input[i + 3] == TokeniserStateVars.semicolonByte {
+                                        let value = Int(d1 - 0x30) * 100 +
+                                            Int(d2 - 0x30) * 10 +
+                                            Int(d3 - 0x30)
+                                        reader.pos = i + 3
+                                        reader.advanceAscii()
+                                        if value < 256 {
+                                            return Self.numericCharRefCache[value]
+                                        }
+                                        return [UnicodeScalar(value)!]
+                                    }
+                                }
+                            } else if d2 == TokeniserStateVars.semicolonByte {
+                                let value = Int(d1 - 0x30)
+                                reader.pos = i + 1
+                                reader.advanceAscii()
+                                return Self.numericCharRefCache[value]
+                            }
+                        }
+                    }
+                }
             }
             let base = isHexMode ? 16 : 10
             var value = 0

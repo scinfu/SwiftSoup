@@ -261,7 +261,6 @@ class HtmlTreeBuilder: TreeBuilder {
         // handle empty unknown tags
         // when the spec expects an empty tag, will directly hit insertEmpty, so won't generate this fake end tag.
         let isSelfClosing = startTag.isSelfClosing()
-        let hasAttributes = startTag.hasAnyAttributes()
         if isSelfClosing {
             let el: Element = try insertEmpty(startTag)
             stack.append(el)
@@ -269,6 +268,7 @@ class HtmlTreeBuilder: TreeBuilder {
             try tokeniser.emit(emptyEnd.reset().name(el.tagNameUTF8()))  // ensure we get out of whatever state we are in. emitted for yielded processing
             return el
         }
+        let hasAttributes = startTag.hasAnyAttributes()
         if hasAttributes {
             startTag.ensureAttributes()
         }
@@ -283,17 +283,19 @@ class HtmlTreeBuilder: TreeBuilder {
         } else {
             tag = try Tag.valueOf(startTag.name(), settings)
         }
-        let skipChildReserve = isBulkBuilding
+        let skipChildReserve = isBulkBuilding || !hasAttributes
         let el: Element
-        if let attributes = startTag._attributes {
-            if attributes.attributes.isEmpty && attributes.pendingAttributesCount == 0 {
-                el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
-            } else {
-                if startTag.attributesAreNormalized() || settings.preservesAttributeCase() || !startTag.hasUppercaseAttributeNames() {
+        if hasAttributes {
+            if let attributes = startTag._attributes {
+                if attributes.attributes.isEmpty && attributes.pendingAttributesCount == 0 {
+                    el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
+                } else if startTag.attributesAreNormalized() || settings.preservesAttributeCase() || !startTag.hasUppercaseAttributeNames() {
                     el = Element(tag, baseUri, attributes, skipChildReserve: skipChildReserve)
                 } else {
                     el = try Element(tag, baseUri, settings.normalizeAttributes(attributes), skipChildReserve: skipChildReserve)
                 }
+            } else {
+                el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
             }
         } else {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
@@ -353,15 +355,19 @@ class HtmlTreeBuilder: TreeBuilder {
         } else {
             tag = try Tag.valueOf(startTag.name(), settings, isSelfClosing: isSelfClosing)
         }
-        let skipChildReserve = isSelfClosing || isBulkBuilding
+        let skipChildReserve = isSelfClosing || isBulkBuilding || !hasAttributes
         let el: Element
-        if let attributes = startTag._attributes {
-            if attributes.attributes.isEmpty && attributes.pendingAttributesCount == 0 {
-                el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
-            } else if startTag.attributesAreNormalized() || settings.preservesAttributeCase() || !startTag.hasUppercaseAttributeNames() {
-                el = Element(tag, baseUri, attributes, skipChildReserve: skipChildReserve)
+        if hasAttributes {
+            if let attributes = startTag._attributes {
+                if attributes.attributes.isEmpty && attributes.pendingAttributesCount == 0 {
+                    el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
+                } else if startTag.attributesAreNormalized() || settings.preservesAttributeCase() || !startTag.hasUppercaseAttributeNames() {
+                    el = Element(tag, baseUri, attributes, skipChildReserve: skipChildReserve)
+                } else {
+                    el = try Element(tag, baseUri, settings.normalizeAttributes(attributes), skipChildReserve: skipChildReserve)
+                }
             } else {
-                el = try Element(tag, baseUri, settings.normalizeAttributes(attributes), skipChildReserve: skipChildReserve)
+                el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
             }
         } else {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
@@ -425,6 +431,23 @@ class HtmlTreeBuilder: TreeBuilder {
         let currentTagId = currentTag?.tagId ?? .none
         let isScriptOrStyle = currentTagId == .script || currentTagId == .style
         let fosterInserts = isFosterInserts()
+        if isBulkBuilding,
+           !tracksSourceRanges,
+           !fosterInserts,
+           !isScriptOrStyle,
+           let current,
+           let slice = characterToken.getDataSlice() {
+            if let lastText = current.childNodes.last as? TextNode {
+                lastText.appendSlice(slice)
+                return
+            }
+            let node = TextNode(slice: slice, baseUri: baseUri)
+            node.treeBuilder = self
+            node.parentNode = current
+            current.childNodes.append(node)
+            node.setSiblingIndex(current.childNodes.count - 1)
+            return
+        }
         @inline(__always)
         func canCoalesceSource(_ lastRange: SourceRange?, _ newRange: SourceRange?) -> Bool {
             guard let lastRange, let newRange else { return false }

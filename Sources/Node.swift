@@ -102,7 +102,6 @@ open class Node: Equatable, Hashable {
         if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
-        
         self.baseUri = baseUri.trim()
         self.attributes = attributes
     }
@@ -116,7 +115,6 @@ open class Node: Equatable, Hashable {
         if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
-
         self.baseUri = baseUri.trim()
         self.attributes = attributes
     }
@@ -129,7 +127,6 @@ open class Node: Equatable, Hashable {
         if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
-        
         self.baseUri = baseUri.trim()
         self.attributes = Attributes()
     }

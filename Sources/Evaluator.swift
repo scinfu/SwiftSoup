@@ -737,8 +737,7 @@ open class Evaluator: @unchecked Sendable {
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             if let needle = searchTextLowerUTF8 {
-                let text = try element.textUTF8Slice()
-                return AsciiSearch.containsCaseInsensitive(text, needleLower: needle)
+                return element.containsNormalizedTextASCII(needle)
             }
             return (try element.text().lowercased().contains(searchText))
         }
@@ -768,8 +767,7 @@ open class Evaluator: @unchecked Sendable {
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             if let needle = searchTextLowerUTF8 {
-                let text = element.ownTextUTF8()[...]
-                return AsciiSearch.containsCaseInsensitive(text, needleLower: needle)
+                return element.containsOwnTextASCII(needle)
             }
             return (element.ownText().lowercased().contains(searchText))
         }

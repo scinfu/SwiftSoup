@@ -400,23 +400,47 @@ open class StringUtil {
     @inlinable
     public static func appendNormalisedWhitespace(_ accum: StringBuilder, string: ArraySlice<UInt8>, stripLeading: Bool) {
         if !string.isEmpty {
-            #if canImport(Darwin) || canImport(Glibc)
+            var skipProbe = false
             let count = string.count
-            let hasWhitespace = string.withUnsafeBytes { buf -> Bool in
-                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
-                    return false
+            if count <= 64 {
+                var hasWhitespace = false
+                var asciiOnly = true
+                for b in string {
+                    if b >= 0x80 {
+                        asciiOnly = false
+                        break
+                    }
+                    if isAsciiWhitespaceByte(b) {
+                        hasWhitespace = true
+                        break
+                    }
                 }
-                return memchr(basePtr, Int32(TokeniserStateVars.spaceByte), count) != nil ||
-                    memchr(basePtr, Int32(TokeniserStateVars.tabByte), count) != nil ||
-                    memchr(basePtr, Int32(TokeniserStateVars.newLineByte), count) != nil ||
-                    memchr(basePtr, Int32(TokeniserStateVars.formFeedByte), count) != nil ||
-                    memchr(basePtr, Int32(TokeniserStateVars.carriageReturnByte), count) != nil ||
-                    memchr(basePtr, Int32(utf8NBSPTrail), count) != nil ||
-                    memchr(basePtr, Int32(utf8NBSPLead), count) != nil
+                if asciiOnly && !hasWhitespace {
+                    accum.append(string)
+                    return
+                }
+                if asciiOnly && hasWhitespace {
+                    skipProbe = true
+                }
             }
-            if !hasWhitespace {
-                accum.append(string)
-                return
+            #if canImport(Darwin) || canImport(Glibc)
+            if !skipProbe {
+                let hasWhitespace = string.withUnsafeBytes { buf -> Bool in
+                    guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
+                        return false
+                    }
+                    return memchr(basePtr, Int32(TokeniserStateVars.spaceByte), count) != nil ||
+                        memchr(basePtr, Int32(TokeniserStateVars.tabByte), count) != nil ||
+                        memchr(basePtr, Int32(TokeniserStateVars.newLineByte), count) != nil ||
+                        memchr(basePtr, Int32(TokeniserStateVars.formFeedByte), count) != nil ||
+                        memchr(basePtr, Int32(TokeniserStateVars.carriageReturnByte), count) != nil ||
+                        memchr(basePtr, Int32(utf8NBSPTrail), count) != nil ||
+                        memchr(basePtr, Int32(utf8NBSPLead), count) != nil
+                }
+                if !hasWhitespace {
+                    accum.append(string)
+                    return
+                }
             }
             #else
             var hasWhitespace = false
@@ -504,26 +528,53 @@ open class StringUtil {
                                                   stripLeading: Bool,
                                                   lastWasWhite: inout Bool) {
         if !string.isEmpty {
-            #if canImport(Darwin) || canImport(Glibc)
+            var skipProbe = false
             let count = string.count
-            let hasWhitespace = string.withUnsafeBytes { buf -> Bool in
-                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
-                    return false
+            if count <= 64 {
+                var hasWhitespace = false
+                var asciiOnly = true
+                for b in string {
+                    if b >= 0x80 {
+                        asciiOnly = false
+                        break
+                    }
+                    if isAsciiWhitespaceByte(b) {
+                        hasWhitespace = true
+                        break
+                    }
                 }
-                return memchr(basePtr, Int32(TokeniserStateVars.spaceByte), count) != nil ||
-                    memchr(basePtr, Int32(TokeniserStateVars.tabByte), count) != nil ||
-                    memchr(basePtr, Int32(TokeniserStateVars.newLineByte), count) != nil ||
-                    memchr(basePtr, Int32(TokeniserStateVars.formFeedByte), count) != nil ||
-                    memchr(basePtr, Int32(TokeniserStateVars.carriageReturnByte), count) != nil ||
-                    memchr(basePtr, Int32(utf8NBSPTrail), count) != nil ||
-                    memchr(basePtr, Int32(utf8NBSPLead), count) != nil
+                if asciiOnly && !hasWhitespace {
+                    accum.append(string)
+                    if let last = string.last {
+                        lastWasWhite = (last == TokeniserStateVars.spaceByte)
+                    }
+                    return
+                }
+                if asciiOnly && hasWhitespace {
+                    skipProbe = true
+                }
             }
-            if !hasWhitespace {
-                accum.append(string)
-                if let last = string.last {
-                    lastWasWhite = (last == TokeniserStateVars.spaceByte)
+            #if canImport(Darwin) || canImport(Glibc)
+            if !skipProbe {
+                let hasWhitespace = string.withUnsafeBytes { buf -> Bool in
+                    guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
+                        return false
+                    }
+                    return memchr(basePtr, Int32(TokeniserStateVars.spaceByte), count) != nil ||
+                        memchr(basePtr, Int32(TokeniserStateVars.tabByte), count) != nil ||
+                        memchr(basePtr, Int32(TokeniserStateVars.newLineByte), count) != nil ||
+                        memchr(basePtr, Int32(TokeniserStateVars.formFeedByte), count) != nil ||
+                        memchr(basePtr, Int32(TokeniserStateVars.carriageReturnByte), count) != nil ||
+                        memchr(basePtr, Int32(utf8NBSPTrail), count) != nil ||
+                        memchr(basePtr, Int32(utf8NBSPLead), count) != nil
                 }
-                return
+                if !hasWhitespace {
+                    accum.append(string)
+                    if let last = string.last {
+                        lastWasWhite = (last == TokeniserStateVars.spaceByte)
+                    }
+                    return
+                }
             }
             #else
             var hasWhitespace = false

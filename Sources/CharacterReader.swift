@@ -985,76 +985,77 @@ public final class CharacterReader {
             return input[start..<pos]
         }
         #if canImport(Darwin) || canImport(Glibc)
-        if count >= 64 {
-            return input.withUnsafeBytes { buf in
-                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
-                    return input[start..<pos]
-                }
-                @inline(__always)
-                func hasByte(_ word: UInt64, _ byte: UInt64) -> Bool {
-                    let mask = byte &* 0x0101010101010101
-                    let x = word ^ mask
-                    return ((x &- 0x0101010101010101) & ~x & 0x8080808080808080) != 0
-                }
-                let aWord = UInt64(a)
-                let bWord = UInt64(b)
-                let baseAddress = UInt(bitPattern: basePtr)
-                var i = pos
-                while i < end && ((baseAddress &+ UInt(i)) & 7) != 0 {
-                    let byte = basePtr[i]
-                    if byte == a || byte == b {
-                        pos = i
-                        return input[start..<pos]
-                    }
-                    i &+= 1
-                }
-                let endWord = end &- 8
-                while i <= endWord {
-                    let word = UnsafeRawPointer(basePtr.advanced(by: i)).load(as: UInt64.self)
-                    var hit = hasByte(word, aWord)
-                    if !hit && a != b {
-                        hit = hasByte(word, bWord)
-                    }
-                    if hit { break }
-                    i &+= 8
-                }
-                while i < end {
-                    let byte = basePtr[i]
-                    if byte == a || byte == b {
-                        pos = i
-                        return input[start..<pos]
-                    }
-                    i &+= 1
-                }
-                pos = end
-                return input[start..<pos]
-            }
-        }
         if count >= 32 {
             return input.withUnsafeBytes { buf in
                 guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
                     return input[start..<pos]
                 }
-                let startPtr = basePtr.advanced(by: pos)
-                let startRaw = UnsafeRawPointer(startPtr)
-                let len = count
-                let pa = memchr(startPtr, Int32(a), len)
-                let pb = (a == b) ? nil : memchr(startPtr, Int32(b), len)
-                var minOff = len
-                if let pa {
-                    let off = Int(bitPattern: pa) - Int(bitPattern: startRaw)
-                    if off < minOff { minOff = off }
-                }
-                if let pb {
-                    let off = Int(bitPattern: pb) - Int(bitPattern: startRaw)
-                    if off < minOff { minOff = off }
-                }
-                if minOff != len {
-                    pos = start + minOff
+                @inline(__always)
+                func memchrMin(_ len: Int) -> ArraySlice<UInt8> {
+                    let startPtr = basePtr.advanced(by: pos)
+                    let startRaw = UnsafeRawPointer(startPtr)
+                    let pa = memchr(startPtr, Int32(a), len)
+                    let pb = (a == b) ? nil : memchr(startPtr, Int32(b), len)
+                    var minOff = len
+                    if let pa {
+                        let off = Int(bitPattern: pa) - Int(bitPattern: startRaw)
+                        if off < minOff { minOff = off }
+                    }
+                    if let pb {
+                        let off = Int(bitPattern: pb) - Int(bitPattern: startRaw)
+                        if off < minOff { minOff = off }
+                    }
+                    if minOff != len {
+                        pos = start + minOff
+                        return input[start..<pos]
+                    }
+                    pos = end
                     return input[start..<pos]
                 }
-                pos = end
-                return input[start..<pos]
+                if count >= 256 {
+                    return memchrMin(count)
+                }
+                if count >= 64 {
+                    @inline(__always)
+                    func hasByte(_ word: UInt64, _ byte: UInt64) -> Bool {
+                        let mask = byte &* 0x0101010101010101
+                        let x = word ^ mask
+                        return ((x &- 0x0101010101010101) & ~x & 0x8080808080808080) != 0
+                    }
+                    let aWord = UInt64(a)
+                    let bWord = UInt64(b)
+                    let baseAddress = UInt(bitPattern: basePtr)
+                    var i = pos
+                    while i < end && ((baseAddress &+ UInt(i)) & 7) != 0 {
+                        let byte = basePtr[i]
+                        if byte == a || byte == b {
+                            pos = i
+                            return input[start..<pos]
+                        }
+                        i &+= 1
+                    }
+                    let endWord = end &- 8
+                    while i <= endWord {
+                        let word = UnsafeRawPointer(basePtr.advanced(by: i)).load(as: UInt64.self)
+                        var hit = hasByte(word, aWord)
+                        if !hit && a != b {
+                            hit = hasByte(word, bWord)
+                        }
+                        if hit { break }
+                        i &+= 8
+                    }
+                    while i < end {
+                        let byte = basePtr[i]
+                        if byte == a || byte == b {
+                            pos = i
+                            return input[start..<pos]
+                        }
+                        i &+= 1
+                    }
+                    pos = end
+                    return input[start..<pos]
+                }
+                return memchrMin(count)
             }
         }
         #endif
@@ -1623,28 +1624,18 @@ public final class CharacterReader {
 
     @inline(__always)
     public func consumeAttributeValueDoubleQuoted() -> ArraySlice<UInt8> {
-        let start = pos
-        while pos < end {
-            let byte = input[pos]
-            if CharacterReader.attributeValueDoubleQuotedDelims[Int(byte)] {
-                return input[start..<pos]
-            }
-            pos &+= 1
+        if canSkipNullCheck {
+            return consumeToAnyOfTwo(TokeniserStateVars.quoteByte, TokeniserStateVars.ampersandByte)
         }
-        return input[start..<pos]
+        return consumeToAnyOfThree(TokeniserStateVars.quoteByte, TokeniserStateVars.ampersandByte, TokeniserStateVars.nullByte)
     }
 
     @inline(__always)
     public func consumeAttributeValueSingleQuoted() -> ArraySlice<UInt8> {
-        let start = pos
-        while pos < end {
-            let byte = input[pos]
-            if CharacterReader.attributeValueSingleQuotedDelims[Int(byte)] {
-                return input[start..<pos]
-            }
-            pos &+= 1
+        if canSkipNullCheck {
+            return consumeToAnyOfTwo(TokeniserStateVars.apostropheByte, TokeniserStateVars.ampersandByte)
         }
-        return input[start..<pos]
+        return consumeToAnyOfThree(TokeniserStateVars.apostropheByte, TokeniserStateVars.ampersandByte, TokeniserStateVars.nullByte)
     }
 }
 
