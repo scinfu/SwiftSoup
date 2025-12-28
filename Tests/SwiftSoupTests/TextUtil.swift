@@ -8,6 +8,10 @@
 import Foundation
 @testable import SwiftSoup
 
+private let _crashTraceInstalled: Void = {
+    CrashTrace.installIfNeeded()
+}()
+
 class TextUtil {
 	public static func stripNewlines(_ text: String) -> String {
         do {

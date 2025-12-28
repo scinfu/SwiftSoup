@@ -19,6 +19,34 @@ class HtmlTreeBuilder: TreeBuilder {
     private static let useFastStackSearch: Bool = {
         ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_STACK_FAST_PATH"] != "1"
     }()
+    private static let useStackTagIdFastPath: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_STACK_TAGID_FASTPATH"] != "1"
+    }()
+    private static let useClearStackTagIdFastPath: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_CLEAR_STACK_TAGID_FASTPATH"] != "1"
+    }()
+    private static let useScopeTagIdFastPath: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SCOPE_TAGID_FASTPATH"] != "1"
+    }()
+    private static let useScopeTagIdSkipNameCheckFastPath: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SCOPE_TAGID_SKIP_NAMECHECK_FASTPATH"] != "1"
+    }()
+
+    private static let useTextCoalescing: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TEXT_COALESCE"] != "1"
+    }()
+    private static let useTextNodeSourceSliceCoalesce: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TEXTNODE_SOURCE_SLICE_COALESCE"] != "1"
+    }()
+    private static let useDataNodeSourceSliceCoalesce: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DATANODE_SOURCE_SLICE_COALESCE"] != "1"
+    }()
+    private static let useProcessTrackingFastPath: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_PROCESS_TRACKING_FASTPATH"] != "1"
+    }()
+    private static let useScriptStyleTagIdFastPath: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SCRIPT_STYLE_TAGID_FASTPATH"] != "1"
+    }()
     
     private enum TagSets {
         // tag searches
@@ -39,6 +67,12 @@ class HtmlTreeBuilder: TreeBuilder {
                                              "noembed", "noframes", "noscript", "object", "ol", "p", "param", "plaintext", "pre", "script",
                                              "section", "select", "style", "summary", "table", "tbody", "td", "textarea", "tfoot", "th", "thead",
                                              "title", "tr", "ul", "wbr", "xmp"])
+    }
+    
+    private enum StackContexts {
+        static let table = ParsingStrings(["table"])
+        static let tableBody = ParsingStrings(["tbody", "tfoot", "thead"])
+        static let tableRow = ParsingStrings(["tr"])
     }
     
     private var _state: HtmlTreeBuilderState = HtmlTreeBuilderState.Initial // the current state
@@ -64,12 +98,14 @@ class HtmlTreeBuilder: TreeBuilder {
     public override func defaultSettings() -> ParseSettings {
         return ParseSettings.htmlDefault
     }
+
     
     override func parse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) throws -> Document {
         _state = HtmlTreeBuilderState.Initial
         baseUriSetFromDoc = false
         return try super.parse(input, baseUri, errors, settings)
     }
+
     
     func parseFragment(_ inputFragment: [UInt8], _ context: Element?, _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) throws -> Array<Node> {
         // context may be null
@@ -134,6 +170,9 @@ class HtmlTreeBuilder: TreeBuilder {
         let _p = Profiler.start("HtmlTreeBuilder.process")
         defer { Profiler.end("HtmlTreeBuilder.process", _p) }
         #endif
+        if Self.useProcessTrackingFastPath && !tracksErrors && !tracksSourceRanges {
+            return try self._state.process(token, self)
+        }
         let trackToken = tracksErrors || (tracksSourceRanges && token.type == Token.TokenType.EndTag)
         if trackToken {
             currentToken = token
@@ -149,6 +188,9 @@ class HtmlTreeBuilder: TreeBuilder {
         let _p = Profiler.start("HtmlTreeBuilder.process.state")
         defer { Profiler.end("HtmlTreeBuilder.process.state", _p) }
         #endif
+        if Self.useProcessTrackingFastPath && !tracksErrors && !tracksSourceRanges {
+            return try state.process(token, self)
+        }
         let trackToken = tracksErrors || (tracksSourceRanges && token.type == Token.TokenType.EndTag)
         if trackToken {
             currentToken = token
@@ -267,6 +309,9 @@ class HtmlTreeBuilder: TreeBuilder {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
         el.treeBuilder = self
+        if startTag.hasAnyAttributes() {
+            registerPendingAttributes(el)
+        }
         if let range = startTag.sourceRange {
             el.setSourceRange(range, complete: false)
         }
@@ -288,6 +333,7 @@ class HtmlTreeBuilder: TreeBuilder {
         try insert(el)
         return el
     }
+
     
     @inlinable
     func insert(_ el: Element) throws {
@@ -301,7 +347,7 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     func insertEmpty(_ startTag: Token.StartTag) throws -> Element {
-        if startTag.hasPendingAttributes() {
+        if startTag.hasAnyAttributes() {
             startTag.ensureAttributes()
         }
         // For unknown tags, remember this is self closing for output
@@ -330,6 +376,9 @@ class HtmlTreeBuilder: TreeBuilder {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
         el.treeBuilder = self
+        if startTag.hasAnyAttributes() {
+            registerPendingAttributes(el)
+        }
         if let range = startTag.sourceRange {
             el.setSourceRange(range, complete: true)
         }
@@ -343,7 +392,7 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     func insertForm(_ startTag: Token.StartTag, _ onStack: Bool) throws -> FormElement {
-        if startTag.hasPendingAttributes() {
+        if startTag.hasAnyAttributes() {
             startTag.ensureAttributes()
         }
         let tag: Tag = try Tag.valueOf(startTag.name(), settings)
@@ -357,6 +406,7 @@ class HtmlTreeBuilder: TreeBuilder {
         if let range = startTag.sourceRange {
             el.setSourceRange(range, complete: false)
         }
+        registerPendingAttributes(el)
         try insertNode(el)
         if (onStack) {
             stack.append(el)
@@ -381,8 +431,23 @@ class HtmlTreeBuilder: TreeBuilder {
         #endif
         let current = currentElement()
         let currentTag = current?._tag
+        let currentTagId = currentTag?.tagId ?? .none
+        let isScriptOrStyle: Bool
+        if Self.useScriptStyleTagIdFastPath {
+            isScriptOrStyle = currentTagId == .script || currentTagId == .style
+        } else if let currentTag {
+            isScriptOrStyle = Tag.isScriptOrStyle(currentTag)
+        } else {
+            isScriptOrStyle = false
+        }
+        let fosterInserts = isFosterInserts()
+        @inline(__always)
+        func canCoalesceSource(_ lastRange: SourceRange?, _ newRange: SourceRange?) -> Bool {
+            guard let lastRange, let newRange else { return false }
+            return lastRange.end == newRange.start
+        }
         let node: Node
-        let useSlice: ArraySlice<UInt8>?
+        var useSlice: ArraySlice<UInt8>?
         if !tracksSourceRanges {
             useSlice = characterToken.getDataSlice()
         } else if let tokenSlice = characterToken.getDataSlice() {
@@ -395,8 +460,62 @@ class HtmlTreeBuilder: TreeBuilder {
         } else {
             useSlice = nil
         }
+        if Self.useTextCoalescing,
+           let current,
+           !fosterInserts,
+           isBulkBuilding {
+            if let slice = useSlice {
+                if isScriptOrStyle,
+                   let lastData = current.childNodes.last as? DataNode,
+                   (!tracksSourceRanges || canCoalesceSource(lastData.sourceRange, characterToken.sourceRange)) {
+                    if tracksSourceRanges,
+                       Self.useDataNodeSourceSliceCoalesce,
+                       let range = characterToken.sourceRange,
+                       let source = doc.sourceBuffer?.bytes,
+                       lastData.extendSliceFromSourceRange(source, newRange: range) {
+                        lastData.setSourceRangeEnd(range.end)
+                        return
+                    } else {
+                        lastData.appendSlice(slice)
+                        if tracksSourceRanges, let range = characterToken.sourceRange {
+                            lastData.setSourceRangeEnd(range.end)
+                        }
+                        return
+                    }
+                }
+                if let lastText = current.childNodes.last as? TextNode,
+                   (!tracksSourceRanges || canCoalesceSource(lastText.sourceRange, characterToken.sourceRange)) {
+                    if tracksSourceRanges,
+                       Self.useTextNodeSourceSliceCoalesce,
+                       let range = characterToken.sourceRange,
+                       let source = doc.sourceBuffer?.bytes,
+                       lastText.extendSliceFromSourceRange(source, newRange: range) {
+                        lastText.setSourceRangeEnd(range.end)
+                        return
+                    } else {
+                        lastText.appendSlice(slice)
+                        if tracksSourceRanges, let range = characterToken.sourceRange {
+                            lastText.setSourceRangeEnd(range.end)
+                        }
+                        return
+                    }
+                }
+            } else if !tracksSourceRanges {
+                if isScriptOrStyle,
+                   let lastData = current.childNodes.last as? DataNode,
+                   let bytes = characterToken.getData() {
+                    lastData.appendBytes(bytes)
+                    return
+                }
+                if let lastText = current.childNodes.last as? TextNode,
+                   let bytes = characterToken.getData() {
+                    lastText.appendBytes(bytes)
+                    return
+                }
+            }
+        }
         // characters in script and style go in as datanodes, not text nodes
-        if let currentTag, Tag.isScriptOrStyle(currentTag) {
+        if isScriptOrStyle {
             if let slice = useSlice {
                 node = DataNode(slice: slice, baseUri: baseUri)
             } else {
@@ -420,7 +539,7 @@ class HtmlTreeBuilder: TreeBuilder {
             node.sourceBuffer = doc.sourceBuffer
         }
         node.treeBuilder = self
-        if let current, !isFosterInserts(), isBulkBuilding, node.parentNode == nil {
+        if let current, !fosterInserts, isBulkBuilding, node.parentNode == nil {
             if !tracksSourceRanges,
                let textNode = node as? TextNode,
                let lastText = current.childNodes.last as? TextNode {
@@ -435,6 +554,7 @@ class HtmlTreeBuilder: TreeBuilder {
             try current?.appendChild(node) // doesn't use insertNode, because we don't foster these; and will always have a stack.
         }
     }
+
     
     @inlinable
     internal func insertNode(_ node: Node) throws {
@@ -442,6 +562,7 @@ class HtmlTreeBuilder: TreeBuilder {
         let _p = Profiler.start("HtmlTreeBuilder.insert.node")
         defer { Profiler.end("HtmlTreeBuilder.insert.node", _p) }
         #endif
+        node.treeBuilder = self
         // if the stack hasn't been set up yet, elements (doctype, comments) go into the doc
         if stack.isEmpty {
             try doc.appendChild(node)
@@ -456,7 +577,6 @@ class HtmlTreeBuilder: TreeBuilder {
                 try current.appendChild(node)
             }
         }
-        node.treeBuilder = self
         if tracksSourceRanges, node.sourceBuffer == nil {
             node.sourceBuffer = doc.sourceBuffer
         }
@@ -533,7 +653,17 @@ class HtmlTreeBuilder: TreeBuilder {
         var i = stack.count
         while i > 0 {
             i &-= 1
-            if names.contains(stack[i].nodeNameUTF8()) {
+            let el = stack[i]
+            if Self.useStackTagIdFastPath {
+                let tagId = el._tag.tagId
+                if tagId != .none {
+                    if names.containsTagId(tagId) {
+                        return i
+                    }
+                    continue
+                }
+            }
+            if names.contains(el.nodeNameUTF8()) {
                 return i
             }
         }
@@ -652,15 +782,49 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func clearStackToTableContext() {
-        clearStackToContext(UTF8Arrays.table)
+        clearStackToContext(StackContexts.table)
     }
     
     func clearStackToTableBodyContext() {
-        clearStackToContext(UTF8Arrays.tbody, UTF8Arrays.tfoot, UTF8Arrays.thead)
+        clearStackToContext(StackContexts.tableBody)
     }
     
     func clearStackToTableRowContext() {
-        clearStackToContext(UTF8Arrays.tr)
+        clearStackToContext(StackContexts.tableRow)
+    }
+
+    private func clearStackToContext(_ nodeNames: ParsingStrings) {
+        let index: Int? = {
+            if !Self.useFastStackSearch {
+                return stack.lastIndex {
+                    let nextName = $0.nodeNameUTF8()
+                    return nodeNames.contains(nextName) || nextName == UTF8Arrays.html
+                }
+            }
+            var i = stack.count
+            while i > 0 {
+                i &-= 1
+                let next = stack[i]
+                if Self.useClearStackTagIdFastPath {
+                    let tagId = next._tag.tagId
+                    if tagId == .html || (tagId != .none && nodeNames.containsTagId(tagId)) {
+                        return i
+                    }
+                }
+                let nextName = next.nodeNameUTF8()
+                if nodeNames.contains(nextName) || nextName == UTF8Arrays.html {
+                    return i
+                }
+            }
+            return nil
+        }()
+        
+        guard let index else {
+            stack.removeAll()
+            return
+        }
+        
+        stack.removeSubrange(stack.index(after: index) ..< stack.endIndex)
     }
     
     private func clearStackToContext(_ nodeNames: [UInt8]...) {
@@ -820,8 +984,36 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func inSpecificScope(_ targetName: [UInt8], _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
+        let targetTagId = Self.useScopeTagIdFastPath ? Token.Tag.tagIdForBytes(targetName) : nil
         if !Self.useFastStackSearch {
             for el in stack.reversed() {
+                let tagId = el._tag.tagId
+                if tagId != .none, Self.useScopeTagIdFastPath {
+                    if let targetTagId {
+                        if tagId == targetTagId {
+                            return true
+                        }
+                        if baseTypes.containsTagId(tagId) {
+                            return false
+                        }
+                        if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
+                            return false
+                        }
+                        if Self.useScopeTagIdSkipNameCheckFastPath {
+                            continue
+                        }
+                    } else if Self.useScopeTagIdSkipNameCheckFastPath {
+                        if baseTypes.containsTagId(tagId) {
+                            return false
+                        }
+                        if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
+                            return false
+                        }
+                        continue
+                    }
+                } else if tagId != .none, let targetTagId, tagId == targetTagId {
+                    return true
+                }
                 let elName = el.nodeNameUTF8()
                 if elName == targetName {
                     return true
@@ -839,7 +1031,35 @@ class HtmlTreeBuilder: TreeBuilder {
         var i = stack.count
         while i > 0 {
             i &-= 1
-            let elName = stack[i].nodeNameUTF8()
+            let el = stack[i]
+            let tagId = el._tag.tagId
+            if tagId != .none, Self.useScopeTagIdFastPath {
+                if let targetTagId {
+                    if tagId == targetTagId {
+                        return true
+                    }
+                    if baseTypes.containsTagId(tagId) {
+                        return false
+                    }
+                    if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
+                        return false
+                    }
+                    if Self.useScopeTagIdSkipNameCheckFastPath {
+                        continue
+                    }
+                } else if Self.useScopeTagIdSkipNameCheckFastPath {
+                    if baseTypes.containsTagId(tagId) {
+                        return false
+                    }
+                    if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
+                        return false
+                    }
+                    continue
+                }
+            } else if tagId != .none, let targetTagId, tagId == targetTagId {
+                return true
+            }
+            let elName = el.nodeNameUTF8()
             if elName == targetName {
                 return true
             }
@@ -893,6 +1113,21 @@ class HtmlTreeBuilder: TreeBuilder {
     private func inSpecificScope(_ targetNames: ParsingStrings, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
         if !Self.useFastStackSearch {
             for el in stack.reversed() {
+                let tagId = el._tag.tagId
+                if Self.useScopeTagIdFastPath && tagId != .none {
+                    if targetNames.containsTagId(tagId) {
+                        return true
+                    }
+                    if baseTypes.containsTagId(tagId) {
+                        return false
+                    }
+                    if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
+                        return false
+                    }
+                    if Self.useScopeTagIdSkipNameCheckFastPath {
+                        continue
+                    }
+                }
                 let elName = el.nodeNameUTF8()
                 if targetNames.contains(elName) {
                     return true
@@ -910,7 +1145,23 @@ class HtmlTreeBuilder: TreeBuilder {
         var i = stack.count
         while i > 0 {
             i &-= 1
-            let elName = stack[i].nodeNameUTF8()
+            let el = stack[i]
+            let tagId = el._tag.tagId
+            if Self.useScopeTagIdFastPath && tagId != .none {
+                if targetNames.containsTagId(tagId) {
+                    return true
+                }
+                if baseTypes.containsTagId(tagId) {
+                    return false
+                }
+                if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
+                    return false
+                }
+                if Self.useScopeTagIdSkipNameCheckFastPath {
+                    continue
+                }
+            }
+            let elName = el.nodeNameUTF8()
             if targetNames.contains(elName) {
                 return true
             }
@@ -924,6 +1175,7 @@ class HtmlTreeBuilder: TreeBuilder {
         try Validate.fail(msg: "Should not be reachable")
         return false
     }
+
     
     
     func inScope(_ targetNames: ParsingStrings) throws -> Bool {
@@ -976,12 +1228,21 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func inSelectScope(_ targetName: [UInt8]) throws -> Bool {
+        let targetTagId = Self.useScopeTagIdFastPath ? Token.Tag.tagIdForBytes(targetName) : nil
         for el in stack.reversed() {
+            let tagId = el._tag.tagId
+            if let targetTagId, tagId != .none, tagId == targetTagId {
+                return true
+            }
             let elName = el.nodeNameUTF8()
             if elName == targetName {
                 return true
             }
-            if !TagSets.selectScope.contains(elName) {
+            if Self.useScopeTagIdFastPath, tagId != .none {
+                if !TagSets.selectScope.containsTagId(tagId) {
+                    return false
+                }
+            } else if !TagSets.selectScope.contains(elName) {
                 return false
             }
         }
@@ -1033,6 +1294,7 @@ class HtmlTreeBuilder: TreeBuilder {
         pendingTableCharacters.removeAll(keepingCapacity: true)
         return pending
     }
+
     
     /**
      11.2.5.2 Closing elements that have implied end tags
@@ -1079,12 +1341,12 @@ class HtmlTreeBuilder: TreeBuilder {
         // todo: mathml's mi, mo, mn
         // todo: svg's foreigObject, desc, title
         let tagId = el._tag.tagId
-        if tagId != .none, TagSets.special.containsTagId(tagId) {
-            return true
+        if tagId != .none {
+            return TagSets.special.containsTagId(tagId)
         }
         return TagSets.special.contains(el.nodeNameUTF8())
     }
-    
+
     func lastFormattingElement() -> Element? {
         return formattingElements.last ?? nil
     }
@@ -1158,8 +1420,8 @@ class HtmlTreeBuilder: TreeBuilder {
             
             // 8. create new element from element, 9 insert into current node, onto stack
             skip = false // can only skip increment from 4.
-            let newEl: Element = try insertStartTag(entry!.nodeNameUTF8()) // todo: avoid fostering here?
-                                                                           // newEl.namespace(entry.namespace()) // todo: namespaces
+            let newEl: Element = try insertStartTag(entry!.nodeNameUTF8())
+            // newEl.namespace(entry.namespace()) // todo: namespaces
             newEl.getAttributes()?.addAll(incoming: entry!.getAttributes())
             
             // 10. replace entry with new entry

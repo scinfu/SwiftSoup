@@ -52,6 +52,11 @@ open class Attributes: NSCopying {
     static let disableLowercasedKeyIndex: Bool =
         ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_LOWERCASED_KEY_INDEX"] == "1"
     
+    @usableFromInline
+    static let usePendingAttributesReuseFastPath: Bool =
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_ATTRIBUTES_PENDING_REUSE_FASTPATH"] != "1"
+
+    
     // Stored by lowercased key, but key case is checked against the copy inside
     // the Attribute on retrieval.
     @usableFromInline
@@ -137,7 +142,13 @@ open class Attributes: NSCopying {
         }
 
         if pendingAttributes == nil {
-            pendingAttributes = [pending]
+            if Self.usePendingAttributesReuseFastPath {
+                pendingAttributes = []
+                pendingAttributes!.reserveCapacity(16)
+                pendingAttributes!.append(pending)
+            } else {
+                pendingAttributes = [pending]
+            }
             pendingAttributesCount = 1
         } else {
             pendingAttributes!.append(pending)
@@ -159,10 +170,35 @@ open class Attributes: NSCopying {
     @inline(__always)
     internal func ensureMaterialized() {
         guard let pending = pendingAttributes, !pending.isEmpty else { return }
-        pendingAttributes = nil
+        DebugTrace.log("Attributes.ensureMaterialized: pending=\(pending.count)")
         pendingAttributesCount = 0
+        if !Self.usePendingAttributesReuseFastPath {
+            pendingAttributes = nil
+        }
+        let shouldIndex = shouldBuildKeyIndex()
+        var localIndex: [Array<UInt8>: Int]? = nil
+        if shouldIndex {
+            if !keyIndexDirty, let existing = keyIndex {
+                localIndex = existing
+            } else {
+                localIndex = [:]
+                localIndex?.reserveCapacity(attributes.count + pending.count)
+                for (idx, attr) in attributes.enumerated() {
+                    localIndex?[attr.getKeyUTF8()] = idx
+                }
+            }
+        }
+        var touchedClass = false
+        var touchedId = false
         attributes.reserveCapacity(attributes.count + pending.count)
         for pendingAttr in pending {
+            if let nameBytes = pendingAttr.nameBytes {
+                DebugTrace.log("Attributes.ensureMaterialized: nameBytes=\(String(decoding: nameBytes, as: UTF8.self))")
+            } else if let nameSlice = pendingAttr.nameSlice {
+                DebugTrace.log("Attributes.ensureMaterialized: nameSlice count=\(nameSlice.count)")
+            } else {
+                DebugTrace.log("Attributes.ensureMaterialized: missing name")
+            }
             let key: [UInt8]
             if let nameBytes = pendingAttr.nameBytes {
                 key = nameBytes
@@ -189,7 +225,47 @@ open class Attributes: NSCopying {
             case .bytes(let bytes):
                 attribute = try! Attribute(key: key, value: bytes)
             }
-            putMaterialized(attribute)
+            if Attributes.containsAsciiUppercase(key) {
+                hasUppercaseKeys = true
+            }
+            let normalizedKey = Attributes.containsAsciiUppercase(key) ? key.lowercased() : key
+            if normalizedKey == UTF8Arrays.class_ {
+                touchedClass = true
+            }
+            if normalizedKey == SwiftSoup.Element.idString {
+                touchedId = true
+            }
+            if let index = localIndex?[key] {
+                attributes[index] = attribute
+            } else if shouldIndex {
+                localIndex?[key] = attributes.count
+                attributes.append(attribute)
+            } else if let index = attributes.firstIndex(where: { $0.getKeyUTF8() == key }) {
+                attributes[index] = attribute
+            } else {
+                attributes.append(attribute)
+            }
+        }
+        if let localIndex {
+            keyIndex = localIndex
+            keyIndexDirty = false
+        } else {
+            keyIndexDirty = true
+        }
+        lowercasedKeyIndexDirty = true
+        lowercasedKeyIndex = nil
+        lowercasedKeysCache = nil
+        if touchedClass {
+            ownerElement?.markClassQueryIndexDirty()
+        }
+        if touchedId {
+            ownerElement?.markIdQueryIndexDirty()
+        }
+        ownerElement?.markAttributeQueryIndexDirty()
+        ownerElement?.markAttributeValueQueryIndexDirty()
+        ownerElement?.markSourceDirty()
+        if Self.usePendingAttributesReuseFastPath {
+            pendingAttributes?.removeAll(keepingCapacity: true)
         }
     }
 
@@ -227,11 +303,9 @@ open class Attributes: NSCopying {
     @inline(__always)
     internal func updateLowercasedKeysCache() {
         ensureMaterialized()
-        lowercasedKeysCache = Set(
-            attributes.map { attr in
-                attr.getKeyUTF8().map(Self.asciiLowercase)
-            }
-        )
+        lowercasedKeysCache = Set(attributes.map { attr in
+            attr.getKeyUTF8().map(Self.asciiLowercase)
+        })
     }
 
     @usableFromInline
@@ -271,7 +345,6 @@ open class Attributes: NSCopying {
     @usableFromInline
     @inline(__always)
     func shouldBuildKeyIndex() -> Bool {
-        ensureMaterialized()
         return attributes.count >= 12
     }
 
@@ -315,7 +388,9 @@ open class Attributes: NSCopying {
     
     @inline(__always)
     open func get(key: [UInt8]) -> [UInt8] {
+        DebugTrace.log("Attributes.get(key): \(String(decoding: key, as: UTF8.self))")
         if attributes.isEmpty, let pendingValue = pendingValueCaseSensitive(key) {
+            DebugTrace.log("Attributes.get: pending value hit")
             return pendingValue
         }
         ensureMaterialized()
@@ -1054,6 +1129,7 @@ open class Attributes: NSCopying {
         }
         return false
     }
+
 
     @inline(__always)
     internal static func containsAsciiUppercase(_ key: ArraySlice<UInt8>) -> Bool {

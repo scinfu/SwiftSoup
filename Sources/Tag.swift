@@ -17,6 +17,10 @@ open class Tag: Hashable, @unchecked Sendable {
             preconditionFailure("Cannot initialize known tags: \(error)")
         }
     }()
+    private static let useUnknownTagCache: Bool =
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_UNKNOWN_TAG_CACHE"] != "1"
+    private static let unknownTagCacheLimit: Int = 512
+    private static let unknownTagCache = UnknownTagCache()
 
     // Fast known-tag lookups for common tag ids to avoid dictionary hashing on hot paths.
     private static let tagA = knownTags[UTF8Arrays.a]!
@@ -106,6 +110,12 @@ open class Tag: Hashable, @unchecked Sendable {
     /// Compile-time check that the ``knownTags`` dictionary really is `Sendable`.
     private static let sendableCheck: any Sendable = knownTags
     #endif
+
+    private final class UnknownTagCache: @unchecked Sendable {
+        let lock = Mutex()
+        var tags: [Array<UInt8>: Tag] = [:]
+        var selfClosingTags: [Array<UInt8>: Tag] = [:]
+    }
     
     
     /// Tag traits.
@@ -195,12 +205,17 @@ open class Tag: Hashable, @unchecked Sendable {
         if let tag = Self.knownTags[normalizedTagName] {
             return tag
         }
+        if let cached = cachedUnknownTag(normalizedTagName, isSelfClosing: isSelfClosing) {
+            return cached
+        }
         try Validate.notEmpty(string: normalizedTagName)
         // not defined: create default; go anywhere, do anything! (incl be inside a <p>)
         var traits = Traits.forBlockTag
         traits.isBlock = false
         traits.selfClosing = isSelfClosing
-        return Tag(normalizedTagName, traits: traits)
+        let tag = Tag(normalizedTagName, traits: traits)
+        storeUnknownTag(normalizedTagName, isSelfClosing: isSelfClosing, tag)
+        return tag
     }
 
     @inline(__always)
@@ -391,16 +406,50 @@ open class Tag: Hashable, @unchecked Sendable {
         
         let normalizedTagName = settings.normalizeTag(tagName)
         try Validate.notEmpty(string: normalizedTagName)
-        
+
         if let tag = Self.knownTags[normalizedTagName] {
             return tag
+        }
+        if let cached = cachedUnknownTag(normalizedTagName, isSelfClosing: isSelfClosing) {
+            return cached
         }
         
         // not defined: create default; go anywhere, do anything! (incl be inside a <p>)
         var traits = Traits.forBlockTag
         traits.isBlock = false
         traits.selfClosing = isSelfClosing
-        return Tag(normalizedTagName, traits: traits)
+        let tag = Tag(normalizedTagName, traits: traits)
+        storeUnknownTag(normalizedTagName, isSelfClosing: isSelfClosing, tag)
+        return tag
+    }
+
+    @inline(__always)
+    private static func cachedUnknownTag(_ normalizedTagName: [UInt8], isSelfClosing: Bool) -> Tag? {
+        guard useUnknownTagCache else { return nil }
+        unknownTagCache.lock.lock()
+        let tag = isSelfClosing
+            ? unknownTagCache.selfClosingTags[normalizedTagName]
+            : unknownTagCache.tags[normalizedTagName]
+        unknownTagCache.lock.unlock()
+        return tag
+    }
+
+    @inline(__always)
+    private static func storeUnknownTag(_ normalizedTagName: [UInt8], isSelfClosing: Bool, _ tag: Tag) {
+        guard useUnknownTagCache else { return }
+        unknownTagCache.lock.lock()
+        if isSelfClosing {
+            if unknownTagCache.selfClosingTags.count >= unknownTagCacheLimit {
+                unknownTagCache.selfClosingTags.removeAll(keepingCapacity: true)
+            }
+            unknownTagCache.selfClosingTags[normalizedTagName] = tag
+        } else {
+            if unknownTagCache.tags.count >= unknownTagCacheLimit {
+                unknownTagCache.tags.removeAll(keepingCapacity: true)
+            }
+            unknownTagCache.tags[normalizedTagName] = tag
+        }
+        unknownTagCache.lock.unlock()
     }
 
     /**
@@ -577,7 +626,7 @@ open class Tag: Hashable, @unchecked Sendable {
     // prepped from http://www.w3.org/TR/REC-html40/sgml/dtd.html and other sources
     private static let blockTags: [[UInt8]] = [
         "html", "head", "body", "frameset", "script", "noscript", "style", "meta", "link", "title", "frame",
-        "noframes", "section", "nav", "aside", "hgroup", "header", "footer", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+        "noframes", "noembed", "section", "nav", "aside", "hgroup", "header", "footer", "p", "h1", "h2", "h3", "h4", "h5", "h6",
         "ul", "ol", "pre", "listing", "div", "blockquote", "hr", "address", "figure", "figcaption", "form", "fieldset",
         "center", "dir", "applet", "marquee", "ins",
         "del", "s", "dl", "dt", "dd", "li", "table", "caption", "thead", "tfoot", "tbody", "colgroup", "col", "tr", "th",

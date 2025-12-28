@@ -38,7 +38,6 @@ public class CombiningEvaluator: Evaluator, @unchecked Sendable {
     }
 
     public final class And: CombiningEvaluator, @unchecked Sendable {
-        
         public override func matches(_ root: Element, _ node: Element) -> Bool {
             for evaluator in self.evaluators {
                 do {

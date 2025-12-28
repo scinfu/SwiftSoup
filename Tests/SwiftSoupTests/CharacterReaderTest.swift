@@ -200,6 +200,41 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("b", r.consume())
     }
 
+    func testConsumeDataFastNoNullStopsAtDelimiter() {
+        let prefix = String(repeating: "a", count: 80)
+        let input = prefix + "&rest"
+        let r = CharacterReader(input)
+        let value = r.consumeDataFastNoNull()
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), prefix)
+        XCTAssertEqual("&", r.consume())
+    }
+
+    func testConsumeDataFastNoNullConsumesAllWhenNoDelimiter() {
+        let input = String(repeating: "b", count: 96)
+        let r = CharacterReader(input)
+        let value = r.consumeDataFastNoNull()
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), input)
+        XCTAssertTrue(r.isEmpty())
+    }
+
+    func testConsumeToAnyOfThreeWordScanStops() {
+        let prefix = String(repeating: "x", count: 80)
+        let input = prefix + "<rest"
+        let r = CharacterReader(input)
+        let value = r.consumeToAnyOfThree(UInt8(ascii: "&"), UInt8(ascii: "<"), UInt8(0))
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), prefix)
+        XCTAssertEqual("<", r.consume())
+    }
+
+    func testConsumeToAnyOfFourWordScanStops() {
+        let prefix = String(repeating: "y", count: 80)
+        let input = prefix + ">rest"
+        let r = CharacterReader(input)
+        let value = r.consumeToAnyOfFour(UInt8(ascii: "<"), UInt8(ascii: ">"), UInt8(ascii: "&"), UInt8(0))
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), prefix)
+        XCTAssertEqual(">", r.consume())
+    }
+
     func testConsumeLetterSequence() {
         let r = CharacterReader("One &bar; qux")
         XCTAssertEqual("One", String(decoding: r.consumeLetterSequence(), as: UTF8.self))

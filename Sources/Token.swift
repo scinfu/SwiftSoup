@@ -173,7 +173,9 @@ open class Token {
             case ruby
             case rp
             case rt
+
         }
+
 
         private struct TagIdEntry {
             let bytes: [UInt8]
@@ -182,6 +184,9 @@ open class Token {
 
         private static let useTagIdFastPath: Bool = {
             ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TAGID_FASTPATH"] != "1"
+        }()
+        private static let usePackedTagIdFastPath: Bool = {
+            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_PACKED_TAGID_FASTPATH"] != "1"
         }()
 
         private static let tagIdEntriesByLength: [[TagIdEntry]] = {
@@ -290,6 +295,18 @@ open class Token {
             return entries
         }()
 
+        private static let packedTagIdEntriesByLength: [Dictionary<UInt64, TagId>] = {
+            var entries = Array(repeating: Dictionary<UInt64, TagId>(), count: 9)
+            for entryList in tagIdEntriesByLength {
+                for entry in entryList {
+                    if let packed = packBytes(entry.bytes) {
+                        entries[entry.bytes.count][packed] = entry.id
+                    }
+                }
+            }
+            return entries
+        }()
+
         public var _tagName: [UInt8]?
         private var _tagNameS: ArraySlice<UInt8>?
         public var _normalName: [UInt8]? // lc version of tag name, for case insensitive tree build
@@ -308,24 +325,14 @@ open class Token {
         private var _lowercaseAttributeNames: Bool = false
         fileprivate var _attributesAreNormalized: Bool = false
         fileprivate var _hasUppercaseAttributeNames: Bool = false
+        private static let usePendingAttributesReuseFastPath: Bool =
+            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_PENDING_ATTRIBUTES_REUSE_FASTPATH"] != "1"
         // start tags get attributes on construction. End tags get attributes on first new attribute (but only for parser convenience, not used).
         public var _attributes: Attributes?
         var tagId: TagId = .none
 
-        fileprivate enum PendingAttrValue {
-            case none
-            case empty
-            case slice(ArraySlice<UInt8>)
-            case slices([ArraySlice<UInt8>], Int)
-            case bytes([UInt8])
-        }
-
-        fileprivate struct PendingAttribute {
-            var nameSlice: ArraySlice<UInt8>?
-            var nameBytes: [UInt8]?
-            var hasUppercase: Bool
-            var value: PendingAttrValue
-        }
+        fileprivate typealias PendingAttrValue = Attributes.PendingAttrValue
+        fileprivate typealias PendingAttribute = Attributes.PendingAttribute
 
         override init() {
             super.init()
@@ -352,7 +359,15 @@ open class Token {
             _pendingAttributeValueSlicesCount = 0
             _hasEmptyAttributeValue = false
             _hasPendingAttributeValue = false
-            _pendingAttributes = nil
+            if Self.usePendingAttributesReuseFastPath {
+                _pendingAttributes?.removeAll(keepingCapacity: true)
+            } else {
+            if Self.usePendingAttributesReuseFastPath {
+                _pendingAttributes?.removeAll(keepingCapacity: true)
+            } else {
+                _pendingAttributes = nil
+            }
+        }
             _selfClosing = false
             _lowercaseAttributeNames = false
             _attributesAreNormalized = false
@@ -391,7 +406,13 @@ open class Token {
                     value: value
                 )
                 if _pendingAttributes == nil {
-                    _pendingAttributes = [pending]
+                    if Self.usePendingAttributesReuseFastPath {
+                        _pendingAttributes = []
+                        _pendingAttributes!.reserveCapacity(8)
+                        _pendingAttributes!.append(pending)
+                    } else {
+                        _pendingAttributes = [pending]
+                    }
                 } else {
                     _pendingAttributes!.append(pending)
                 }
@@ -453,7 +474,13 @@ open class Token {
         @inline(__always)
         func tagNameSlice() -> ArraySlice<UInt8>? {
             if let name = _tagName {
+                if tagId == .none, !name.isEmpty {
+                    setTagIdFromSlice(name[...])
+                }
                 return name[...]
+            }
+            if let nameSlice = _tagNameS, tagId == .none, !nameSlice.isEmpty {
+                setTagIdFromSlice(nameSlice)
             }
             return _tagNameS
         }
@@ -565,6 +592,7 @@ open class Token {
             return self
         }
 
+
         @inline(__always)
         func attributesAreNormalized() -> Bool {
             return _attributesAreNormalized
@@ -596,29 +624,13 @@ open class Token {
                 _attributes = Attributes()
             }
             for pending in pendingAttributes {
-                let value: Attributes.PendingAttrValue
-                switch pending.value {
-                case .none:
-                    value = .none
-                case .empty:
-                    value = .empty
-                case .slice(let slice):
-                    value = .slice(slice)
-                case .slices(let slices, let count):
-                    value = .slices(slices, count)
-                case .bytes(let bytes):
-                    value = .bytes(bytes)
-                }
-
-                let attr = Attributes.PendingAttribute(
-                    nameSlice: pending.nameSlice,
-                    nameBytes: pending.nameBytes,
-                    hasUppercase: pending.hasUppercase,
-                    value: value
-                )
-                _attributes?.appendPending(attr)
+                _attributes?.appendPending(pending)
             }
-            _pendingAttributes = nil
+            if Self.usePendingAttributesReuseFastPath {
+                _pendingAttributes?.removeAll(keepingCapacity: true)
+            } else {
+                _pendingAttributes = nil
+            }
         }
         
         // these appenders are rarely hit in not null state-- caused by null chars.
@@ -670,8 +682,36 @@ open class Token {
         }
 
         @inline(__always)
+        func appendTagNameLowercased(_ append: ArraySlice<UInt8>) {
+            tagId = .none
+            if _tagName == nil {
+                if _tagNameS != nil {
+                    ensureTagName()
+                } else {
+                    _tagName = []
+                }
+            }
+            _tagName!.reserveCapacity(_tagName!.count + append.count)
+            for b in append {
+                if b >= 65 && b <= 90 {
+                    _tagName!.append(b &+ 32)
+                } else {
+                    _tagName!.append(b)
+                }
+            }
+            _tagNameS = nil
+            _tagNameHasUppercase = false
+            _normalName = nil
+        }
+
+        @inline(__always)
         static func tagIdForSlice(_ slice: ArraySlice<UInt8>) -> TagId? {
             let count = slice.count
+            if usePackedTagIdFastPath, count < packedTagIdEntriesByLength.count,
+               let packed = packSlice(slice),
+               let id = packedTagIdEntriesByLength[count][packed] {
+                return id
+            }
             if count < tagIdEntriesByLength.count {
                 for entry in tagIdEntriesByLength[count] {
                     if equalsSlice(entry.bytes, slice) {
@@ -680,6 +720,36 @@ open class Token {
                 }
             }
             return nil
+        }
+
+        @inline(__always)
+        private static func packBytes(_ bytes: [UInt8]) -> UInt64? {
+            let count = bytes.count
+            if count == 0 || count > 8 {
+                return nil
+            }
+            var value: UInt64 = 0
+            var shift: UInt64 = 0
+            for b in bytes {
+                value |= (UInt64(b) << shift)
+                shift &+= 8
+            }
+            return value
+        }
+
+        @inline(__always)
+        private static func packSlice(_ slice: ArraySlice<UInt8>) -> UInt64? {
+            let count = slice.count
+            if count == 0 || count > 8 {
+                return nil
+            }
+            var value: UInt64 = 0
+            var shift: UInt64 = 0
+            for b in slice {
+                value |= (UInt64(b) << shift)
+                shift &+= 8
+            }
+            return value
         }
 
         @inline(__always)
@@ -717,6 +787,11 @@ open class Token {
 
         @inline(__always)
         func tagIdName() -> [UInt8]? {
+            return Self.tagIdName(tagId)
+        }
+
+        @inline(__always)
+        static func tagIdName(_ tagId: TagId) -> [UInt8]? {
             switch tagId {
             case .none:
                 return nil
@@ -917,6 +992,7 @@ open class Token {
             }
             return true
         }
+
         
         @inline(__always)
         func appendAttributeName(_ append: [UInt8]) {
@@ -1003,12 +1079,15 @@ open class Token {
 
         @inline(__always)
         func hasPendingAttributes() -> Bool {
-            return _pendingAttributes != nil
+            if let pending = _pendingAttributes {
+                return !pending.isEmpty
+            }
+            return false
         }
 
         @inline(__always)
         func hasAnyAttributes() -> Bool {
-            if _pendingAttributes != nil {
+            if let pending = _pendingAttributes, !pending.isEmpty {
                 return true
             }
             if let attrs = _attributes {

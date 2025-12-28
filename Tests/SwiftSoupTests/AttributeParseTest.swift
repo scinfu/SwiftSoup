@@ -65,6 +65,18 @@ class AttributeParseTest: XCTestCase {
 		XCTAssertEqual("&wr_id=123&mid-size=true&ok=&wr", try  els.first()!.attr("href"))
 	}
 
+	func testQueryStringAttributeKeepsAmpersands() throws {
+		let html = "<a href=\"/search?q=1&x=2&y=3\"></a>"
+		let el: Element = try SwiftSoup.parse(html).select("a").first()!
+		XCTAssertEqual("/search?q=1&x=2&y=3", try el.attr("href"))
+	}
+
+	func testQueryStringAttributeDecodesEntities() throws {
+		let html = "<a href=\"/search?q=1&amp;x=2&amp;y=3\"></a>"
+		let el: Element = try SwiftSoup.parse(html).select("a").first()!
+		XCTAssertEqual("/search?q=1&x=2&y=3", try el.attr("href"))
+	}
+
 	func testparsesBooleanAttributes() throws {
 		let html: String = "<a normal=\"123\" boolean empty=\"\"></a>"
 		let el: Element = try SwiftSoup.parse(html).select("a").first()!

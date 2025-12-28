@@ -65,6 +65,39 @@ open class DataNode: Node {
         return attributes!.get(key: DataNode.DATA_KEY)
     }
 
+    @usableFromInline
+    internal func appendSlice(_ slice: ArraySlice<UInt8>) {
+        var data = getWholeDataUTF8()
+        data.append(contentsOf: slice)
+        do {
+            try attributes?.put(DataNode.DATA_KEY, data)
+        } catch {}
+        markSourceDirty()
+    }
+
+    @usableFromInline
+    internal func extendSliceFromSourceRange(_ source: [UInt8], newRange: SourceRange) -> Bool {
+        guard rawDataSlice != nil, !sourceRangeDirty else {
+            return false
+        }
+        guard let existingRange = sourceRange,
+              existingRange.isValid,
+              newRange.isValid,
+              existingRange.end == newRange.start,
+              newRange.end <= source.count
+        else {
+            return false
+        }
+        rawDataSlice = source[existingRange.start..<newRange.end]
+        return true
+    }
+
+
+    @usableFromInline
+    internal func appendBytes(_ bytes: [UInt8]) {
+        appendSlice(bytes[...])
+    }
+
 
 
 

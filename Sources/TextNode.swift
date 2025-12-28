@@ -17,6 +17,8 @@ open class TextNode: Node {
      them as needed on the fly.
      */
     private static let TEXT_KEY = "text".utf8Array
+    private static let useSliceNormaliseFastPath =
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TEXTNODE_SLICE_NORMALISE_FASTPATH"] != "1"
     var _text: [UInt8]
     private var _textSlice: ArraySlice<UInt8>? = nil
 
@@ -61,6 +63,9 @@ open class TextNode: Node {
      */
     @inline(__always)
     open func text() -> String {
+        if Self.useSliceNormaliseFastPath {
+            return TextNode.normaliseWhitespace(wholeTextSlice())
+        }
         return TextNode.normaliseWhitespace(getWholeTextUTF8())
     }
 
@@ -141,6 +146,24 @@ open class TextNode: Node {
         }
         bumpTextMutationVersion()
         markSourceDirty()
+    }
+
+    @usableFromInline
+    internal func extendSliceFromSourceRange(_ source: [UInt8], newRange: SourceRange) -> Bool {
+        if attributes != nil || sourceRangeDirty {
+            return false
+        }
+        guard let existingRange = sourceRange,
+              existingRange.isValid,
+              newRange.isValid,
+              existingRange.end == newRange.start,
+              newRange.end <= source.count
+        else {
+            return false
+        }
+        _text = []
+        _textSlice = source[existingRange.start..<newRange.end]
+        return true
     }
 
     @usableFromInline
@@ -230,9 +253,14 @@ open class TextNode: Node {
     static public func normaliseWhitespace(_ text: String) -> String {
         return StringUtil.normaliseWhitespace(text)
     }
-    
+
     @inline(__always)
     static public func normaliseWhitespace(_ text: [UInt8]) -> String {
+        return StringUtil.normaliseWhitespace(text)
+    }
+
+    @inline(__always)
+    static public func normaliseWhitespace(_ text: ArraySlice<UInt8>) -> String {
         return StringUtil.normaliseWhitespace(text)
     }
 
@@ -245,7 +273,7 @@ open class TextNode: Node {
     @inlinable
     @inline(__always)
     static public func lastCharIsWhitespace(_ sb: StringBuilder) -> Bool {
-        return sb.lastByte == 0x20  // 0x20 is the UTF-8 code for a space character
+        return sb.lastByte == TokeniserStateVars.spaceByte
     }
 
     // attribute fiddling. create on first access.
