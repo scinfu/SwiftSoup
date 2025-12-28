@@ -17,8 +17,7 @@ open class Tag: Hashable, @unchecked Sendable {
             preconditionFailure("Cannot initialize known tags: \(error)")
         }
     }()
-    private static let useUnknownTagCache: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_UNKNOWN_TAG_CACHE"] != "1"
+    private static let useUnknownTagCache: Bool = true
     private static let unknownTagCacheLimit: Int = 512
     private static let unknownTagCache = UnknownTagCache()
 

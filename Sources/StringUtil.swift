@@ -93,8 +93,6 @@ open class StringUtil {
     fileprivate static let padding: [String] = ["", " ", "  ", "   ", "    ", "     ", "      ", "       ", "        ", "         ", "          "]
     private static let empty = ""
     private static let space = " "
-    private static let useWhitespaceFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_NORMALISE_WHITESPACE_FASTPATH"] != "1"
 
     public static let spaceUTF8: [UInt8] = " ".utf8Array
     public static let backslashTUTF8: [UInt8] = "\t".utf8Array
@@ -252,7 +250,7 @@ open class StringUtil {
      * - returns: normalised string
      */
     public static func normaliseWhitespace(_ string: [UInt8]) -> String {
-        if useWhitespaceFastPath, !needsWhitespaceNormalization(string) {
+        if !needsWhitespaceNormalization(string) {
             return String(decoding: string, as: UTF8.self)
         }
         let sb: StringBuilder = StringBuilder(string.count)
@@ -261,7 +259,7 @@ open class StringUtil {
     }
 
     public static func normaliseWhitespace(_ string: ArraySlice<UInt8>) -> String {
-        if useWhitespaceFastPath, !needsWhitespaceNormalization(string) {
+        if !needsWhitespaceNormalization(string) {
             return String(decoding: string, as: UTF8.self)
         }
         let sb: StringBuilder = StringBuilder(string.count)

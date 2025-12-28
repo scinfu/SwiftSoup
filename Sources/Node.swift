@@ -21,8 +21,6 @@ internal final class Weak<T: AnyObject> {
 }
 
 open class Node: Equatable, Hashable {
-    private static let useBulkQueryDirtyFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_BULK_QUERY_DIRTY_FASTPATH"] != "1"
     var baseUri: [UInt8]?
     var attributes: Attributes?
     
@@ -46,7 +44,7 @@ open class Node: Equatable, Hashable {
             if element.suppressQueryIndexDirty {
                 return
             }
-            if Node.useBulkQueryDirtyFastPath, element.treeBuilder?.isBulkBuilding == true {
+            if element.treeBuilder?.isBulkBuilding == true {
                 return
             }
             element.markQueryIndexesDirty()

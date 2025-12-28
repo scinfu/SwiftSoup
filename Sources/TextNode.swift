@@ -17,8 +17,6 @@ open class TextNode: Node {
      them as needed on the fly.
      */
     private static let TEXT_KEY = "text".utf8Array
-    private static let useSliceNormaliseFastPath =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TEXTNODE_SLICE_NORMALISE_FASTPATH"] != "1"
     var _text: [UInt8]
     private var _textSlice: ArraySlice<UInt8>? = nil
 
@@ -63,10 +61,7 @@ open class TextNode: Node {
      */
     @inline(__always)
     open func text() -> String {
-        if Self.useSliceNormaliseFastPath {
-            return TextNode.normaliseWhitespace(wholeTextSlice())
-        }
-        return TextNode.normaliseWhitespace(getWholeTextUTF8())
+        return TextNode.normaliseWhitespace(wholeTextSlice())
     }
 
     /**

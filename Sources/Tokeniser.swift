@@ -9,65 +9,7 @@ import Foundation
 
 final class Tokeniser {
     static let replacementChar: UnicodeScalar = "\u{FFFD}" // replaces null character
-    private static let useLowercaseTagNameFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TAGNAME_LOWER_FASTPATH"] != "1"
-    }()
-    private static let useSplitDataStateLoop: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SPLIT_DATASTATE_LOOP"] != "1"
-    }()
-    private static let useDataStateDelimiterFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DATASTATE_DELIM_FASTPATH"] != "1"
-    }()
-    private static let useDataStateConsumeFirstFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DATASTATE_CONSUME_FIRST_FASTPATH"] != "1"
-    }()
-    private static let useDataStateMemchrFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DATASTATE_MEMCHR_FASTPATH"] != "1"
-    }()
-    private static let useDataStateConsumeDataFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DATASTATE_CONSUME_DATA_FASTPATH"] != "1"
-    }()
-    private static let dataStateMemchrMinRemaining: Int = {
-        if let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_DATASTATE_MEMCHR_MIN"],
-           let value = Int(raw) {
-            return max(1, value)
-        }
-        return 32
-    }()
-    private static let useInputSliceCoalesceFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_INPUT_SLICE_COALESCE_FASTPATH"] != "1"
-    }()
-    private static let useSinglePendingSliceFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SINGLE_PENDING_SLICE_FASTPATH"] != "1"
-    }()
-    private static let usePendingSlicesBulkCopyFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_PENDING_SLICES_BULK_COPY_FASTPATH"] != "1"
-    }()
-    private static let useAttrCharRefEqFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_ATTR_CHARREF_EQ_FASTPATH"] != "1"
-    }()
     // Inline "&" handling in Data/RCDATA state to avoid state transitions for character references.
-    static let useInlineCharRefDataFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_INLINE_CHARREF_DATA_FASTPATH"] != "1"
-    }()
-    static let useCharRefStartFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_CHARREF_START_FASTPATH"] != "1"
-    }()
-    private static let useCharRefAsciiNameFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_CHARREF_ASCII_NAME_FASTPATH"] != "1"
-    }()
-    private static let useNumericCharRefFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_NUMERIC_CHARREF_FASTPATH"] != "1"
-    }()
-    private static let useNumericCharRefPrefixFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_NUMERIC_CHARREF_PREFIX_FASTPATH"] != "1"
-    }()
-    private static let useNumericCharRefCache: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_NUMERIC_CHARREF_CACHE"] != "1"
-    }()
-    static let useInlineBasicNamedEntityFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_INLINE_BASIC_ENTITY_FASTPATH"] != "1"
-    }()
     private static let notCharRefChars = ParsingStrings([UnicodeScalar.BackslashT, "\n", "\r", UnicodeScalar.BackslashF, " ", "<", UnicodeScalar.Ampersand])
     private static let notNamedCharRefChars = ParsingStrings([UTF8Arrays.equalSign, UTF8Arrays.hyphen, UTF8Arrays.underscore])
     private static let ampName = "amp".utf8Array
@@ -109,7 +51,7 @@ final class Tokeniser {
     }()
 
     @inline(__always)
-    private static func isNotCharRefAscii(_ byte: UInt8) -> Bool {
+    internal static func isNotCharRefAscii(_ byte: UInt8) -> Bool {
         return byte < 0x80 && notCharRefAsciiTable[Int(byte)]
     }
 
@@ -233,9 +175,6 @@ final class Tokeniser {
     private let eofToken: Token.EOF = Token.EOF()
     private var lastStartTag: [UInt8]?  // the last start tag emitted, to test appropriate end tag
     private var lastStartTagId: Token.Tag.TagId = .none
-    private static let useLastStartTagIdFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_LASTSTARTTAG_TAGID_FASTPATH"] != "1"
-    }()
     private var selfClosingFlagAcknowledged: Bool = true
     private let lowercaseAttributeNames: Bool
     private let attributesNormalizedByDefault: Bool
@@ -251,7 +190,7 @@ final class Tokeniser {
         if let settings {
             lowercaseAttributeNames = !settings.preservesAttributeCase()
             attributesNormalizedByDefault = settings.preservesAttributeCase()
-            lowercaseTagNames = !settings.preservesTagCase() && Self.useLowercaseTagNameFastPath
+            lowercaseTagNames = !settings.preservesTagCase()
             trackSourceRanges = settings.tracksSourceRanges()
             trackAttributes = settings.tracksAttributes()
         } else {
@@ -304,23 +243,13 @@ final class Tokeniser {
         #endif
         while (!isEmitPendingFast) {
             if isDataState {
-                if Tokeniser.useSplitDataStateLoop {
-                    if trackSourceRanges {
-                        repeat {
-                            try readDataStateTracked()
-                        } while (!isEmitPendingFast && isDataState)
-                    } else {
-                        repeat {
-                            try readDataStateFast()
-                        } while (!isEmitPendingFast && isDataState)
-                    }
+                if trackSourceRanges {
+                    repeat {
+                        try readDataStateTracked()
+                    } while (!isEmitPendingFast && isDataState)
                 } else {
                     repeat {
-                        if trackSourceRanges {
-                            try readDataStateTracked()
-                        } else {
-                            try readDataStateFast()
-                        }
+                        try readDataStateFast()
                     } while (!isEmitPendingFast && isDataState)
                 }
                 continue
@@ -361,7 +290,7 @@ final class Tokeniser {
             let _pEmit = Profiler.start("Tokeniser.read.emitSlices")
             defer { Profiler.end("Tokeniser.read.emitSlices", _pEmit) }
             #endif
-            if Self.useSinglePendingSliceFastPath, pendingSlices.count == 1 {
+            if pendingSlices.count == 1 {
                 let slice = pendingSlices[0]
                 pendingSlices.removeAll(keepingCapacity: true)
                 pendingSlicesCount = 0
@@ -371,7 +300,7 @@ final class Tokeniser {
             } else {
                 // Combine all the pending slices in one allocation.
                 let totalCount = pendingSlicesCount
-                if Self.usePendingSlicesBulkCopyFastPath, totalCount > 0 {
+                if totalCount > 0 {
                     var combined = [UInt8](repeating: 0, count: totalCount)
                     var offset = 0
                     combined.withUnsafeMutableBufferPointer { dst in
@@ -426,7 +355,7 @@ final class Tokeniser {
         
         if (token.type == Token.TokenType.StartTag) {
             let startTag: Token.StartTag  = token as! Token.StartTag
-            if Tokeniser.useLastStartTagIdFastPath, startTag.tagId != .none {
+            if startTag.tagId != .none {
                 lastStartTagId = startTag.tagId
                 lastStartTag = nil
             } else {
@@ -455,14 +384,6 @@ final class Tokeniser {
 
     @inline(__always)
     private func consumeDataTracked() -> ArraySlice<UInt8> {
-        if Tokeniser.useDataStateMemchrFastPath,
-           reader.canSkipNullCheck,
-           (reader.end - reader.pos) >= Tokeniser.dataStateMemchrMinRemaining {
-            if Tokeniser.useDataStateConsumeDataFastPath {
-                return reader.consumeData()
-            }
-            return reader.consumeDataFastNoNull()
-        }
         return reader.consumeData()
     }
 
@@ -473,16 +394,15 @@ final class Tokeniser {
         defer { Profiler.end("TokeniserState.Data", _p) }
         #endif
         let remaining = reader.end - reader.pos
-        if Tokeniser.useDataStateConsumeFirstFastPath, reader.canSkipNullCheck, remaining >= 64 {
+        if reader.canSkipNullCheck, remaining >= 64 {
             let first = reader.input[reader.pos]
             if first == TokeniserStateVars.ampersandByte ||
-                first == TokeniserStateVars.lessThanByte ||
-                first == TokeniserStateVars.nullByte {
+                first == TokeniserStateVars.lessThanByte {
                 try handleDataStateDelimiterTracked()
                 return
             }
             let dataStart = reader.pos
-            let data = consumeDataTracked()
+            let data = reader.consumeData()
             if !data.isEmpty {
                 let dataEnd = reader.pos
                 emitRaw(data, start: dataStart, end: dataEnd)
@@ -494,11 +414,17 @@ final class Tokeniser {
             }
             try handleDataStateDelimiterTracked()
             return
-        } else if Tokeniser.useDataStateDelimiterFastPath, reader.pos < reader.end {
+        } else if reader.pos < reader.end {
             let first = reader.input[reader.pos]
-            if first == TokeniserStateVars.ampersandByte ||
-                first == TokeniserStateVars.lessThanByte ||
-                first == TokeniserStateVars.nullByte {
+            if reader.canSkipNullCheck {
+                if first == TokeniserStateVars.ampersandByte ||
+                    first == TokeniserStateVars.lessThanByte {
+                    try handleDataStateDelimiterTracked()
+                    return
+                }
+            } else if first == TokeniserStateVars.ampersandByte ||
+                        first == TokeniserStateVars.lessThanByte ||
+                        first == TokeniserStateVars.nullByte {
                 try handleDataStateDelimiterTracked()
                 return
             }
@@ -514,89 +440,7 @@ final class Tokeniser {
             try emitEOF()
             return
         }
-        let byte = reader.input[reader.pos]
-        switch byte {
-        case TokeniserStateVars.ampersandByte: // "&"
-            if Tokeniser.useInlineCharRefDataFastPath {
-                reader.advanceAscii()
-                try TokeniserState.readCharRef(self, .Data)
-                return
-            }
-            advanceTransitionAscii(.CharacterReferenceInData)
-        case TokeniserStateVars.lessThanByte: // "<"
-            markTagStart(reader.pos)
-            reader.advanceAscii()
-            if reader.pos >= reader.end {
-                error(.Data)
-                clearTagStart()
-                emit(UnicodeScalar.LessThan)
-                transition(.Data)
-                return
-            }
-            let next = reader.input[reader.pos]
-            if next < 0x80, TokeniserStateVars.isAsciiAlpha(next) {
-                if try TokeniserState.readTagNameFromTagOpen(self, reader, true) {
-                    return
-                }
-                return
-            }
-            switch next {
-            case TokeniserStateVars.bangByte: // "!"
-                advanceTransitionAscii(.MarkupDeclarationOpen)
-            case TokeniserStateVars.slashByte: // "/"
-                reader.advanceAscii()
-                if reader.isEmpty() {
-                    eofError(.Data)
-                    clearTagStart()
-                    emit(UTF8Arrays.endTagStart)
-                    transition(.Data)
-                    return
-                }
-                let endByte = reader.currentByte()!
-                if endByte < 0x80 {
-                    if TokeniserStateVars.isAsciiAlpha(endByte) {
-                        if try TokeniserState.readTagNameFromTagOpen(self, reader, false) {
-                            return
-                        }
-                        return
-                    }
-                    if endByte == TokeniserStateVars.greaterThanByte {
-                        error(.Data)
-                        clearTagStart()
-                        advanceTransition(.Data)
-                    } else {
-                        error(.Data)
-                        clearTagStart()
-                        advanceTransition(.BogusComment)
-                    }
-                } else if reader.matchesLetter() {
-                    createTagPending(false)
-                    try TokeniserState.readTagName(.TagName, self, reader)
-                    return
-                } else {
-                    error(.Data)
-                    clearTagStart()
-                    advanceTransition(.BogusComment)
-                }
-            case TokeniserStateVars.questionMarkByte: // "?"
-                advanceTransitionAscii(.BogusComment)
-            default:
-                if next >= 0x80, reader.matchesLetter() {
-                    createTagPending(true)
-                    try TokeniserState.readTagName(.TagName, self, reader)
-                    return
-                }
-                error(.Data)
-                emit(UnicodeScalar.LessThan)
-                transition(.Data)
-            }
-        case 0x00:
-            error(.Data)
-            reader.advanceAscii()
-            emit(UnicodeScalar(0x00))
-        default:
-            break
-        }
+        try handleDataStateDelimiterTracked()
     }
 
     @inline(__always)
@@ -604,12 +448,9 @@ final class Tokeniser {
         let byte = reader.input[reader.pos]
         switch byte {
         case TokeniserStateVars.ampersandByte: // "&"
-            if Tokeniser.useInlineCharRefDataFastPath {
-                reader.advanceAscii()
-                try TokeniserState.readCharRef(self, .Data)
-                return
-            }
-            advanceTransitionAscii(.CharacterReferenceInData)
+            reader.advanceAscii()
+            try TokeniserState.readCharRef(self, .Data)
+            return
         case TokeniserStateVars.lessThanByte: // "<"
             markTagStart(reader.pos)
             reader.advanceAscii()
@@ -693,32 +534,16 @@ final class Tokeniser {
             return
         }
         let remaining = reader.end - reader.pos
-        if Tokeniser.useDataStateConsumeFirstFastPath, reader.canSkipNullCheck, remaining >= 64 {
+        if reader.canSkipNullCheck, remaining >= 64 {
             let first = reader.input[reader.pos]
             if first == TokeniserStateVars.ampersandByte ||
-                first == TokeniserStateVars.lessThanByte ||
-                first == TokeniserStateVars.nullByte {
+                first == TokeniserStateVars.lessThanByte {
                 try handleDataStateDelimiter()
                 return
             }
-            let data: ArraySlice<UInt8>
-            if Tokeniser.useDataStateMemchrFastPath,
-               reader.canSkipNullCheck,
-               (reader.end - reader.pos) >= Tokeniser.dataStateMemchrMinRemaining {
-                if Tokeniser.useDataStateConsumeDataFastPath {
-                    data = reader.consumeData()
-                } else {
-                    data = reader.consumeDataFastNoNull()
-                }
-            } else {
-                data = reader.consumeData()
-            }
+            let data = reader.consumeData()
             if !data.isEmpty {
-                if Tokeniser.useInputSliceCoalesceFastPath {
-                    emitInputSlice(data)
-                } else {
-                    emit(data)
-                }
+                emitInputSlice(data)
                 return
             }
             if reader.pos >= reader.end {
@@ -727,22 +552,24 @@ final class Tokeniser {
             }
             try handleDataStateDelimiter()
             return
-        } else if Tokeniser.useDataStateDelimiterFastPath {
+        } else {
             let first = reader.input[reader.pos]
-            if first == TokeniserStateVars.ampersandByte ||
-                first == TokeniserStateVars.lessThanByte ||
-                first == TokeniserStateVars.nullByte {
+            if reader.canSkipNullCheck {
+                if first == TokeniserStateVars.ampersandByte ||
+                    first == TokeniserStateVars.lessThanByte {
+                    try handleDataStateDelimiter()
+                    return
+                }
+            } else if first == TokeniserStateVars.ampersandByte ||
+                        first == TokeniserStateVars.lessThanByte ||
+                        first == TokeniserStateVars.nullByte {
                 try handleDataStateDelimiter()
                 return
             }
         }
         let data = reader.consumeData()
         if !data.isEmpty {
-            if Tokeniser.useInputSliceCoalesceFastPath {
-                emitInputSlice(data)
-            } else {
-                emit(data)
-            }
+            emitInputSlice(data)
             return
         }
         if reader.pos >= reader.end {
@@ -757,12 +584,9 @@ final class Tokeniser {
         let byte = reader.input[reader.pos]
         switch byte {
         case TokeniserStateVars.ampersandByte: // "&"
-            if Tokeniser.useInlineCharRefDataFastPath {
-                reader.advanceAscii()
-                try TokeniserState.readCharRef(self, .Data)
-                return
-            }
-            advanceTransitionAscii(.CharacterReferenceInData)
+            reader.advanceAscii()
+            try TokeniserState.readCharRef(self, .Data)
+            return
         case TokeniserStateVars.lessThanByte: // "<"
             reader.advanceAscii()
             if reader.pos >= reader.end {
@@ -844,11 +668,7 @@ final class Tokeniser {
         } else {
             pendingCharRange = nil
         }
-        if Self.useInputSliceCoalesceFastPath {
-            emitInputSlice(str)
-        } else {
-            emit(str)
-        }
+        emitInputSlice(str)
     }
     
     @inline(__always)
@@ -1020,7 +840,7 @@ final class Tokeniser {
             return nil
         }
 
-        if inAttribute, Tokeniser.useAttrCharRefEqFastPath {
+        if inAttribute {
             if let b = reader.currentByte(), b < 0x80,
                (TokeniserStateVars.isAsciiAlpha(b) || Tokeniser.isAsciiDigit(b)) {
                 let start = reader.pos
@@ -1047,8 +867,7 @@ final class Tokeniser {
                 }
             }
         }
-        if Self.useNumericCharRefPrefixFastPath,
-           let b = reader.currentByte(),
+        if let b = reader.currentByte(),
            b == TokeniserStateVars.hashByte {
             let start = reader.pos
             var i = start &+ 1
@@ -1105,85 +924,15 @@ final class Tokeniser {
                 characterReferenceError("character outside of valid range")
                 return Self.replacementCodepoints
             }
-            if Self.useNumericCharRefCache, charval >= 0, charval < 256 {
+            if charval >= 0, charval < 256 {
                 return Self.numericCharRefCache[charval]
             }
             return [UnicodeScalar(charval)!]
         }
 
+        // named
         reader.markPos()
-        if let b = reader.currentByte(), b == TokeniserStateVars.hashByte { // "#"
-            reader.advanceAscii()
-            let isHexMode: Bool
-            if let byte = reader.currentByte(), (byte == TokeniserStateVars.lowerXByte || byte == TokeniserStateVars.upperXByte) { // x or X
-                reader.advanceAscii()
-                isHexMode = true
-            } else {
-                isHexMode = false
-            }
-            var charval: Int  = -1
-            let base: Int = isHexMode ? 16 : 10
-            if Tokeniser.useNumericCharRefFastPath,
-               let first = reader.currentByte(),
-               first < 0x80 {
-                var i = reader.pos
-                var value = 0
-                var consumed = false
-                while i < reader.end {
-                    let byte = reader.input[i]
-                    if byte >= 0x80 {
-                        break
-                    }
-                    let digit: Int
-                    if byte >= 48 && byte <= 57 {
-                        digit = Int(byte - 48)
-                    } else if isHexMode && byte >= 65 && byte <= 70 {
-                        digit = 10 + Int(byte - 65)
-                    } else if isHexMode && byte >= 97 && byte <= 102 {
-                        digit = 10 + Int(byte - 97)
-                    } else {
-                        break
-                    }
-                    consumed = true
-                    value = value * base + digit
-                    i &+= 1
-                }
-                if !consumed {
-                    characterReferenceError("numeric reference with no numerals")
-                    reader.rewindToMark()
-                    return nil
-                }
-                reader.pos = i
-                charval = value
-            } else {
-                let numRef: ArraySlice<UInt8> = isHexMode ? reader.consumeHexSequence() : reader.consumeDigitSequence()
-                if (numRef.isEmpty) { // didn't match anything
-                    characterReferenceError("numeric reference with no numerals")
-                    reader.rewindToMark()
-                    return nil
-                }
-                if let num = numRef.toIntAscii(radix: base) {
-                    charval = num
-                }
-            }
-            if let endByte = reader.currentByte(), endByte == UTF8Arrays.semicolon[0] { // ";"
-                reader.advanceAscii()
-            } else {
-                characterReferenceError("missing semicolon") // missing semi
-            }
-
-            if (charval == -1 || (charval >= 0xD800 && charval <= 0xDFFF) || charval > 0x10FFFF) {
-                characterReferenceError("character outside of valid range")
-                return Self.replacementCodepoints
-            } else {
-                // todo: implement number replacement table
-                // todo: check for extra illegal unicode points as parse errors
-                if Self.useNumericCharRefCache, charval >= 0, charval < 256 {
-                    return Self.numericCharRefCache[charval]
-                }
-                return [UnicodeScalar(charval)!]
-            }
-        } else { // named
+        do {
             @inline(__always)
             func fastNamedEntity(_ name: [UInt8], _ codepoints: [UnicodeScalar]) -> [UnicodeScalar]? {
                 let pos = reader.pos
@@ -1231,7 +980,7 @@ final class Tokeniser {
             }
              // get as many letters as possible, and look for matching entities.
             let nameRef: ArraySlice<UInt8>
-            if Tokeniser.useCharRefAsciiNameFastPath, let b = reader.currentByte(), b < 0x80,
+            if let b = reader.currentByte(), b < 0x80,
                TokeniserStateVars.isAsciiAlpha(b) {
                 let start = reader.pos
                 var i = start
@@ -1307,7 +1056,7 @@ final class Tokeniser {
             }
             try Validate.fail(msg: "Entity name not found: \(nameRef)")
             return []
-        }
+        } 
     }
 
 
@@ -1372,7 +1121,7 @@ final class Tokeniser {
     }
     
     func isAppropriateEndTagToken()throws->Bool {
-        if lastStartTagId != .none, Tokeniser.useLastStartTagIdFastPath {
+        if lastStartTagId != .none {
             if tagPending.tagId == .none, let nameSlice = tagPending.normalNameSlice() {
                 tagPending.setTagIdFromSlice(nameSlice)
             }
@@ -1399,7 +1148,7 @@ final class Tokeniser {
     }
     
     func appropriateEndTagName() -> [UInt8]? {
-        if lastStartTagId != .none, Tokeniser.useLastStartTagIdFastPath {
+        if lastStartTagId != .none {
             return Token.Tag.tagIdName(lastStartTagId)
         }
         if (lastStartTag == nil) {

@@ -7,6 +7,46 @@
 
 import Foundation
 
+private enum AsciiSearch {
+    @inline(__always)
+    static func lower(_ byte: UInt8) -> UInt8 {
+        if byte >= 65 && byte <= 90 {
+            return byte &+ 32
+        }
+        return byte
+    }
+
+    @inline(__always)
+    static func containsCaseInsensitive(_ haystack: ArraySlice<UInt8>, needleLower: [UInt8]) -> Bool {
+        let needleCount = needleLower.count
+        if needleCount == 0 {
+            return true
+        }
+        let hayCount = haystack.count
+        if hayCount < needleCount {
+            return false
+        }
+        let lastStart = haystack.endIndex - needleCount
+        var i = haystack.startIndex
+        while i <= lastStart {
+            if lower(haystack[i]) == needleLower[0] {
+                var j = 1
+                while j < needleCount {
+                    if lower(haystack[i + j]) != needleLower[j] {
+                        break
+                    }
+                    j += 1
+                }
+                if j == needleCount {
+                    return true
+                }
+            }
+            i += 1
+        }
+        return false
+    }
+}
+
 /// Evaluates that an element matches the selector.
 open class Evaluator: @unchecked Sendable {
     public init () {}
@@ -224,10 +264,6 @@ open class Evaluator: @unchecked Sendable {
      * Evaluator for attribute name/value matching (value prefix)
      */
     public final class AttributeWithValueStarting: AttributeKeyPair, @unchecked Sendable {
-        private static let useAsciiFastPath: Bool = {
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_ATTRVALUE_ASCII_FASTPATH"] != "1"
-        }()
-
         public override init(_ key: String, _ value: String)throws {
             try super.init(key, value)
         }
@@ -235,8 +271,7 @@ open class Evaluator: @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             if element.hasAttr(keyBytes) {
                 let bytes = try element.attr(keyBytes)
-                if Self.useAsciiFastPath,
-                   StringUtil.isAscii(bytes),
+                if StringUtil.isAscii(bytes),
                    StringUtil.isAscii(valueBytes) {
                     return StringUtil.hasPrefixIgnoreCaseAscii(bytes, valueBytes)
                 }
@@ -255,10 +290,6 @@ open class Evaluator: @unchecked Sendable {
      * Evaluator for attribute name/value matching (value ending)
      */
     public final class AttributeWithValueEnding: AttributeKeyPair, @unchecked Sendable {
-        private static let useAsciiFastPath: Bool = {
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_ATTRVALUE_ASCII_FASTPATH"] != "1"
-        }()
-
         public override init(_ key: String, _ value: String)throws {
             try super.init(key, value)
         }
@@ -266,8 +297,7 @@ open class Evaluator: @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             if element.hasAttr(keyBytes) {
                 let bytes = try element.attr(keyBytes)
-                if Self.useAsciiFastPath,
-                   StringUtil.isAscii(bytes),
+                if StringUtil.isAscii(bytes),
                    StringUtil.isAscii(valueBytes) {
                     return StringUtil.hasSuffixIgnoreCaseAscii(bytes, valueBytes)
                 }
@@ -286,10 +316,6 @@ open class Evaluator: @unchecked Sendable {
      * Evaluator for attribute name/value matching (value containing)
      */
     public final class AttributeWithValueContaining: AttributeKeyPair, @unchecked Sendable {
-        private static let useAsciiFastPath: Bool = {
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_ATTRVALUE_ASCII_FASTPATH"] != "1"
-        }()
-
         public override init(_ key: String, _ value: String)throws {
             try super.init(key, value)
         }
@@ -297,8 +323,7 @@ open class Evaluator: @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             if element.hasAttr(keyBytes) {
                 let bytes = try element.attr(keyBytes)
-                if Self.useAsciiFastPath,
-                   StringUtil.isAscii(bytes),
+                if StringUtil.isAscii(bytes),
                    StringUtil.isAscii(valueBytes) {
                     return StringUtil.containsIgnoreCaseAscii(bytes, valueBytes)
                 }
@@ -697,12 +722,24 @@ open class Evaluator: @unchecked Sendable {
      */
     public final class ContainsText: Evaluator, @unchecked Sendable {
         private let searchText: String
+        private let searchTextLowerUTF8: [UInt8]?
 
         public init(_ searchText: String) {
-            self.searchText = searchText.lowercased()
+            let lowered = searchText.lowercased()
+            self.searchText = lowered
+            let utf8 = [UInt8](lowered.utf8)
+            if utf8.allSatisfy({ $0 < 0x80 }) {
+                self.searchTextLowerUTF8 = utf8
+            } else {
+                self.searchTextLowerUTF8 = nil
+            }
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let needle = searchTextLowerUTF8 {
+                let text = try element.textUTF8Slice()
+                return AsciiSearch.containsCaseInsensitive(text, needleLower: needle)
+            }
             return (try element.text().lowercased().contains(searchText))
         }
 
@@ -716,12 +753,24 @@ open class Evaluator: @unchecked Sendable {
      */
     public final class ContainsOwnText: Evaluator, @unchecked Sendable {
         private let searchText: String
+        private let searchTextLowerUTF8: [UInt8]?
 
         public init(_ searchText: String) {
-            self.searchText = searchText.lowercased()
+            let lowered = searchText.lowercased()
+            self.searchText = lowered
+            let utf8 = [UInt8](lowered.utf8)
+            if utf8.allSatisfy({ $0 < 0x80 }) {
+                self.searchTextLowerUTF8 = utf8
+            } else {
+                self.searchTextLowerUTF8 = nil
+            }
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let needle = searchTextLowerUTF8 {
+                let text = element.ownTextUTF8()[...]
+                return AsciiSearch.containsCaseInsensitive(text, needleLower: needle)
+            }
             return (element.ownText().lowercased().contains(searchText))
         }
 

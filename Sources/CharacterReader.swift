@@ -47,7 +47,7 @@ public final class CharacterReader {
         self.start = start
         self.end = self.input.endIndex
         let totalCount = self.input.count
-        if totalCount == 0 || !CharacterReader.useDataNoNullFastPath {
+        if totalCount == 0 {
             self.useNoNullFastPath = false
         } else if totalCount >= 64 {
             #if canImport(Darwin) || canImport(Glibc)
@@ -318,14 +318,7 @@ public final class CharacterReader {
     public func consumeTo(_ c: UnicodeScalar) -> ArraySlice<UInt8> {
         if c.value <= 0x7F {
             let byte = UInt8(c.value)
-            if Self.useConsumeToAnyOneFastPath {
-                return consumeToAnyOfOne(byte)
-            } else {
-                guard let targetIx = input[pos...].firstIndex(of: byte) else { return consumeToEndUTF8() }
-                let consumed = cacheString(pos, targetIx)
-                pos = targetIx
-                return consumed
-            }
+            return consumeToAnyOfOne(byte)
         }
         var buffer = [UInt8](repeating: 0, count: 4)
         var length = 0
@@ -348,14 +341,7 @@ public final class CharacterReader {
     
     public func consumeTo(_ seq: [UInt8]) -> ArraySlice<UInt8> {
         if seq.count == 1 {
-            if Self.useConsumeToAnyOneFastPath {
-                return consumeToAnyOfOne(seq[0])
-            } else {
-                guard let targetIx = input[pos...].firstIndex(of: seq[0]) else { return consumeToEndUTF8() }
-                let consumed = cacheString(pos, targetIx)
-                pos = targetIx
-                return consumed
-            }
+            return consumeToAnyOfOne(seq[0])
         }
         guard let targetIx = nextIndexOf(seq) else { return consumeToEndUTF8() }
         let consumed = cacheString(pos, targetIx)
@@ -999,7 +985,7 @@ public final class CharacterReader {
             return input[start..<pos]
         }
         #if canImport(Darwin) || canImport(Glibc)
-        if Self.useConsumeToAnyWordScanFastPath, count >= 64 {
+        if count >= 64 {
             return input.withUnsafeBytes { buf in
                 guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
                     return input[start..<pos]
@@ -1090,7 +1076,7 @@ public final class CharacterReader {
             return input[start..<pos]
         }
         #if canImport(Darwin) || canImport(Glibc)
-        if Self.useConsumeToAnyWordScanFastPath, count >= 64 {
+        if count >= 64 {
             return input.withUnsafeBytes { buf in
                 guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
                     return input[start..<pos]
@@ -1161,7 +1147,7 @@ public final class CharacterReader {
             return input[start..<pos]
         }
         #if canImport(Darwin) || canImport(Glibc)
-        if Self.useConsumeToAnyWordScanFastPath, count >= 64 {
+        if count >= 64 {
             return input.withUnsafeBytes { buf in
                 guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
                     return input[start..<pos]
@@ -1261,7 +1247,7 @@ public final class CharacterReader {
             return input[start..<pos]
         }
         #if canImport(Darwin) || canImport(Glibc)
-        if Self.useConsumeToAnyWordScanFastPath, count >= 64 {
+        if count >= 64 {
             return input.withUnsafeBytes { buf in
                 guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
                     return input[start..<pos]
@@ -1370,27 +1356,7 @@ public final class CharacterReader {
     }
 
     public static let dataTerminators = ParsingStrings([.Ampersand, .LessThan, TokeniserStateVars.nullScalr])
-    private static let useDataNoNullFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DATA_NO_NULL_FASTPATH"] != "1"
-    private static let useDataConsumeSplitFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DATA_CONSUME_SPLIT_FASTPATH"] != "1"
-    private static let useDataWordScanFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DATA_WORDSCAN_FASTPATH"] != "1"
-    private static let useConsumeToAnyWordScanFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_WORDSCAN_CONSUME_TO_ANY"] != "1"
-    internal static let useConsumeToAnyOneFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_CONSUME_TO_ONE_FASTPATH"] != "1"
 
-    @inline(__always)
-    private static func loadWordUnaligned(_ basePtr: UnsafePointer<UInt8>, _ offset: Int) -> UInt64 {
-        var value: UInt64 = 0
-        withUnsafeMutableBytes(of: &value) { dst in
-            let src = UnsafeRawBufferPointer(start: basePtr.advanced(by: offset), count: 8)
-            dst.copyBytes(from: src)
-        }
-        return value
-    }
-    
     @inline(__always)
     public func consumeData() -> ArraySlice<UInt8> {
         let start = pos
@@ -1404,7 +1370,7 @@ public final class CharacterReader {
         // Small unrolled scan for short runs before falling back to memchr.
         var i = pos
         let scanEnd = min(end, pos + 16)
-        if Self.useDataConsumeSplitFastPath, useNoNullFastPath {
+        if useNoNullFastPath {
             while i < scanEnd {
                 let b = input[i]
                 if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte { // &, <
@@ -1416,12 +1382,7 @@ public final class CharacterReader {
         } else {
             while i < scanEnd {
                 let b = input[i]
-                if useNoNullFastPath {
-                    if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte { // &, <
-                        pos = i
-                        return input[start..<pos]
-                    }
-                } else if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte || b == TokeniserStateVars.nullByte { // &, <, null
+                if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte || b == TokeniserStateVars.nullByte { // &, <, null
                     pos = i
                     return input[start..<pos]
                 }
@@ -1434,51 +1395,6 @@ public final class CharacterReader {
         }
 
         let remaining = end - pos
-        if useNoNullFastPath, Self.useDataWordScanFastPath, remaining >= 64 {
-            #if canImport(Darwin) || canImport(Glibc)
-            return input.withUnsafeBytes { buf in
-                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
-                    return input[start..<pos]
-                }
-                @inline(__always)
-                func hasByte(_ word: UInt64, _ byte: UInt64) -> Bool {
-                    let mask = byte &* 0x0101010101010101
-                    let x = word ^ mask
-                    return ((x &- 0x0101010101010101) & ~x & 0x8080808080808080) != 0
-                }
-                let amp = UInt64(TokeniserStateVars.ampersandByte)
-                let lt = UInt64(TokeniserStateVars.lessThanByte)
-                let baseAddress = UInt(bitPattern: basePtr)
-                var i = pos
-                while i < end && ((baseAddress &+ UInt(i)) & 7) != 0 {
-                    let b = basePtr[i]
-                    if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte {
-                        pos = i
-                        return input[start..<pos]
-                    }
-                    i &+= 1
-                }
-                let endWord = end &- 8
-                while i <= endWord {
-                    let word = Self.loadWordUnaligned(basePtr, i)
-                    if hasByte(word, amp) || hasByte(word, lt) {
-                        break
-                    }
-                    i &+= 8
-                }
-                while i < end {
-                    let b = basePtr[i]
-                    if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte {
-                        pos = i
-                        return input[start..<pos]
-                    }
-                    i &+= 1
-                }
-                pos = end
-                return input[start..<pos]
-            }
-            #endif
-        }
         #if canImport(Darwin) || canImport(Glibc)
         if remaining >= 32 {
             return input.withUnsafeBytes { buf in
@@ -1488,9 +1404,9 @@ public final class CharacterReader {
                 let startPtr = basePtr.advanced(by: pos)
                 let startRaw = UnsafeRawPointer(startPtr)
                 let len = end - pos
+                var minOff = len
                 let pa = memchr(startPtr, Int32(TokeniserStateVars.ampersandByte), len) // &
                 let pb = memchr(startPtr, Int32(TokeniserStateVars.lessThanByte), len) // <
-                var minOff = len
                 if let pa {
                     let off = Int(bitPattern: pa) - Int(bitPattern: startRaw)
                     if off < minOff { minOff = off }
@@ -1514,7 +1430,7 @@ public final class CharacterReader {
         // No mid-tier memchr: default to scalar loop for short remaining spans.
         #endif
 
-        if Self.useDataConsumeSplitFastPath, useNoNullFastPath {
+        if useNoNullFastPath {
             while pos < end {
                 let b = input[pos]
                 if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte { // &, <
@@ -1525,11 +1441,7 @@ public final class CharacterReader {
         } else {
             while pos < end {
                 let b = input[pos]
-                if useNoNullFastPath {
-                    if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte { // &, <
-                        return input[start..<pos]
-                    }
-                } else if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte || b == TokeniserStateVars.nullByte { // &, <, null
+                if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte || b == TokeniserStateVars.nullByte { // &, <, null
                     return input[start..<pos]
                 }
                 pos &+= 1
@@ -1548,44 +1460,6 @@ public final class CharacterReader {
         #if canImport(Darwin) || canImport(Glibc)
         return input.withUnsafeBytes { buf in
             guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
-                return input[start..<pos]
-            }
-            if Self.useDataWordScanFastPath, count >= 64 {
-                @inline(__always)
-                func hasByte(_ word: UInt64, _ byte: UInt64) -> Bool {
-                    let mask = byte &* 0x0101010101010101
-                    let x = word ^ mask
-                    return ((x &- 0x0101010101010101) & ~x & 0x8080808080808080) != 0
-                }
-                let amp = UInt64(TokeniserStateVars.ampersandByte)
-                let lt = UInt64(TokeniserStateVars.lessThanByte)
-                let baseAddress = UInt(bitPattern: basePtr)
-                var i = start
-                while i < end && ((baseAddress &+ UInt(i)) & 7) != 0 {
-                    let b = basePtr[i]
-                    if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte {
-                        pos = i
-                        return input[start..<pos]
-                    }
-                    i &+= 1
-                }
-                let endWord = end &- 8
-                while i <= endWord {
-                    let word = Self.loadWordUnaligned(basePtr, i)
-                    if hasByte(word, amp) || hasByte(word, lt) {
-                        break
-                    }
-                    i &+= 8
-                }
-                while i < end {
-                    let b = basePtr[i]
-                    if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte {
-                        pos = i
-                        return input[start..<pos]
-                    }
-                    i &+= 1
-                }
-                pos = end
                 return input[start..<pos]
             }
             let startPtr = basePtr.advanced(by: start)

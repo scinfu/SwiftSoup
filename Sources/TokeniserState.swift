@@ -135,10 +135,6 @@ enum TokeniserState: TokeniserStateProtocol {
     case BogusDoctype
     case CdataSection
 
-    private static let useTagNameEarlyCloseFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TAGNAME_EARLY_CLOSE_FASTPATH"] != "1"
-    private static let useAttrAmpersandQueryStringFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_ATTR_AMPERSAND_QUERYSTRING_FASTPATH"] != "1"
     private static let attrAmpersandQueryStringScanLimit: Int = 32
 
     @inlinable
@@ -256,12 +252,8 @@ enum TokeniserState: TokeniserStateProtocol {
             let byte = r.currentByte()!
             switch byte {
             case TokeniserStateVars.ampersandByte: // "&"
-                if Tokeniser.useInlineCharRefDataFastPath {
-                    r.advanceAscii()
-                    try TokeniserState.readCharRef(t, .Rcdata)
-                } else {
-                    t.advanceTransitionAscii(.CharacterReferenceInRcdata)
-                }
+                r.advanceAscii()
+                try TokeniserState.readCharRef(t, .Rcdata)
                 break
             case 0x3C: // "<"
                 t.markTagStart(r.pos)
@@ -927,8 +919,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             case TokeniserStateVars.ampersandByte: // "&"
                 r.advanceAscii()
-                if Self.useAttrAmpersandQueryStringFastPath,
-                   Self.isLikelyQueryStringAmpersand(r) {
+                if Self.isLikelyQueryStringAmpersand(r) {
                     t.tagPending.appendAttributeValue(UnicodeScalar.Ampersand)
                     break
                 }
@@ -973,8 +964,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             case TokeniserStateVars.ampersandByte: // "&"
                 r.advanceAscii()
-                if Self.useAttrAmpersandQueryStringFastPath,
-                   Self.isLikelyQueryStringAmpersand(r) {
+                if Self.isLikelyQueryStringAmpersand(r) {
                     t.tagPending.appendAttributeValue(UnicodeScalar.Ampersand)
                     break
                 }
@@ -1017,8 +1007,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             case TokeniserStateVars.ampersandByte: // "&"
                 r.advanceAscii()
-                if Self.useAttrAmpersandQueryStringFastPath,
-                   Self.isLikelyQueryStringAmpersand(r) {
+                if Self.isLikelyQueryStringAmpersand(r) {
                     t.tagPending.appendAttributeValue(UnicodeScalar.Ampersand)
                     break
                 }
@@ -2247,7 +2236,7 @@ enum TokeniserState: TokeniserStateProtocol {
         default:
             let dataStart = r.pos
             let data: ArraySlice<UInt8>
-            if r.canSkipNullCheck && CharacterReader.useConsumeToAnyOneFastPath {
+            if r.canSkipNullCheck {
                 data = r.consumeToAnyOfOne(TokeniserStateVars.lessThanByte)
             } else {
                 data = r.consumeToAnyOfTwo(TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
@@ -2339,7 +2328,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.tagPending.tagId = .none
             }
         }
-        if t.trackAttributes, Self.useTagNameEarlyCloseFastPath {
+        if t.trackAttributes {
             var i = r.pos
             while i < r.end {
                 let b = r.input[i]
@@ -2745,8 +2734,7 @@ enum TokeniserState: TokeniserStateProtocol {
             switch byte {
             case TokeniserStateVars.ampersandByte: // "&"
                 r.advanceAscii()
-                if Self.useAttrAmpersandQueryStringFastPath,
-                   Self.isLikelyQueryStringAmpersand(r) {
+                if Self.isLikelyQueryStringAmpersand(r) {
                     t.tagPending.appendAttributeValue(UnicodeScalar.Ampersand)
                     continue
                 }
@@ -2790,8 +2778,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 return false
             case TokeniserStateVars.ampersandByte: // "&"
                 r.advanceAscii()
-                if Self.useAttrAmpersandQueryStringFastPath,
-                   Self.isLikelyQueryStringAmpersand(r) {
+                if Self.isLikelyQueryStringAmpersand(r) {
                     t.tagPending.appendAttributeValue(UnicodeScalar.Ampersand)
                     continue
                 }
@@ -2896,20 +2883,12 @@ enum TokeniserState: TokeniserStateProtocol {
 
     @inline(__always)
     static func readCharRef(_ t: Tokeniser, _ advance: TokeniserState)throws {
-        if Tokeniser.useCharRefStartFastPath, let byte = t.currentByte(), byte < 0x80 {
-            if byte == TokeniserStateVars.tabByte ||
-                byte == TokeniserStateVars.newLineByte ||
-                byte == TokeniserStateVars.carriageReturnByte ||
-                byte == TokeniserStateVars.formFeedByte ||
-                byte == TokeniserStateVars.spaceByte ||
-                byte == TokeniserStateVars.lessThanByte ||
-                byte == TokeniserStateVars.ampersandByte {
-                t.emit(UnicodeScalar.Ampersand)
-                t.transition(advance)
-                return
-            }
+        if let byte = t.currentByte(), Tokeniser.isNotCharRefAscii(byte) {
+            t.emit(UnicodeScalar.Ampersand)
+            t.transition(advance)
+            return
         }
-        if Tokeniser.useInlineBasicNamedEntityFastPath, let entity = t.consumeBasicNamedEntityIfPresent() {
+        if let entity = t.consumeBasicNamedEntityIfPresent() {
             t.emit(entity)
             t.transition(advance)
             return

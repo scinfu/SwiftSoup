@@ -16,37 +16,6 @@ class HtmlTreeBuilder: TreeBuilder {
         case bytes([UInt8])
     }
 
-    private static let useFastStackSearch: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_STACK_FAST_PATH"] != "1"
-    }()
-    private static let useStackTagIdFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_STACK_TAGID_FASTPATH"] != "1"
-    }()
-    private static let useClearStackTagIdFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_CLEAR_STACK_TAGID_FASTPATH"] != "1"
-    }()
-    private static let useScopeTagIdFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SCOPE_TAGID_FASTPATH"] != "1"
-    }()
-    private static let useScopeTagIdSkipNameCheckFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SCOPE_TAGID_SKIP_NAMECHECK_FASTPATH"] != "1"
-    }()
-
-    private static let useTextCoalescing: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TEXT_COALESCE"] != "1"
-    }()
-    private static let useTextNodeSourceSliceCoalesce: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TEXTNODE_SOURCE_SLICE_COALESCE"] != "1"
-    }()
-    private static let useDataNodeSourceSliceCoalesce: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DATANODE_SOURCE_SLICE_COALESCE"] != "1"
-    }()
-    private static let useProcessTrackingFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_PROCESS_TRACKING_FASTPATH"] != "1"
-    }()
-    private static let useScriptStyleTagIdFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SCRIPT_STYLE_TAGID_FASTPATH"] != "1"
-    }()
     
     private enum TagSets {
         // tag searches
@@ -170,7 +139,27 @@ class HtmlTreeBuilder: TreeBuilder {
         let _p = Profiler.start("HtmlTreeBuilder.process")
         defer { Profiler.end("HtmlTreeBuilder.process", _p) }
         #endif
-        if Self.useProcessTrackingFastPath && !tracksErrors && !tracksSourceRanges {
+        if !tracksErrors,
+           !tracksSourceRanges,
+           _state == .InBody,
+           token.type == Token.TokenType.Char {
+            let c = token.asCharacter()
+            let data = c.getDataSlice()
+            if let data, data.count == 1, data.first == 0x00 {
+                return false
+            }
+            let wasFramesetOk = framesetOk()
+            let isWhitespace = wasFramesetOk ? HtmlTreeBuilderState.isWhitespace(data) : false
+            if lastFormattingElement() != nil {
+                try reconstructFormattingElements()
+            }
+            try insert(c)
+            if wasFramesetOk && !isWhitespace {
+                framesetOk(false)
+            }
+            return true
+        }
+        if !tracksErrors && !tracksSourceRanges {
             return try self._state.process(token, self)
         }
         let trackToken = tracksErrors || (tracksSourceRanges && token.type == Token.TokenType.EndTag)
@@ -188,7 +177,7 @@ class HtmlTreeBuilder: TreeBuilder {
         let _p = Profiler.start("HtmlTreeBuilder.process.state")
         defer { Profiler.end("HtmlTreeBuilder.process.state", _p) }
         #endif
-        if Self.useProcessTrackingFastPath && !tracksErrors && !tracksSourceRanges {
+        if !tracksErrors && !tracksSourceRanges {
             return try state.process(token, self)
         }
         let trackToken = tracksErrors || (tracksSourceRanges && token.type == Token.TokenType.EndTag)
@@ -272,6 +261,7 @@ class HtmlTreeBuilder: TreeBuilder {
         // handle empty unknown tags
         // when the spec expects an empty tag, will directly hit insertEmpty, so won't generate this fake end tag.
         let isSelfClosing = startTag.isSelfClosing()
+        let hasAttributes = startTag.hasAnyAttributes()
         if isSelfClosing {
             let el: Element = try insertEmpty(startTag)
             stack.append(el)
@@ -279,7 +269,7 @@ class HtmlTreeBuilder: TreeBuilder {
             try tokeniser.emit(emptyEnd.reset().name(el.tagNameUTF8()))  // ensure we get out of whatever state we are in. emitted for yielded processing
             return el
         }
-        if startTag.hasAnyAttributes() {
+        if hasAttributes {
             startTag.ensureAttributes()
         }
         // Resolve tag once and avoid normalizeAttributes when there are no attrs.
@@ -309,7 +299,7 @@ class HtmlTreeBuilder: TreeBuilder {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
         el.treeBuilder = self
-        if startTag.hasAnyAttributes() {
+        if hasAttributes {
             registerPendingAttributes(el)
         }
         if let range = startTag.sourceRange {
@@ -347,7 +337,8 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     func insertEmpty(_ startTag: Token.StartTag) throws -> Element {
-        if startTag.hasAnyAttributes() {
+        let hasAttributes = startTag.hasAnyAttributes()
+        if hasAttributes {
             startTag.ensureAttributes()
         }
         // For unknown tags, remember this is self closing for output
@@ -376,7 +367,7 @@ class HtmlTreeBuilder: TreeBuilder {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
         el.treeBuilder = self
-        if startTag.hasAnyAttributes() {
+        if hasAttributes {
             registerPendingAttributes(el)
         }
         if let range = startTag.sourceRange {
@@ -432,14 +423,7 @@ class HtmlTreeBuilder: TreeBuilder {
         let current = currentElement()
         let currentTag = current?._tag
         let currentTagId = currentTag?.tagId ?? .none
-        let isScriptOrStyle: Bool
-        if Self.useScriptStyleTagIdFastPath {
-            isScriptOrStyle = currentTagId == .script || currentTagId == .style
-        } else if let currentTag {
-            isScriptOrStyle = Tag.isScriptOrStyle(currentTag)
-        } else {
-            isScriptOrStyle = false
-        }
+        let isScriptOrStyle = currentTagId == .script || currentTagId == .style
         let fosterInserts = isFosterInserts()
         @inline(__always)
         func canCoalesceSource(_ lastRange: SourceRange?, _ newRange: SourceRange?) -> Bool {
@@ -460,16 +444,18 @@ class HtmlTreeBuilder: TreeBuilder {
         } else {
             useSlice = nil
         }
-        if Self.useTextCoalescing,
-           let current,
-           !fosterInserts,
-           isBulkBuilding {
+        let lastChild: Node?
+        if let current, !fosterInserts, isBulkBuilding {
+            lastChild = current.childNodes.last
+        } else {
+            lastChild = nil
+        }
+        if let lastChild {
             if let slice = useSlice {
                 if isScriptOrStyle,
-                   let lastData = current.childNodes.last as? DataNode,
+                   let lastData = lastChild as? DataNode,
                    (!tracksSourceRanges || canCoalesceSource(lastData.sourceRange, characterToken.sourceRange)) {
                     if tracksSourceRanges,
-                       Self.useDataNodeSourceSliceCoalesce,
                        let range = characterToken.sourceRange,
                        let source = doc.sourceBuffer?.bytes,
                        lastData.extendSliceFromSourceRange(source, newRange: range) {
@@ -483,10 +469,9 @@ class HtmlTreeBuilder: TreeBuilder {
                         return
                     }
                 }
-                if let lastText = current.childNodes.last as? TextNode,
+                if let lastText = lastChild as? TextNode,
                    (!tracksSourceRanges || canCoalesceSource(lastText.sourceRange, characterToken.sourceRange)) {
                     if tracksSourceRanges,
-                       Self.useTextNodeSourceSliceCoalesce,
                        let range = characterToken.sourceRange,
                        let source = doc.sourceBuffer?.bytes,
                        lastText.extendSliceFromSourceRange(source, newRange: range) {
@@ -502,12 +487,12 @@ class HtmlTreeBuilder: TreeBuilder {
                 }
             } else if !tracksSourceRanges {
                 if isScriptOrStyle,
-                   let lastData = current.childNodes.last as? DataNode,
+                   let lastData = lastChild as? DataNode,
                    let bytes = characterToken.getData() {
                     lastData.appendBytes(bytes)
                     return
                 }
-                if let lastText = current.childNodes.last as? TextNode,
+                if let lastText = lastChild as? TextNode,
                    let bytes = characterToken.getData() {
                     lastText.appendBytes(bytes)
                     return
@@ -617,9 +602,6 @@ class HtmlTreeBuilder: TreeBuilder {
     
     private func isElementInQueue(_ queue: Array<Element?>, _ element: Element?) -> Bool {
         guard let element else { return false }
-        if !Self.useFastStackSearch {
-            return queue.reversed().contains(element)
-        }
         var i = queue.count
         while i > 0 {
             i &-= 1
@@ -632,9 +614,6 @@ class HtmlTreeBuilder: TreeBuilder {
 
     @inline(__always)
     private func lastIndexOfStackName(_ elName: [UInt8]) -> Int? {
-        if !Self.useFastStackSearch {
-            return stack.lastIndex(where: { $0.nodeNameUTF8() == elName })
-        }
         var i = stack.count
         while i > 0 {
             i &-= 1
@@ -647,21 +626,16 @@ class HtmlTreeBuilder: TreeBuilder {
 
     @inline(__always)
     private func lastIndexOfStackName(in names: ParsingStrings) -> Int? {
-        if !Self.useFastStackSearch {
-            return stack.lastIndex(where: { names.contains($0.nodeNameUTF8()) })
-        }
         var i = stack.count
         while i > 0 {
             i &-= 1
             let el = stack[i]
-            if Self.useStackTagIdFastPath {
-                let tagId = el._tag.tagId
-                if tagId != .none {
-                    if names.containsTagId(tagId) {
-                        return i
-                    }
-                    continue
+            let tagId = el._tag.tagId
+            if tagId != .none {
+                if names.containsTagId(tagId) {
+                    return i
                 }
+                continue
             }
             if names.contains(el.nodeNameUTF8()) {
                 return i
@@ -672,9 +646,6 @@ class HtmlTreeBuilder: TreeBuilder {
 
     @inline(__always)
     private func lastIndexOfStackName(in names: [[UInt8]]) -> Int? {
-        if !Self.useFastStackSearch {
-            return stack.lastIndex(where: { names.contains($0.nodeNameUTF8()) })
-        }
         var i = stack.count
         while i > 0 {
             i &-= 1
@@ -687,9 +658,6 @@ class HtmlTreeBuilder: TreeBuilder {
 
     @inline(__always)
     private func lastIndexOfStackName(in names: Set<[UInt8]>) -> Int? {
-        if !Self.useFastStackSearch {
-            return stack.lastIndex(where: { names.contains($0.nodeNameUTF8()) })
-        }
         var i = stack.count
         while i > 0 {
             i &-= 1
@@ -702,9 +670,6 @@ class HtmlTreeBuilder: TreeBuilder {
 
     @inline(__always)
     private func lastIndexOfStackElement(_ element: Element) -> Int? {
-        if !Self.useFastStackSearch {
-            return stack.lastIndex(of: element)
-        }
         var i = stack.count
         while i > 0 {
             i &-= 1
@@ -795,21 +760,13 @@ class HtmlTreeBuilder: TreeBuilder {
 
     private func clearStackToContext(_ nodeNames: ParsingStrings) {
         let index: Int? = {
-            if !Self.useFastStackSearch {
-                return stack.lastIndex {
-                    let nextName = $0.nodeNameUTF8()
-                    return nodeNames.contains(nextName) || nextName == UTF8Arrays.html
-                }
-            }
             var i = stack.count
             while i > 0 {
                 i &-= 1
                 let next = stack[i]
-                if Self.useClearStackTagIdFastPath {
-                    let tagId = next._tag.tagId
-                    if tagId == .html || (tagId != .none && nodeNames.containsTagId(tagId)) {
-                        return i
-                    }
+                let tagId = next._tag.tagId
+                if tagId == .html || (tagId != .none && nodeNames.containsTagId(tagId)) {
+                    return i
                 }
                 let nextName = next.nodeNameUTF8()
                 if nodeNames.contains(nextName) || nextName == UTF8Arrays.html {
@@ -833,12 +790,6 @@ class HtmlTreeBuilder: TreeBuilder {
     
     private func clearStackToContext(_ nodeNames: [[UInt8]]) {
         let index: Int? = {
-            if !Self.useFastStackSearch {
-                return stack.lastIndex {
-                    let nextName = $0.nodeNameUTF8()
-                    return nodeNames.contains(nextName) || nextName == UTF8Arrays.html
-                }
-            }
             var i = stack.count
             while i > 0 {
                 i &-= 1
@@ -888,15 +839,6 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func replaceInQueue(_ queue: Array<Element>, _ out: Element, _ input: Element)throws->Array<Element> {
-        if !Self.useFastStackSearch {
-            guard let index = queue.lastIndex(of: out) else {
-                try Validate.fail(msg: "Element not found")
-                return [] // Not reached
-            }
-            var queue = queue
-            queue[index] = input
-            return queue
-        }
         var i = queue.count
         while i > 0 {
             i &-= 1
@@ -912,15 +854,6 @@ class HtmlTreeBuilder: TreeBuilder {
     
     private func replaceInQueue(_ queue: Array<Element?>, _ out: Element, _ input: Element)throws->Array<Element?> {
         var queue = queue
-        if !Self.useFastStackSearch {
-            if let index = queue.lastIndex(of: out) {
-                queue[index] = input
-                return queue
-            } else {
-                try Validate.fail(msg: "Element to replace not found")
-                return queue
-            }
-        }
         var i = queue.count
         while i > 0 {
             i &-= 1
@@ -984,80 +917,25 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func inSpecificScope(_ targetName: [UInt8], _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
-        let targetTagId = Self.useScopeTagIdFastPath ? Token.Tag.tagIdForBytes(targetName) : nil
-        if !Self.useFastStackSearch {
-            for el in stack.reversed() {
-                let tagId = el._tag.tagId
-                if tagId != .none, Self.useScopeTagIdFastPath {
-                    if let targetTagId {
-                        if tagId == targetTagId {
-                            return true
-                        }
-                        if baseTypes.containsTagId(tagId) {
-                            return false
-                        }
-                        if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
-                            return false
-                        }
-                        if Self.useScopeTagIdSkipNameCheckFastPath {
-                            continue
-                        }
-                    } else if Self.useScopeTagIdSkipNameCheckFastPath {
-                        if baseTypes.containsTagId(tagId) {
-                            return false
-                        }
-                        if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
-                            return false
-                        }
-                        continue
-                    }
-                } else if tagId != .none, let targetTagId, tagId == targetTagId {
-                    return true
-                }
-                let elName = el.nodeNameUTF8()
-                if elName == targetName {
-                    return true
-                }
-                if baseTypes.contains(elName) {
-                    return false
-                }
-                if let extraTypes = extraTypes, extraTypes.contains(elName) {
-                    return false
-                }
-            }
-            try Validate.fail(msg: "Should not be reachable")
-            return false
-        }
+        let targetTagId = Token.Tag.tagIdForBytes(targetName)
         var i = stack.count
         while i > 0 {
             i &-= 1
             let el = stack[i]
             let tagId = el._tag.tagId
-            if tagId != .none, Self.useScopeTagIdFastPath {
-                if let targetTagId {
-                    if tagId == targetTagId {
-                        return true
-                    }
-                    if baseTypes.containsTagId(tagId) {
-                        return false
-                    }
-                    if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
-                        return false
-                    }
-                    if Self.useScopeTagIdSkipNameCheckFastPath {
-                        continue
-                    }
-                } else if Self.useScopeTagIdSkipNameCheckFastPath {
-                    if baseTypes.containsTagId(tagId) {
-                        return false
-                    }
-                    if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
-                        return false
-                    }
+            if tagId != .none {
+                if let targetTagId, tagId == targetTagId {
+                    return true
+                }
+                if baseTypes.containsTagId(tagId) {
+                    return false
+                }
+                if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
+                    return false
+                }
+                if targetTagId != nil {
                     continue
                 }
-            } else if tagId != .none, let targetTagId, tagId == targetTagId {
-                return true
             }
             let elName = el.nodeNameUTF8()
             if elName == targetName {
@@ -1076,22 +954,6 @@ class HtmlTreeBuilder: TreeBuilder {
 
     
     private func inSpecificScope(_ targetNames: Set<[UInt8]>, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
-        if !Self.useFastStackSearch {
-            for el in stack.reversed() {
-                let elName = el.nodeNameUTF8()
-                if targetNames.contains(elName) {
-                    return true
-                }
-                if baseTypes.contains(elName) {
-                    return false
-                }
-                if let extraTypes = extraTypes, extraTypes.contains(elName) {
-                    return false
-                }
-            }
-            try Validate.fail(msg: "Should not be reachable")
-            return false
-        }
         var i = stack.count
         while i > 0 {
             i &-= 1
@@ -1111,43 +973,12 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     private func inSpecificScope(_ targetNames: ParsingStrings, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
-        if !Self.useFastStackSearch {
-            for el in stack.reversed() {
-                let tagId = el._tag.tagId
-                if Self.useScopeTagIdFastPath && tagId != .none {
-                    if targetNames.containsTagId(tagId) {
-                        return true
-                    }
-                    if baseTypes.containsTagId(tagId) {
-                        return false
-                    }
-                    if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
-                        return false
-                    }
-                    if Self.useScopeTagIdSkipNameCheckFastPath {
-                        continue
-                    }
-                }
-                let elName = el.nodeNameUTF8()
-                if targetNames.contains(elName) {
-                    return true
-                }
-                if baseTypes.contains(elName) {
-                    return false
-                }
-                if let extraTypes = extraTypes, extraTypes.contains(elName) {
-                    return false
-                }
-            }
-            try Validate.fail(msg: "Should not be reachable")
-            return false
-        }
         var i = stack.count
         while i > 0 {
             i &-= 1
             let el = stack[i]
             let tagId = el._tag.tagId
-            if Self.useScopeTagIdFastPath && tagId != .none {
+            if tagId != .none {
                 if targetNames.containsTagId(tagId) {
                     return true
                 }
@@ -1157,9 +988,7 @@ class HtmlTreeBuilder: TreeBuilder {
                 if let extraTypes = extraTypes, extraTypes.containsTagId(tagId) {
                     return false
                 }
-                if Self.useScopeTagIdSkipNameCheckFastPath {
-                    continue
-                }
+                continue
             }
             let elName = el.nodeNameUTF8()
             if targetNames.contains(elName) {
@@ -1228,21 +1057,25 @@ class HtmlTreeBuilder: TreeBuilder {
     }
     
     func inSelectScope(_ targetName: [UInt8]) throws -> Bool {
-        let targetTagId = Self.useScopeTagIdFastPath ? Token.Tag.tagIdForBytes(targetName) : nil
+        let targetTagId = Token.Tag.tagIdForBytes(targetName)
         for el in stack.reversed() {
             let tagId = el._tag.tagId
-            if let targetTagId, tagId != .none, tagId == targetTagId {
-                return true
+            if tagId != .none {
+                if let targetTagId, tagId == targetTagId {
+                    return true
+                }
+                if !TagSets.selectScope.containsTagId(tagId) {
+                    return false
+                }
+                if targetTagId != nil {
+                    continue
+                }
             }
             let elName = el.nodeNameUTF8()
             if elName == targetName {
                 return true
             }
-            if Self.useScopeTagIdFastPath, tagId != .none {
-                if !TagSets.selectScope.containsTagId(tagId) {
-                    return false
-                }
-            } else if !TagSets.selectScope.contains(elName) {
+            if !TagSets.selectScope.contains(elName) {
                 return false
             }
         }

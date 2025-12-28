@@ -76,42 +76,14 @@ open class CssSelector {
     private let evaluator: Evaluator
     private let root: Element
     
-    private static let useSelectorCache: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SELECTOR_CACHE"] != "1"
-    }()
-    private static let useSimpleSelectorFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SIMPLE_SELECTOR_FASTPATH"] != "1"
-    }()
-    private static let useDescendantSelectorFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DESCENDANT_SELECTOR_FASTPATH"] != "1"
-    }()
-    private static let useDescendantSingleAncestorFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DESCENDANT_SINGLE_ANCESTOR_FASTPATH"] != "1"
-    }()
-    private static let useDescendantSmallAncestorFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DESCENDANT_SMALL_ANCESTOR_FASTPATH"] != "1"
-    }()
-    private static let useMultiClassFastPath: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_MULTI_CLASS_FASTPATH"] != "1"
-    }()
-    private static let selectorCacheCapacity: Int = {
-        let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_SELECTOR_CACHE_SIZE"]
-        return max(0, Int(raw ?? "") ?? 128)
-    }()
+    private static let selectorCacheCapacity: Int = 128
     private final class SelectorCache: @unchecked Sendable {
         var items: [String: Evaluator] = [:]
         var order: [String] = []
         let lock = NSLock()
     }
     private static let selectorCache = SelectorCache()
-    private static let useFastQueryCache: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_FAST_QUERY_CACHE"] != "1"
-    }()
-    private static let fastQueryCacheCapacity: Int = {
-        let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_FAST_QUERY_CACHE_SIZE"]
-        let fallback = selectorCacheCapacity
-        return max(0, Int(raw ?? "") ?? fallback)
-    }()
+    private static let fastQueryCacheCapacity: Int = selectorCacheCapacity
     private final class FastQueryCache: @unchecked Sendable {
         var items: [String: FastQueryPlan] = [:]
         var order: [String] = []
@@ -191,14 +163,16 @@ open class CssSelector {
             return try select(evaluator, root)
         }
         var elements: Array<Element> = []
-        var seenElements: Array<Element> = []
+        var seenIds = Set<ObjectIdentifier>()
+        seenIds.reserveCapacity(roots.count * 8)
         // dedupe elements by identity, not equality
         for root: Element in roots {
             let found: Elements = try select(evaluator, root)
             for el: Element in found.array() {
-                if (!seenElements.contains(el)) {
+                let id = ObjectIdentifier(el)
+                if !seenIds.contains(id) {
+                    seenIds.insert(id)
                     elements.append(el)
-                    seenElements.append(el)
                 }
             }
         }
@@ -221,9 +195,6 @@ open class CssSelector {
     
     private static func cachedEvaluator(_ query: String) throws -> Evaluator {
         let key = query.trim()
-        if !useSelectorCache || selectorCacheCapacity == 0 {
-            return try QueryParser.parse(key)
-        }
         selectorCache.lock.lock()
         if let cached = selectorCache.items[key] {
             selectorCache.lock.unlock()
@@ -367,7 +338,7 @@ open class CssSelector {
                     return Elements()
                 }
                 let leftCount = leftElements.size()
-                if CssSelector.useDescendantSingleAncestorFastPath, leftCount == 1 {
+                if leftCount == 1 {
                     let target = leftElements.get(0)
                     let output = Elements()
                     for el in candidates.array() {
@@ -386,7 +357,7 @@ open class CssSelector {
                     }
                     return output
                 }
-                if CssSelector.useDescendantSmallAncestorFastPath, leftCount <= 4 {
+                if leftCount <= 4 {
                     let leftArray = leftElements.array()
                     let output = Elements()
                     for el in candidates.array() {
@@ -454,9 +425,6 @@ open class CssSelector {
 
     /// Ultra-fast path for very simple selectors without combinators or pseudos.
     private static func fastSelectQuery(_ query: String, _ root: Element) throws -> Elements? {
-        if !useSimpleSelectorFastPath {
-            return nil
-        }
         DebugTrace.log("CssSelector.fastSelectQuery: \(query)")
         let plan = cachedFastQueryPlan(query)
         DebugTrace.log("CssSelector.fastSelectQuery: plan=\(plan)")
@@ -464,10 +432,6 @@ open class CssSelector {
     }
 
     private static func cachedFastQueryPlan(_ query: String) -> FastQueryPlan {
-        if !useFastQueryCache || fastQueryCacheCapacity == 0 {
-            DebugTrace.log("CssSelector.cachedFastQueryPlan: cache disabled")
-            return fastQueryPlan(query)
-        }
         fastQueryCache.lock.lock()
         if let cached = fastQueryCache.items[query] {
             fastQueryCache.lock.unlock()
@@ -509,14 +473,12 @@ open class CssSelector {
         if trimmed.contains(":") || trimmed.contains("|") {
             return .none
         }
-        if useDescendantSelectorFastPath {
-            if let (leftToken, rightToken) = splitDescendantTokens(trimmed[...]) {
-                let leftPlan = fastSimpleQueryPlan(leftToken)
-                if case .none = leftPlan { return .none }
-                let rightPlan = fastSimpleQueryPlan(rightToken)
-                if case .none = rightPlan { return .none }
-                return .descendant(leftPlan, rightPlan)
-            }
+        if let (leftToken, rightToken) = splitDescendantTokens(trimmed[...]) {
+            let leftPlan = fastSimpleQueryPlan(leftToken)
+            if case .none = leftPlan { return .none }
+            let rightPlan = fastSimpleQueryPlan(rightToken)
+            if case .none = rightPlan { return .none }
+            return .descendant(leftPlan, rightPlan)
         }
         if trimmed.contains(where: { $0 == " " || $0 == "\n" || $0 == "\t" || $0 == "\r" }) {
             return .none
@@ -670,8 +632,7 @@ open class CssSelector {
         }
         if trimmed.first == "." {
             let className = trimmed.dropFirst()
-            if let classParts = splitClassList(className),
-               CssSelector.useMultiClassFastPath || classParts.count == 1 {
+            if let classParts = splitClassList(className) {
                 let firstClassBytes = String(classParts[0]).utf8Array
                 let firstClassNormalized = Attributes.containsAsciiUppercase(firstClassBytes)
                     ? firstClassBytes.lowercased()
@@ -744,8 +705,7 @@ open class CssSelector {
             let tagPart = trimmed[..<dot]
             let classPart = trimmed[trimmed.index(after: dot)...]
             if isSimpleIdent(tagPart) {
-                if let classParts = splitClassList(classPart),
-                   CssSelector.useMultiClassFastPath || classParts.count == 1 {
+                if let classParts = splitClassList(classPart) {
                     let tagBytes = String(tagPart).utf8Array.lowercased().trim()
                     if tagBytes.isEmpty { return .none }
                     let firstClassBytes = String(classParts[0]).utf8Array
@@ -785,9 +745,6 @@ open class CssSelector {
     }
 
     private static func fastSelectQuery(_ query: String, _ roots: Array<Element>) throws -> Elements? {
-        if !useSimpleSelectorFastPath {
-            return nil
-        }
         let plan = cachedFastQueryPlan(query)
         if case .none = plan {
             return nil
@@ -796,14 +753,19 @@ open class CssSelector {
             return try plan.apply(root)
         }
         var elements: Array<Element> = []
-        var seenElements: Array<Element> = []
+        var seenIds = Set<ObjectIdentifier>()
+        seenIds.reserveCapacity(roots.count * 8)
         for root in roots {
             guard let found = try plan.apply(root) else {
                 return nil
             }
-            for el in found.array() where !seenElements.contains(el) {
+            for el in found.array() {
+                let id = ObjectIdentifier(el)
+                if seenIds.contains(id) {
+                    continue
+                }
+                seenIds.insert(id)
                 elements.append(el)
-                seenElements.append(el)
             }
         }
         return Elements(elements)

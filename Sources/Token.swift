@@ -182,12 +182,6 @@ open class Token {
             let id: TagId
         }
 
-        private static let useTagIdFastPath: Bool = {
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_TAGID_FASTPATH"] != "1"
-        }()
-        private static let usePackedTagIdFastPath: Bool = {
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_PACKED_TAGID_FASTPATH"] != "1"
-        }()
 
         private static let tagIdEntriesByLength: [[TagIdEntry]] = {
             var entries = Array(repeating: [TagIdEntry](), count: 11)
@@ -325,8 +319,6 @@ open class Token {
         private var _lowercaseAttributeNames: Bool = false
         fileprivate var _attributesAreNormalized: Bool = false
         fileprivate var _hasUppercaseAttributeNames: Bool = false
-        private static let usePendingAttributesReuseFastPath: Bool =
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_PENDING_ATTRIBUTES_REUSE_FASTPATH"] != "1"
         // start tags get attributes on construction. End tags get attributes on first new attribute (but only for parser convenience, not used).
         public var _attributes: Attributes?
         var tagId: TagId = .none
@@ -359,15 +351,7 @@ open class Token {
             _pendingAttributeValueSlicesCount = 0
             _hasEmptyAttributeValue = false
             _hasPendingAttributeValue = false
-            if Self.usePendingAttributesReuseFastPath {
-                _pendingAttributes?.removeAll(keepingCapacity: true)
-            } else {
-            if Self.usePendingAttributesReuseFastPath {
-                _pendingAttributes?.removeAll(keepingCapacity: true)
-            } else {
-                _pendingAttributes = nil
-            }
-        }
+            _pendingAttributes?.removeAll(keepingCapacity: true)
             _selfClosing = false
             _lowercaseAttributeNames = false
             _attributesAreNormalized = false
@@ -406,13 +390,9 @@ open class Token {
                     value: value
                 )
                 if _pendingAttributes == nil {
-                    if Self.usePendingAttributesReuseFastPath {
-                        _pendingAttributes = []
-                        _pendingAttributes!.reserveCapacity(8)
-                        _pendingAttributes!.append(pending)
-                    } else {
-                        _pendingAttributes = [pending]
-                    }
+                    _pendingAttributes = []
+                    _pendingAttributes!.reserveCapacity(8)
+                    _pendingAttributes!.append(pending)
                 } else {
                     _pendingAttributes!.append(pending)
                 }
@@ -626,11 +606,7 @@ open class Token {
             for pending in pendingAttributes {
                 _attributes?.appendPending(pending)
             }
-            if Self.usePendingAttributesReuseFastPath {
-                _pendingAttributes?.removeAll(keepingCapacity: true)
-            } else {
-                _pendingAttributes = nil
-            }
+            _pendingAttributes?.removeAll(keepingCapacity: true)
         }
         
         // these appenders are rarely hit in not null state-- caused by null chars.
@@ -707,7 +683,7 @@ open class Token {
         @inline(__always)
         static func tagIdForSlice(_ slice: ArraySlice<UInt8>) -> TagId? {
             let count = slice.count
-            if usePackedTagIdFastPath, count < packedTagIdEntriesByLength.count,
+            if count < packedTagIdEntriesByLength.count,
                let packed = packSlice(slice),
                let id = packedTagIdEntriesByLength[count][packed] {
                 return id
@@ -759,10 +735,6 @@ open class Token {
 
         @inline(__always)
         func setTagIdFromSlice(_ slice: ArraySlice<UInt8>) {
-            if !Self.useTagIdFastPath {
-                tagId = .none
-                return
-            }
             tagId = Self.tagIdForSlice(slice) ?? .none
         }
 

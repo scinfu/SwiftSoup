@@ -10,9 +10,7 @@ open class StringBuilder {
     /// Number of bytes currently used in buffer
     private var size: Int = 0
     @usableFromInline
-    static let useFastWrite: Bool = {
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_STRINGBUILDER_FASTWRITE"] != "1"
-    }()
+    static let useFastWrite: Bool = true
     
     /// Read-only view of the active buffer contents
     @inline(__always)

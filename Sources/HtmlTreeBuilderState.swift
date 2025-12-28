@@ -61,8 +61,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     }
 
     private static let nullString: [UInt8] = "\u{0000}".utf8Array
-    private static let useSelectTagIdFastPath: Bool =
-        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SELECT_TAGID_FASTPATH"] != "1"
     private static let whitespaceTable: [Bool] = {
         var table = [Bool](repeating: false, count: 256)
         table[Int(TokeniserStateVars.tabByte)] = true
@@ -2463,7 +2461,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             case .StartTag:
                 let start: Token.StartTag = t.asStartTag()
                 let current = tb.currentElement()
-                let currentTagId = HtmlTreeBuilderState.useSelectTagIdFastPath ? (current?._tag.tagId ?? .none) : .none
+                let currentTagId = current?._tag.tagId ?? .none
                 if start.tagId == .none {
                     _ = start.normalNameSlice()
                 }
@@ -2485,19 +2483,14 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     if start.normalNameEquals(UTF8Arrays.option) {
                         if currentTagId == .option {
                             try tb.processEndTag(UTF8Arrays.option)
-                        } else if !HtmlTreeBuilderState.useSelectTagIdFastPath,
-                                  current?.nodeNameUTF8() == UTF8Arrays.option {
-                            try tb.processEndTag(UTF8Arrays.option)
                         }
                         try tb.insert(start)
                         break
                     }
                     if start.normalNameEquals(UTF8Arrays.optgroup) {
-                        if currentTagId == .option ||
-                            (!HtmlTreeBuilderState.useSelectTagIdFastPath && current?.nodeNameUTF8() == UTF8Arrays.option) {
+                        if currentTagId == .option {
                             try tb.processEndTag(UTF8Arrays.option)
-                        } else if currentTagId == .optgroup ||
-                                    (!HtmlTreeBuilderState.useSelectTagIdFastPath && current?.nodeNameUTF8() == UTF8Arrays.optgroup) {
+                        } else if currentTagId == .optgroup {
                             try tb.processEndTag(UTF8Arrays.optgroup)
                         }
                         try tb.insert(start)
@@ -2523,17 +2516,12 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 case .option:
                     if currentTagId == .option {
                         try tb.processEndTag(UTF8Arrays.option)
-                    } else if !HtmlTreeBuilderState.useSelectTagIdFastPath,
-                              current?.nodeNameUTF8() == UTF8Arrays.option {
-                        try tb.processEndTag(UTF8Arrays.option)
                     }
                     try tb.insert(start)
                 case .optgroup:
-                    if currentTagId == .option ||
-                        (!HtmlTreeBuilderState.useSelectTagIdFastPath && current?.nodeNameUTF8() == UTF8Arrays.option) {
+                    if currentTagId == .option {
                         try tb.processEndTag(UTF8Arrays.option)
-                    } else if currentTagId == .optgroup ||
-                                (!HtmlTreeBuilderState.useSelectTagIdFastPath && current?.nodeNameUTF8() == UTF8Arrays.optgroup) {
+                    } else if currentTagId == .optgroup {
                         try tb.processEndTag(UTF8Arrays.optgroup)
                     }
                     try tb.insert(start)
@@ -2558,7 +2546,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             case .EndTag:
                 let end: Token.EndTag = t.asEndTag()
                 let current = tb.currentElement()
-                let currentTagId = HtmlTreeBuilderState.useSelectTagIdFastPath ? (current?._tag.tagId ?? .none) : .none
+                let currentTagId = current?._tag.tagId ?? .none
                 if end.tagId == .none {
                     _ = end.normalNameSlice()
                 }
@@ -2566,15 +2554,8 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     if end.normalNameEquals(UTF8Arrays.optgroup) {
                         if currentTagId == .option && current != nil && tb.aboveOnStack(current!) != nil && tb.aboveOnStack(current!)?._tag.tagId == .optgroup {
                             try tb.processEndTag(UTF8Arrays.option)
-                        } else if !HtmlTreeBuilderState.useSelectTagIdFastPath,
-                                  current?.nodeNameUTF8() == UTF8Arrays.option &&
-                                  current != nil &&
-                                  tb.aboveOnStack(current!) != nil &&
-                                  tb.aboveOnStack(current!)?.nodeNameUTF8() == UTF8Arrays.optgroup {
-                            try tb.processEndTag(UTF8Arrays.option)
                         }
-                        if currentTagId == .optgroup ||
-                            (!HtmlTreeBuilderState.useSelectTagIdFastPath && current?.nodeNameUTF8() == UTF8Arrays.optgroup) {
+                        if currentTagId == .optgroup {
                             tb.pop()
                         } else {
                             tb.error(self)
@@ -2582,8 +2563,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         break
                     }
                     if end.normalNameEquals(UTF8Arrays.option) {
-                        if currentTagId == .option ||
-                            (!HtmlTreeBuilderState.useSelectTagIdFastPath && current?.nodeNameUTF8() == UTF8Arrays.option) {
+                        if currentTagId == .option {
                             tb.pop()
                         } else {
                             tb.error(self)
@@ -2605,22 +2585,14 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 case .optgroup:
                     if currentTagId == .option && current != nil && tb.aboveOnStack(current!) != nil && tb.aboveOnStack(current!)?._tag.tagId == .optgroup {
                         try tb.processEndTag(UTF8Arrays.option)
-                    } else if !HtmlTreeBuilderState.useSelectTagIdFastPath,
-                              current?.nodeNameUTF8() == UTF8Arrays.option &&
-                              current != nil &&
-                              tb.aboveOnStack(current!) != nil &&
-                              tb.aboveOnStack(current!)?.nodeNameUTF8() == UTF8Arrays.optgroup {
-                        try tb.processEndTag(UTF8Arrays.option)
                     }
-                    if currentTagId == .optgroup ||
-                        (!HtmlTreeBuilderState.useSelectTagIdFastPath && current?.nodeNameUTF8() == UTF8Arrays.optgroup) {
+                    if currentTagId == .optgroup {
                         tb.pop()
                     } else {
                         tb.error(self)
                     }
                 case .option:
-                    if currentTagId == .option ||
-                        (!HtmlTreeBuilderState.useSelectTagIdFastPath && current?.nodeNameUTF8() == UTF8Arrays.option) {
+                    if currentTagId == .option {
                         tb.pop()
                     } else {
                         tb.error(self)
@@ -2810,7 +2782,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
     }
 
-    private static func isWhitespace(_ t: Token) -> Bool {
+    internal static func isWhitespace(_ t: Token) -> Bool {
         if (t.isCharacter()) {
             let data = t.asCharacter().getDataSlice()
             return isWhitespace(data)
@@ -2818,7 +2790,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         return false
     }
 
-    private static func isWhitespace(_ data: ArraySlice<UInt8>?) -> Bool {
+    internal static func isWhitespace(_ data: ArraySlice<UInt8>?) -> Bool {
         guard let data else { return true }
         if data.isEmpty { return true }
         let table = HtmlTreeBuilderState.whitespaceTable
@@ -2832,7 +2804,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         return true
     }
 
-    private static func isWhitespace(_ data: [UInt8]?) -> Bool {
+    internal static func isWhitespace(_ data: [UInt8]?) -> Bool {
         guard let data else { return true }
         if data.isEmpty { return true }
         let table = HtmlTreeBuilderState.whitespaceTable
@@ -2863,24 +2835,15 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     // lists of tags to search through. A little harder to read here, but causes less GC than dynamic varargs.
     // was contributing around 10% of parse GC load.
     fileprivate final class Constants {
-        fileprivate static let useInBodyTagIdFastPath: Bool =
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_INBODY_TAGID_FASTPATH"] != "1"
-        fileprivate static let useInBodyEndTagIdFastPath: Bool =
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_INBODY_ENDTAGID_FASTPATH"] != "1"
-        fileprivate static let useInBodyEndTagReuseTagIdFastPath: Bool =
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_INBODY_ENDTAG_REUSE_TAGID_FASTPATH"] != "1"
-        fileprivate static let useInBodyStartStructuralTagIdFastPath: Bool =
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_INBODY_START_STRUCTURAL_TAGID_FASTPATH"] != "1"
-        fileprivate static let useCurrentTagIdFastPath: Bool =
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_CURRENT_TAGID_FASTPATH"] != "1"
-        fileprivate static let useInBodyStackTagIdFastPath: Bool =
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_INBODY_STACK_TAGID_FASTPATH"] != "1"
-        fileprivate static let useDirectStackAccess: Bool =
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DIRECT_STACK_ACCESS"] != "1"
-        fileprivate static let useInBodyReverseStackIndexFastPath: Bool =
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_INBODY_STACK_REVERSE_INDEX_FASTPATH"] != "1"
-        fileprivate static let useInBodyStackTopCloseFastPath: Bool =
-            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_INBODY_STACK_TOP_CLOSE_FASTPATH"] != "1"
+        fileprivate static let useInBodyTagIdFastPath = true
+        fileprivate static let useInBodyEndTagIdFastPath = true
+        fileprivate static let useInBodyEndTagReuseTagIdFastPath = true
+        fileprivate static let useInBodyStartStructuralTagIdFastPath = true
+        fileprivate static let useCurrentTagIdFastPath = true
+        fileprivate static let useInBodyStackTagIdFastPath = true
+        fileprivate static let useDirectStackAccess = true
+        fileprivate static let useInBodyReverseStackIndexFastPath = true
+        fileprivate static let useInBodyStackTopCloseFastPath = true
         fileprivate static let InBodyStartToHead = ParsingStrings(["base", "basefont", "bgsound", "command", "link", "meta", "noframes", "script", "style", "title"])
         fileprivate static let InBodyStartPClosers = ParsingStrings(["address", "article", "aside", "blockquote", "center", "details", "dir", "div", "dl",
                                                                 "fieldset", "figcaption", "figure", "footer", "header", "hgroup", "menu", "nav", "ol",
