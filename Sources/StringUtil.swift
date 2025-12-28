@@ -17,6 +17,72 @@ import Foundation
  * A minimal String utility class. Designed for internal SwiftSoup use only.
  */
 open class StringUtil {
+    @inline(__always)
+    static func isAscii(_ bytes: [UInt8]) -> Bool {
+        for b in bytes where b >= 128 {
+            return false
+        }
+        return true
+    }
+
+    @inline(__always)
+    static func isAscii(_ bytes: ArraySlice<UInt8>) -> Bool {
+        for b in bytes where b >= 128 {
+            return false
+        }
+        return true
+    }
+
+    @inline(__always)
+    static func hasPrefixIgnoreCaseAscii(_ bytes: [UInt8], _ prefix: [UInt8]) -> Bool {
+        if prefix.count > bytes.count { return false }
+        var i = 0
+        while i < prefix.count {
+            if Attributes.asciiLowercase(bytes[i]) != Attributes.asciiLowercase(prefix[i]) {
+                return false
+            }
+            i &+= 1
+        }
+        return true
+    }
+
+    @inline(__always)
+    static func hasSuffixIgnoreCaseAscii(_ bytes: [UInt8], _ suffix: [UInt8]) -> Bool {
+        if suffix.count > bytes.count { return false }
+        let offset = bytes.count - suffix.count
+        var i = 0
+        while i < suffix.count {
+            if Attributes.asciiLowercase(bytes[offset + i]) != Attributes.asciiLowercase(suffix[i]) {
+                return false
+            }
+            i &+= 1
+        }
+        return true
+    }
+
+    @inline(__always)
+    static func containsIgnoreCaseAscii(_ bytes: [UInt8], _ needle: [UInt8]) -> Bool {
+        let hayCount = bytes.count
+        let needleCount = needle.count
+        if needleCount == 0 { return true }
+        if needleCount > hayCount { return false }
+        let limit = hayCount - needleCount
+        var i = 0
+        while i <= limit {
+            var j = 0
+            while j < needleCount {
+                if Attributes.asciiLowercase(bytes[i + j]) != Attributes.asciiLowercase(needle[j]) {
+                    break
+                }
+                j &+= 1
+            }
+            if j == needleCount {
+                return true
+            }
+            i &+= 1
+        }
+        return false
+    }
     enum StringError: Error {
         case empty
         case short
@@ -27,6 +93,8 @@ open class StringUtil {
     fileprivate static let padding: [String] = ["", " ", "  ", "   ", "    ", "     ", "      ", "       ", "        ", "         ", "          "]
     private static let empty = ""
     private static let space = " "
+    private static let useWhitespaceFastPath: Bool =
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_NORMALISE_WHITESPACE_FASTPATH"] != "1"
 
     public static let spaceUTF8: [UInt8] = " ".utf8Array
     public static let backslashTUTF8: [UInt8] = "\t".utf8Array
@@ -34,6 +102,19 @@ open class StringUtil {
     public static let backslashFUTF8: [UInt8] = "\u{000C}".utf8Array
     public static let backslashRUTF8: [UInt8] = "\r".utf8Array
     public static let backshashRBackslashNUTF8: [UInt8] = "\r\n".utf8Array
+    @usableFromInline
+    static let utf8NBSPLead: UInt8 = 0xC2
+    @usableFromInline
+    static let utf8NBSPTrail: UInt8 = 0xA0
+    @usableFromInline
+    static func isAsciiWhitespaceByte(_ byte: UInt8) -> Bool {
+        return byte == TokeniserStateVars.spaceByte ||
+            byte == TokeniserStateVars.tabByte ||
+            byte == TokeniserStateVars.newLineByte ||
+            byte == TokeniserStateVars.formFeedByte ||
+            byte == TokeniserStateVars.carriageReturnByte
+    }
+
     
     /**
      * Join a collection of strings by a seperator
@@ -171,7 +252,19 @@ open class StringUtil {
      * - returns: normalised string
      */
     public static func normaliseWhitespace(_ string: [UInt8]) -> String {
-        let sb: StringBuilder  = StringBuilder.init()
+        if useWhitespaceFastPath, !needsWhitespaceNormalization(string) {
+            return String(decoding: string, as: UTF8.self)
+        }
+        let sb: StringBuilder = StringBuilder(string.count)
+        appendNormalisedWhitespace(sb, string: string, stripLeading: false)
+        return sb.toString()
+    }
+
+    public static func normaliseWhitespace(_ string: ArraySlice<UInt8>) -> String {
+        if useWhitespaceFastPath, !needsWhitespaceNormalization(string) {
+            return String(decoding: string, as: UTF8.self)
+        }
+        let sb: StringBuilder = StringBuilder(string.count)
         appendNormalisedWhitespace(sb, string: string, stripLeading: false)
         return sb.toString()
     }
@@ -191,7 +284,7 @@ open class StringUtil {
                 if ((stripLeading && !reachedNonWhite) || lastWasWhite) {
                     continue
                 }
-                accum.append(UTF8Arrays.whitespace)
+                accum.append(TokeniserStateVars.spaceByte)
                 lastWasWhite = true
             } else {
                 accum.append(c)
@@ -214,12 +307,12 @@ open class StringUtil {
         while i < string.count {
             let firstByte = string[i]
             if firstByte < 0x80 {
-                if firstByte == 0x20 || firstByte == 0x09 || firstByte == 0x0A || firstByte == 0x0C || firstByte == 0x0D {
+                if isAsciiWhitespaceByte(firstByte) {
                     if (stripLeading && !reachedNonWhite) || lastWasWhite {
                         i += 1
                         continue
                     }
-                    accum.append(UTF8Arrays.whitespace)
+                    accum.append(TokeniserStateVars.spaceByte)
                     lastWasWhite = true
                 } else {
                     accum.append(firstByte)
@@ -234,7 +327,7 @@ open class StringUtil {
                     i += 2
                     continue
                 }
-                accum.append(UTF8Arrays.whitespace)
+                accum.append(TokeniserStateVars.spaceByte)
                 lastWasWhite = true
                 i += 2
                 continue
@@ -257,6 +350,55 @@ open class StringUtil {
         }
     }
 
+    @inline(__always)
+    private static func needsWhitespaceNormalization(_ string: [UInt8]) -> Bool {
+        var lastWasWhitespace = false
+        var i = 0
+        while i < string.count {
+            let byte = string[i]
+            if byte == TokeniserStateVars.spaceByte ||
+                byte == TokeniserStateVars.tabByte ||
+                byte == TokeniserStateVars.newLineByte ||
+                byte == TokeniserStateVars.formFeedByte ||
+                byte == TokeniserStateVars.carriageReturnByte {
+                if byte != TokeniserStateVars.spaceByte || lastWasWhitespace {
+                    return true
+                }
+                lastWasWhitespace = true
+            } else {
+                lastWasWhitespace = false
+            }
+            i &+= 1
+        }
+        return false
+    }
+
+    @inline(__always)
+    private static func needsWhitespaceNormalization(_ string: ArraySlice<UInt8>) -> Bool {
+        var lastWasWhitespace = false
+        var i = string.startIndex
+        let end = string.endIndex
+        while i < end {
+            let byte = string[i]
+            if byte == TokeniserStateVars.spaceByte ||
+                byte == TokeniserStateVars.tabByte ||
+                byte == TokeniserStateVars.newLineByte ||
+                byte == TokeniserStateVars.formFeedByte ||
+                byte == TokeniserStateVars.carriageReturnByte {
+                if byte != TokeniserStateVars.spaceByte || lastWasWhitespace {
+                    return true
+                }
+                lastWasWhitespace = true
+            } else {
+                lastWasWhitespace = false
+            }
+            i = string.index(after: i)
+        }
+        return false
+    }
+
+    
+
     @inlinable
     public static func appendNormalisedWhitespace(_ accum: StringBuilder, string: ArraySlice<UInt8>, stripLeading: Bool) {
         if !string.isEmpty {
@@ -266,13 +408,13 @@ open class StringUtil {
                 guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
                     return false
                 }
-                return memchr(basePtr, 0x20, count) != nil ||
-                    memchr(basePtr, 0x09, count) != nil ||
-                    memchr(basePtr, 0x0A, count) != nil ||
-                    memchr(basePtr, 0x0C, count) != nil ||
-                    memchr(basePtr, 0x0D, count) != nil ||
-                    memchr(basePtr, 0xA0, count) != nil ||
-                    memchr(basePtr, 0xC2, count) != nil
+                return memchr(basePtr, Int32(TokeniserStateVars.spaceByte), count) != nil ||
+                    memchr(basePtr, Int32(TokeniserStateVars.tabByte), count) != nil ||
+                    memchr(basePtr, Int32(TokeniserStateVars.newLineByte), count) != nil ||
+                    memchr(basePtr, Int32(TokeniserStateVars.formFeedByte), count) != nil ||
+                    memchr(basePtr, Int32(TokeniserStateVars.carriageReturnByte), count) != nil ||
+                    memchr(basePtr, Int32(utf8NBSPTrail), count) != nil ||
+                    memchr(basePtr, Int32(utf8NBSPLead), count) != nil
             }
             if !hasWhitespace {
                 accum.append(string)
@@ -281,7 +423,8 @@ open class StringUtil {
             #else
             var hasWhitespace = false
             for b in string {
-                if b == 0x20 || (b >= 0x09 && b <= 0x0D) {
+                if b == TokeniserStateVars.spaceByte ||
+                    (b >= TokeniserStateVars.tabByte && b <= TokeniserStateVars.carriageReturnByte) {
                     hasWhitespace = true
                     break
                 }
@@ -299,29 +442,39 @@ open class StringUtil {
         while i < end {
             let firstByte = string[i]
             if firstByte < 0x80 {
-                if firstByte == 0x20 || firstByte == 0x09 || firstByte == 0x0A || firstByte == 0x0C || firstByte == 0x0D {
+                if isAsciiWhitespaceByte(firstByte) {
                     if (stripLeading && !reachedNonWhite) || lastWasWhite {
                         i = string.index(after: i)
                         continue
                     }
-                    accum.append(UTF8Arrays.whitespace)
+                    accum.append(TokeniserStateVars.spaceByte)
                     lastWasWhite = true
                 } else {
-                    accum.append(firstByte)
+                    var j = i
+                    while j < end {
+                        let b = string[j]
+                        if b >= 0x80 || isAsciiWhitespaceByte(b) {
+                            break
+                        }
+                        j = string.index(after: j)
+                    }
+                    accum.append(string[i..<j])
                     lastWasWhite = false
                     reachedNonWhite = true
+                    i = j
+                    continue
                 }
                 i = string.index(after: i)
                 continue
             }
-            if firstByte == 0xC2 {
+            if firstByte == utf8NBSPLead {
                 let next = string.index(after: i)
-                if next < end, string[next] == 0xA0 {
+                if next < end, string[next] == utf8NBSPTrail {
                     if (stripLeading && !reachedNonWhite) || lastWasWhite {
                         i = string.index(after: next)
                         continue
                     }
-                    accum.append(UTF8Arrays.whitespace)
+                    accum.append(TokeniserStateVars.spaceByte)
                     lastWasWhite = true
                     i = string.index(after: next)
                     continue
@@ -346,6 +499,116 @@ open class StringUtil {
             i = next
         }
     }
+
+    @inlinable
+    public static func appendNormalisedWhitespace(_ accum: StringBuilder,
+                                                  string: ArraySlice<UInt8>,
+                                                  stripLeading: Bool,
+                                                  lastWasWhite: inout Bool) {
+        if !string.isEmpty {
+            #if canImport(Darwin) || canImport(Glibc)
+            let count = string.count
+            let hasWhitespace = string.withUnsafeBytes { buf -> Bool in
+                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
+                    return false
+                }
+                return memchr(basePtr, Int32(TokeniserStateVars.spaceByte), count) != nil ||
+                    memchr(basePtr, Int32(TokeniserStateVars.tabByte), count) != nil ||
+                    memchr(basePtr, Int32(TokeniserStateVars.newLineByte), count) != nil ||
+                    memchr(basePtr, Int32(TokeniserStateVars.formFeedByte), count) != nil ||
+                    memchr(basePtr, Int32(TokeniserStateVars.carriageReturnByte), count) != nil ||
+                    memchr(basePtr, Int32(utf8NBSPTrail), count) != nil ||
+                    memchr(basePtr, Int32(utf8NBSPLead), count) != nil
+            }
+            if !hasWhitespace {
+                accum.append(string)
+                if let last = string.last {
+                    lastWasWhite = (last == TokeniserStateVars.spaceByte)
+                }
+                return
+            }
+            #else
+            var hasWhitespace = false
+            for b in string {
+                if b == TokeniserStateVars.spaceByte ||
+                    (b >= TokeniserStateVars.tabByte && b <= TokeniserStateVars.carriageReturnByte) {
+                    hasWhitespace = true
+                    break
+                }
+            }
+            if !hasWhitespace {
+                accum.append(string)
+                if let last = string.last {
+                    lastWasWhite = (last == TokeniserStateVars.spaceByte)
+                }
+                return
+            }
+            #endif
+        }
+        var reachedNonWhite = false
+        var i = string.startIndex
+        let end = string.endIndex
+        while i < end {
+            let firstByte = string[i]
+            if firstByte < 0x80 {
+                if isAsciiWhitespaceByte(firstByte) {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i = string.index(after: i)
+                        continue
+                    }
+                    accum.append(TokeniserStateVars.spaceByte)
+                    lastWasWhite = true
+                } else {
+                    var j = i
+                    while j < end {
+                        let b = string[j]
+                        if b >= 0x80 || isAsciiWhitespaceByte(b) {
+                            break
+                        }
+                        j = string.index(after: j)
+                    }
+                    accum.append(string[i..<j])
+                    lastWasWhite = false
+                    reachedNonWhite = true
+                    i = j
+                    continue
+                }
+                i = string.index(after: i)
+                continue
+            }
+            if firstByte == utf8NBSPLead {
+                let next = string.index(after: i)
+                if next < end, string[next] == utf8NBSPTrail {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i = string.index(after: next)
+                        continue
+                    }
+                    accum.append(TokeniserStateVars.spaceByte)
+                    lastWasWhite = true
+                    i = string.index(after: next)
+                    continue
+                }
+            }
+            let scalarByteCount: Int
+            if firstByte < 0xE0 {
+                scalarByteCount = 2
+            } else if firstByte < 0xF0 {
+                scalarByteCount = 3
+            } else {
+                scalarByteCount = 4
+            }
+            var next = i
+            for _ in 0..<scalarByteCount {
+                if next == end { return }
+                next = string.index(after: next)
+            }
+            accum.append(string[i..<next])
+            lastWasWhite = false
+            reachedNonWhite = true
+            i = next
+        }
+    }
+
 
 //    open static func inSorted(_ needle: String, haystack: [String]) -> Bool {
 //        return binarySearch(haystack, searchItem: needle) >= 0

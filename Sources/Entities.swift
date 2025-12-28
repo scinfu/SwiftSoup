@@ -13,6 +13,8 @@ import Foundation
  Source: [W3C HTML named character references](http://www.w3.org/TR/html5/named-character-references.html#named-character-references)
  */
 public final class Entities: Sendable {
+    private static let usePackedNamedEntityFastPath = ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_PACKED_ENTITY_FASTPATH"] != "1"
+    private static let usePackedNamedEntityCodepointsCache = ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_PACKED_ENTITY_CODEPOINTS_CACHE"] != "1"
     private static let commonNamedEntities: [ArraySlice<UInt8>: [UnicodeScalar]] = [
         "lt".utf8ArraySlice: [UnicodeScalar(0x3C)!],
         "gt".utf8ArraySlice: [UnicodeScalar(0x3E)!],
@@ -31,8 +33,91 @@ public final class Entities: Sendable {
     private static let gtEntityUTF8 = "&gt;".utf8Array
     private static let quotEntityUTF8 = "&quot;".utf8Array
     
-    private static let spaceString: [UInt8] = [0x20]
-    
+    private static let spaceString: [UInt8] = [TokeniserStateVars.spaceByte]
+
+    fileprivate struct PackedNamedEntityEntry {
+        let isBase: Bool
+        let scalar: UnicodeScalar?
+        let multipoints: [UnicodeScalar]?
+        let cachedCodepoints: [UnicodeScalar]
+
+        @inline(__always)
+        func codepoints() -> [UnicodeScalar] {
+            if Entities.usePackedNamedEntityCodepointsCache {
+                return cachedCodepoints
+            }
+            if let multipoints {
+                return multipoints
+            }
+            return [scalar!]
+        }
+    }
+
+    private static let packedNamedEntityLookup: [UInt64: PackedNamedEntityEntry] = {
+        var baseKeys = Set<UInt64>()
+        baseKeys.reserveCapacity(EscapeMode.base.entitiesByName.count)
+        for entry in EscapeMode.base.entitiesByName {
+            if let key = packAsciiEntityKey(entry.name) {
+                baseKeys.insert(key)
+            }
+        }
+
+        var lookup: [UInt64: PackedNamedEntityEntry] = [:]
+        lookup.reserveCapacity(EscapeMode.extended.entitiesByName.count)
+        for entry in EscapeMode.extended.entitiesByName {
+            guard let key = packAsciiEntityKey(entry.name) else { continue }
+            let multipoints = EscapeMode.staticData.multipoints[entry.name]
+            let cachedCodepoints: [UnicodeScalar]
+            if let multipoints {
+                cachedCodepoints = multipoints
+            } else {
+                cachedCodepoints = [entry.scalar]
+            }
+            lookup[key] = PackedNamedEntityEntry(
+                isBase: baseKeys.contains(key),
+                scalar: multipoints == nil ? entry.scalar : nil,
+                multipoints: multipoints,
+                cachedCodepoints: cachedCodepoints
+            )
+        }
+        return lookup
+    }()
+
+    @inline(__always)
+    private static func packAsciiEntityKey(_ name: ArraySlice<UInt8>) -> UInt64? {
+        let count = name.count
+        if count == 0 || count > 8 { return nil }
+        var key: UInt64 = UInt64(count) << 56
+        var shift: UInt64 = 0
+        for byte in name {
+            if byte >= 0x80 { return nil }
+            key |= UInt64(byte) << shift
+            shift &+= 8
+        }
+        return key
+    }
+
+    @inline(__always)
+    fileprivate static func lookupNamedEntityFast(_ name: ArraySlice<UInt8>, allowExtended: Bool) -> PackedNamedEntityEntry? {
+        guard usePackedNamedEntityFastPath, let key = packAsciiEntityKey(name) else { return nil }
+        guard let entry = packedNamedEntityLookup[key] else { return nil }
+        if allowExtended || entry.isBase {
+            return entry
+        }
+        return nil
+    }
+
+    @inline(__always)
+    fileprivate static func codepointsForBaseName(_ name: ArraySlice<UInt8>) -> [UnicodeScalar]? {
+        if let scalar = EscapeMode.base.codepointForName(name) {
+            if let multipoints = EscapeMode.staticData.multipoints[name] {
+                return multipoints
+            }
+            return [scalar]
+        }
+        return nil
+    }
+
     public final class EscapeMode: Equatable, Sendable {
         /// Helper struct to gather static read-only data.
         fileprivate struct StaticData: Sendable {
@@ -233,12 +318,24 @@ public final class Entities: Sendable {
         if let scalars = EscapeMode.staticData.multipoints[name] {
             return scalars
         }
-        
+
         if let scalar = EscapeMode.extended.codepointForName(name) {
             return [scalar]
         }
         return nil
     }
+
+    @inline(__always)
+    internal static func lookupNamedEntity(_ name: ArraySlice<UInt8>, allowExtended: Bool) -> [UnicodeScalar]? {
+        if let fast = lookupNamedEntityFast(name, allowExtended: allowExtended) {
+            return fast.codepoints()
+        }
+        if allowExtended {
+            return codepointsForName(name)
+        }
+        return codepointsForBaseName(name)
+    }
+
     
     public static func escape(_ string: String, _ encode: String.Encoding = .utf8 ) -> String {
         return Entities.escape(string, OutputSettings().charset(encode).escapeMode(Entities.EscapeMode.extended))
@@ -257,7 +354,7 @@ public final class Entities: Sendable {
         else if byte < 0xF0 { return 3 }
         else { return 4 }
     }
-    
+
     // this method is ugly, and does a lot. but other breakups cause rescanning and stringbuilder generations
     @usableFromInline
     @inline(__always)
@@ -292,7 +389,7 @@ public final class Entities: Sendable {
                         i = j
                         continue
                     }
-                    accum.append(0x20)
+                    accum.append(TokeniserStateVars.spaceByte)
                     lastWasWhite = true
                     i = j
                     continue
@@ -383,7 +480,7 @@ public final class Entities: Sendable {
                         i = j
                         continue
                     }
-                    accum.append(0x20)
+                    accum.append(TokeniserStateVars.spaceByte)
                     lastWasWhite = true
                     i = j
                     continue
@@ -469,7 +566,7 @@ public final class Entities: Sendable {
     @inline(__always)
     static func appendHex(_ n: Int, _ accum: StringBuilder) {
         if n < 16 {
-            accum.append(0x20) // space to match "%2x"
+            accum.append(TokeniserStateVars.spaceByte)
             accum.append(hexDigits[n])
             return
         }

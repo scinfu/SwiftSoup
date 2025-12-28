@@ -24,15 +24,46 @@ public class StructuralEvaluator: Evaluator, @unchecked Sendable {
     }
 
     public class Has: StructuralEvaluator, @unchecked Sendable {
+        private static let useHasFastPath: Bool =
+            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_HAS_FASTPATH"] != "1"
+
         public override init(_ evaluator: Evaluator) {
             super.init(evaluator)
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if Self.useHasFastPath {
+                var stack: [Element] = []
+                let children = element.childNodes
+                if !children.isEmpty {
+                    for child in children.reversed() {
+                        if let childEl = child as? Element {
+                            stack.append(childEl)
+                        }
+                    }
+                }
+                while let current = stack.popLast() {
+                    do {
+                        if try evaluator.matches(root, current) {
+                            return true
+                        }
+                    } catch {}
+                    let currentChildren = current.childNodes
+                    if !currentChildren.isEmpty {
+                        for child in currentChildren.reversed() {
+                            if let childEl = child as? Element {
+                                stack.append(childEl)
+                            }
+                        }
+                    }
+                }
+                return false
+            }
+
             for e in try element.getAllElements().array() {
                 do {
-                    if(e != element) {
-                        if ((try evaluator.matches(root, e))) {
+                    if e != element {
+                        if try evaluator.matches(root, e) {
                             return true
                         }
                     }

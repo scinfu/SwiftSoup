@@ -9,18 +9,17 @@ import Foundation
 
 extension UInt8 {
     /// Checks if the byte represents a whitespace character:
-    /// Space (0x20), Tab (0x09), Newline (0x0A), Carriage Return (0x0D),
-    /// Form Feed (0x0C), or Vertical Tab (0x0B).
+    /// Space, Tab, Newline, Carriage Return, Form Feed, or Vertical Tab.
     @usableFromInline
     @inline(__always)
     var isWhitespace: Bool {
         switch self {
-        case 0x20, // Space
-            0x09, // Tab (\t)
-            0x0A, // Newline (\n)
-            0x0D, // Carriage Return (\r)
-            0x0C, // Form Feed (\f)
-            0x0B: // Vertical Tab (\v)
+        case TokeniserStateVars.spaceByte, // Space
+            TokeniserStateVars.tabByte, // Tab (\t)
+            TokeniserStateVars.newLineByte, // Newline (\n)
+            TokeniserStateVars.carriageReturnByte, // Carriage Return (\r)
+            TokeniserStateVars.formFeedByte, // Form Feed (\f)
+            TokeniserStateVars.verticalTabByte: // Vertical Tab (\v)
             return true
         default:
             return false
@@ -33,21 +32,24 @@ extension ArraySlice where Element == UInt8 {
     public func lowercased() -> ArraySlice<UInt8> {
         // Check if any element needs lowercasing
         guard self.contains(where: { $0 >= 65 && $0 <= 90 }) else { return self }
-        // Only allocate a new array if necessary
-        var result = self
-        for i in result.indices {
-            let b = result[i]
+        // Avoid mutating the underlying slice storage.
+        var out: [UInt8] = []
+        out.reserveCapacity(self.count)
+        for b in self {
             if b >= 65 && b <= 90 {
-                result[i] = b + 32
+                out.append(b + 32)
+            } else {
+                out.append(b)
             }
         }
-        return result
+        return ArraySlice(out)
     }
     
     public func trim() -> ArraySlice<UInt8> {
         // Helper function to check if a byte is whitespace
         func isWhitespace(_ byte: UInt8) -> Bool {
-            return byte == 0x20 || (byte >= 0x09 && byte <= 0x0D)
+            return byte == TokeniserStateVars.spaceByte ||
+                (byte >= TokeniserStateVars.tabByte && byte <= TokeniserStateVars.carriageReturnByte)
         }
         
         var start = startIndex
@@ -88,7 +90,7 @@ extension Array where Element == UInt8 {
         }
         return result
     }
-    
+
     @inline(__always)
     func uppercased() -> [UInt8] {
         map { $0 >= 97 && $0 <= 122 ? $0 - 32 : $0 }
@@ -144,7 +146,8 @@ extension Array where Element == UInt8 {
     public func trim() -> [UInt8] {
         // Helper function to check if a byte is whitespace
         func isWhitespace(_ byte: UInt8) -> Bool {
-            return byte == 0x20 || (byte >= 0x09 && byte <= 0x0D)
+            return byte == TokeniserStateVars.spaceByte ||
+                (byte >= TokeniserStateVars.tabByte && byte <= TokeniserStateVars.carriageReturnByte)
         }
         
         var start = startIndex
@@ -261,14 +264,36 @@ extension ArraySlice where Element == UInt8 {
 }
 
 extension String {
+    @usableFromInline
+    internal static let useUtf8ArrayFastPath: Bool =
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_UTF8_STRING_FASTPATH"] != "1"
+
     @inline(__always)
     public var utf8Array: [UInt8] {
+        if String.useUtf8ArrayFastPath {
+            if let out = self.utf8.withContiguousStorageIfAvailable({ buffer -> [UInt8] in
+                let count = buffer.count
+                if count == 0 { return [] }
+                guard let srcBase = buffer.baseAddress else {
+                    return Array(self.utf8)
+                }
+                var out = [UInt8](repeating: 0, count: count)
+                out.withUnsafeMutableBytes { dst in
+                    if let dstBase = dst.baseAddress {
+                        dstBase.copyMemory(from: srcBase, byteCount: count)
+                    }
+                }
+                return out
+            }) {
+                return out
+            }
+        }
         return Array(self.utf8)
     }
     
     @inline(__always)
     public var utf8ArraySlice: ArraySlice<UInt8> {
-        return ArraySlice(self.utf8)
+        return ArraySlice(self.utf8Array)
     }
 
     @inline(__always)

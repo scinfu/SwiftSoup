@@ -17,6 +17,10 @@ open class Tag: Hashable, @unchecked Sendable {
             preconditionFailure("Cannot initialize known tags: \(error)")
         }
     }()
+    private static let useUnknownTagCache: Bool =
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_UNKNOWN_TAG_CACHE"] != "1"
+    private static let unknownTagCacheLimit: Int = 512
+    private static let unknownTagCache = UnknownTagCache()
 
     // Fast known-tag lookups for common tag ids to avoid dictionary hashing on hot paths.
     private static let tagA = knownTags[UTF8Arrays.a]!
@@ -51,12 +55,67 @@ open class Tag: Hashable, @unchecked Sendable {
     private static let tagTh = knownTags[UTF8Arrays.th]!
     private static let tagInput = knownTags[UTF8Arrays.input]!
     private static let tagHr = knownTags[UTF8Arrays.hr]!
+    private static let tagSelect = knownTags[UTF8Arrays.select]!
+    private static let tagOption = knownTags[UTF8Arrays.option]!
+    private static let tagOptgroup = knownTags[UTF8Arrays.optgroup]!
+    private static let tagTextarea = knownTags[UTF8Arrays.textarea]!
+    private static let tagNoscript = knownTags[UTF8Arrays.noscript]!
+    private static let tagNoframes = knownTags[UTF8Arrays.noframes]!
+    private static let tagPlaintext = knownTags[UTF8Arrays.plaintext]!
+    private static let tagButton = knownTags[UTF8Arrays.button]!
+    private static let tagBase = knownTags[UTF8Arrays.base]!
+    private static let tagFrame = knownTags[UTF8Arrays.frame]!
+    private static let tagFrameset = knownTags[UTF8Arrays.frameset]!
+    private static let tagIframe = knownTags[UTF8Arrays.iframe]!
+    private static let tagNoembed = knownTags[UTF8Arrays.noembed]!
+    private static let tagEmbed = knownTags[UTF8Arrays.embed]!
+    private static let tagDd = knownTags[UTF8Arrays.dd]!
+    private static let tagDt = knownTags[UTF8Arrays.dt]!
+    private static let tagDl = knownTags[UTF8Arrays.dl]!
+    private static let tagOl = knownTags[UTF8Arrays.ol]!
+    private static let tagUl = knownTags[UTF8Arrays.ul]!
+    private static let tagPre = knownTags[UTF8Arrays.pre]!
+    private static let tagListing = knownTags[UTF8Arrays.listing]!
+    private static let tagAddress = knownTags[UTF8Arrays.address]!
+    private static let tagArticle = knownTags[UTF8Arrays.article]!
+    private static let tagAside = knownTags[UTF8Arrays.aside]!
+    private static let tagBlockquote = knownTags[UTF8Arrays.blockquote]!
+    private static let tagCenter = knownTags[UTF8Arrays.center]!
+    private static let tagDir = knownTags[UTF8Arrays.dir]!
+    private static let tagFieldset = knownTags[UTF8Arrays.fieldset]!
+    private static let tagFigcaption = knownTags[UTF8Arrays.figcaption]!
+    private static let tagFigure = knownTags[UTF8Arrays.figure]!
+    private static let tagFooter = knownTags[UTF8Arrays.footer]!
+    private static let tagHeader = knownTags[UTF8Arrays.header]!
+    private static let tagHgroup = knownTags[UTF8Arrays.hgroup]!
+    private static let tagMenu = knownTags[UTF8Arrays.menu]!
+    private static let tagNav = knownTags[UTF8Arrays.nav]!
+    private static let tagSection = knownTags[UTF8Arrays.section]!
+    private static let tagSummary = knownTags[UTF8Arrays.summary]!
+    private static let tagH1 = knownTags[UTF8Arrays.h1]!
+    private static let tagH2 = knownTags[UTF8Arrays.h2]!
+    private static let tagH3 = knownTags[UTF8Arrays.h3]!
+    private static let tagH4 = knownTags[UTF8Arrays.h4]!
+    private static let tagH5 = knownTags[UTF8Arrays.h5]!
+    private static let tagH6 = knownTags[UTF8Arrays.h6]!
+    private static let tagApplet = knownTags[UTF8Arrays.applet]!
+    private static let tagMarquee = knownTags[UTF8Arrays.marquee]!
+    private static let tagObject = knownTags[UTF8Arrays.object]!
+    private static let tagRuby = knownTags[UTF8Arrays.ruby]!
+    private static let tagRp = knownTags[UTF8Arrays.rp]!
+    private static let tagRt = knownTags[UTF8Arrays.rt]!
 
     
     #if DEBUG
     /// Compile-time check that the ``knownTags`` dictionary really is `Sendable`.
     private static let sendableCheck: any Sendable = knownTags
     #endif
+
+    private final class UnknownTagCache: @unchecked Sendable {
+        let lock = Mutex()
+        var tags: [Array<UInt8>: Tag] = [:]
+        var selfClosingTags: [Array<UInt8>: Tag] = [:]
+    }
     
     
     /// Tag traits.
@@ -89,6 +148,7 @@ open class Tag: Hashable, @unchecked Sendable {
     fileprivate let tagName: [UInt8]
     fileprivate let tagNameNormal: [UInt8]
     fileprivate let traits: Traits
+    internal let tagId: Token.Tag.TagId
 
     public convenience init(_ tagName: [UInt8]) {
         self.init(tagName, traits: .forBlockTag)
@@ -102,6 +162,7 @@ open class Tag: Hashable, @unchecked Sendable {
         self.tagName = tagName
         self.tagNameNormal = tagName.lowercased()
         self.traits = traits
+        self.tagId = Token.Tag.tagIdForBytes(self.tagNameNormal) ?? .none
     }
     
     /**
@@ -144,12 +205,17 @@ open class Tag: Hashable, @unchecked Sendable {
         if let tag = Self.knownTags[normalizedTagName] {
             return tag
         }
+        if let cached = cachedUnknownTag(normalizedTagName, isSelfClosing: isSelfClosing) {
+            return cached
+        }
         try Validate.notEmpty(string: normalizedTagName)
         // not defined: create default; go anywhere, do anything! (incl be inside a <p>)
         var traits = Traits.forBlockTag
         traits.isBlock = false
         traits.selfClosing = isSelfClosing
-        return Tag(normalizedTagName, traits: traits)
+        let tag = Tag(normalizedTagName, traits: traits)
+        storeUnknownTag(normalizedTagName, isSelfClosing: isSelfClosing, tag)
+        return tag
     }
 
     @inline(__always)
@@ -219,6 +285,104 @@ open class Tag: Hashable, @unchecked Sendable {
             return tagInput
         case .hr:
             return tagHr
+        case .select:
+            return tagSelect
+        case .option:
+            return tagOption
+        case .optgroup:
+            return tagOptgroup
+        case .textarea:
+            return tagTextarea
+        case .noscript:
+            return tagNoscript
+        case .noframes:
+            return tagNoframes
+        case .plaintext:
+            return tagPlaintext
+        case .button:
+            return tagButton
+        case .base:
+            return tagBase
+        case .frame:
+            return tagFrame
+        case .frameset:
+            return tagFrameset
+        case .iframe:
+            return tagIframe
+        case .noembed:
+            return tagNoembed
+        case .embed:
+            return tagEmbed
+        case .dd:
+            return tagDd
+        case .dt:
+            return tagDt
+        case .dl:
+            return tagDl
+        case .ol:
+            return tagOl
+        case .ul:
+            return tagUl
+        case .pre:
+            return tagPre
+        case .listing:
+            return tagListing
+        case .address:
+            return tagAddress
+        case .article:
+            return tagArticle
+        case .aside:
+            return tagAside
+        case .blockquote:
+            return tagBlockquote
+        case .center:
+            return tagCenter
+        case .dir:
+            return tagDir
+        case .fieldset:
+            return tagFieldset
+        case .figcaption:
+            return tagFigcaption
+        case .figure:
+            return tagFigure
+        case .footer:
+            return tagFooter
+        case .header:
+            return tagHeader
+        case .hgroup:
+            return tagHgroup
+        case .menu:
+            return tagMenu
+        case .nav:
+            return tagNav
+        case .section:
+            return tagSection
+        case .summary:
+            return tagSummary
+        case .h1:
+            return tagH1
+        case .h2:
+            return tagH2
+        case .h3:
+            return tagH3
+        case .h4:
+            return tagH4
+        case .h5:
+            return tagH5
+        case .h6:
+            return tagH6
+        case .applet:
+            return tagApplet
+        case .marquee:
+            return tagMarquee
+        case .object:
+            return tagObject
+        case .ruby:
+            return tagRuby
+        case .rp:
+            return tagRp
+        case .rt:
+            return tagRt
         case .none:
             return nil
         }
@@ -242,16 +406,50 @@ open class Tag: Hashable, @unchecked Sendable {
         
         let normalizedTagName = settings.normalizeTag(tagName)
         try Validate.notEmpty(string: normalizedTagName)
-        
+
         if let tag = Self.knownTags[normalizedTagName] {
             return tag
+        }
+        if let cached = cachedUnknownTag(normalizedTagName, isSelfClosing: isSelfClosing) {
+            return cached
         }
         
         // not defined: create default; go anywhere, do anything! (incl be inside a <p>)
         var traits = Traits.forBlockTag
         traits.isBlock = false
         traits.selfClosing = isSelfClosing
-        return Tag(normalizedTagName, traits: traits)
+        let tag = Tag(normalizedTagName, traits: traits)
+        storeUnknownTag(normalizedTagName, isSelfClosing: isSelfClosing, tag)
+        return tag
+    }
+
+    @inline(__always)
+    private static func cachedUnknownTag(_ normalizedTagName: [UInt8], isSelfClosing: Bool) -> Tag? {
+        guard useUnknownTagCache else { return nil }
+        unknownTagCache.lock.lock()
+        let tag = isSelfClosing
+            ? unknownTagCache.selfClosingTags[normalizedTagName]
+            : unknownTagCache.tags[normalizedTagName]
+        unknownTagCache.lock.unlock()
+        return tag
+    }
+
+    @inline(__always)
+    private static func storeUnknownTag(_ normalizedTagName: [UInt8], isSelfClosing: Bool, _ tag: Tag) {
+        guard useUnknownTagCache else { return }
+        unknownTagCache.lock.lock()
+        if isSelfClosing {
+            if unknownTagCache.selfClosingTags.count >= unknownTagCacheLimit {
+                unknownTagCache.selfClosingTags.removeAll(keepingCapacity: true)
+            }
+            unknownTagCache.selfClosingTags[normalizedTagName] = tag
+        } else {
+            if unknownTagCache.tags.count >= unknownTagCacheLimit {
+                unknownTagCache.tags.removeAll(keepingCapacity: true)
+            }
+            unknownTagCache.tags[normalizedTagName] = tag
+        }
+        unknownTagCache.lock.unlock()
     }
 
     /**
@@ -428,8 +626,9 @@ open class Tag: Hashable, @unchecked Sendable {
     // prepped from http://www.w3.org/TR/REC-html40/sgml/dtd.html and other sources
     private static let blockTags: [[UInt8]] = [
         "html", "head", "body", "frameset", "script", "noscript", "style", "meta", "link", "title", "frame",
-        "noframes", "section", "nav", "aside", "hgroup", "header", "footer", "p", "h1", "h2", "h3", "h4", "h5", "h6",
-        "ul", "ol", "pre", "div", "blockquote", "hr", "address", "figure", "figcaption", "form", "fieldset", "ins",
+        "noframes", "noembed", "section", "nav", "aside", "hgroup", "header", "footer", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+        "ul", "ol", "pre", "listing", "div", "blockquote", "hr", "address", "figure", "figcaption", "form", "fieldset",
+        "center", "dir", "applet", "marquee", "ins",
         "del", "s", "dl", "dt", "dd", "li", "table", "caption", "thead", "tfoot", "tbody", "colgroup", "col", "tr", "th",
         "td", "video", "audio", "canvas", "details", "menu", "plaintext", "template", "article", "main",
         "svg", "math"

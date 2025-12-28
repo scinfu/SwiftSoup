@@ -75,12 +75,55 @@ typealias Selector = CssSelector
 open class CssSelector {
     private let evaluator: Evaluator
     private let root: Element
+    
+    private static let useSelectorCache: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SELECTOR_CACHE"] != "1"
+    }()
+    private static let useSimpleSelectorFastPath: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SIMPLE_SELECTOR_FASTPATH"] != "1"
+    }()
+    private static let useDescendantSelectorFastPath: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DESCENDANT_SELECTOR_FASTPATH"] != "1"
+    }()
+    private static let useDescendantSingleAncestorFastPath: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DESCENDANT_SINGLE_ANCESTOR_FASTPATH"] != "1"
+    }()
+    private static let useDescendantSmallAncestorFastPath: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_DESCENDANT_SMALL_ANCESTOR_FASTPATH"] != "1"
+    }()
+    private static let useMultiClassFastPath: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_MULTI_CLASS_FASTPATH"] != "1"
+    }()
+    private static let selectorCacheCapacity: Int = {
+        let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_SELECTOR_CACHE_SIZE"]
+        return max(0, Int(raw ?? "") ?? 128)
+    }()
+    private final class SelectorCache: @unchecked Sendable {
+        var items: [String: Evaluator] = [:]
+        var order: [String] = []
+        let lock = NSLock()
+    }
+    private static let selectorCache = SelectorCache()
+    private static let useFastQueryCache: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_FAST_QUERY_CACHE"] != "1"
+    }()
+    private static let fastQueryCacheCapacity: Int = {
+        let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_FAST_QUERY_CACHE_SIZE"]
+        let fallback = selectorCacheCapacity
+        return max(0, Int(raw ?? "") ?? fallback)
+    }()
+    private final class FastQueryCache: @unchecked Sendable {
+        var items: [String: FastQueryPlan] = [:]
+        var order: [String] = []
+        let lock = NSLock()
+    }
+    private static let fastQueryCache = FastQueryCache()
 
     private init(_ query: String, _ root: Element)throws {
         let query = query.trim()
         try Validate.notEmpty(string: query.utf8Array)
 
-        self.evaluator = try QueryParser.parse(query)
+        self.evaluator = try CssSelector.cachedEvaluator(query)
 
         self.root = root
     }
@@ -99,9 +142,12 @@ open class CssSelector {
      - throws ``Exception`` with ``ExceptionType/SelectorParseException`` (unchecked) on an invalid CSS query.
      */
     public static func select(_ query: String, _ root: Element)throws->Elements {
+        DebugTrace.log("CssSelector.select(query): \(query)")
         if let fast = try fastSelectQuery(query, root) {
+            DebugTrace.log("CssSelector.select(query): fast path hit")
             return fast
         }
+        DebugTrace.log("CssSelector.select(query): slow path")
         return try CssSelector(query, root).select()
     }
 
@@ -128,7 +174,7 @@ open class CssSelector {
         if let fast = try fastSelectQuery(query, roots) {
             return fast
         }
-        let evaluator: Evaluator = try QueryParser.parse(query)
+        let evaluator: Evaluator = try cachedEvaluator(query)
         return try self.select(evaluator, roots)
     }
 
@@ -141,13 +187,15 @@ open class CssSelector {
      - returns: matching elements, empty if none
      */
     public static func select(_ evaluator: Evaluator, _ roots: Array<Element>)throws->Elements {
-        var elements: Array<Element> = Array<Element>()
-        var seenElements: Array<Element> = Array<Element>()
+        if roots.count == 1, let root = roots.first {
+            return try select(evaluator, root)
+        }
+        var elements: Array<Element> = []
+        var seenElements: Array<Element> = []
         // dedupe elements by identity, not equality
-
         for root: Element in roots {
             let found: Elements = try select(evaluator, root)
-            for  el: Element in found.array() {
+            for el: Element in found.array() {
                 if (!seenElements.contains(el)) {
                     elements.append(el)
                     seenElements.append(el)
@@ -162,17 +210,395 @@ open class CssSelector {
         let _p = Profiler.start("CssSelector.select")
         defer { Profiler.end("CssSelector.select", _p) }
         #endif
+        DebugTrace.log("CssSelector.select(evaluator): \(evaluator)")
         if let fast = try CssSelector.fastSelect(evaluator, root) {
+            DebugTrace.log("CssSelector.select(evaluator): fast path hit")
             return fast
         }
+        DebugTrace.log("CssSelector.select(evaluator): collector path")
         return try Collector.collect(evaluator, root)
+    }
+    
+    private static func cachedEvaluator(_ query: String) throws -> Evaluator {
+        let key = query.trim()
+        if !useSelectorCache || selectorCacheCapacity == 0 {
+            return try QueryParser.parse(key)
+        }
+        selectorCache.lock.lock()
+        if let cached = selectorCache.items[key] {
+            selectorCache.lock.unlock()
+            return cached
+        }
+        selectorCache.lock.unlock()
+        
+        let parsed = try QueryParser.parse(key)
+        
+        selectorCache.lock.lock()
+        if selectorCache.items[key] == nil {
+            selectorCache.items[key] = parsed
+            selectorCache.order.append(key)
+            if selectorCache.order.count > selectorCacheCapacity {
+                let overflow = selectorCache.order.count - selectorCacheCapacity
+                if overflow > 0 {
+                    for _ in 0..<overflow {
+                        let removedKey = selectorCache.order.removeFirst()
+                        selectorCache.items.removeValue(forKey: removedKey)
+                    }
+                }
+            }
+        }
+        selectorCache.lock.unlock()
+        return parsed
+    }
+
+    private indirect enum FastQueryPlan: Sendable {
+        case none
+        case all
+        case id([UInt8])
+        case className([UInt8])
+        case classes([UInt8], [[UInt8]])
+        case tag([UInt8], Token.Tag.TagId?)
+        case tagClass([UInt8], Token.Tag.TagId?, [UInt8])
+        case tagClasses([UInt8], Token.Tag.TagId?, [UInt8], [[UInt8]])
+        case tagId([UInt8], Token.Tag.TagId?, [UInt8])
+        case attr([UInt8])
+        case tagAttr([UInt8], Token.Tag.TagId?, [UInt8])
+        case attrValue(String, String)
+        case tagAttrValue([UInt8], Token.Tag.TagId?, String, String)
+        case descendant(FastQueryPlan, FastQueryPlan)
+        
+        func apply(_ root: Element) throws -> Elements? {
+            DebugTrace.log("FastQueryPlan.apply: \(self)")
+            switch self {
+            case .none:
+                return nil
+            case .all:
+                return try root.getAllElements()
+            case .id(let idBytes):
+                return root.getElementsById(idBytes)
+            case .className(let className):
+                return root.getElementsByClassNormalizedBytes(className)
+            case .classes(let firstClass, let otherClasses):
+                let classElements = root.getElementsByClassNormalizedBytes(firstClass)
+                if classElements.isEmpty { return classElements }
+                if otherClasses.isEmpty { return classElements }
+                let output = Elements()
+                for el in classElements.array() {
+                    var matchesAll = true
+                    for className in otherClasses where !el.hasClass(className) {
+                        matchesAll = false
+                        break
+                    }
+                    if matchesAll {
+                        output.add(el)
+                    }
+                }
+                return output
+            case .tag(let tagBytes, _):
+                return try root.getElementsByTagNormalized(tagBytes)
+            case .tagClass(let tagBytes, let tagId, let className):
+                let classElements = root.getElementsByClassNormalizedBytes(className)
+                if classElements.isEmpty { return classElements }
+                let output = Elements()
+                for el in classElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                    output.add(el)
+                }
+                return output
+            case .tagClasses(let tagBytes, let tagId, let firstClass, let otherClasses):
+                let classElements = root.getElementsByClassNormalizedBytes(firstClass)
+                if classElements.isEmpty { return classElements }
+                let output = Elements()
+                for el in classElements.array() {
+                    if !CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                        continue
+                    }
+                    var matchesAll = true
+                    for className in otherClasses where !el.hasClass(className) {
+                        matchesAll = false
+                        break
+                    }
+                    if matchesAll {
+                        output.add(el)
+                    }
+                }
+                return output
+            case .tagId(let tagBytes, let tagId, let idBytes):
+                let idElements = root.getElementsById(idBytes)
+                if idElements.isEmpty { return idElements }
+                let output = Elements()
+                for el in idElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                    output.add(el)
+                }
+                return output
+            case .attr(let attrBytes):
+                return root.getElementsByAttributeNormalized(attrBytes)
+            case .tagAttr(let tagBytes, let tagId, let attrBytes):
+                let attrElements = root.getElementsByAttributeNormalized(attrBytes)
+                if attrElements.isEmpty { return attrElements }
+                let output = Elements()
+                for el in attrElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                    output.add(el)
+                }
+                return output
+            case .attrValue(let key, let value):
+                return try root.getElementsByAttributeValue(key, value)
+            case .tagAttrValue(let tagBytes, let tagId, let key, let value):
+                let attrElements = try root.getElementsByAttributeValue(key, value)
+                if attrElements.isEmpty { return attrElements }
+                let output = Elements()
+                for el in attrElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                    output.add(el)
+                }
+                return output
+            case .descendant(let left, let right):
+                guard CssSelector.isSimplePlan(left), CssSelector.isSimplePlan(right) else {
+                    return nil
+                }
+                guard let candidates = try right.apply(root) else {
+                    return nil
+                }
+                if candidates.isEmpty {
+                    return candidates
+                }
+                guard let leftElements = try left.apply(root) else {
+                    return nil
+                }
+                if leftElements.isEmpty {
+                    return Elements()
+                }
+                let leftCount = leftElements.size()
+                if CssSelector.useDescendantSingleAncestorFastPath, leftCount == 1 {
+                    let target = leftElements.get(0)
+                    let output = Elements()
+                    for el in candidates.array() {
+                        var parent = el.parent()
+                        var matched = false
+                        while let current = parent {
+                            if current === target {
+                                matched = true
+                                break
+                            }
+                            parent = current.parent()
+                        }
+                        if matched {
+                            output.add(el)
+                        }
+                    }
+                    return output
+                }
+                if CssSelector.useDescendantSmallAncestorFastPath, leftCount <= 4 {
+                    let leftArray = leftElements.array()
+                    let output = Elements()
+                    for el in candidates.array() {
+                        var parent = el.parent()
+                        var matched = false
+                        while let current = parent {
+                            for ancestor in leftArray where current === ancestor {
+                                matched = true
+                                break
+                            }
+                            if matched { break }
+                            parent = current.parent()
+                        }
+                        if matched {
+                            output.add(el)
+                        }
+                    }
+                    return output
+                }
+                var leftIds = Set<ObjectIdentifier>()
+                leftIds.reserveCapacity(leftElements.size())
+                for el in leftElements.array() {
+                    leftIds.insert(ObjectIdentifier(el))
+                }
+                let output = Elements()
+                for el in candidates.array() {
+                    var parent = el.parent()
+                    var matched = false
+                    while let current = parent {
+                        if leftIds.contains(ObjectIdentifier(current)) {
+                            matched = true
+                            break
+                        }
+                        parent = current.parent()
+                    }
+                    if matched {
+                        output.add(el)
+                    }
+                }
+                return output
+            }
+        }
+    }
+    
+    @inline(__always)
+    private static func matchesTagBytes(_ element: Element, _ tagBytes: [UInt8], _ tagId: Token.Tag.TagId?) -> Bool {
+        if let tagId, tagId != .none {
+            let elTagId = element._tag.tagId
+            if elTagId != .none {
+                return elTagId == tagId
+            }
+        }
+        return element.tagNameNormalUTF8() == tagBytes
+    }
+
+    @inline(__always)
+    private static func isSimplePlan(_ plan: FastQueryPlan) -> Bool {
+        switch plan {
+        case .none, .descendant:
+            return false
+        default:
+            return true
+        }
     }
 
     /// Ultra-fast path for very simple selectors without combinators or pseudos.
     private static func fastSelectQuery(_ query: String, _ root: Element) throws -> Elements? {
+        if !useSimpleSelectorFastPath {
+            return nil
+        }
+        DebugTrace.log("CssSelector.fastSelectQuery: \(query)")
+        let plan = cachedFastQueryPlan(query)
+        DebugTrace.log("CssSelector.fastSelectQuery: plan=\(plan)")
+        return try plan.apply(root)
+    }
+
+    private static func cachedFastQueryPlan(_ query: String) -> FastQueryPlan {
+        if !useFastQueryCache || fastQueryCacheCapacity == 0 {
+            DebugTrace.log("CssSelector.cachedFastQueryPlan: cache disabled")
+            return fastQueryPlan(query)
+        }
+        fastQueryCache.lock.lock()
+        if let cached = fastQueryCache.items[query] {
+            fastQueryCache.lock.unlock()
+            DebugTrace.log("CssSelector.cachedFastQueryPlan: cache hit")
+            return cached
+        }
+        fastQueryCache.lock.unlock()
+        
+        DebugTrace.log("CssSelector.cachedFastQueryPlan: cache miss")
+        let plan = fastQueryPlan(query)
+        
+        fastQueryCache.lock.lock()
+        if fastQueryCache.items[query] == nil {
+            fastQueryCache.items[query] = plan
+            fastQueryCache.order.append(query)
+            if fastQueryCache.order.count > fastQueryCacheCapacity {
+                let overflow = fastQueryCache.order.count - fastQueryCacheCapacity
+                if overflow > 0 {
+                    for _ in 0..<overflow {
+                        let removedKey = fastQueryCache.order.removeFirst()
+                        fastQueryCache.items.removeValue(forKey: removedKey)
+                    }
+                }
+            }
+        }
+        fastQueryCache.lock.unlock()
+        return plan
+    }
+    
+    private static func fastQueryPlan(_ query: String) -> FastQueryPlan {
+        DebugTrace.log("CssSelector.fastQueryPlan: \(query)")
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
+            return .none
+        }
+        if trimmed.contains(where: { $0 == "," || $0 == ">" || $0 == "+" || $0 == "~" }) {
+            return .none
+        }
+        if trimmed.contains(":") || trimmed.contains("|") {
+            return .none
+        }
+        if useDescendantSelectorFastPath {
+            if let (leftToken, rightToken) = splitDescendantTokens(trimmed[...]) {
+                let leftPlan = fastSimpleQueryPlan(leftToken)
+                if case .none = leftPlan { return .none }
+                let rightPlan = fastSimpleQueryPlan(rightToken)
+                if case .none = rightPlan { return .none }
+                return .descendant(leftPlan, rightPlan)
+            }
+        }
+        if trimmed.contains(where: { $0 == " " || $0 == "\n" || $0 == "\t" || $0 == "\r" }) {
+            return .none
+        }
+        return fastSimpleQueryPlan(trimmed[...])
+    }
+
+    @inline(__always)
+    private static func isWhitespace(_ ch: Character) -> Bool {
+        switch ch {
+        case " ", "\n", "\t", "\r":
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func splitDescendantTokens(_ query: Substring) -> (Substring, Substring)? {
+        var bracketDepth = 0
+        var quote: Character? = nil
+        var splitStart: String.Index? = nil
+        var splitEnd: String.Index? = nil
+        var idx = query.startIndex
+        while idx < query.endIndex {
+            let ch = query[idx]
+            if let quoteChar = quote {
+                if ch == quoteChar {
+                    quote = nil
+                }
+                idx = query.index(after: idx)
+                continue
+            }
+            if ch == "\"" || ch == "'" {
+                quote = ch
+                idx = query.index(after: idx)
+                continue
+            }
+            if ch == "[" {
+                bracketDepth += 1
+                idx = query.index(after: idx)
+                continue
+            }
+            if ch == "]" {
+                if bracketDepth > 0 {
+                    bracketDepth -= 1
+                }
+                idx = query.index(after: idx)
+                continue
+            }
+            if bracketDepth == 0, isWhitespace(ch) {
+                if splitStart != nil {
+                    return nil
+                }
+                splitStart = idx
+                var wsEnd = query.index(after: idx)
+                while wsEnd < query.endIndex, isWhitespace(query[wsEnd]) {
+                    wsEnd = query.index(after: wsEnd)
+                }
+                splitEnd = wsEnd
+                idx = wsEnd
+                continue
+            }
+            idx = query.index(after: idx)
+        }
+        guard let splitStart, let splitEnd else {
             return nil
+        }
+        let left = query[..<splitStart]
+        let right = query[splitEnd...]
+        if left.isEmpty || right.isEmpty {
+            return nil
+        }
+        return (left, right)
+    }
+
+    private static func fastSimpleQueryPlan(_ trimmed: Substring) -> FastQueryPlan {
+        DebugTrace.log("CssSelector.fastSimpleQueryPlan: \(trimmed)")
+        if trimmed.isEmpty {
+            return .none
+        }
+        if trimmed.contains(where: { $0 == " " || $0 == "\n" || $0 == "\t" || $0 == "\r" }) {
+            return .none
         }
         @inline(__always)
         func isIdentChar(_ ch: Character) -> Bool {
@@ -193,146 +619,186 @@ open class CssSelector {
             }
             return true
         }
-        // Handle simple id or class selectors.
+        @inline(__always)
+        func splitClassList(_ s: Substring) -> [Substring]? {
+            if s.isEmpty {
+                return nil
+            }
+            var parts: [Substring] = []
+            var start = s.startIndex
+            var idx = s.startIndex
+            while idx < s.endIndex {
+                let ch = s[idx]
+                if ch == "." {
+                    if start == idx {
+                        return nil
+                    }
+                    let part = s[start..<idx]
+                    if !isSimpleIdent(part) {
+                        return nil
+                    }
+                    parts.append(part)
+                    start = s.index(after: idx)
+                    idx = start
+                    continue
+                }
+                if !isIdentChar(ch) {
+                    return nil
+                }
+                idx = s.index(after: idx)
+            }
+            if start == s.endIndex {
+                return nil
+            }
+            let tail = s[start..<s.endIndex]
+            if !isSimpleIdent(tail) {
+                return nil
+            }
+            parts.append(tail)
+            return parts
+        }
+        
         if trimmed.first == "#" {
             let id = trimmed.dropFirst()
             if !id.isEmpty, !id.contains(where: { " \t\n\r,>+~:.[#".contains($0) }) {
-                return root.getElementsById(String(id).utf8Array)
+                let idBytes = String(id).utf8Array.trim()
+                if !idBytes.isEmpty {
+                    return .id(idBytes)
+                }
             }
-            return nil
+            return .none
         }
         if trimmed.first == "." {
             let className = trimmed.dropFirst()
-            if !className.isEmpty, !className.contains(where: { " \t\n\r,>+~:.[#".contains($0) }) {
-                return try root.getElementsByClass(String(className))
+            if let classParts = splitClassList(className),
+               CssSelector.useMultiClassFastPath || classParts.count == 1 {
+                let firstClassBytes = String(classParts[0]).utf8Array
+                let firstClassNormalized = Attributes.containsAsciiUppercase(firstClassBytes)
+                    ? firstClassBytes.lowercased()
+                    : firstClassBytes
+                if classParts.count == 1 {
+                    return .className(firstClassNormalized)
+                }
+                let otherClasses = classParts.dropFirst().map { part -> [UInt8] in
+                    let bytes = String(part).utf8Array
+                    return Attributes.containsAsciiUppercase(bytes) ? bytes.lowercased() : bytes
+                }
+                return .classes(firstClassNormalized, otherClasses)
             }
-            return nil
+            return .none
         }
         if trimmed == "*" {
-            return try root.getAllElements()
+            return .all
         }
-        // Handle simple tag.class or tag#id forms.
-        if !trimmed.contains("[") {
-            if let dot = trimmed.firstIndex(of: ".") {
-                let tagPart = trimmed[..<dot]
-                let classPart = trimmed[trimmed.index(after: dot)...]
-                if isSimpleIdent(tagPart), isSimpleIdent(classPart) {
-                    let classElements = try root.getElementsByClass(String(classPart))
-                    if classElements.isEmpty { return classElements }
-                    let tagBytes = String(tagPart).utf8Array.lowercased().trim()
-                    let output = Elements()
-                    for el in classElements.array() where el.tagNameNormalUTF8() == tagBytes {
-                        output.add(el)
-                    }
-                    return output
-                }
+        
+        if let open = trimmed.firstIndex(of: "[") {
+            guard let close = trimmed.lastIndex(of: "]"), close == trimmed.index(before: trimmed.endIndex) else {
+                return .none
             }
-            if let hash = trimmed.firstIndex(of: "#") {
-                let tagPart = trimmed[..<hash]
-                let idPart = trimmed[trimmed.index(after: hash)...]
-                if isSimpleIdent(tagPart), isSimpleIdent(idPart) {
-                    let idElements = root.getElementsById(String(idPart).utf8Array)
-                    if idElements.isEmpty { return idElements }
-                let tagBytes = String(tagPart).utf8Array.lowercased().trim()
-                let output = Elements()
-                for el in idElements.array() where el.tagNameNormalUTF8() == tagBytes {
-                    output.add(el)
-                }
-                return output
-            }
-        }
-        }
-        // Reject any selector that includes combinators, groups, pseudos, id/class.
-        for ch in trimmed {
-            switch ch {
-            case " ", "\t", "\n", "\r", ",", ">", "+", "~", ":", "#", ".", "*", "|":
-                return nil
-            default:
-                break
-            }
-        }
-        if let open = trimmed.firstIndex(of: "["), let close = trimmed.lastIndex(of: "]"), close == trimmed.index(before: trimmed.endIndex) {
             let tagPart = trimmed[..<open]
             let attrPart = trimmed[trimmed.index(after: open)..<close]
             if attrPart.isEmpty {
-                return nil
-            }
-            if tagPart.contains(where: { $0 == "*" || $0 == "|" || $0 == ":" }) {
-                return nil
-            }
-            if attrPart.first == "^" {
-                return nil
+                return .none
             }
             if let eq = attrPart.firstIndex(of: "=") {
-                // Only support plain '=' (no prefix/suffix operators)
-                let opIndex = attrPart.index(before: eq)
-                if opIndex >= attrPart.startIndex {
-                    let op = attrPart[opIndex]
+                if eq != attrPart.startIndex {
+                    let op = attrPart[attrPart.index(before: eq)]
                     if op == "!" || op == "^" || op == "$" || op == "*" || op == "~" || op == "|" {
-                        return nil
+                        return .none
                     }
                 }
                 let keyPart = attrPart[..<eq]
                 var valuePart = attrPart[attrPart.index(after: eq)...]
                 if keyPart.isEmpty || valuePart.isEmpty {
-                    return nil
+                    return .none
                 }
                 if (valuePart.first == "\"" && valuePart.last == "\"") || (valuePart.first == "'" && valuePart.last == "'") {
                     valuePart = valuePart.dropFirst().dropLast()
                 }
                 if valuePart.isEmpty {
-                    return nil
+                    return .none
                 }
                 let key = String(keyPart)
                 let value = String(valuePart)
                 if tagPart.isEmpty {
-                    return try root.getElementsByAttributeValue(key, value)
+                    return .attrValue(key, value)
                 }
-                let attrElements = try root.getElementsByAttributeValue(key, value)
-                if attrElements.isEmpty {
-                    return attrElements
-                }
+                guard isSimpleIdent(tagPart) else { return .none }
                 let tagBytes = String(tagPart).utf8Array.lowercased().trim()
-                let output = Elements()
-                for el in attrElements.array() where el.tagNameNormalUTF8() == tagBytes {
-                    output.add(el)
-                }
-                return output
+                if tagBytes.isEmpty { return .none }
+                return .tagAttrValue(tagBytes, Token.Tag.tagIdForBytes(tagBytes), key, value)
             }
-            if attrPart.contains("\"") || attrPart.contains("'") {
-                return nil
-            }
+            guard isSimpleIdent(attrPart) else { return .none }
+            let attrBytes = String(attrPart).utf8Array.lowercased().trim()
+            if attrBytes.isEmpty { return .none }
             if tagPart.isEmpty {
-                return try root.getElementsByAttribute(String(attrPart))
+                return .attr(attrBytes)
             }
-            if root.isTagQueryIndexDirty || root.normalizedTagNameIndex == nil {
-                let tagBytes = String(tagPart).utf8Array.lowercased().trim()
-                let evaluator = CombiningEvaluator.And(Evaluator.Tag(tagBytes), Evaluator.Attribute(String(attrPart)))
-                return try Collector.collect(evaluator, root)
-            }
+            guard isSimpleIdent(tagPart) else { return .none }
             let tagBytes = String(tagPart).utf8Array.lowercased().trim()
-            let attrKeyBytes = String(attrPart).utf8Array.lowercased().trim()
-            let attrElements = root.getElementsByAttributeNormalized(attrKeyBytes)
-            if attrElements.isEmpty {
-                return attrElements
-            }
-            let output = Elements()
-            for el in attrElements.array() where el.tagNameNormalUTF8() == tagBytes {
-                output.add(el)
-            }
-            return output
+            if tagBytes.isEmpty { return .none }
+            return .tagAttr(tagBytes, Token.Tag.tagIdForBytes(tagBytes), attrBytes)
         }
-        if !trimmed.contains("[") {
-            return try root.getElementsByTag(trimmed)
+        
+        if let dot = trimmed.firstIndex(of: ".") {
+            let tagPart = trimmed[..<dot]
+            let classPart = trimmed[trimmed.index(after: dot)...]
+            if isSimpleIdent(tagPart) {
+                if let classParts = splitClassList(classPart),
+                   CssSelector.useMultiClassFastPath || classParts.count == 1 {
+                    let tagBytes = String(tagPart).utf8Array.lowercased().trim()
+                    if tagBytes.isEmpty { return .none }
+                    let firstClassBytes = String(classParts[0]).utf8Array
+                    let firstClassNormalized = Attributes.containsAsciiUppercase(firstClassBytes)
+                        ? firstClassBytes.lowercased()
+                        : firstClassBytes
+                    if classParts.count == 1 {
+                        return .tagClass(tagBytes, Token.Tag.tagIdForBytes(tagBytes), firstClassNormalized)
+                    }
+                    let otherClasses = classParts.dropFirst().map { part -> [UInt8] in
+                        let bytes = String(part).utf8Array
+                        return Attributes.containsAsciiUppercase(bytes) ? bytes.lowercased() : bytes
+                    }
+                    return .tagClasses(tagBytes, Token.Tag.tagIdForBytes(tagBytes), firstClassNormalized, otherClasses)
+                }
+            }
+            return .none
         }
-        return nil
+        if let hash = trimmed.firstIndex(of: "#") {
+            let tagPart = trimmed[..<hash]
+            let idPart = trimmed[trimmed.index(after: hash)...]
+            if isSimpleIdent(tagPart), isSimpleIdent(idPart) {
+                let idBytes = String(idPart).utf8Array.trim()
+                if idBytes.isEmpty { return .none }
+                let tagBytes = String(tagPart).utf8Array.lowercased().trim()
+                if tagBytes.isEmpty { return .none }
+                return .tagId(tagBytes, Token.Tag.tagIdForBytes(tagBytes), idBytes)
+            }
+            return .none
+        }
+        if isSimpleIdent(trimmed[...]) {
+            let tagBytes = String(trimmed).utf8Array.lowercased().trim()
+            if tagBytes.isEmpty { return .none }
+            return .tag(tagBytes, Token.Tag.tagIdForBytes(tagBytes))
+        }
+        return .none
     }
 
     private static func fastSelectQuery(_ query: String, _ roots: Array<Element>) throws -> Elements? {
-        var elements: Array<Element> = Array<Element>()
-        var seenElements: Array<Element> = Array<Element>()
+        if !useSimpleSelectorFastPath {
+            return nil
+        }
+        let plan = cachedFastQueryPlan(query)
+        if case .none = plan {
+            return nil
+        }
+        if roots.count == 1, let root = roots.first {
+            return try plan.apply(root)
+        }
+        var elements: Array<Element> = []
+        var seenElements: Array<Element> = []
         for root in roots {
-            guard let found = try fastSelectQuery(query, root) else {
+            guard let found = try plan.apply(root) else {
                 return nil
             }
             for el in found.array() where !seenElements.contains(el) {
@@ -353,7 +819,9 @@ open class CssSelector {
             return root.getElementsById(eval.id.utf8Array)
         }
         if let eval = evaluator as? Evaluator.Class {
-            return try root.getElementsByClass(eval.className)
+            let key = eval.className.utf8Array
+            let normalized = Attributes.containsAsciiUppercase(key) ? key.lowercased() : key
+            return root.getElementsByClassNormalizedBytes(normalized)
         }
         if let eval = evaluator as? Evaluator.Attribute {
             return try root.getElementsByAttribute(eval.key)
@@ -411,7 +879,9 @@ open class CssSelector {
             return IndexedCandidate(elements: try root.getElementsByAttributeValue(eval.key, eval.value), priority: 1)
         }
         if let eval = evaluator as? Evaluator.Class {
-            return IndexedCandidate(elements: try root.getElementsByClass(eval.className), priority: 2)
+            let key = eval.className.utf8Array
+            let normalized = Attributes.containsAsciiUppercase(key) ? key.lowercased() : key
+            return IndexedCandidate(elements: root.getElementsByClassNormalizedBytes(normalized), priority: 2)
         }
         if let eval = evaluator as? Evaluator.Attribute {
             return IndexedCandidate(elements: try root.getElementsByAttribute(eval.key), priority: 3)

@@ -1036,6 +1036,16 @@ class ElementTest: XCTestCase {
 		XCTAssertEqual(0, pData.count)
 	}
 
+	func testDataNodeAttributesLazyMaterialize() throws {
+		let doc: Document = try SwiftSoup.parse("<script>One Two</script>")
+		let script: Element = try doc.select("script").first()!
+		let dataNode: DataNode = script.dataNodes()[0]
+
+		XCTAssertEqual("One Two", dataNode.getWholeData())
+		XCTAssertEqual("One Two", try dataNode.attr("data"))
+		XCTAssertTrue(dataNode.hasAttr("data"))
+	}
+
 	func testElementIsNotASiblingOfItself() throws {
 		let doc: Document = try SwiftSoup.parse("<div><p>One<p>Two<p>Three</div>")
 		let p2: Element = try doc.select("p").get(1)

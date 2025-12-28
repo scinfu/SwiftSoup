@@ -86,6 +86,24 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("SLAM", try contains.last()?.attr("title"))
 	}
 
+    func testDescendantSelectorMatches() throws {
+        let html = "<div id=one><p class=alpha><span class=item>One</span></p></div>" +
+            "<p class=alpha><span class=item>Two</span></p>"
+        let doc = try SwiftSoup.parse(html)
+
+        let divSpan = try doc.select("div span")
+        XCTAssertEqual(1, divSpan.size())
+        XCTAssertEqual("One", try divSpan.get(0).text())
+
+        let divClass = try doc.select("div .item")
+        XCTAssertEqual(1, divClass.size())
+        XCTAssertEqual("One", try divClass.get(0).text())
+
+        let divIdClass = try doc.select("div#one span.item")
+        XCTAssertEqual(1, divIdClass.size())
+        XCTAssertEqual("One", try divIdClass.get(0).text())
+    }
+
     func testSelectTagAndClass() throws {
         let doc = try SwiftSoup.parse("<div><p class=lead id=1></p><p class=lead id=2></p><span class=lead id=3></span></div>")
         let els = try doc.select("p.lead")

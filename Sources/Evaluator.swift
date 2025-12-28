@@ -32,20 +32,28 @@ open class Evaluator: @unchecked Sendable {
     public class Tag: Evaluator, @unchecked Sendable {
         private let tagName: [UInt8]
         public let tagNameNormal: [UInt8]
+        private let tagId: Token.Tag.TagId
 
         public init(_ tagName: String) {
             let utf8TagName = tagName.utf8Array
             self.tagName = utf8TagName
             self.tagNameNormal = utf8TagName.lowercased()
+            self.tagId = Token.Tag.tagIdForBytes(self.tagNameNormal) ?? .none
         }
         
         public init(_ tagName: [UInt8]) {
             self.tagName = tagName
             self.tagNameNormal = tagName.lowercased()
+            self.tagId = Token.Tag.tagIdForBytes(self.tagNameNormal) ?? .none
         }
 
-        @inlinable
         open override func matches(_ root: Element, _ element: Element) throws -> Bool {
+            if tagId != .none {
+                let elTagId = element._tag.tagId
+                if elTagId != .none {
+                    return elTagId == tagId
+                }
+            }
             return element.tagNameNormalUTF8() == tagNameNormal
         }
 
@@ -127,13 +135,16 @@ open class Evaluator: @unchecked Sendable {
     public final class Attribute: Evaluator, @unchecked Sendable {
         @usableFromInline
         let key: String
+        @usableFromInline
+        let keyBytes: [UInt8]
 
         public init(_ key: String) {
             self.key = key
+            self.keyBytes = key.trim().lowercased().utf8Array
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            return element.hasAttr(key)
+            return element.hasAttr(keyBytes)
         }
 
         public override func toString() -> String {
@@ -177,9 +188,9 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if element.hasAttr(key) {
-                let string = try element.attr(key)
-                return value.equalsIgnoreCase(string: string.trim())
+            if element.hasAttr(keyBytes) {
+                let bytes = try element.attr(keyBytes)
+                return valueBytes.equalsIgnoreCase(string: bytes.trim())
             }
             return false
         }
@@ -199,8 +210,8 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            let string = try element.attr(key)
-            return !value.equalsIgnoreCase(string: string)
+            let bytes = try element.attr(keyBytes)
+            return !valueBytes.equalsIgnoreCase(string: bytes)
         }
 
         public override func toString() -> String {
@@ -213,13 +224,23 @@ open class Evaluator: @unchecked Sendable {
      * Evaluator for attribute name/value matching (value prefix)
      */
     public final class AttributeWithValueStarting: AttributeKeyPair, @unchecked Sendable {
+        private static let useAsciiFastPath: Bool = {
+            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_ATTRVALUE_ASCII_FASTPATH"] != "1"
+        }()
+
         public override init(_ key: String, _ value: String)throws {
             try super.init(key, value)
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if element.hasAttr(key) {
-                return try element.attr(key).lowercased().hasPrefix(value)  // value is lower case already
+            if element.hasAttr(keyBytes) {
+                let bytes = try element.attr(keyBytes)
+                if Self.useAsciiFastPath,
+                   StringUtil.isAscii(bytes),
+                   StringUtil.isAscii(valueBytes) {
+                    return StringUtil.hasPrefixIgnoreCaseAscii(bytes, valueBytes)
+                }
+                return String(decoding: bytes, as: UTF8.self).lowercased().hasPrefix(value)
             }
             return false
         }
@@ -234,13 +255,23 @@ open class Evaluator: @unchecked Sendable {
      * Evaluator for attribute name/value matching (value ending)
      */
     public final class AttributeWithValueEnding: AttributeKeyPair, @unchecked Sendable {
+        private static let useAsciiFastPath: Bool = {
+            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_ATTRVALUE_ASCII_FASTPATH"] != "1"
+        }()
+
         public override init(_ key: String, _ value: String)throws {
             try super.init(key, value)
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if element.hasAttr(key) {
-                return try element.attr(key).lowercased().hasSuffix(value) // value is lower case
+            if element.hasAttr(keyBytes) {
+                let bytes = try element.attr(keyBytes)
+                if Self.useAsciiFastPath,
+                   StringUtil.isAscii(bytes),
+                   StringUtil.isAscii(valueBytes) {
+                    return StringUtil.hasSuffixIgnoreCaseAscii(bytes, valueBytes)
+                }
+                return String(decoding: bytes, as: UTF8.self).lowercased().hasSuffix(value)
             }
             return false
         }
@@ -255,13 +286,23 @@ open class Evaluator: @unchecked Sendable {
      * Evaluator for attribute name/value matching (value containing)
      */
     public final class AttributeWithValueContaining: AttributeKeyPair, @unchecked Sendable {
+        private static let useAsciiFastPath: Bool = {
+            ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_ATTRVALUE_ASCII_FASTPATH"] != "1"
+        }()
+
         public override init(_ key: String, _ value: String)throws {
             try super.init(key, value)
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if element.hasAttr(key) {
-                return try element.attr(key).lowercased().contains(value) // value is lower case
+            if element.hasAttr(keyBytes) {
+                let bytes = try element.attr(keyBytes)
+                if Self.useAsciiFastPath,
+                   StringUtil.isAscii(bytes),
+                   StringUtil.isAscii(valueBytes) {
+                    return StringUtil.containsIgnoreCaseAscii(bytes, valueBytes)
+                }
+                return String(decoding: bytes, as: UTF8.self).lowercased().contains(value)
             }
             return false
         }
@@ -305,6 +346,8 @@ open class Evaluator: @unchecked Sendable {
     public class AttributeKeyPair: Evaluator, @unchecked Sendable {
         let key: String
         let value: String
+        let keyBytes: [UInt8]
+        let valueBytes: [UInt8]
 
         public init(_ key: String, _ value2: String)throws {
             var value2 = value2
@@ -316,6 +359,8 @@ open class Evaluator: @unchecked Sendable {
                 value2 = value2.substring(1, value2.count-2)
             }
             self.value = value2.trim().lowercased()
+            self.keyBytes = self.key.utf8Array
+            self.valueBytes = self.value.utf8Array
         }
 
         open override func matches(_ root: Element, _ element: Element)throws->Bool {

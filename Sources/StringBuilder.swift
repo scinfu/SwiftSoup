@@ -1,3 +1,5 @@
+import Foundation
+
 /**
  Supports creation of a String from pieces
  Based on https://gist.github.com/kristopherjohnson/1fc55e811d944a430289
@@ -7,6 +9,10 @@ open class StringBuilder {
     
     /// Number of bytes currently used in buffer
     private var size: Int = 0
+    @usableFromInline
+    static let useFastWrite: Bool = {
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_STRINGBUILDER_FASTWRITE"] != "1"
+    }()
     
     /// Read-only view of the active buffer contents
     @inline(__always)
@@ -60,6 +66,13 @@ open class StringBuilder {
     @inline(__always)
     open var lastByte: UInt8? {
         return size > 0 ? internalBuffer[size &- 1] : nil
+    }
+
+    @inline(__always)
+    open func trimTrailingWhitespace() {
+        while size > 0, internalBuffer[size &- 1].isWhitespace {
+            size &-= 1
+        }
     }
     
     /**
@@ -227,6 +240,31 @@ open class StringBuilder {
     @usableFromInline
     @inline(__always)
     internal func write(contentsOf bytes: [UInt8]) {
+        if Self.useFastWrite {
+            let count = bytes.count
+            if count == 0 { return }
+            let newSize = size + count
+            if size == internalBuffer.count {
+                internalBuffer.append(contentsOf: bytes)
+                size = newSize
+                return
+            }
+            let available = internalBuffer.count - size
+            if available > 0 {
+                let firstCount = min(count, available)
+                internalBuffer.withUnsafeMutableBufferPointer { dst in
+                    bytes.withUnsafeBufferPointer { src in
+                        guard let dstBase = dst.baseAddress, let srcBase = src.baseAddress else { return }
+                        dstBase.advanced(by: size).update(from: srcBase, count: firstCount)
+                    }
+                }
+                if count > available {
+                    internalBuffer.append(contentsOf: bytes[available...])
+                }
+                size = newSize
+                return
+            }
+        }
         let newSize = size + bytes.count
         if size == internalBuffer.count {
             internalBuffer.append(contentsOf: bytes)
@@ -241,6 +279,32 @@ open class StringBuilder {
     @usableFromInline
     @inline(__always)
     internal func write(contentsOf bytes: String.UTF8View) {
+        if Self.useFastWrite, let didCopy = bytes.withContiguousStorageIfAvailable({ buffer -> Bool in
+            let count = buffer.count
+            if count == 0 { return true }
+            let newSize = size + count
+            if size == internalBuffer.count {
+                internalBuffer.append(contentsOf: buffer)
+                size = newSize
+                return true
+            }
+            let available = internalBuffer.count - size
+            if available > 0 {
+                let firstCount = min(count, available)
+                internalBuffer.withUnsafeMutableBufferPointer { dst in
+                    guard let dstBase = dst.baseAddress, let srcBase = buffer.baseAddress else { return }
+                    dstBase.advanced(by: size).update(from: srcBase, count: firstCount)
+                }
+                if count > available {
+                    internalBuffer.append(contentsOf: buffer[available...])
+                }
+                size = newSize
+                return true
+            }
+            return false
+        }), didCopy {
+            return
+        }
         if size == internalBuffer.count {
             internalBuffer.append(contentsOf: bytes)
             size = internalBuffer.count
@@ -258,6 +322,31 @@ open class StringBuilder {
     @usableFromInline
     @inline(__always)
     internal func write(contentsOf bytes: ArraySlice<UInt8>) {
+        if Self.useFastWrite {
+            let count = bytes.count
+            if count == 0 { return }
+            let newSize = size + count
+            if size == internalBuffer.count {
+                internalBuffer.append(contentsOf: bytes)
+                size = newSize
+                return
+            }
+            let available = internalBuffer.count - size
+            if available > 0 {
+                let firstCount = min(count, available)
+                internalBuffer.withUnsafeMutableBufferPointer { dst in
+                    bytes.withUnsafeBufferPointer { src in
+                        guard let dstBase = dst.baseAddress, let srcBase = src.baseAddress else { return }
+                        dstBase.advanced(by: size).update(from: srcBase, count: firstCount)
+                    }
+                }
+                if count > available {
+                    internalBuffer.append(contentsOf: bytes[bytes.index(bytes.startIndex, offsetBy: available)...])
+                }
+                size = newSize
+                return
+            }
+        }
         let newSize = size + bytes.count
         if size == internalBuffer.count {
             internalBuffer.append(contentsOf: bytes)

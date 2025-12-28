@@ -21,6 +21,8 @@ internal final class Weak<T: AnyObject> {
 }
 
 open class Node: Equatable, Hashable {
+    private static let useBulkQueryDirtyFastPath: Bool =
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_BULK_QUERY_DIRTY_FASTPATH"] != "1"
     var baseUri: [UInt8]?
     var attributes: Attributes?
     
@@ -42,6 +44,9 @@ open class Node: Equatable, Hashable {
         didSet {
             guard let element = self as? Element, oldValue !== parentNode else { return }
             if element.suppressQueryIndexDirty {
+                return
+            }
+            if Node.useBulkQueryDirtyFastPath, element.treeBuilder?.isBulkBuilding == true {
                 return
             }
             element.markQueryIndexesDirty()
@@ -70,6 +75,19 @@ open class Node: Equatable, Hashable {
     private static let abs = "abs:".utf8Array
     private static let absCount = abs.count
     fileprivate static let empty = "".utf8Array
+    
+    @inline(__always)
+    private static func hasAbsPrefix(_ key: [UInt8]) -> Bool {
+        if key.count < absCount { return false }
+        for i in 0..<absCount {
+            let b = key[i]
+            let lower = (b >= 65 && b <= 90) ? b + 32 : b
+            if lower != abs[i] {
+                return false
+            }
+        }
+        return true
+    }
     
     /**
      Create a new Node.
@@ -164,7 +182,7 @@ open class Node: Equatable, Hashable {
         let val: [UInt8] = try attributes!.getIgnoreCase(key: attributeKey)
         if !val.isEmpty {
             return val
-        } else if (attributeKey.lowercased().starts(with: Node.abs)) {
+        } else if Node.hasAbsPrefix(attributeKey) {
             return try absUrl(attributeKey.substring(Node.abs.count))
         } else {
             return Node.empty

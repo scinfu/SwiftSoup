@@ -21,6 +21,11 @@ open class ParseSettings: @unchecked Sendable {
     private let preserveAttributeCase: Bool
     private let trackSourceRanges: Bool
     private let trackAttributes: Bool
+    
+    @usableFromInline
+    internal static let defaultTrackSourceRanges: Bool =
+        ProcessInfo.processInfo.environment["SWIFTSOUP_DISABLE_SOURCE_RANGES"] != "1"
+    // Default on for raw-source fidelity; set env SWIFTSOUP_DISABLE_SOURCE_RANGES=1 or use explicit init to disable.
 
     /**
      Define parse settings.
@@ -30,7 +35,7 @@ open class ParseSettings: @unchecked Sendable {
     public init(_ tag: Bool, _ attribute: Bool) {
         preserveTagCase = tag
         preserveAttributeCase = attribute
-        trackSourceRanges = true
+        trackSourceRanges = ParseSettings.defaultTrackSourceRanges
         trackAttributes = true
     }
 
