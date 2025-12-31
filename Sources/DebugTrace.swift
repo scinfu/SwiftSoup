@@ -8,8 +8,9 @@ enum DebugTrace {
     }()
 
     @inline(__always)
-    static func log(_ message: String) {
+    static func log(_ message: @autoclosure () -> String) {
         guard enabled else { return }
-        FileHandle.standardError.write((message + "\n").data(using: .utf8) ?? Data())
+        let text = message()
+        FileHandle.standardError.write((text + "\n").data(using: .utf8) ?? Data())
     }
 }

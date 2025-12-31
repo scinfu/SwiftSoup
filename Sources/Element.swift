@@ -93,6 +93,8 @@ open class Element: Node {
     internal var selectorResultCacheOrder: [String] = []
     @usableFromInline
     internal var selectorResultTextVersion: Int = 0
+    @usableFromInline
+    internal var selectorResultCacheRoot: Node? = nil
     
     /// Cached normalized text (UTF‑8) for trim+normalize path.
     /// NOTE: Removed text cache; keep no per-node cache state here.
@@ -250,9 +252,17 @@ open class Element: Node {
     @inline(__always)
     open override func attr(_ attributeKey: [UInt8]) throws -> [UInt8] {
         guard attributes != nil else {
-            let absPrefix = "abs:".utf8Array
-            if attributeKey.lowercased().starts(with: absPrefix) {
-                return try absUrl(attributeKey.substring(absPrefix.count))
+            if attributeKey.count >= UTF8Arrays.absPrefix.count {
+                @inline(__always)
+                func lowerAscii(_ b: UInt8) -> UInt8 {
+                    return (b >= 65 && b <= 90) ? (b &+ 32) : b
+                }
+                if lowerAscii(attributeKey[0]) == UTF8Arrays.absPrefix[0] &&
+                    lowerAscii(attributeKey[1]) == UTF8Arrays.absPrefix[1] &&
+                    lowerAscii(attributeKey[2]) == UTF8Arrays.absPrefix[2] &&
+                    attributeKey[3] == UTF8Arrays.absPrefix[3] {
+                    return try absUrl(attributeKey.substring(UTF8Arrays.absPrefix.count))
+                }
             }
             return []
         }
@@ -924,7 +934,8 @@ open class Element: Node {
     @inline(__always)
     public func getElementsByTagNormalized(_ normalizedTagName: [UInt8]) throws -> Elements {
         try Validate.notEmpty(string: normalizedTagName)
-        let key = normalizedTagName.trim()
+        let needsTrim = (normalizedTagName.first?.isWhitespace ?? false) || (normalizedTagName.last?.isWhitespace ?? false)
+        let key = needsTrim ? normalizedTagName.trim() : normalizedTagName
         if key.isEmpty {
             return Elements()
         }
@@ -944,7 +955,8 @@ open class Element: Node {
      */
     @usableFromInline
     func getElementsById(_ id: [UInt8]) -> Elements {
-        let key = id.trim()
+        let needsTrim = (id.first?.isWhitespace ?? false) || (id.last?.isWhitespace ?? false)
+        let key = needsTrim ? id.trim() : id
         if key.isEmpty {
             return Elements()
         }
@@ -969,7 +981,9 @@ open class Element: Node {
     @inline(__always)
     public func getElementById(_ id: String) throws -> Element? {
         try Validate.notEmpty(string: id.utf8Array)
-        let key = id.utf8Array.trim()
+        let idBytes = id.utf8Array
+        let needsTrim = (idBytes.first?.isWhitespace ?? false) || (idBytes.last?.isWhitespace ?? false)
+        let key = needsTrim ? idBytes.trim() : idBytes
         if key.isEmpty {
             return nil
         }
@@ -1040,11 +1054,33 @@ open class Element: Node {
     @inline(__always)
     public func getElementsByAttribute(_ key: String) throws -> Elements {
         try Validate.notEmpty(string: key.utf8Array)
-        let key = key.trim()
-        if key.lowercased().hasPrefix("abs:") {
+        let keyBytes = key.utf8Array
+        @inline(__always)
+        func hasAbsPrefix(_ bytes: [UInt8]) -> Bool {
+            if bytes.count < UTF8Arrays.absPrefix.count { return false }
+            @inline(__always)
+            func lowerAscii(_ b: UInt8) -> UInt8 {
+                return (b >= 65 && b <= 90) ? b &+ 32 : b
+            }
+            return lowerAscii(bytes[0]) == UTF8Arrays.absPrefix[0] &&
+                lowerAscii(bytes[1]) == UTF8Arrays.absPrefix[1] &&
+                lowerAscii(bytes[2]) == UTF8Arrays.absPrefix[2] &&
+                bytes[3] == UTF8Arrays.absPrefix[3]
+        }
+        let needsTrim = (keyBytes.first?.isWhitespace ?? false) || (keyBytes.last?.isWhitespace ?? false)
+        let keyForPrefix = needsTrim ? keyBytes.trim() : keyBytes
+        if hasAbsPrefix(keyForPrefix) {
             return try Collector.collect(Evaluator.Attribute(key), self)
         }
-        let normalizedKey = key.utf8Array.lowercased().trim()
+        let normalizedKey: [UInt8]
+        if needsTrim {
+            let trimmed = keyForPrefix
+            normalizedKey = Attributes.containsAsciiUppercase(trimmed) ? trimmed.lowercased() : trimmed
+        } else if Attributes.containsAsciiUppercase(keyBytes) {
+            normalizedKey = keyBytes.lowercased()
+        } else {
+            normalizedKey = keyBytes
+        }
         if isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil {
             rebuildQueryIndexesForAllAttributes()
             isAttributeQueryIndexDirty = false
@@ -1061,7 +1097,8 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeNormalized(_ normalizedKey: [UInt8]) -> Elements {
-        let key = normalizedKey.trim()
+        let needsTrim = (normalizedKey.first?.isWhitespace ?? false) || (normalizedKey.last?.isWhitespace ?? false)
+        let key = needsTrim ? normalizedKey.trim() : normalizedKey
         if key.isEmpty {
             return Elements()
         }
@@ -1095,22 +1132,70 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValue(_ key: String, _ value: String)throws->Elements {
-        if key.lowercased().hasPrefix("abs:") {
+        let keyBytes = key.utf8Array
+        @inline(__always)
+        func hasAbsPrefix(_ bytes: [UInt8]) -> Bool {
+            if bytes.count < UTF8Arrays.absPrefix.count { return false }
+            @inline(__always)
+            func lowerAscii(_ b: UInt8) -> UInt8 {
+                return (b >= 65 && b <= 90) ? b &+ 32 : b
+            }
+            return lowerAscii(bytes[0]) == UTF8Arrays.absPrefix[0] &&
+                lowerAscii(bytes[1]) == UTF8Arrays.absPrefix[1] &&
+                lowerAscii(bytes[2]) == UTF8Arrays.absPrefix[2] &&
+                bytes[3] == UTF8Arrays.absPrefix[3]
+        }
+        if hasAbsPrefix(keyBytes) {
             return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
         }
-        let normalizedKey = key.utf8Array.lowercased().trim()
+        let needsTrim = (keyBytes.first?.isWhitespace ?? false) || (keyBytes.last?.isWhitespace ?? false)
+        let normalizedKey: [UInt8]
+        if needsTrim {
+            let trimmed = keyBytes.trim()
+            normalizedKey = Attributes.containsAsciiUppercase(trimmed) ? trimmed.lowercased() : trimmed
+        } else if Attributes.containsAsciiUppercase(keyBytes) {
+            normalizedKey = keyBytes.lowercased()
+        } else {
+            normalizedKey = keyBytes
+        }
+        let isHotKey = Element.isHotAttributeKey(normalizedKey)
         if Element.dynamicAttributeValueIndexMaxKeys > 0,
-           !Element.isHotAttributeKey(normalizedKey) {
+           !isHotKey {
             ensureDynamicAttributeValueIndexKey(normalizedKey)
         }
-        if Element.isHotAttributeKey(normalizedKey) ||
-            (dynamicAttributeValueIndexKeySet?.contains(normalizedKey) ?? false) {
+        if isHotKey || (dynamicAttributeValueIndexKeySet?.contains(normalizedKey) ?? false) {
             if isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil {
                 rebuildQueryIndexesForHotAttributes()
                 isAttributeValueQueryIndexDirty = false
             }
             let normalizedValue = value.utf8Array.trim().lowercased()
             let results = normalizedAttributeValueIndex?[normalizedKey]?[normalizedValue]?.compactMap { $0.value } ?? []
+            return Elements(results)
+        }
+        return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
+    }
+
+    @inline(__always)
+    func getElementsByAttributeValueNormalized(
+        _ keyBytes: [UInt8],
+        _ valueBytes: [UInt8],
+        _ key: String,
+        _ value: String
+    ) throws -> Elements {
+        if keyBytes.starts(with: UTF8Arrays.absPrefix) {
+            return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
+        }
+        let isHotKey = Element.isHotAttributeKey(keyBytes)
+        if Element.dynamicAttributeValueIndexMaxKeys > 0,
+           !isHotKey {
+            ensureDynamicAttributeValueIndexKey(keyBytes)
+        }
+        if isHotKey || (dynamicAttributeValueIndexKeySet?.contains(keyBytes) ?? false) {
+            if isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil {
+                rebuildQueryIndexesForHotAttributes()
+                isAttributeValueQueryIndexDirty = false
+            }
+            let results = normalizedAttributeValueIndex?[keyBytes]?[valueBytes]?.compactMap { $0.value } ?? []
             return Elements(results)
         }
         return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
@@ -1341,7 +1426,7 @@ open class Element: Node {
 
     @inline(__always)
     private func collectTextFast(_ accum: StringBuilder, trimAndNormaliseWhitespace: Bool) {
-        var stack: [Node] = []
+        var stack: ContiguousArray<Node> = []
         stack.reserveCapacity(childNodes.count + 1)
         stack.append(self)
         var lastWasWhite = false
@@ -1379,7 +1464,7 @@ open class Element: Node {
 
     @inline(__always)
     private func collectTextFastTrimmed(_ accum: StringBuilder) {
-        var stack: [Node] = []
+        var stack: ContiguousArray<Node> = []
         stack.reserveCapacity(childNodes.count + 1)
         stack.append(self)
         var lastWasWhite = false
@@ -1409,7 +1494,7 @@ open class Element: Node {
 
     @inline(__always)
     private func collectTextFastRaw(_ accum: StringBuilder) {
-        var stack: [Node] = []
+        var stack: ContiguousArray<Node> = []
         stack.reserveCapacity(childNodes.count + 1)
         stack.append(self)
         var lastWasWhite = false
@@ -1457,7 +1542,7 @@ open class Element: Node {
                 let text = String(decoding: accum.buffer, as: UTF8.self)
                 return text
             }
-            let accum: StringBuilder = StringBuilder()
+            let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
             #if PROFILE
             let _p = Profiler.start("Element.text.traverse")
             defer { Profiler.end("Element.text.traverse", _p) }
@@ -1470,7 +1555,7 @@ open class Element: Node {
             accum.trimTrailingWhitespace()
             return String(decoding: accum.buffer, as: UTF8.self)
         }
-        let accum: StringBuilder = StringBuilder()
+        let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         if trimAndNormaliseWhitespace {
             collectTextFastTrimmed(accum)
         } else {
@@ -1487,7 +1572,7 @@ open class Element: Node {
         if trimAndNormaliseWhitespace, let slice = singleTextNoWhitespaceSlice() {
             return Array(slice)
         }
-        let accum: StringBuilder = StringBuilder()
+        let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         if trimAndNormaliseWhitespace {
             collectTextFastTrimmed(accum)
         } else {
@@ -1508,7 +1593,7 @@ open class Element: Node {
         if trimAndNormaliseWhitespace, let slice = singleTextNoWhitespaceSlice() {
             return slice
         }
-        let accum: StringBuilder = StringBuilder()
+        let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         if trimAndNormaliseWhitespace {
             collectTextFastTrimmed(accum)
         } else {
@@ -1683,7 +1768,7 @@ open class Element: Node {
         let end = slice.endIndex
         while i < end {
             let firstByte = slice[i]
-            if firstByte < 0x80 {
+            if firstByte < TokeniserStateVars.asciiUpperLimitByte {
                 if StringUtil.isAsciiWhitespaceByte(firstByte) {
                     if (stripLeading && !reachedNonWhite) || lastWasWhite {
                         i = slice.index(after: i)
@@ -1698,7 +1783,7 @@ open class Element: Node {
                 var j = i
                 while j < end {
                     let b = slice[j]
-                    if b >= 0x80 || StringUtil.isAsciiWhitespaceByte(b) {
+                    if b >= TokeniserStateVars.asciiUpperLimitByte || StringUtil.isAsciiWhitespaceByte(b) {
                         break
                     }
                     if matcher.feed(b) { return true }
@@ -1730,9 +1815,9 @@ open class Element: Node {
                 }
             }
             let scalarByteCount: Int
-            if firstByte < 0xE0 {
+            if firstByte < StringUtil.utf8Lead3Min {
                 scalarByteCount = 2
-            } else if firstByte < 0xF0 {
+            } else if firstByte < StringUtil.utf8Lead4Min {
                 scalarByteCount = 3
             } else {
                 scalarByteCount = 4
@@ -2445,7 +2530,14 @@ internal extension Element {
     @inline(__always)
     func cachedSelectorResult(_ query: String) -> Elements? {
         guard let cache = selectorResultCache else { return nil }
-        let currentTextVersion = textMutationVersionToken()
+        let root: Node
+        if let cachedRoot = selectorResultCacheRoot, cachedRoot.parentNode == nil {
+            root = cachedRoot
+        } else {
+            root = textMutationRoot()
+            selectorResultCacheRoot = root
+        }
+        let currentTextVersion = root.textMutationVersion
         if currentTextVersion != selectorResultTextVersion {
             invalidateSelectorResultCache()
             selectorResultTextVersion = currentTextVersion
@@ -2461,7 +2553,14 @@ internal extension Element {
             selectorResultCache = [:]
             selectorResultCacheOrder = []
         }
-        selectorResultTextVersion = textMutationVersionToken()
+        if selectorResultCacheRoot == nil || selectorResultCacheRoot?.parentNode != nil {
+            selectorResultCacheRoot = textMutationRoot()
+        }
+        if let root = selectorResultCacheRoot {
+            selectorResultTextVersion = root.textMutationVersion
+        } else {
+            selectorResultTextVersion = textMutationVersionToken()
+        }
         if selectorResultCache![query] != nil {
             return
         }
@@ -2485,6 +2584,7 @@ internal extension Element {
         if selectorResultCache != nil {
             selectorResultCache = nil
             selectorResultCacheOrder.removeAll(keepingCapacity: true)
+            selectorResultCacheRoot = nil
         }
     }
     

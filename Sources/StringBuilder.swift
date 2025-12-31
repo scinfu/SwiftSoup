@@ -11,6 +11,22 @@ open class StringBuilder {
     private var size: Int = 0
     @usableFromInline
     static let useFastWrite: Bool = true
+    @usableFromInline
+    static let asciiUpperLimitScalar: UInt32 = 0x80
+    @usableFromInline
+    static let utf8TwoByteLimit: UInt32 = 0x800
+    @usableFromInline
+    static let utf8ThreeByteLimit: UInt32 = 0x10000
+    @usableFromInline
+    static let utf8Lead2Prefix: UInt32 = 0xC0
+    @usableFromInline
+    static let utf8Lead3Prefix: UInt32 = 0xE0
+    @usableFromInline
+    static let utf8Lead4Prefix: UInt32 = 0xF0
+    @usableFromInline
+    static let utf8ContinuationPrefix: UInt32 = 0x80
+    @usableFromInline
+    static let utf8SixBitMask: UInt32 = 0x3F
     
     /// Read-only view of the active buffer contents
     @inline(__always)
@@ -106,29 +122,38 @@ open class StringBuilder {
     @inline(__always)
     open func appendCodePoint(_ ch: UnicodeScalar) {
         let val = ch.value
-        if val < 0x80 {
+        if val < StringBuilder.asciiUpperLimitScalar {
             // 1-byte ASCII
             write(UInt8(val))
-        } else if val < 0x800 {
+        } else if val < StringBuilder.utf8TwoByteLimit {
             // 2-byte sequence
+            let lead = StringBuilder.utf8Lead2Prefix | (val >> 6)
+            let trail = StringBuilder.utf8ContinuationPrefix | (val & StringBuilder.utf8SixBitMask)
             write(contentsOf: [
-                UInt8(0xC0 | (val >> 6)),
-                UInt8(0x80 | (val & 0x3F))
+                UInt8(lead),
+                UInt8(trail)
             ])
-        } else if val < 0x10000 {
+        } else if val < StringBuilder.utf8ThreeByteLimit {
             // 3-byte sequence
+            let lead = StringBuilder.utf8Lead3Prefix | (val >> 12)
+            let mid = StringBuilder.utf8ContinuationPrefix | ((val >> 6) & StringBuilder.utf8SixBitMask)
+            let trail = StringBuilder.utf8ContinuationPrefix | (val & StringBuilder.utf8SixBitMask)
             write(contentsOf: [
-                UInt8(0xE0 | (val >> 12)),
-                UInt8(0x80 | ((val >> 6) & 0x3F)),
-                UInt8(0x80 | (val & 0x3F))
+                UInt8(lead),
+                UInt8(mid),
+                UInt8(trail)
             ])
         } else {
             // 4-byte sequence
+            let lead = StringBuilder.utf8Lead4Prefix | (val >> 18)
+            let mid0 = StringBuilder.utf8ContinuationPrefix | ((val >> 12) & StringBuilder.utf8SixBitMask)
+            let mid1 = StringBuilder.utf8ContinuationPrefix | ((val >> 6) & StringBuilder.utf8SixBitMask)
+            let trail = StringBuilder.utf8ContinuationPrefix | (val & StringBuilder.utf8SixBitMask)
             write(contentsOf: [
-                UInt8(0xF0 | (val >> 18)),
-                UInt8(0x80 | ((val >> 12) & 0x3F)),
-                UInt8(0x80 | ((val >> 6) & 0x3F)),
-                UInt8(0x80 | (val & 0x3F))
+                UInt8(lead),
+                UInt8(mid0),
+                UInt8(mid1),
+                UInt8(trail)
             ])
         }
     }
@@ -221,6 +246,24 @@ open class StringBuilder {
     open func clear() -> StringBuilder {
         size = 0
         return self
+    }
+
+    @usableFromInline
+    @inline(__always)
+    internal func takeBuffer() -> [UInt8] {
+        if size == 0 {
+            return []
+        }
+        if size == internalBuffer.count {
+            let out = internalBuffer
+            internalBuffer = []
+            internalBuffer.reserveCapacity(1024)
+            size = 0
+            return out
+        }
+        let out = Array(internalBuffer[0..<size])
+        size = 0
+        return out
     }
 
     

@@ -248,6 +248,7 @@ open class Node: Equatable, Hashable {
         }
         return attributes.hasKeyIgnoreCase(key: attributeKey)
     }
+
     
     /**
      Remove an attribute from this element.

@@ -406,7 +406,7 @@ open class Attributes: NSCopying {
         if !Self.disableLowercasedKeyIndex, shouldBuildKeyIndex() {
             ensureLowercasedKeyIndex()
             if let lowercasedKeyIndex {
-                if key.allSatisfy({ $0 < 65 || $0 > 90 }) {
+                if !Attributes.containsAsciiUppercase(key) {
                     if let ix = lowercasedKeyIndex[key] {
                         return attributes[ix].getValueUTF8()
                     }
@@ -426,11 +426,18 @@ open class Attributes: NSCopying {
         if lowercasedKeysCache == nil {
             updateLowercasedKeysCache()
         }
-        if key.allSatisfy({ $0 < 65 || $0 > 90 }) {
+        if !Attributes.containsAsciiUppercase(key) {
             guard lowercasedKeysCache?.contains(key) ?? false else { return [] }
-        } else {
-            guard lowercasedKeysCache?.contains(key.lowercased()) ?? false else { return [] }
+            if !hasUppercaseKeys {
+                return get(key: key)
+            }
+            if let attr = attributes.first(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame }) {
+                return attr.getValueUTF8()
+            }
+            return []
         }
+        let lowerQuery = key.lowercased()
+        guard lowercasedKeysCache?.contains(lowerQuery) ?? false else { return [] }
         if let attr = attributes.first(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame }) {
             return attr.getValueUTF8()
         }
@@ -692,12 +699,48 @@ open class Attributes: NSCopying {
     open func hasKeyIgnoreCase(key: String) -> Bool {
         return hasKeyIgnoreCase(key: key.utf8Array)
     }
-    
+
+    @inline(__always)
+    open func hasKeyIgnoreCase(key: [UInt8]) -> Bool {
+        if attributes.isEmpty, pendingHasKeyIgnoreCase(key) {
+            return true
+        }
+        ensureMaterialized()
+        guard !key.isEmpty else { return false }
+        if shouldBuildKeyIndex() {
+            ensureLowercasedKeyIndex()
+            if let lowercasedKeyIndex {
+                if !Attributes.containsAsciiUppercase(key) {
+                    return lowercasedKeyIndex[key] != nil
+                }
+                var lowerQuery: [UInt8] = []
+                lowerQuery.reserveCapacity(key.count)
+                for b in key {
+                    lowerQuery.append(Self.asciiLowercase(b))
+                }
+                return lowercasedKeyIndex[lowerQuery] != nil
+            }
+        }
+        if lowercasedKeysCache == nil {
+            updateLowercasedKeysCache()
+        }
+        if !Attributes.containsAsciiUppercase(key) {
+            return lowercasedKeysCache!.contains(key)
+        }
+        var lowerQuery: [UInt8] = []
+        lowerQuery.reserveCapacity(key.count)
+        for b in key {
+            lowerQuery.append(Self.asciiLowercase(b))
+        }
+        return lowercasedKeysCache!.contains(lowerQuery)
+    }
+
     @inline(__always)
     @usableFromInline
     internal static func asciiLowercase(_ byte: UInt8) -> UInt8 {
         return (byte >= 65 && byte <= 90) ? (byte + 32) : byte
     }
+
     
     @inlinable
     open func hasKeyIgnoreCase<T: Collection>(key: T) -> Bool where T.Element == UInt8 {

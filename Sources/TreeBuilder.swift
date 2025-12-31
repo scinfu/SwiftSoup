@@ -114,7 +114,6 @@ public class TreeBuilder {
         while (true) {
             let token: Token = try tokeniser.read()
             try process(token)
-            
             if (token.type == Token.TokenType.EOF) {
                 break
             }

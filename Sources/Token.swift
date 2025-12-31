@@ -314,6 +314,7 @@ open class Token {
         private var _pendingAttributeValueSlicesCount: Int = 0
         private var _hasEmptyAttributeValue: Bool = false // distinguish boolean attribute from empty string value
         private var _hasPendingAttributeValue: Bool = false
+        fileprivate var _hasAttributes: Bool = false
         fileprivate var _pendingAttributes: [PendingAttribute]? // lazily materialized into Attributes
         public var _selfClosing: Bool = false
         private var _lowercaseAttributeNames: Bool = false
@@ -351,6 +352,7 @@ open class Token {
             _pendingAttributeValueSlicesCount = 0
             _hasEmptyAttributeValue = false
             _hasPendingAttributeValue = false
+            _hasAttributes = false
             _pendingAttributes?.removeAll(keepingCapacity: true)
             _selfClosing = false
             _lowercaseAttributeNames = false
@@ -396,6 +398,7 @@ open class Token {
                 } else {
                     _pendingAttributes!.append(pending)
                 }
+                _hasAttributes = true
                 if _pendingAttributeNameHasUppercase {
                     _hasUppercaseAttributeNames = true
                 }
@@ -683,10 +686,14 @@ open class Token {
         @inline(__always)
         static func tagIdForSlice(_ slice: ArraySlice<UInt8>) -> TagId? {
             let count = slice.count
-            if count < packedTagIdEntriesByLength.count,
-               let packed = packSlice(slice),
-               let id = packedTagIdEntriesByLength[count][packed] {
-                return id
+            if count == 0 {
+                return nil
+            }
+            if count <= 8, count < packedTagIdEntriesByLength.count {
+                if let packed = packSlice(slice),
+                   let id = packedTagIdEntriesByLength[count][packed] {
+                    return id
+                }
             }
             if count < tagIdEntriesByLength.count {
                 for entry in tagIdEntriesByLength[count] {
@@ -730,6 +737,9 @@ open class Token {
 
         @inline(__always)
         static func tagIdForBytes(_ bytes: [UInt8]) -> TagId? {
+            if bytes.isEmpty {
+                return nil
+            }
             return tagIdForSlice(bytes[...])
         }
 
@@ -876,7 +886,9 @@ open class Token {
             while nameIndex < nameEnd {
                 let b = name[nameIndex]
                 let lowerByte = lower[lowerIndex]
-                let normalized = (b >= 0x41 && b <= 0x5A) ? (b &+ 0x20) : b
+                let normalized = (b >= TokeniserStateVars.upperAByte && b <= TokeniserStateVars.upperZByte)
+                    ? (b &+ TokeniserStateVars.asciiCaseDeltaByte)
+                    : b
                 if normalized != lowerByte {
                     return false
                 }
@@ -980,13 +992,10 @@ open class Token {
 
         @inline(__always)
         func hasAnyAttributes() -> Bool {
-            if let pending = _pendingAttributes, !pending.isEmpty {
-                return true
+            if !_hasAttributes {
+                return false
             }
-            if let attrs = _attributes {
-                return !attrs.attributes.isEmpty || attrs.pendingAttributesCount > 0
-            }
-            return false
+            return true
         }
         
         @inline(__always)
@@ -1119,6 +1128,7 @@ open class Token {
             _pendingAttributes = nil
             _normalName = _tagName?.lowercased()
             _attributesAreNormalized = false
+            _hasAttributes = !attributes.attributes.isEmpty || attributes.pendingAttributesCount > 0
             return self
         }
         

@@ -496,12 +496,12 @@ extension String.Encoding {
     func canEncode(_ c: UnicodeScalar) -> Bool {
         switch self {
         case .ascii:
-            return c.value < 0x80
+            return c.value < UInt32(TokeniserStateVars.asciiUpperLimitByte)
         case .utf8:
-            return c.value <= 0x10FFFF
+            return c.value <= UInt32(TokeniserStateVars.unicodeMaxScalar)
             //return true // real is:!(Character.isLowSurrogate(c) || Character.isHighSurrogate(c)) - but already check above (?)
         case .utf16:
-            return c.value <= 0x10FFFF
+            return c.value <= UInt32(TokeniserStateVars.unicodeMaxScalar)
         default:
             return String(Character(c)).cString(using: self) != nil
         }

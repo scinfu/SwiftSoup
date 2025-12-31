@@ -131,6 +131,7 @@ public enum UTF8Arrays {
     public static let br = "br".utf8Array
     public static let frameset = "frameset".utf8Array
     public static let blobColon = "blob:".utf8Array
+    public static let absPrefix = "abs:".utf8Array
     public static let true_ = "true".utf8Array
 }
 

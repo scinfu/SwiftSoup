@@ -47,12 +47,39 @@ open class StringUtil {
     }
 
     @inline(__always)
+    static func hasPrefixLowercaseAscii(_ bytes: [UInt8], _ lowerPrefix: [UInt8]) -> Bool {
+        if lowerPrefix.count > bytes.count { return false }
+        var i = 0
+        while i < lowerPrefix.count {
+            if Attributes.asciiLowercase(bytes[i]) != lowerPrefix[i] {
+                return false
+            }
+            i &+= 1
+        }
+        return true
+    }
+
+    @inline(__always)
     static func hasSuffixIgnoreCaseAscii(_ bytes: [UInt8], _ suffix: [UInt8]) -> Bool {
         if suffix.count > bytes.count { return false }
         let offset = bytes.count - suffix.count
         var i = 0
         while i < suffix.count {
             if Attributes.asciiLowercase(bytes[offset + i]) != Attributes.asciiLowercase(suffix[i]) {
+                return false
+            }
+            i &+= 1
+        }
+        return true
+    }
+
+    @inline(__always)
+    static func hasSuffixLowercaseAscii(_ bytes: [UInt8], _ lowerSuffix: [UInt8]) -> Bool {
+        if lowerSuffix.count > bytes.count { return false }
+        let offset = bytes.count - lowerSuffix.count
+        var i = 0
+        while i < lowerSuffix.count {
+            if Attributes.asciiLowercase(bytes[offset + i]) != lowerSuffix[i] {
                 return false
             }
             i &+= 1
@@ -72,6 +99,30 @@ open class StringUtil {
             var j = 0
             while j < needleCount {
                 if Attributes.asciiLowercase(bytes[i + j]) != Attributes.asciiLowercase(needle[j]) {
+                    break
+                }
+                j &+= 1
+            }
+            if j == needleCount {
+                return true
+            }
+            i &+= 1
+        }
+        return false
+    }
+
+    @inline(__always)
+    static func containsLowercaseAscii(_ bytes: [UInt8], _ lowerNeedle: [UInt8]) -> Bool {
+        let hayCount = bytes.count
+        let needleCount = lowerNeedle.count
+        if needleCount == 0 { return true }
+        if needleCount > hayCount { return false }
+        let limit = hayCount - needleCount
+        var i = 0
+        while i <= limit {
+            var j = 0
+            while j < needleCount {
+                if Attributes.asciiLowercase(bytes[i + j]) != lowerNeedle[j] {
                     break
                 }
                 j &+= 1
@@ -104,6 +155,10 @@ open class StringUtil {
     static let utf8NBSPLead: UInt8 = 0xC2
     @usableFromInline
     static let utf8NBSPTrail: UInt8 = 0xA0
+    @usableFromInline
+    static let utf8Lead3Min: UInt8 = 0xE0
+    @usableFromInline
+    static let utf8Lead4Min: UInt8 = 0xF0
     @usableFromInline
     static func isAsciiWhitespaceByte(_ byte: UInt8) -> Bool {
         return byte == TokeniserStateVars.spaceByte ||
@@ -304,7 +359,7 @@ open class StringUtil {
         var i = 0
         while i < string.count {
             let firstByte = string[i]
-            if firstByte < 0x80 {
+            if firstByte < TokeniserStateVars.asciiUpperLimitByte {
                 if isAsciiWhitespaceByte(firstByte) {
                     if (stripLeading && !reachedNonWhite) || lastWasWhite {
                         i += 1
@@ -320,7 +375,7 @@ open class StringUtil {
                 i += 1
                 continue
             }
-            if firstByte == 0xC2, i + 1 < string.count, string[i + 1] == 0xA0 {
+            if firstByte == utf8NBSPLead, i + 1 < string.count, string[i + 1] == utf8NBSPTrail {
                 if (stripLeading && !reachedNonWhite) || lastWasWhite {
                     i += 2
                     continue
@@ -332,9 +387,9 @@ open class StringUtil {
             }
             // Non-ASCII scalar, append as-is.
             let scalarByteCount: Int
-            if firstByte < 0xE0 {
+            if firstByte < utf8Lead3Min {
                 scalarByteCount = 2
-            } else if firstByte < 0xF0 {
+            } else if firstByte < utf8Lead4Min {
                 scalarByteCount = 3
             } else {
                 scalarByteCount = 4
@@ -406,7 +461,7 @@ open class StringUtil {
                 var hasWhitespace = false
                 var asciiOnly = true
                 for b in string {
-                    if b >= 0x80 {
+                    if b >= TokeniserStateVars.asciiUpperLimitByte {
                         asciiOnly = false
                         break
                     }
@@ -463,7 +518,7 @@ open class StringUtil {
         let end = string.endIndex
         while i < end {
             let firstByte = string[i]
-            if firstByte < 0x80 {
+            if firstByte < TokeniserStateVars.asciiUpperLimitByte {
                 if isAsciiWhitespaceByte(firstByte) {
                     if (stripLeading && !reachedNonWhite) || lastWasWhite {
                         i = string.index(after: i)
@@ -475,7 +530,7 @@ open class StringUtil {
                     var j = i
                     while j < end {
                         let b = string[j]
-                        if b >= 0x80 || isAsciiWhitespaceByte(b) {
+                        if b >= TokeniserStateVars.asciiUpperLimitByte || isAsciiWhitespaceByte(b) {
                             break
                         }
                         j = string.index(after: j)
@@ -503,9 +558,9 @@ open class StringUtil {
                 }
             }
             let scalarByteCount: Int
-            if firstByte < 0xE0 {
+            if firstByte < utf8Lead3Min {
                 scalarByteCount = 2
-            } else if firstByte < 0xF0 {
+            } else if firstByte < utf8Lead4Min {
                 scalarByteCount = 3
             } else {
                 scalarByteCount = 4
@@ -534,7 +589,7 @@ open class StringUtil {
                 var hasWhitespace = false
                 var asciiOnly = true
                 for b in string {
-                    if b >= 0x80 {
+                    if b >= TokeniserStateVars.asciiUpperLimitByte {
                         asciiOnly = false
                         break
                     }
@@ -599,7 +654,7 @@ open class StringUtil {
         let end = string.endIndex
         while i < end {
             let firstByte = string[i]
-            if firstByte < 0x80 {
+            if firstByte < TokeniserStateVars.asciiUpperLimitByte {
                 if isAsciiWhitespaceByte(firstByte) {
                     if (stripLeading && !reachedNonWhite) || lastWasWhite {
                         i = string.index(after: i)
@@ -611,7 +666,7 @@ open class StringUtil {
                     var j = i
                     while j < end {
                         let b = string[j]
-                        if b >= 0x80 || isAsciiWhitespaceByte(b) {
+                        if b >= TokeniserStateVars.asciiUpperLimitByte || isAsciiWhitespaceByte(b) {
                             break
                         }
                         j = string.index(after: j)
@@ -639,9 +694,9 @@ open class StringUtil {
                 }
             }
             let scalarByteCount: Int
-            if firstByte < 0xE0 {
+            if firstByte < utf8Lead3Min {
                 scalarByteCount = 2
-            } else if firstByte < 0xF0 {
+            } else if firstByte < utf8Lead4Min {
                 scalarByteCount = 3
             } else {
                 scalarByteCount = 4

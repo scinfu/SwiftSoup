@@ -139,25 +139,30 @@ class HtmlTreeBuilder: TreeBuilder {
         let _p = Profiler.start("HtmlTreeBuilder.process")
         defer { Profiler.end("HtmlTreeBuilder.process", _p) }
         #endif
-        if !tracksErrors,
-           !tracksSourceRanges,
-           _state == .InBody,
-           token.type == Token.TokenType.Char {
-            let c = token.asCharacter()
-            let data = c.getDataSlice()
-            if let data, data.count == 1, data.first == 0x00 {
-                return false
+        if !tracksErrors, !tracksSourceRanges, _state == .InBody {
+            switch token.type {
+            case .Char:
+                let c = token.asCharacter()
+                let data = c.getDataSlice()
+                if let data, data.count == 1, data.first == TokeniserStateVars.nullByte {
+                    return false
+                }
+                let wasFramesetOk = framesetOk()
+                let isWhitespace = wasFramesetOk ? HtmlTreeBuilderState.isWhitespace(data) : false
+                if lastFormattingElement() != nil {
+                    try reconstructFormattingElements()
+                }
+                try insert(c)
+                if wasFramesetOk && !isWhitespace {
+                    framesetOk(false)
+                }
+                return true
+            case .Comment:
+                try insert(token.asComment())
+                return true
+            default:
+                break
             }
-            let wasFramesetOk = framesetOk()
-            let isWhitespace = wasFramesetOk ? HtmlTreeBuilderState.isWhitespace(data) : false
-            if lastFormattingElement() != nil {
-                try reconstructFormattingElements()
-            }
-            try insert(c)
-            if wasFramesetOk && !isWhitespace {
-                framesetOk(false)
-            }
-            return true
         }
         if !tracksErrors && !tracksSourceRanges {
             return try self._state.process(token, self)
@@ -300,7 +305,6 @@ class HtmlTreeBuilder: TreeBuilder {
         } else {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
-        el.treeBuilder = self
         if hasAttributes {
             registerPendingAttributes(el)
         }
@@ -316,6 +320,9 @@ class HtmlTreeBuilder: TreeBuilder {
         let tag: Tag
         if settings.preservesTagCase() {
             tag = try Tag.valueOf(startTagName, settings)
+        } else if let tagId = Token.Tag.tagIdForBytes(startTagName),
+                  let fastTag = Tag.valueOfTagId(tagId) {
+            tag = fastTag
         } else {
             tag = try Tag.valueOfNormalized(startTagName)
         }
@@ -372,7 +379,6 @@ class HtmlTreeBuilder: TreeBuilder {
         } else {
             el = Element(tag, baseUri, skipChildReserve: skipChildReserve)
         }
-        el.treeBuilder = self
         if hasAttributes {
             registerPendingAttributes(el)
         }
@@ -392,7 +398,16 @@ class HtmlTreeBuilder: TreeBuilder {
         if startTag.hasAnyAttributes() {
             startTag.ensureAttributes()
         }
-        let tag: Tag = try Tag.valueOf(startTag.name(), settings)
+        let tag: Tag
+        if settings.preservesTagCase() {
+            tag = try Tag.valueOf(startTag.name(), settings)
+        } else if let fastTag = Tag.valueOfTagId(startTag.tagId) {
+            tag = fastTag
+        } else if let normalName = startTag.normalName() {
+            tag = try Tag.valueOfNormalized(normalName)
+        } else {
+            tag = try Tag.valueOf(startTag.name(), settings)
+        }
         let el: FormElement
         if let attributes = startTag._attributes {
             el = FormElement(tag, baseUri, attributes, skipChildReserve: isBulkBuilding)
@@ -647,6 +662,7 @@ class HtmlTreeBuilder: TreeBuilder {
         return nil
     }
 
+
     @inline(__always)
     private func lastIndexOfStackName(in names: ParsingStrings) -> Int? {
         var i = stack.count
@@ -707,6 +723,7 @@ class HtmlTreeBuilder: TreeBuilder {
         guard let index = lastIndexOfStackName(elName) else { return nil }
         return stack[index]
     }
+
     
     @inlinable
     func getFromStack(_ elName: String) -> Element? {
@@ -1320,6 +1337,7 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         return nil
     }
+
     
     func replaceActiveFormattingElement(_ out: Element, _ input: Element) throws {
         try formattingElements = replaceInQueue(formattingElements, out, input)

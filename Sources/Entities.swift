@@ -14,11 +14,11 @@ import Foundation
  */
 public final class Entities: Sendable {
     private static let commonNamedEntities: [ArraySlice<UInt8>: [UnicodeScalar]] = [
-        "lt".utf8ArraySlice: [UnicodeScalar(0x3C)!],
-        "gt".utf8ArraySlice: [UnicodeScalar(0x3E)!],
-        "amp".utf8ArraySlice: [UnicodeScalar(0x26)!],
-        "quot".utf8ArraySlice: [UnicodeScalar(0x22)!],
-        "apos".utf8ArraySlice: [UnicodeScalar(0x27)!],
+        "lt".utf8ArraySlice: [UnicodeScalar(TokeniserStateVars.lessThanByte)],
+        "gt".utf8ArraySlice: [UnicodeScalar(TokeniserStateVars.greaterThanByte)],
+        "amp".utf8ArraySlice: [UnicodeScalar(TokeniserStateVars.ampersandByte)],
+        "quot".utf8ArraySlice: [UnicodeScalar(TokeniserStateVars.quoteByte)],
+        "apos".utf8ArraySlice: [UnicodeScalar(TokeniserStateVars.apostropheByte)],
     ]
     private static let empty = -1
     private static let emptyName = ""
@@ -32,6 +32,14 @@ public final class Entities: Sendable {
     private static let quotEntityUTF8 = "&quot;".utf8Array
     
     private static let spaceString: [UInt8] = [TokeniserStateVars.spaceByte]
+    @usableFromInline
+    static let asciiUpperLimitByte: UInt8 = TokeniserStateVars.asciiUpperLimitByte
+    @usableFromInline
+    static let utf8Lead3Min: UInt8 = StringUtil.utf8Lead3Min
+    @usableFromInline
+    static let utf8Lead4Min: UInt8 = StringUtil.utf8Lead4Min
+    @usableFromInline
+    static let hexNibbleMask: Int = 0xF
 
     fileprivate struct PackedNamedEntityEntry {
         let isBase: Bool
@@ -82,7 +90,7 @@ public final class Entities: Sendable {
         var key: UInt64 = UInt64(count) << 56
         var shift: UInt64 = 0
         for byte in name {
-            if byte >= 0x80 { return nil }
+            if byte >= asciiUpperLimitByte { return nil }
             key |= UInt64(byte) << shift
             shift &+= 8
         }
@@ -341,9 +349,9 @@ public final class Entities: Sendable {
     
     @inline(__always)
     internal static func utf8CharLength(for byte: UInt8) -> Int {
-        if byte < 0x80 { return 1 }
-        else if byte < 0xE0 { return 2 }
-        else if byte < 0xF0 { return 3 }
+        if byte < asciiUpperLimitByte { return 1 }
+        else if byte < utf8Lead3Min { return 2 }
+        else if byte < utf8Lead4Min { return 3 }
         else { return 4 }
     }
 
@@ -388,23 +396,23 @@ public final class Entities: Sendable {
                 }
                 lastWasWhite = false
                 reachedNonWhite = true
-                if b < 0x80 {
+                if b < asciiUpperLimitByte {
                     switch b {
-                    case 0x26:
+                    case TokeniserStateVars.ampersandByte:
                         accum.append(ampEntityUTF8)
-                    case 0x3C:
+                    case TokeniserStateVars.lessThanByte:
                         if !inAttribute || escapeMode == .xhtml {
                             accum.append(ltEntityUTF8)
                         } else {
                             accum.append(b)
                         }
-                    case 0x3E:
+                    case TokeniserStateVars.greaterThanByte:
                         if !inAttribute {
                             accum.append(gtEntityUTF8)
                         } else {
                             accum.append(b)
                         }
-                    case 0x22:
+                    case TokeniserStateVars.quoteByte:
                         if inAttribute {
                             accum.append(quotEntityUTF8)
                         } else {
@@ -425,7 +433,7 @@ public final class Entities: Sendable {
                     let sliceStart = string.index(startIndex, offsetBy: i)
                     let sliceEnd = string.index(startIndex, offsetBy: end)
                     let charBytes = string[sliceStart..<sliceEnd]
-                    if end - i == 2 && base[i] == 0xC2 && base[i + 1] == 0xA0 {
+                    if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
                         // UTF-8 encoding of "\u{A0}"
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
                     } else if canEncode(bytes: charBytes, encoder: encoder) {
@@ -479,23 +487,23 @@ public final class Entities: Sendable {
                 }
                 lastWasWhite = false
                 reachedNonWhite = true
-                if b < 0x80 {
+                if b < asciiUpperLimitByte {
                     switch b {
-                    case 0x26:
+                    case TokeniserStateVars.ampersandByte:
                         accum.append(ampEntityUTF8)
-                    case 0x3C:
+                    case TokeniserStateVars.lessThanByte:
                         if !inAttribute || escapeMode == .xhtml {
                             accum.append(ltEntityUTF8)
                         } else {
                             accum.append(b)
                         }
-                    case 0x3E:
+                    case TokeniserStateVars.greaterThanByte:
                         if !inAttribute {
                             accum.append(gtEntityUTF8)
                         } else {
                             accum.append(b)
                         }
-                    case 0x22:
+                    case TokeniserStateVars.quoteByte:
                         if inAttribute {
                             accum.append(quotEntityUTF8)
                         } else {
@@ -516,7 +524,7 @@ public final class Entities: Sendable {
                     let sliceStart = string.index(startIndex, offsetBy: i)
                     let sliceEnd = string.index(startIndex, offsetBy: end)
                     let charBytes = string[sliceStart..<sliceEnd]
-                    if end - i == 2 && base[i] == 0xC2 && base[i + 1] == 0xA0 {
+                    if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
                     } else if canEncode(bytes: charBytes, encoder: encoder) {
                         accum.append(charBytes)
@@ -532,19 +540,19 @@ public final class Entities: Sendable {
     @inlinable
     internal static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: ArraySlice<UInt8>) {
         if let name = escapeMode.nameForCodepoint(bytes) {
-            accum.append(0x26) // '&'
+            accum.append(TokeniserStateVars.ampersandByte) // '&'
             accum.append(name)
             accum.append(UTF8Arrays.semicolon[0]) // ';'
         } else {
             var iterator = bytes.makeIterator()
             var utf8Decoder = UTF8()
             guard case .scalarValue(let scalar) = utf8Decoder.decode(&iterator) else {
-                accum.append([0x26, 0x23, 0x78]) // '&#x'
+                accum.append([TokeniserStateVars.ampersandByte, TokeniserStateVars.hashByte, TokeniserStateVars.lowerXByte]) // '&#x'
                 for b in bytes { appendHex(Int(b), accum) }
                 accum.append(UTF8Arrays.semicolon[0])
                 return
             }
-            accum.append([0x26, 0x23, 0x78])
+            accum.append([TokeniserStateVars.ampersandByte, TokeniserStateVars.hashByte, TokeniserStateVars.lowerXByte])
             appendHex(Int(scalar.value), accum)
             accum.append(UTF8Arrays.semicolon[0])
         }
@@ -570,7 +578,7 @@ public final class Entities: Sendable {
         }
         var s = shift
         while s >= 0 {
-            let nibble = (n >> s) & 0xF
+            let nibble = (n >> s) & hexNibbleMask
             accum.append(hexDigits[nibble])
             if s == 0 { break }
             s -= 4
@@ -620,7 +628,7 @@ public final class Entities: Sendable {
         let value = c.value
         switch fallback {
         case .ascii:
-            return value < 0x80
+            return value < asciiUpperLimitByte
         case .utf8, .utf16:
             // UTF-8, UTF-16 can encode all valid sequences
             return true
@@ -634,7 +642,7 @@ public final class Entities: Sendable {
         switch encoder {
         case .ascii:
             // Check if all bytes are within ASCII range
-            return bytes.allSatisfy { $0 < 0x80 }
+            return bytes.allSatisfy { $0 < asciiUpperLimitByte }
         case .utf8:
             // UTF-8 can encode all valid sequences
             return true
@@ -652,7 +660,7 @@ public final class Entities: Sendable {
         switch encoder {
         case .ascii:
             // Check if all bytes are within ASCII range
-            return bytes.allSatisfy { $0 < 0x80 }
+            return bytes.allSatisfy { $0 < asciiUpperLimitByte }
         case .utf8:
             // UTF-8 can encode all valid sequences
             return true
@@ -670,7 +678,7 @@ public final class Entities: Sendable {
         switch encoder {
         case .ascii:
             // Check if all bytes are within ASCII range
-            return byte < 0x80
+            return byte < asciiUpperLimitByte
         case .utf8:
             // UTF-8 can encode all valid sequences
             return true

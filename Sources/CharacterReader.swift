@@ -19,20 +19,53 @@ public final class CharacterReader {
     
     private static let letters = ParsingStrings("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".map { String($0) })
     private static let digits = ParsingStrings(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"])
+    @usableFromInline
+    static let asciiUpperLimitByte: UInt8 = TokeniserStateVars.asciiUpperLimitByte
+    @usableFromInline
+    static let asciiMaxScalar: UInt32 = 0x7F
+    @usableFromInline
+    static let utf8Lead2Min: UInt8 = 0xC0
+    @usableFromInline
+    static let utf8Lead2Max: UInt8 = 0xDF
+    @usableFromInline
+    static let utf8Lead3Min: UInt8 = 0xE0
+    @usableFromInline
+    static let utf8Lead3Max: UInt8 = 0xEF
+    @usableFromInline
+    static let utf8Lead4Min: UInt8 = 0xF0
+    @usableFromInline
+    static let utf8Lead4Max: UInt8 = 0xF7
+    @usableFromInline
+    static let utf8Lead2Mask: UInt8 = 0xE0
+    @usableFromInline
+    static let utf8Lead3Mask: UInt8 = 0xF0
+    @usableFromInline
+    static let utf8Lead4Mask: UInt8 = 0xF8
+    @usableFromInline
+    static let utf8ContinuationMask: UInt8 = 0xC0
+    @usableFromInline
+    static let utf8ContinuationValue: UInt8 = 0x80
+    @usableFromInline
+    static let repeatedByteMask: UInt64 = 0x0101010101010101
+    @usableFromInline
+    static let highBitRepeatMask: UInt64 = 0x8080808080808080
     private static let utf8WidthTable: [UInt8] = {
         var table = [UInt8](repeating: 1, count: 256)
-        var i = 0xC0
-        while i <= 0xDF {
+        var i = Int(utf8Lead2Min)
+        let lead2Max = Int(utf8Lead2Max)
+        while i <= lead2Max {
             table[i] = 2
             i += 1
         }
-        i = 0xE0
-        while i <= 0xEF {
+        i = Int(utf8Lead3Min)
+        let lead3Max = Int(utf8Lead3Max)
+        while i <= lead3Max {
             table[i] = 3
             i += 1
         }
-        i = 0xF0
-        while i <= 0xF7 {
+        i = Int(utf8Lead4Min)
+        let lead4Max = Int(utf8Lead4Max)
+        while i <= lead4Max {
             table[i] = 4
             i += 1
         }
@@ -87,7 +120,7 @@ public final class CharacterReader {
         guard pos < end else { return CharacterReader.EOF }
 
         let firstByte = input[pos]
-        if firstByte < 0x80 {
+        if firstByte < Self.asciiUpperLimitByte {
             return UnicodeScalar(firstByte)
         }
 
@@ -110,13 +143,13 @@ public final class CharacterReader {
         let length: Int
         
         // Determine UTF-8 sequence length based on the first byte
-        if firstByte & 0x80 == 0 { // 1-byte ASCII (0xxxxxxx)
+        if firstByte & Self.asciiUpperLimitByte == 0 { // 1-byte ASCII (0xxxxxxx)
             length = 1
-        } else if firstByte & 0xE0 == 0xC0 { // 2-byte sequence (110xxxxx)
+        } else if firstByte & Self.utf8Lead2Mask == Self.utf8Lead2Min { // 2-byte sequence (110xxxxx)
             length = 2
-        } else if firstByte & 0xF0 == 0xE0 { // 3-byte sequence (1110xxxx)
+        } else if firstByte & Self.utf8Lead3Mask == Self.utf8Lead3Min { // 3-byte sequence (1110xxxx)
             length = 3
-        } else if firstByte & 0xF8 == 0xF0 { // 4-byte sequence (11110xxx)
+        } else if firstByte & Self.utf8Lead4Mask == Self.utf8Lead4Min { // 4-byte sequence (11110xxx)
             length = 4
         } else {
             return [] // Invalid UTF-8 leading byte
@@ -129,7 +162,7 @@ public final class CharacterReader {
         
         // Validate continuation bytes (they should all be 10xxxxxx)
         for i in 1..<length {
-            if input[pos + i] & 0xC0 != 0x80 {
+            if input[pos + i] & Self.utf8ContinuationMask != Self.utf8ContinuationValue {
                 return [] // Invalid UTF-8 sequence
             }
         }
@@ -165,7 +198,7 @@ public final class CharacterReader {
         guard pos < end else { return CharacterReader.EOF }
 
         let firstByte = input[pos]
-        if firstByte < 0x80 {
+        if firstByte < Self.asciiUpperLimitByte {
             pos += 1
             return UnicodeScalar(firstByte)
         }
@@ -207,7 +240,7 @@ public final class CharacterReader {
     public func advance() {
         guard pos < end else { return }
         let firstByte = input[pos]
-        if firstByte < 0x80 {
+        if firstByte < Self.asciiUpperLimitByte {
             pos += 1
             return
         }
@@ -234,7 +267,7 @@ public final class CharacterReader {
         guard pos < end else { return "" }
 
         let firstByte = input[pos]
-        if firstByte < 0x80 {
+        if firstByte < Self.asciiUpperLimitByte {
             pos += 1
             return String(UnicodeScalar(firstByte))
         }
@@ -278,7 +311,7 @@ public final class CharacterReader {
             }
 
             let firstByte = input[pos]
-            if firstByte < 0x80 {
+            if firstByte < Self.asciiUpperLimitByte {
                 if chars.contains(firstByte) {
                     return input[start..<pos]
                 }
@@ -286,7 +319,7 @@ public final class CharacterReader {
                 continue
             }
 
-            let charLen = firstByte < 0xE0 ? 2 : firstByte < 0xF0 ? 3 : 4
+            let charLen = firstByte < Self.utf8Lead3Min ? 2 : firstByte < Self.utf8Lead4Min ? 3 : 4
 
             // Check if the current multi-byte sequence matches any character in `chars`
             if chars.contains(input[pos..<min(pos + charLen, end)]) {
@@ -316,7 +349,7 @@ public final class CharacterReader {
     }
     
     public func consumeTo(_ c: UnicodeScalar) -> ArraySlice<UInt8> {
-        if c.value <= 0x7F {
+        if c.value <= Self.asciiMaxScalar {
             let byte = UInt8(c.value)
             return consumeToAnyOfOne(byte)
         }
@@ -365,7 +398,7 @@ public final class CharacterReader {
         let start = pos
         while pos < end {
             let firstByte = input[pos]
-            if firstByte < 0x80 {
+            if firstByte < Self.asciiUpperLimitByte {
                 if (firstByte >= 65 && firstByte <= 90) || (firstByte >= 97 && firstByte <= 122) {
                     pos += 1
                     continue
@@ -378,7 +411,7 @@ public final class CharacterReader {
         var utf8Decoder = UTF8()
         while pos < end {
             let firstByte = input[pos]
-            if firstByte < 0x80 {
+            if firstByte < Self.asciiUpperLimitByte {
                 if (firstByte >= 65 && firstByte <= 90) || (firstByte >= 97 && firstByte <= 122) {
                     pos += 1
                     continue
@@ -402,7 +435,7 @@ public final class CharacterReader {
         let start = pos
         letterLoop: while pos < end {
             let firstByte = input[pos]
-            if firstByte < 0x80 {
+            if firstByte < Self.asciiUpperLimitByte {
                 if (firstByte >= 65 && firstByte <= 90) || (firstByte >= 97 && firstByte <= 122) {
                     pos += 1
                     continue
@@ -415,7 +448,7 @@ public final class CharacterReader {
         var utf8Decoder = UTF8()
         letterLoop: while pos < end {
             let firstByte = input[pos]
-            if firstByte < 0x80 {
+            if firstByte < Self.asciiUpperLimitByte {
                 if (firstByte >= 65 && firstByte <= 90) || (firstByte >= 97 && firstByte <= 122) {
                     pos += 1
                     continue
@@ -435,7 +468,7 @@ public final class CharacterReader {
         
         digitLoop: while pos < end {
             let firstByte = input[pos]
-            if firstByte < 0x80 {
+            if firstByte < Self.asciiUpperLimitByte {
                 if firstByte >= 48 && firstByte <= 57 {
                     pos += 1
                     continue
@@ -447,7 +480,7 @@ public final class CharacterReader {
 
         digitLoop: while pos < end {
             let firstByte = input[pos]
-            if firstByte < 0x80 {
+            if firstByte < Self.asciiUpperLimitByte {
                 if firstByte >= 48 && firstByte <= 57 {
                     pos += 1
                     continue
@@ -472,7 +505,7 @@ public final class CharacterReader {
         let start = pos
         while pos < end {
             let firstByte = input[pos]
-            if firstByte < 0x80 {
+            if firstByte < Self.asciiUpperLimitByte {
                 let isHex = (firstByte >= 48 && firstByte <= 57) ||
                     (firstByte >= 65 && firstByte <= 70) ||
                     (firstByte >= 97 && firstByte <= 102)
@@ -488,7 +521,7 @@ public final class CharacterReader {
         var utf8Decoder = UTF8()
         while pos < end {
             let firstByte = input[pos]
-            if firstByte < 0x80 {
+            if firstByte < Self.asciiUpperLimitByte {
                 let isHex = (firstByte >= 48 && firstByte <= 57) ||
                     (firstByte >= 65 && firstByte <= 70) ||
                     (firstByte >= 97 && firstByte <= 102)
@@ -515,7 +548,7 @@ public final class CharacterReader {
         let start = pos
         while pos < end {
             let firstByte = input[pos]
-            if firstByte < 0x80 {
+            if firstByte < Self.asciiUpperLimitByte {
                 if firstByte >= 48 && firstByte <= 57 {
                     pos += 1
                     continue
@@ -540,7 +573,7 @@ public final class CharacterReader {
     @inline(__always)
     public func matches(_ c: UnicodeScalar) -> Bool {
         guard pos < end else { return false }
-        if c.value < 0x80 {
+        if c.value < Self.asciiUpperLimitByte {
             return input[pos] == UInt8(c.value)
         }
         
@@ -573,7 +606,7 @@ public final class CharacterReader {
         }
 
         var allAscii = true
-        for b in seq where b & 0x80 != 0 {
+        for b in seq where b & Self.asciiUpperLimitByte != 0 {
             allAscii = false
             break
         }
@@ -630,7 +663,7 @@ public final class CharacterReader {
         guard input.count > pos
         else { return false }
 
-        if let byte = currentByte(), byte < 0x80 {
+        if let byte = currentByte(), byte < Self.asciiUpperLimitByte {
             return seq.contains(byte)
         }
         if seq.isSingleByteOnly {
@@ -689,7 +722,7 @@ public final class CharacterReader {
         guard pos < end else { return false }
         
         let firstByte = input[pos]
-        if firstByte < 0x80 {
+        if firstByte < Self.asciiUpperLimitByte {
             return (firstByte >= 65 && firstByte <= 90) || (firstByte >= 97 && firstByte <= 122)
         }
         var length = 1
@@ -715,7 +748,7 @@ public final class CharacterReader {
         else { return false }
 
         let firstByte = input[pos]
-        if firstByte < 0x80 {
+        if firstByte < Self.asciiUpperLimitByte {
             return firstByte >= 48 && firstByte <= 57
         }
 
@@ -743,7 +776,7 @@ public final class CharacterReader {
     @inline(__always)
     public func containsIgnoreCase(_ seq: [UInt8]) -> Bool {
         var allAscii = true
-        for b in seq where b & 0x80 != 0 {
+        for b in seq where b & Self.asciiUpperLimitByte != 0 {
             allAscii = false
             break
         }
@@ -760,12 +793,12 @@ public final class CharacterReader {
         let totalCount = prefix.count + suffix.count
         if totalCount == 0 { return true }
         var allAscii = true
-        for b in prefix where b & 0x80 != 0 {
+        for b in prefix where b & Self.asciiUpperLimitByte != 0 {
             allAscii = false
             break
         }
         if allAscii {
-            for b in suffix where b & 0x80 != 0 {
+            for b in suffix where b & Self.asciiUpperLimitByte != 0 {
                 allAscii = false
                 break
             }
@@ -979,13 +1012,16 @@ public final class CharacterReader {
         let _p = Profiler.start("CharacterReader.consumeToAnyOfTwo")
         defer { Profiler.end("CharacterReader.consumeToAnyOfTwo", _p) }
         #endif
+        if a == b {
+            return consumeToAnyOfOne(a)
+        }
         let start = pos
         let count = end - pos
         if count <= 0 {
             return input[start..<pos]
         }
         #if canImport(Darwin) || canImport(Glibc)
-        if count >= 32 {
+        if count >= 16 {
             return input.withUnsafeBytes { buf in
                 guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
                     return input[start..<pos]
@@ -1012,15 +1048,12 @@ public final class CharacterReader {
                     pos = end
                     return input[start..<pos]
                 }
-                if count >= 256 {
-                    return memchrMin(count)
-                }
-                if count >= 64 {
+                if count >= 128 {
                     @inline(__always)
                     func hasByte(_ word: UInt64, _ byte: UInt64) -> Bool {
-                        let mask = byte &* 0x0101010101010101
+                        let mask = byte &* Self.repeatedByteMask
                         let x = word ^ mask
-                        return ((x &- 0x0101010101010101) & ~x & 0x8080808080808080) != 0
+                        return ((x &- Self.repeatedByteMask) & ~x & Self.highBitRepeatMask) != 0
                     }
                     let aWord = UInt64(a)
                     let bWord = UInt64(b)
@@ -1084,9 +1117,9 @@ public final class CharacterReader {
                 }
                 @inline(__always)
                 func hasByte(_ word: UInt64, _ byte: UInt64) -> Bool {
-                    let mask = byte &* 0x0101010101010101
+                    let mask = byte &* Self.repeatedByteMask
                     let x = word ^ mask
-                    return ((x &- 0x0101010101010101) & ~x & 0x8080808080808080) != 0
+                    return ((x &- Self.repeatedByteMask) & ~x & Self.highBitRepeatMask) != 0
                 }
                 let aWord = UInt64(a)
                 let baseAddress = UInt(bitPattern: basePtr)
@@ -1155,9 +1188,9 @@ public final class CharacterReader {
                 }
                 @inline(__always)
                 func hasByte(_ word: UInt64, _ byte: UInt64) -> Bool {
-                    let mask = byte &* 0x0101010101010101
+                    let mask = byte &* Self.repeatedByteMask
                     let x = word ^ mask
-                    return ((x &- 0x0101010101010101) & ~x & 0x8080808080808080) != 0
+                    return ((x &- Self.repeatedByteMask) & ~x & Self.highBitRepeatMask) != 0
                 }
                 let aWord = UInt64(a)
                 let bWord = UInt64(b)
@@ -1255,9 +1288,9 @@ public final class CharacterReader {
                 }
                 @inline(__always)
                 func hasByte(_ word: UInt64, _ byte: UInt64) -> Bool {
-                    let mask = byte &* 0x0101010101010101
+                    let mask = byte &* Self.repeatedByteMask
                     let x = word ^ mask
-                    return ((x &- 0x0101010101010101) & ~x & 0x8080808080808080) != 0
+                    return ((x &- Self.repeatedByteMask) & ~x & Self.highBitRepeatMask) != 0
                 }
                 let aWord = UInt64(a)
                 let bWord = UInt64(b)
@@ -1397,7 +1430,7 @@ public final class CharacterReader {
 
         let remaining = end - pos
         #if canImport(Darwin) || canImport(Glibc)
-        if remaining >= 32 {
+        if remaining >= 16 {
             return input.withUnsafeBytes { buf in
                 guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
                     return input[start..<pos]
@@ -1559,13 +1592,13 @@ public final class CharacterReader {
     @inline(__always)
     public func consumeTagNameWithUppercaseFlag() -> (ArraySlice<UInt8>, Bool) {
         // Fast path for ASCII tag names
-        if pos < end && input[pos] < 0x80 {
+        if pos < end && input[pos] < Self.asciiUpperLimitByte {
             let start = pos
             var i = pos
             var hasUppercase = false
             while i < end {
                 let b = input[i]
-                if b >= 0x80 {
+                if b >= Self.asciiUpperLimitByte {
                     let slice: ArraySlice<UInt8> = consumeToAny(CharacterReader.tagNameTerminators)
                     return (slice, Attributes.containsAsciiUppercase(slice))
                 }
@@ -1588,12 +1621,12 @@ public final class CharacterReader {
 
     public func consumeAttributeName() -> ArraySlice<UInt8> {
         // Fast path for ASCII attribute names
-        if pos < end && input[pos] < 0x80 {
+        if pos < end && input[pos] < Self.asciiUpperLimitByte {
             let start = pos
             var i = pos
             while i < end {
                 let b = input[i]
-                if b >= 0x80 {
+                if b >= Self.asciiUpperLimitByte {
                     return consumeToAny(TokeniserStateVars.attributeNameChars)
                 }
                 if CharacterReader.attributeNameDelims[Int(b)] {
