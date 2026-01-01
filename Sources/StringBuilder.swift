@@ -398,6 +398,38 @@ open class StringBuilder {
         }
         size = newSize
     }
+
+    @usableFromInline
+    @inline(__always)
+    internal func write(contentsOf basePtr: UnsafePointer<UInt8>, count: Int) {
+        if count == 0 { return }
+        let newSize = size + count
+        if size == internalBuffer.count {
+            internalBuffer.append(contentsOf: UnsafeBufferPointer(start: basePtr, count: count))
+            size = newSize
+            return
+        }
+        let available = internalBuffer.count - size
+        if available > 0 {
+            let firstCount = min(count, available)
+            internalBuffer.withUnsafeMutableBufferPointer { dst in
+                guard let dstBase = dst.baseAddress else { return }
+                dstBase.advanced(by: size).update(from: basePtr, count: firstCount)
+            }
+            if count > available {
+                internalBuffer.append(
+                    contentsOf: UnsafeBufferPointer(
+                        start: basePtr.advanced(by: firstCount),
+                        count: count - firstCount
+                    )
+                )
+            }
+            size = newSize
+            return
+        }
+        internalBuffer.append(contentsOf: UnsafeBufferPointer(start: basePtr, count: count))
+        size = newSize
+    }
 }
 
 /**

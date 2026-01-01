@@ -21,11 +21,33 @@ open class Attribute {
     var key: [UInt8]
     @usableFromInline
     var value: [UInt8]
+    @usableFromInline
+    var keySlice: ArraySlice<UInt8>? = nil
+    @usableFromInline
+    var valueSlice: ArraySlice<UInt8>? = nil
     
     public init(key: [UInt8], value: [UInt8]) throws {
         try Validate.notEmpty(string: key)
         self.key = key.trim()
         self.value = value
+    }
+
+    @usableFromInline
+    init(keySlice: ArraySlice<UInt8>, valueSlice: ArraySlice<UInt8>) throws {
+        let trimmedKey = keySlice.trim()
+        try Validate.notEmpty(string: trimmedKey)
+        self.key = []
+        self.value = []
+        self.keySlice = trimmedKey
+        self.valueSlice = valueSlice
+    }
+
+    @usableFromInline
+    init(key: [UInt8], valueSlice: ArraySlice<UInt8>) throws {
+        try Validate.notEmpty(string: key)
+        self.key = key.trim()
+        self.value = []
+        self.valueSlice = valueSlice
     }
     
     public convenience init(key: String, value: String) throws {
@@ -43,7 +65,7 @@ open class Attribute {
     
     @inline(__always)
     open func getKeyUTF8() -> [UInt8] {
-        return key
+        return ensureKeyMaterialized()
     }
     
     /**
@@ -53,6 +75,7 @@ open class Attribute {
     @inline(__always)
     open func setKey(key: [UInt8]) throws {
         try Validate.notEmpty(string: key)
+        self.keySlice = nil
         self.key = key.trim()
     }
     
@@ -72,7 +95,7 @@ open class Attribute {
     
     @inline(__always)
     open func getValueUTF8() -> [UInt8] {
-        return value
+        return ensureValueMaterialized()
     }
     
     /**
@@ -82,7 +105,8 @@ open class Attribute {
     @discardableResult
     @inline(__always)
     open func setValue(value: [UInt8]) -> [UInt8] {
-        let old = self.value
+        let old = ensureValueMaterialized()
+        self.valueSlice = nil
         self.value = value
         return old
     }
@@ -100,10 +124,10 @@ open class Attribute {
     
     @inline(__always)
     public func html(accum: StringBuilder, out: OutputSettings) {
-        accum.append(key)
+        accum.append(getKeyUTF8())
         if (!shouldCollapseAttribute(out: out)) {
             accum.append(UTF8Arrays.attributeEqualsQuoteMark)
-            Entities.escape(accum, value, out, true, false, false)
+            Entities.escape(accum, getValueUTF8(), out, true, false, false)
             accum.append(UTF8Arrays.quoteMark)
         }
     }
@@ -131,7 +155,8 @@ open class Attribute {
     
     @inline(__always)
     public func isDataAttribute() -> Bool {
-        return key.starts(with: Attributes.dataPrefix) && key.count > Attributes.dataPrefix.count
+        let bytes = getKeyUTF8()
+        return bytes.starts(with: Attributes.dataPrefix) && bytes.count > Attributes.dataPrefix.count
     }
     
     /**
@@ -142,27 +167,29 @@ open class Attribute {
      */
     @inline(__always)
     public final func shouldCollapseAttribute(out: OutputSettings) -> Bool {
-        return value.isEmpty
+        return getValueUTF8().isEmpty
         && out.syntax() == OutputSettings.Syntax.html
         && isBooleanAttribute()
     }
     
     @inline(__always)
     public func isBooleanAttribute() -> Bool {
-        return Attribute.booleanAttributes.contains(key.lowercased()[...])
+        return Attribute.booleanAttributes.contains(getKeyUTF8().lowercased()[...])
     }
     
     @inline(__always)
     public func hashCode() -> Int {
-        var result = key.hashValue
-        result = 31 * result + value.hashValue
+        let keyBytes = getKeyUTF8()
+        let valueBytes = getValueUTF8()
+        var result = keyBytes.hashValue
+        result = 31 * result + valueBytes.hashValue
         return result
     }
     
     @inline(__always)
     public func clone() -> Attribute {
         do {
-            return try Attribute(key: key, value: value)
+            return try Attribute(key: getKeyUTF8(), value: getValueUTF8())
         } catch Exception.Error( _, let  msg) {
             print(msg)
         } catch {
@@ -170,12 +197,34 @@ open class Attribute {
         }
         return try! Attribute(key: [], value: [])
     }
+
+    @inline(__always)
+    @usableFromInline
+    internal func ensureKeyMaterialized() -> [UInt8] {
+        if let slice = keySlice {
+            let materialized = Array(slice)
+            keySlice = nil
+            key = materialized
+        }
+        return key
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func ensureValueMaterialized() -> [UInt8] {
+        if let slice = valueSlice {
+            let materialized = Array(slice)
+            valueSlice = nil
+            value = materialized
+        }
+        return value
+    }
 }
 
 extension Attribute: Equatable {
     @inline(__always)
     static public func == (lhs: Attribute, rhs: Attribute) -> Bool {
-        return lhs.value == rhs.value && lhs.key == rhs.key
+        return lhs.getKeyUTF8() == rhs.getKeyUTF8() && lhs.getValueUTF8() == rhs.getValueUTF8()
     }
     
 }

@@ -513,67 +513,131 @@ open class StringUtil {
             #endif
         }
         var lastWasWhite = false
-        var reachedNonWhite = false
-        var i = string.startIndex
-        let end = string.endIndex
-        while i < end {
-            let firstByte = string[i]
-            if firstByte < TokeniserStateVars.asciiUpperLimitByte {
-                if isAsciiWhitespaceByte(firstByte) {
-                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
-                        i = string.index(after: i)
+        if OptimizationFlags.usePointerWhitespaceNormalize {
+            var reachedNonWhite = false
+            string.withUnsafeBytes { buf in
+                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else { return }
+                let count = buf.count
+                var i = 0
+                while i < count {
+                    let firstByte = basePtr[i]
+                    if firstByte < TokeniserStateVars.asciiUpperLimitByte {
+                        if isAsciiWhitespaceByte(firstByte) {
+                            if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                                i &+= 1
+                                continue
+                            }
+                            accum.append(TokeniserStateVars.spaceByte)
+                            lastWasWhite = true
+                            i &+= 1
+                            continue
+                        }
+                        var j = i &+ 1
+                        while j < count {
+                            let b = basePtr[j]
+                            if b >= TokeniserStateVars.asciiUpperLimitByte || isAsciiWhitespaceByte(b) {
+                                break
+                            }
+                            j &+= 1
+                        }
+                        accum.write(contentsOf: basePtr.advanced(by: i), count: j - i)
+                        lastWasWhite = false
+                        reachedNonWhite = true
+                        i = j
                         continue
                     }
-                    accum.append(TokeniserStateVars.spaceByte)
-                    lastWasWhite = true
-                } else {
-                    var j = i
-                    while j < end {
-                        let b = string[j]
-                        if b >= TokeniserStateVars.asciiUpperLimitByte || isAsciiWhitespaceByte(b) {
-                            break
+                    if firstByte == utf8NBSPLead {
+                        let next = i &+ 1
+                        if next < count, basePtr[next] == utf8NBSPTrail {
+                            if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                                i = next &+ 1
+                                continue
+                            }
+                            accum.append(TokeniserStateVars.spaceByte)
+                            lastWasWhite = true
+                            i = next &+ 1
+                            continue
                         }
-                        j = string.index(after: j)
                     }
-                    accum.append(string[i..<j])
+                    let scalarByteCount: Int
+                    if firstByte < utf8Lead3Min {
+                        scalarByteCount = 2
+                    } else if firstByte < utf8Lead4Min {
+                        scalarByteCount = 3
+                    } else {
+                        scalarByteCount = 4
+                    }
+                    let next = i &+ scalarByteCount
+                    if next > count { return }
+                    accum.write(contentsOf: basePtr.advanced(by: i), count: scalarByteCount)
                     lastWasWhite = false
                     reachedNonWhite = true
-                    i = j
+                    i = next
+                }
+            }
+        } else {
+            var reachedNonWhite = false
+            var i = string.startIndex
+            let end = string.endIndex
+            while i < end {
+                let firstByte = string[i]
+                if firstByte < TokeniserStateVars.asciiUpperLimitByte {
+                    if isAsciiWhitespaceByte(firstByte) {
+                        if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                            i = string.index(after: i)
+                            continue
+                        }
+                        accum.append(TokeniserStateVars.spaceByte)
+                        lastWasWhite = true
+                    } else {
+                        var j = i
+                        while j < end {
+                            let b = string[j]
+                            if b >= TokeniserStateVars.asciiUpperLimitByte || isAsciiWhitespaceByte(b) {
+                                break
+                            }
+                            j = string.index(after: j)
+                        }
+                        accum.append(string[i..<j])
+                        lastWasWhite = false
+                        reachedNonWhite = true
+                        i = j
+                        continue
+                    }
+                    i = string.index(after: i)
                     continue
                 }
-                i = string.index(after: i)
-                continue
-            }
-            if firstByte == utf8NBSPLead {
-                let next = string.index(after: i)
-                if next < end, string[next] == utf8NBSPTrail {
-                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                if firstByte == utf8NBSPLead {
+                    let next = string.index(after: i)
+                    if next < end, string[next] == utf8NBSPTrail {
+                        if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                            i = string.index(after: next)
+                            continue
+                        }
+                        accum.append(TokeniserStateVars.spaceByte)
+                        lastWasWhite = true
                         i = string.index(after: next)
                         continue
                     }
-                    accum.append(TokeniserStateVars.spaceByte)
-                    lastWasWhite = true
-                    i = string.index(after: next)
-                    continue
                 }
+                let scalarByteCount: Int
+                if firstByte < utf8Lead3Min {
+                    scalarByteCount = 2
+                } else if firstByte < utf8Lead4Min {
+                    scalarByteCount = 3
+                } else {
+                    scalarByteCount = 4
+                }
+                var next = i
+                for _ in 0..<scalarByteCount {
+                    if next == end { return }
+                    next = string.index(after: next)
+                }
+                accum.append(string[i..<next])
+                lastWasWhite = false
+                reachedNonWhite = true
+                i = next
             }
-            let scalarByteCount: Int
-            if firstByte < utf8Lead3Min {
-                scalarByteCount = 2
-            } else if firstByte < utf8Lead4Min {
-                scalarByteCount = 3
-            } else {
-                scalarByteCount = 4
-            }
-            var next = i
-            for _ in 0..<scalarByteCount {
-                if next == end { return }
-                next = string.index(after: next)
-            }
-            accum.append(string[i..<next])
-            lastWasWhite = false
-            reachedNonWhite = true
-            i = next
         }
     }
 

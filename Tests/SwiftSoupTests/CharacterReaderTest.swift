@@ -387,6 +387,63 @@ class CharacterReaderTest: XCTestCase {
         XCTAssertEqual("cd", String(decoding: data2, as: UTF8.self))
     }
 
+    func testConsumeDataWordScanBoundary() {
+        let prefix = String(repeating: "a", count: 80)
+        let r = CharacterReader(prefix + "&rest")
+        let data = r.consumeData()
+        XCTAssertEqual(prefix, String(decoding: data, as: UTF8.self))
+        XCTAssertEqual("&", r.consume())
+    }
+
+    func testConsumeDataWordScanBoundaryAligned() {
+        let prefix = String(repeating: "a", count: 64)
+        let r = CharacterReader(prefix + "<rest")
+        let data = r.consumeData()
+        XCTAssertEqual(prefix, String(decoding: data, as: UTF8.self))
+        XCTAssertEqual("<", r.consume())
+    }
+
+    func testConsumeDataWordScanWithMultibytePrefix() {
+        let prefix = String(repeating: "a", count: 70) + "π"
+        let r = CharacterReader(prefix + "&rest")
+        let data = r.consumeData()
+        XCTAssertEqual(prefix, String(decoding: data, as: UTF8.self))
+        XCTAssertEqual("&", r.consume())
+    }
+
+    func testConsumeDataWordScanNullByteLongInput() {
+        let aByte = "a".utf8.first!
+        let prefix = [UInt8](repeating: aByte, count: 72)
+        let suffix = [UInt8](repeating: aByte, count: 16)
+        let bytes = prefix + [0x00] + suffix + ["b".utf8.first!]
+        let r = CharacterReader(bytes)
+        let data = r.consumeData()
+        XCTAssertEqual(prefix.count, data.count)
+        XCTAssertEqual(UnicodeScalar(0x00), r.current())
+        _ = r.consume()
+        let data2 = r.consumeData()
+        XCTAssertEqual(suffix.count + 1, data2.count)
+        XCTAssertEqual(String(repeating: "a", count: suffix.count) + "b", String(decoding: data2, as: UTF8.self))
+    }
+
+    func testConsumeDataWordScanNoTerminatorsLong() {
+        let prefix = String(repeating: "a", count: 96)
+        let r = CharacterReader(prefix)
+        let data = r.consumeData()
+        XCTAssertEqual(prefix, String(decoding: data, as: UTF8.self))
+        XCTAssertEqual(CharacterReader.EOF, r.current())
+    }
+
+    func testConsumeDataWordScanFindsTerminatorInsideWord() {
+        var bytes = [UInt8](repeating: "a".utf8.first!, count: 96)
+        bytes[48] = "&".utf8.first!
+        bytes[70] = "<".utf8.first!
+        let r = CharacterReader(bytes)
+        let data = r.consumeData()
+        XCTAssertEqual(String(repeating: "a", count: 48), String(decoding: data, as: UTF8.self))
+        XCTAssertEqual("&", r.consume())
+    }
+
     func testConsumeDataNoTerminators() {
         let r = CharacterReader("abcdef")
         let data = r.consumeData()

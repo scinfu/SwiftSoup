@@ -115,6 +115,37 @@ class StringUtilTest: XCTestCase {
         XCTAssertEqual("alpha beta ", sb.toString())
     }
 
+    func testAppendNormalisedWhitespaceNBSPBytesPath() {
+        let input = "a\u{00a0}b \t c\n"
+        let bytes = input.utf8Array
+        let sbSlice = StringBuilder()
+        var lastWasWhite = false
+        StringUtil.appendNormalisedWhitespace(sbSlice, string: bytes[...], stripLeading: false, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("a b c ", sbSlice.toString())
+
+        let sbString = StringBuilder()
+        StringUtil.appendNormalisedWhitespace(sbString, string: input, stripLeading: false)
+        XCTAssertEqual("a\u{00a0}b c ", sbString.toString())
+    }
+
+    func testAppendNormalisedWhitespacePreservesMultibyteArraySlice() {
+        let input = "  πβ   😀 \tζ "
+        let bytes = input.utf8Array
+        let sb = StringBuilder()
+        StringUtil.appendNormalisedWhitespace(sb, string: bytes[...], stripLeading: true)
+        XCTAssertEqual("πβ 😀 ζ ", sb.toString())
+    }
+
+    func testAppendNormalisedWhitespaceTrackingMultibyte() {
+        var lastWasWhite = true
+        let input = "  😀\tπ"
+        let bytes = input.utf8Array
+        let sb = StringBuilder()
+        StringUtil.appendNormalisedWhitespace(sb, string: bytes[...], stripLeading: false, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("😀 π", sb.toString())
+        XCTAssertFalse(lastWasWhite)
+    }
+
     func testAppendNormalisedWhitespaceBytes() {
         let sb = StringBuilder()
         let bytes = " alpha beta".utf8Array

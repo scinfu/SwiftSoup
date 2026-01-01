@@ -1430,6 +1430,56 @@ public final class CharacterReader {
 
         let remaining = end - pos
         #if canImport(Darwin) || canImport(Glibc)
+        if OptimizationFlags.useWordScanConsumeData && remaining >= 64 {
+            return input.withUnsafeBytes { buf in
+                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
+                    return input[start..<pos]
+                }
+                @inline(__always)
+                func hasByte(_ word: UInt64, _ byte: UInt64) -> Bool {
+                    let mask = byte &* Self.repeatedByteMask
+                    let x = word ^ mask
+                    return ((x &- Self.repeatedByteMask) & ~x & Self.highBitRepeatMask) != 0
+                }
+                let aWord = UInt64(TokeniserStateVars.ampersandByte)
+                let bWord = UInt64(TokeniserStateVars.lessThanByte)
+                let cWord = UInt64(TokeniserStateVars.nullByte)
+                let baseAddress = UInt(bitPattern: basePtr)
+                var i = pos
+                while i < end && ((baseAddress &+ UInt(i)) & 7) != 0 {
+                    let byte = basePtr[i]
+                    if byte == TokeniserStateVars.ampersandByte ||
+                        byte == TokeniserStateVars.lessThanByte ||
+                        (!useNoNullFastPath && byte == TokeniserStateVars.nullByte) {
+                        pos = i
+                        return input[start..<pos]
+                    }
+                    i &+= 1
+                }
+                let endWord = end &- 8
+                while i <= endWord {
+                    let word = UnsafeRawPointer(basePtr.advanced(by: i)).load(as: UInt64.self)
+                    var hit = hasByte(word, aWord) || hasByte(word, bWord)
+                    if !hit && !useNoNullFastPath {
+                        hit = hasByte(word, cWord)
+                    }
+                    if hit { break }
+                    i &+= 8
+                }
+                while i < end {
+                    let byte = basePtr[i]
+                    if byte == TokeniserStateVars.ampersandByte ||
+                        byte == TokeniserStateVars.lessThanByte ||
+                        (!useNoNullFastPath && byte == TokeniserStateVars.nullByte) {
+                        pos = i
+                        return input[start..<pos]
+                    }
+                    i &+= 1
+                }
+                pos = end
+                return input[start..<pos]
+            }
+        }
         if remaining >= 16 {
             return input.withUnsafeBytes { buf in
                 guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {

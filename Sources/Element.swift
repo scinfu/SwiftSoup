@@ -1463,7 +1463,7 @@ open class Element: Node {
     }
 
     @inline(__always)
-    private func collectTextFastTrimmed(_ accum: StringBuilder) {
+    private func collectTextFastTrimmed(_ accum: StringBuilder) -> Bool {
         var stack: ContiguousArray<Node> = []
         stack.reserveCapacity(childNodes.count + 1)
         stack.append(self)
@@ -1490,6 +1490,7 @@ open class Element: Node {
                 }
             }
         }
+        return lastWasWhite
     }
 
     @inline(__always)
@@ -1547,25 +1548,23 @@ open class Element: Node {
             let _p = Profiler.start("Element.text.traverse")
             defer { Profiler.end("Element.text.traverse", _p) }
             #endif
-            collectTextFastTrimmed(accum)
+            let lastWasWhite = collectTextFastTrimmed(accum)
             if let first = accum.buffer.first, first.isWhitespace {
                 let trimmed = accum.buffer.trim()
                 return String(decoding: trimmed, as: UTF8.self)
             }
-            accum.trimTrailingWhitespace()
+            if OptimizationFlags.useTextTrimFastPath {
+                if lastWasWhite {
+                    accum.trimTrailingWhitespace()
+                }
+            } else {
+                accum.trimTrailingWhitespace()
+            }
             return String(decoding: accum.buffer, as: UTF8.self)
         }
         let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
-        if trimAndNormaliseWhitespace {
-            collectTextFastTrimmed(accum)
-        } else {
-            collectTextFastRaw(accum)
-        }
-        let text = accum.toString()
-        if trimAndNormaliseWhitespace {
-            return text.trim()
-        }
-        return text
+        collectTextFastRaw(accum)
+        return accum.toString()
     }
     
     public func textUTF8(trimAndNormaliseWhitespace: Bool = true) throws -> [UInt8] {
@@ -1574,19 +1573,21 @@ open class Element: Node {
         }
         let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         if trimAndNormaliseWhitespace {
-            collectTextFastTrimmed(accum)
-        } else {
-            collectTextFastRaw(accum)
-        }
-        let text = accum.buffer
-        if trimAndNormaliseWhitespace {
+            let lastWasWhite = collectTextFastTrimmed(accum)
             if let first = accum.buffer.first, first.isWhitespace {
                 return Array(accum.buffer.trim())
             }
-            accum.trimTrailingWhitespace()
+            if OptimizationFlags.useTextTrimFastPath {
+                if lastWasWhite {
+                    accum.trimTrailingWhitespace()
+                }
+            } else {
+                accum.trimTrailingWhitespace()
+            }
             return Array(accum.buffer)
         }
-        return Array(text)
+        collectTextFastRaw(accum)
+        return Array(accum.buffer)
     }
     
     public func textUTF8Slice(trimAndNormaliseWhitespace: Bool = true) throws -> ArraySlice<UInt8> {
@@ -1595,19 +1596,21 @@ open class Element: Node {
         }
         let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         if trimAndNormaliseWhitespace {
-            collectTextFastTrimmed(accum)
-        } else {
-            collectTextFastRaw(accum)
-        }
-        let text = accum.buffer
-        if trimAndNormaliseWhitespace {
+            let lastWasWhite = collectTextFastTrimmed(accum)
             if let first = accum.buffer.first, first.isWhitespace {
                 return accum.buffer.trim()
             }
-            accum.trimTrailingWhitespace()
+            if OptimizationFlags.useTextTrimFastPath {
+                if lastWasWhite {
+                    accum.trimTrailingWhitespace()
+                }
+            } else {
+                accum.trimTrailingWhitespace()
+            }
             return accum.buffer
         }
-        return text
+        collectTextFastRaw(accum)
+        return accum.buffer
     }
 
     @inline(__always)
