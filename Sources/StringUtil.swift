@@ -583,6 +583,50 @@ open class StringUtil {
                                                   stripLeading: Bool,
                                                   lastWasWhite: inout Bool) {
         if !string.isEmpty {
+            // Fast path for ASCII slices that only contain single spaces (no tabs/newlines/NBSP, no doubles).
+            var previousWasSpace = false
+            var asciiOnlySingleSpace = true
+            var i = string.startIndex
+            let end = string.endIndex
+            while i < end {
+                let b = string[i]
+                if b >= TokeniserStateVars.asciiUpperLimitByte {
+                    asciiOnlySingleSpace = false
+                    break
+                }
+                if b == TokeniserStateVars.spaceByte {
+                    if previousWasSpace {
+                        asciiOnlySingleSpace = false
+                        break
+                    }
+                    previousWasSpace = true
+                } else if b == TokeniserStateVars.tabByte ||
+                            b == TokeniserStateVars.newLineByte ||
+                            b == TokeniserStateVars.formFeedByte ||
+                            b == TokeniserStateVars.carriageReturnByte {
+                    asciiOnlySingleSpace = false
+                    break
+                } else {
+                    previousWasSpace = false
+                }
+                i = string.index(after: i)
+            }
+            if asciiOnlySingleSpace {
+                var start = string.startIndex
+                if (stripLeading || lastWasWhite) && string[start] == TokeniserStateVars.spaceByte {
+                    start = string.index(after: start)
+                    if start == end {
+                        return
+                    }
+                }
+                accum.append(string[start..<end])
+                if let last = string.last {
+                    lastWasWhite = (last == TokeniserStateVars.spaceByte)
+                }
+                return
+            }
+        }
+        if !string.isEmpty {
             var skipProbe = false
             let count = string.count
             if count <= 64 {

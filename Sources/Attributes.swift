@@ -946,9 +946,12 @@ open class Attributes: NSCopying {
     open func dataset() -> [String: String] {
         ensureMaterialized()
         let prefixLength = Attributes.dataPrefix.count
-        let pairs = attributes.filter { $0.isDataAttribute() }
-            .map { ($0.getKey().substring(prefixLength), $0.getValue()) }
-        return Dictionary(uniqueKeysWithValues: pairs)
+        var result: [String: String] = [:]
+        result.reserveCapacity(attributes.count)
+        for attr in attributes where attr.isDataAttribute() {
+            result[attr.getKey().substring(prefixLength)] = attr.getValue()
+        }
+        return result
     }
     
     /**

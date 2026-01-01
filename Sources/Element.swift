@@ -980,8 +980,8 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementById(_ id: String) throws -> Element? {
-        try Validate.notEmpty(string: id.utf8Array)
         let idBytes = id.utf8Array
+        try Validate.notEmpty(string: idBytes)
         let needsTrim = (idBytes.first?.isWhitespace ?? false) || (idBytes.last?.isWhitespace ?? false)
         let key = needsTrim ? idBytes.trim() : idBytes
         if key.isEmpty {
@@ -1843,7 +1843,7 @@ open class Element: Node {
             return true
         }
         var matcher = AsciiKMPMatcher(needleLower)
-        var stack: [Node] = []
+        var stack: ContiguousArray<Node> = []
         stack.reserveCapacity(childNodes.count + 1)
         stack.append(self)
         var lastWasWhite = false
@@ -1890,7 +1890,8 @@ open class Element: Node {
         var matcher = AsciiKMPMatcher(needleLower)
         var lastWasWhite = false
         var emittedAny = false
-        for child in childNodes {
+        let children = childNodes
+        for child in children {
             if let textNode = child as? TextNode {
                 let slice = textNode.wholeTextSlice()
                 let stripLeading = !emittedAny || lastWasWhite

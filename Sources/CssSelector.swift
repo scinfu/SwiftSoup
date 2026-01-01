@@ -127,7 +127,8 @@ open class CssSelector {
             return fast
         }
         DebugTrace.log("CssSelector.select(query): slow path")
-        let result = try CssSelector(query, root).select()
+        let evaluator = try cachedEvaluatorTrimmed(query)
+        let result = try select(evaluator, root)
         root.storeSelectorResult(query, result)
         return result
     }
