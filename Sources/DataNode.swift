@@ -22,7 +22,7 @@ open class DataNode: Node {
     public init(_ data: [UInt8], _ baseUri: [UInt8]) {
         super.init(baseUri)
         do {
-            try attributes?.put(DataNode.DATA_KEY, data)
+            try ensureAttributesForWrite().put(DataNode.DATA_KEY, data)
         } catch {}
 
     }
@@ -58,11 +58,14 @@ open class DataNode: Node {
             let materialized = Array(slice)
             rawDataSlice = nil
             do {
-                try attributes?.put(DataNode.DATA_KEY, materialized)
+                try ensureAttributesForWrite().put(DataNode.DATA_KEY, materialized)
             } catch {}
             return materialized
         }
-        return attributes!.get(key: DataNode.DATA_KEY)
+        guard let attributes = attributes else {
+            return []
+        }
+        return attributes.get(key: DataNode.DATA_KEY)
     }
 
     @usableFromInline
@@ -70,7 +73,7 @@ open class DataNode: Node {
         var data = getWholeDataUTF8()
         data.append(contentsOf: slice)
         do {
-            try attributes?.put(DataNode.DATA_KEY, data)
+            try ensureAttributesForWrite().put(DataNode.DATA_KEY, data)
         } catch {}
         markSourceDirty()
     }
@@ -111,7 +114,7 @@ open class DataNode: Node {
     open func setWholeData(_ data: String) -> DataNode {
         rawDataSlice = nil
         do {
-            try attributes?.put(DataNode.DATA_KEY, data.utf8Array)
+            try ensureAttributesForWrite().put(DataNode.DATA_KEY, data.utf8Array)
         } catch {}
         markSourceDirty()
         return self

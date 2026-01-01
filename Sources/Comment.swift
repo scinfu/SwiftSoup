@@ -21,7 +21,7 @@ public class Comment: Node {
     public init(_ data: [UInt8], _ baseUri: [UInt8]) {
         super.init(baseUri)
         do {
-            try attributes?.put(Comment.COMMENT_KEY, data)
+            try ensureAttributesForWrite().put(Comment.COMMENT_KEY, data)
         } catch {}
     }
 
@@ -46,7 +46,10 @@ public class Comment: Node {
     
     @inline(__always)
     public func getDataUTF8() -> [UInt8] {
-		return attributes!.get(key: Comment.COMMENT_KEY)
+        guard let attributes = attributes else {
+            return []
+        }
+		return attributes.get(key: Comment.COMMENT_KEY)
     }
 
 
@@ -64,21 +67,21 @@ public class Comment: Node {
     @inline(__always)
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {}
 
-    @inline(__always)
+	@inline(__always)
 	public override func copy(with zone: NSZone? = nil) -> Any {
-		let clone = Comment(attributes!.get(key: Comment.COMMENT_KEY), baseUri!)
+        let clone = Comment(getDataUTF8(), baseUri!)
 		return copy(clone: clone)
 	}
 
 	@inline(__always)
 	public override func copy(parent: Node?) -> Node {
-		let clone = Comment(attributes!.get(key: Comment.COMMENT_KEY), baseUri!)
+        let clone = Comment(getDataUTF8(), baseUri!)
 		return copy(clone: clone, parent: parent)
 	}
 
     @inline(__always)
     override func copyForDeepClone(parent: Node?) -> Node {
-        let clone = Comment(attributes!.get(key: Comment.COMMENT_KEY), baseUri!)
+        let clone = Comment(getDataUTF8(), baseUri!)
         return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
 

@@ -23,6 +23,19 @@ internal final class Weak<T: AnyObject> {
 open class Node: Equatable, Hashable {
     var baseUri: [UInt8]?
     var attributes: Attributes?
+
+    @inline(__always)
+    internal func ensureAttributesForWrite() -> Attributes {
+        if let attributes {
+            return attributes
+        }
+        let created = Attributes()
+        if let element = self as? Element {
+            created.ownerElement = element
+        }
+        attributes = created
+        return created
+    }
     
     @usableFromInline
     internal var sourceRange: SourceRange? = nil
@@ -128,7 +141,7 @@ open class Node: Equatable, Hashable {
             childNodes.reserveCapacity(32)
         }
         self.baseUri = baseUri.trim()
-        self.attributes = Attributes()
+        self.attributes = nil
     }
     
     /**
@@ -174,7 +187,13 @@ open class Node: Equatable, Hashable {
      - seealso: ``getAttributes()``, ``hasAttr(_:)-(String)``, ``absUrl(_:)-(String)``
      */
     open func attr(_ attributeKey: [UInt8]) throws -> [UInt8] {
-        let val: [UInt8] = try attributes!.getIgnoreCase(key: attributeKey)
+        guard let attributes = attributes else {
+            if Node.hasAbsPrefix(attributeKey) {
+                return try absUrl(attributeKey.substring(Node.abs.count))
+            }
+            return Node.empty
+        }
+        let val: [UInt8] = try attributes.getIgnoreCase(key: attributeKey)
         if !val.isEmpty {
             return val
         } else if Node.hasAbsPrefix(attributeKey) {
@@ -204,14 +223,14 @@ open class Node: Equatable, Hashable {
      */
     @discardableResult
     open func attr(_ attributeKey: [UInt8], _ attributeValue: [UInt8]) throws -> Node {
-        try attributes?.put(attributeKey, attributeValue)
+        try ensureAttributesForWrite().put(attributeKey, attributeValue)
         markSourceDirty()
         return self
     }
     
     @discardableResult
     open func attr(_ attributeKey: String, _ attributeValue: String) throws -> Node {
-        try attributes?.put(attributeKey, attributeValue)
+        try ensureAttributesForWrite().put(attributeKey, attributeValue)
         markSourceDirty()
         return self
     }

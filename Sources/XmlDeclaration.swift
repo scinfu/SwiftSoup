@@ -51,7 +51,10 @@ public class XmlDeclaration: Node {
      - returns: XML declaration
      */
     public func getWholeDeclaration()throws->String {
-        return try attributes!.html().trim() // attr html starts with a " "
+        guard let attributes = attributes else {
+            return ""
+        }
+        return try attributes.html().trim() // attr html starts with a " "
     }
 
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {

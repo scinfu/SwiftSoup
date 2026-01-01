@@ -106,37 +106,6 @@ open class Attributes: NSCopying {
     internal func appendPending(_ pending: PendingAttribute) {
         if !attributes.isEmpty {
             // If materialized already, fall back to regular put.
-            let useSlices = OptimizationFlags.useAttributeSlices
-            if !useSlices {
-                let key: [UInt8]
-                if let nameBytes = pending.nameBytes {
-                    key = nameBytes
-                } else if let nameSlice = pending.nameSlice {
-                    key = Array(nameSlice)
-                } else {
-                    return
-                }
-                let attribute: Attribute
-                switch pending.value {
-                case .none:
-                    attribute = try! BooleanAttribute(key: key)
-                case .empty:
-                    attribute = try! Attribute(key: key, value: [])
-                case .slice(let slice):
-                    attribute = try! Attribute(key: key, value: Array(slice))
-                case .slices(let slices, let count):
-                    var value: [UInt8] = []
-                    value.reserveCapacity(count)
-                    for slice in slices {
-                        value.append(contentsOf: slice)
-                    }
-                    attribute = try! Attribute(key: key, value: value)
-                case .bytes(let bytes):
-                    attribute = try! Attribute(key: key, value: bytes)
-                }
-                putMaterialized(attribute)
-                return
-            }
             let keyBytes: [UInt8]?
             let keySlice: ArraySlice<UInt8>?
             if let nameBytes = pending.nameBytes {
@@ -233,7 +202,6 @@ open class Attributes: NSCopying {
         var touchedClass = false
         var touchedId = false
         attributes.reserveCapacity(attributes.count + pending.count)
-        let useSlices = OptimizationFlags.useAttributeSlices
         for pendingAttr in pending {
             if let nameBytes = pendingAttr.nameBytes {
                 DebugTrace.log("Attributes.ensureMaterialized: nameBytes=\(String(decoding: nameBytes, as: UTF8.self))")
@@ -243,80 +211,52 @@ open class Attributes: NSCopying {
                 DebugTrace.log("Attributes.ensureMaterialized: missing name")
             }
             let attribute: Attribute
-            if !useSlices {
-                let key: [UInt8]
-                if let nameBytes = pendingAttr.nameBytes {
-                    key = nameBytes
-                } else if let nameSlice = pendingAttr.nameSlice {
-                    key = Array(nameSlice)
-                } else {
-                    continue
-                }
-                switch pendingAttr.value {
-                case .none:
-                    attribute = try! BooleanAttribute(key: key)
-                case .empty:
-                    attribute = try! Attribute(key: key, value: [])
-                case .slice(let slice):
-                    attribute = try! Attribute(key: key, value: Array(slice))
-                case .slices(let slices, let count):
-                    var value: [UInt8] = []
-                    value.reserveCapacity(count)
-                    for slice in slices {
-                        value.append(contentsOf: slice)
-                    }
-                    attribute = try! Attribute(key: key, value: value)
-                case .bytes(let bytes):
-                    attribute = try! Attribute(key: key, value: bytes)
-                }
+            let keyBytes: [UInt8]?
+            let keySlice: ArraySlice<UInt8>?
+            if let nameBytes = pendingAttr.nameBytes {
+                keyBytes = nameBytes
+                keySlice = nil
+            } else if let nameSlice = pendingAttr.nameSlice {
+                keyBytes = nil
+                keySlice = nameSlice.trim()
             } else {
-                let keyBytes: [UInt8]?
-                let keySlice: ArraySlice<UInt8>?
-                if let nameBytes = pendingAttr.nameBytes {
-                    keyBytes = nameBytes
-                    keySlice = nil
-                } else if let nameSlice = pendingAttr.nameSlice {
-                    keyBytes = nil
-                    keySlice = nameSlice.trim()
+                continue
+            }
+            switch pendingAttr.value {
+            case .none:
+                if let keySlice {
+                    attribute = try! BooleanAttribute(keySlice: keySlice)
                 } else {
-                    continue
+                    attribute = try! BooleanAttribute(key: keyBytes!)
                 }
-                switch pendingAttr.value {
-                case .none:
-                    if let keySlice {
-                        attribute = try! BooleanAttribute(keySlice: keySlice)
-                    } else {
-                        attribute = try! BooleanAttribute(key: keyBytes!)
-                    }
-                case .empty:
-                    if let keySlice {
-                        attribute = try! Attribute(keySlice: keySlice, valueSlice: ArraySlice<UInt8>())
-                    } else {
-                        attribute = try! Attribute(key: keyBytes!, value: [])
-                    }
-                case .slice(let slice):
-                    if let keySlice {
-                        attribute = try! Attribute(keySlice: keySlice, valueSlice: slice)
-                    } else {
-                        attribute = try! Attribute(key: keyBytes!, valueSlice: slice)
-                    }
-                case .slices(let slices, let count):
-                    var value: [UInt8] = []
-                    value.reserveCapacity(count)
-                    for slice in slices {
-                        value.append(contentsOf: slice)
-                    }
-                    if let keySlice {
-                        attribute = try! Attribute(keySlice: keySlice, valueSlice: value[...])
-                    } else {
-                        attribute = try! Attribute(key: keyBytes!, value: value)
-                    }
-                case .bytes(let bytes):
-                    if let keySlice {
-                        attribute = try! Attribute(keySlice: keySlice, valueSlice: bytes[...])
-                    } else {
-                        attribute = try! Attribute(key: keyBytes!, value: bytes)
-                    }
+            case .empty:
+                if let keySlice {
+                    attribute = try! Attribute(keySlice: keySlice, valueSlice: ArraySlice<UInt8>())
+                } else {
+                    attribute = try! Attribute(key: keyBytes!, value: [])
+                }
+            case .slice(let slice):
+                if let keySlice {
+                    attribute = try! Attribute(keySlice: keySlice, valueSlice: slice)
+                } else {
+                    attribute = try! Attribute(key: keyBytes!, valueSlice: slice)
+                }
+            case .slices(let slices, let count):
+                var value: [UInt8] = []
+                value.reserveCapacity(count)
+                for slice in slices {
+                    value.append(contentsOf: slice)
+                }
+                if let keySlice {
+                    attribute = try! Attribute(keySlice: keySlice, valueSlice: value[...])
+                } else {
+                    attribute = try! Attribute(key: keyBytes!, value: value)
+                }
+            case .bytes(let bytes):
+                if let keySlice {
+                    attribute = try! Attribute(keySlice: keySlice, valueSlice: bytes[...])
+                } else {
+                    attribute = try! Attribute(key: keyBytes!, value: bytes)
                 }
             }
             let keyForIndex = attribute.getKeyUTF8()

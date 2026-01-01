@@ -1430,7 +1430,7 @@ public final class CharacterReader {
 
         let remaining = end - pos
         #if canImport(Darwin) || canImport(Glibc)
-        if OptimizationFlags.useWordScanConsumeData && remaining >= 64 {
+        if remaining >= 64 {
             return input.withUnsafeBytes { buf in
                 guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else {
                     return input[start..<pos]

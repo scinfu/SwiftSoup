@@ -1553,11 +1553,7 @@ open class Element: Node {
                 let trimmed = accum.buffer.trim()
                 return String(decoding: trimmed, as: UTF8.self)
             }
-            if OptimizationFlags.useTextTrimFastPath {
-                if lastWasWhite {
-                    accum.trimTrailingWhitespace()
-                }
-            } else {
+            if lastWasWhite {
                 accum.trimTrailingWhitespace()
             }
             return String(decoding: accum.buffer, as: UTF8.self)
@@ -1577,11 +1573,7 @@ open class Element: Node {
             if let first = accum.buffer.first, first.isWhitespace {
                 return Array(accum.buffer.trim())
             }
-            if OptimizationFlags.useTextTrimFastPath {
-                if lastWasWhite {
-                    accum.trimTrailingWhitespace()
-                }
-            } else {
+            if lastWasWhite {
                 accum.trimTrailingWhitespace()
             }
             return Array(accum.buffer)
@@ -1600,11 +1592,7 @@ open class Element: Node {
             if let first = accum.buffer.first, first.isWhitespace {
                 return accum.buffer.trim()
             }
-            if OptimizationFlags.useTextTrimFastPath {
-                if lastWasWhite {
-                    accum.trimTrailingWhitespace()
-                }
-            } else {
+            if lastWasWhite {
                 accum.trimTrailingWhitespace()
             }
             return accum.buffer

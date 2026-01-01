@@ -121,6 +121,12 @@ open class CssSelector {
             DebugTrace.log("CssSelector.select(query): selector cache hit")
             return cached
         }
+        if let tagBytes = simpleTagQueryBytes(query) {
+            DebugTrace.log("CssSelector.select(query): simple tag fast path")
+            let result = try root.getElementsByTagNormalized(tagBytes)
+            root.storeSelectorResult(query, result)
+            return result
+        }
         if let fast = try fastSelectQuery(query, root, query) {
             DebugTrace.log("CssSelector.select(query): fast path hit")
             root.storeSelectorResult(query, fast)
@@ -158,6 +164,28 @@ open class CssSelector {
             if let cached = root.cachedSelectorResult(query) {
                 return cached
             }
+        }
+        if let tagBytes = simpleTagQueryBytes(query) {
+            if roots.count == 1, let root = roots.first {
+                let result = try root.getElementsByTagNormalized(tagBytes)
+                root.storeSelectorResult(query, result)
+                return result
+            }
+            var elements: Array<Element> = []
+            var seenIds = Set<ObjectIdentifier>()
+            seenIds.reserveCapacity(roots.count * 8)
+            for root in roots {
+                let found = try root.getElementsByTagNormalized(tagBytes)
+                for el in found.array() {
+                    let id = ObjectIdentifier(el)
+                    if seenIds.contains(id) {
+                        continue
+                    }
+                    seenIds.insert(id)
+                    elements.append(el)
+                }
+            }
+            return Elements(elements)
         }
         if let fast = try fastSelectQuery(query, roots, query) {
             if roots.count == 1, let root = roots.first {
@@ -487,6 +515,29 @@ open class CssSelector {
         let plan = cachedFastQueryPlan(trimmed)
         DebugTrace.log("CssSelector.fastSelectQuery: plan=\(plan)")
         return try plan.apply(root)
+    }
+
+    @inline(__always)
+    private static func simpleTagQueryBytes(_ trimmed: String) -> [UInt8]? {
+        if trimmed.isEmpty {
+            return nil
+        }
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(trimmed.utf8.count)
+        for b in trimmed.utf8 {
+            switch b {
+            case TokeniserStateVars.upperAByte...TokeniserStateVars.upperZByte:
+                bytes.append(b &+ 32)
+            case TokeniserStateVars.lowerAByte...TokeniserStateVars.lowerZByte,
+                 TokeniserStateVars.zeroByte...TokeniserStateVars.nineByte,
+                 TokeniserStateVars.hyphenByte,
+                 TokeniserStateVars.underscoreByte:
+                bytes.append(b)
+            default:
+                return nil
+            }
+        }
+        return bytes.isEmpty ? nil : bytes
     }
 
     private static func cachedFastQueryPlan(_ trimmed: String) -> FastQueryPlan {
