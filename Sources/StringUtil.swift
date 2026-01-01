@@ -47,12 +47,39 @@ open class StringUtil {
     }
 
     @inline(__always)
+    static func hasPrefixLowercaseAscii(_ bytes: [UInt8], _ lowerPrefix: [UInt8]) -> Bool {
+        if lowerPrefix.count > bytes.count { return false }
+        var i = 0
+        while i < lowerPrefix.count {
+            if Attributes.asciiLowercase(bytes[i]) != lowerPrefix[i] {
+                return false
+            }
+            i &+= 1
+        }
+        return true
+    }
+
+    @inline(__always)
     static func hasSuffixIgnoreCaseAscii(_ bytes: [UInt8], _ suffix: [UInt8]) -> Bool {
         if suffix.count > bytes.count { return false }
         let offset = bytes.count - suffix.count
         var i = 0
         while i < suffix.count {
             if Attributes.asciiLowercase(bytes[offset + i]) != Attributes.asciiLowercase(suffix[i]) {
+                return false
+            }
+            i &+= 1
+        }
+        return true
+    }
+
+    @inline(__always)
+    static func hasSuffixLowercaseAscii(_ bytes: [UInt8], _ lowerSuffix: [UInt8]) -> Bool {
+        if lowerSuffix.count > bytes.count { return false }
+        let offset = bytes.count - lowerSuffix.count
+        var i = 0
+        while i < lowerSuffix.count {
+            if Attributes.asciiLowercase(bytes[offset + i]) != lowerSuffix[i] {
                 return false
             }
             i &+= 1
@@ -72,6 +99,30 @@ open class StringUtil {
             var j = 0
             while j < needleCount {
                 if Attributes.asciiLowercase(bytes[i + j]) != Attributes.asciiLowercase(needle[j]) {
+                    break
+                }
+                j &+= 1
+            }
+            if j == needleCount {
+                return true
+            }
+            i &+= 1
+        }
+        return false
+    }
+
+    @inline(__always)
+    static func containsLowercaseAscii(_ bytes: [UInt8], _ lowerNeedle: [UInt8]) -> Bool {
+        let hayCount = bytes.count
+        let needleCount = lowerNeedle.count
+        if needleCount == 0 { return true }
+        if needleCount > hayCount { return false }
+        let limit = hayCount - needleCount
+        var i = 0
+        while i <= limit {
+            var j = 0
+            while j < needleCount {
+                if Attributes.asciiLowercase(bytes[i + j]) != lowerNeedle[j] {
                     break
                 }
                 j &+= 1
@@ -104,6 +155,10 @@ open class StringUtil {
     static let utf8NBSPLead: UInt8 = 0xC2
     @usableFromInline
     static let utf8NBSPTrail: UInt8 = 0xA0
+    @usableFromInline
+    static let utf8Lead3Min: UInt8 = 0xE0
+    @usableFromInline
+    static let utf8Lead4Min: UInt8 = 0xF0
     @usableFromInline
     static func isAsciiWhitespaceByte(_ byte: UInt8) -> Bool {
         return byte == TokeniserStateVars.spaceByte ||
@@ -304,7 +359,7 @@ open class StringUtil {
         var i = 0
         while i < string.count {
             let firstByte = string[i]
-            if firstByte < 0x80 {
+            if firstByte < TokeniserStateVars.asciiUpperLimitByte {
                 if isAsciiWhitespaceByte(firstByte) {
                     if (stripLeading && !reachedNonWhite) || lastWasWhite {
                         i += 1
@@ -320,7 +375,7 @@ open class StringUtil {
                 i += 1
                 continue
             }
-            if firstByte == 0xC2, i + 1 < string.count, string[i + 1] == 0xA0 {
+            if firstByte == utf8NBSPLead, i + 1 < string.count, string[i + 1] == utf8NBSPTrail {
                 if (stripLeading && !reachedNonWhite) || lastWasWhite {
                     i += 2
                     continue
@@ -332,9 +387,9 @@ open class StringUtil {
             }
             // Non-ASCII scalar, append as-is.
             let scalarByteCount: Int
-            if firstByte < 0xE0 {
+            if firstByte < utf8Lead3Min {
                 scalarByteCount = 2
-            } else if firstByte < 0xF0 {
+            } else if firstByte < utf8Lead4Min {
                 scalarByteCount = 3
             } else {
                 scalarByteCount = 4
@@ -406,7 +461,7 @@ open class StringUtil {
                 var hasWhitespace = false
                 var asciiOnly = true
                 for b in string {
-                    if b >= 0x80 {
+                    if b >= TokeniserStateVars.asciiUpperLimitByte {
                         asciiOnly = false
                         break
                     }
@@ -459,66 +514,65 @@ open class StringUtil {
         }
         var lastWasWhite = false
         var reachedNonWhite = false
-        var i = string.startIndex
-        let end = string.endIndex
-        while i < end {
-            let firstByte = string[i]
-            if firstByte < 0x80 {
-                if isAsciiWhitespaceByte(firstByte) {
-                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
-                        i = string.index(after: i)
+        string.withUnsafeBytes { buf in
+            guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else { return }
+            let count = buf.count
+            var i = 0
+            while i < count {
+                let firstByte = basePtr[i]
+                if firstByte < TokeniserStateVars.asciiUpperLimitByte {
+                    if isAsciiWhitespaceByte(firstByte) {
+                        if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                            i &+= 1
+                            continue
+                        }
+                        accum.append(TokeniserStateVars.spaceByte)
+                        lastWasWhite = true
+                        i &+= 1
                         continue
                     }
-                    accum.append(TokeniserStateVars.spaceByte)
-                    lastWasWhite = true
-                } else {
-                    var j = i
-                    while j < end {
-                        let b = string[j]
-                        if b >= 0x80 || isAsciiWhitespaceByte(b) {
+                    var j = i &+ 1
+                    while j < count {
+                        let b = basePtr[j]
+                        if b >= TokeniserStateVars.asciiUpperLimitByte || isAsciiWhitespaceByte(b) {
                             break
                         }
-                        j = string.index(after: j)
+                        j &+= 1
                     }
-                    accum.append(string[i..<j])
+                    accum.write(contentsOf: basePtr.advanced(by: i), count: j - i)
                     lastWasWhite = false
                     reachedNonWhite = true
                     i = j
                     continue
                 }
-                i = string.index(after: i)
-                continue
-            }
-            if firstByte == utf8NBSPLead {
-                let next = string.index(after: i)
-                if next < end, string[next] == utf8NBSPTrail {
-                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
-                        i = string.index(after: next)
+                if firstByte == utf8NBSPLead {
+                    let next = i &+ 1
+                    if next < count, basePtr[next] == utf8NBSPTrail {
+                        if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                            i = next &+ 1
+                            continue
+                        }
+                        accum.append(TokeniserStateVars.spaceByte)
+                        lastWasWhite = true
+                        i = next &+ 1
                         continue
                     }
-                    accum.append(TokeniserStateVars.spaceByte)
-                    lastWasWhite = true
-                    i = string.index(after: next)
-                    continue
                 }
+                let scalarByteCount: Int
+                if firstByte < utf8Lead3Min {
+                    scalarByteCount = 2
+                } else if firstByte < utf8Lead4Min {
+                    scalarByteCount = 3
+                } else {
+                    scalarByteCount = 4
+                }
+                let next = i &+ scalarByteCount
+                if next > count { return }
+                accum.write(contentsOf: basePtr.advanced(by: i), count: scalarByteCount)
+                lastWasWhite = false
+                reachedNonWhite = true
+                i = next
             }
-            let scalarByteCount: Int
-            if firstByte < 0xE0 {
-                scalarByteCount = 2
-            } else if firstByte < 0xF0 {
-                scalarByteCount = 3
-            } else {
-                scalarByteCount = 4
-            }
-            var next = i
-            for _ in 0..<scalarByteCount {
-                if next == end { return }
-                next = string.index(after: next)
-            }
-            accum.append(string[i..<next])
-            lastWasWhite = false
-            reachedNonWhite = true
-            i = next
         }
     }
 
@@ -527,6 +581,71 @@ open class StringUtil {
                                                   string: ArraySlice<UInt8>,
                                                   stripLeading: Bool,
                                                   lastWasWhite: inout Bool) {
+        var sawWhitespace = false
+        appendNormalisedWhitespace(
+            accum,
+            string: string,
+            stripLeading: stripLeading,
+            lastWasWhite: &lastWasWhite,
+            sawWhitespace: &sawWhitespace
+        )
+    }
+
+    @inlinable
+    public static func appendNormalisedWhitespace(_ accum: StringBuilder,
+                                                  string: ArraySlice<UInt8>,
+                                                  stripLeading: Bool,
+                                                  lastWasWhite: inout Bool,
+                                                  sawWhitespace: inout Bool) {
+        if !string.isEmpty {
+            // Fast path for ASCII slices that only contain single spaces (no tabs/newlines/NBSP, no doubles).
+            var previousWasSpace = false
+            var sawSpace = false
+            var asciiOnlySingleSpace = true
+            var i = string.startIndex
+            let end = string.endIndex
+            while i < end {
+                let b = string[i]
+                if b >= TokeniserStateVars.asciiUpperLimitByte {
+                    asciiOnlySingleSpace = false
+                    break
+                }
+                if b == TokeniserStateVars.spaceByte {
+                    sawSpace = true
+                    if previousWasSpace {
+                        asciiOnlySingleSpace = false
+                        break
+                    }
+                    previousWasSpace = true
+                } else if b == TokeniserStateVars.tabByte ||
+                            b == TokeniserStateVars.newLineByte ||
+                            b == TokeniserStateVars.formFeedByte ||
+                            b == TokeniserStateVars.carriageReturnByte {
+                    asciiOnlySingleSpace = false
+                    break
+                } else {
+                    previousWasSpace = false
+                }
+                i = string.index(after: i)
+            }
+            if asciiOnlySingleSpace {
+                var start = string.startIndex
+                if (stripLeading || lastWasWhite) && string[start] == TokeniserStateVars.spaceByte {
+                    start = string.index(after: start)
+                    if start == end {
+                        return
+                    }
+                }
+                accum.append(string[start..<end])
+                if let last = string.last {
+                    lastWasWhite = (last == TokeniserStateVars.spaceByte)
+                }
+                if sawSpace {
+                    sawWhitespace = true
+                }
+                return
+            }
+        }
         if !string.isEmpty {
             var skipProbe = false
             let count = string.count
@@ -534,7 +653,7 @@ open class StringUtil {
                 var hasWhitespace = false
                 var asciiOnly = true
                 for b in string {
-                    if b >= 0x80 {
+                    if b >= TokeniserStateVars.asciiUpperLimitByte {
                         asciiOnly = false
                         break
                     }
@@ -595,66 +714,67 @@ open class StringUtil {
             #endif
         }
         var reachedNonWhite = false
-        var i = string.startIndex
-        let end = string.endIndex
-        while i < end {
-            let firstByte = string[i]
-            if firstByte < 0x80 {
-                if isAsciiWhitespaceByte(firstByte) {
-                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
-                        i = string.index(after: i)
+        string.withUnsafeBytes { buf in
+            guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else { return }
+            let count = buf.count
+            var i = 0
+            while i < count {
+                let firstByte = basePtr[i]
+                if firstByte < TokeniserStateVars.asciiUpperLimitByte {
+                    if isAsciiWhitespaceByte(firstByte) {
+                        if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                            i &+= 1
+                            continue
+                        }
+                        accum.append(TokeniserStateVars.spaceByte)
+                        lastWasWhite = true
+                        sawWhitespace = true
+                        i &+= 1
                         continue
                     }
-                    accum.append(TokeniserStateVars.spaceByte)
-                    lastWasWhite = true
-                } else {
-                    var j = i
-                    while j < end {
-                        let b = string[j]
-                        if b >= 0x80 || isAsciiWhitespaceByte(b) {
+                    var j = i &+ 1
+                    while j < count {
+                        let b = basePtr[j]
+                        if b >= TokeniserStateVars.asciiUpperLimitByte || isAsciiWhitespaceByte(b) {
                             break
                         }
-                        j = string.index(after: j)
+                        j &+= 1
                     }
-                    accum.append(string[i..<j])
+                    accum.write(contentsOf: basePtr.advanced(by: i), count: j - i)
                     lastWasWhite = false
                     reachedNonWhite = true
                     i = j
                     continue
                 }
-                i = string.index(after: i)
-                continue
-            }
-            if firstByte == utf8NBSPLead {
-                let next = string.index(after: i)
-                if next < end, string[next] == utf8NBSPTrail {
-                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
-                        i = string.index(after: next)
+                if firstByte == utf8NBSPLead {
+                    let next = i &+ 1
+                    if next < count, basePtr[next] == utf8NBSPTrail {
+                        if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                            i = next &+ 1
+                            continue
+                        }
+                        accum.append(TokeniserStateVars.spaceByte)
+                        lastWasWhite = true
+                        sawWhitespace = true
+                        i = next &+ 1
                         continue
                     }
-                    accum.append(TokeniserStateVars.spaceByte)
-                    lastWasWhite = true
-                    i = string.index(after: next)
-                    continue
                 }
+                let scalarByteCount: Int
+                if firstByte < utf8Lead3Min {
+                    scalarByteCount = 2
+                } else if firstByte < utf8Lead4Min {
+                    scalarByteCount = 3
+                } else {
+                    scalarByteCount = 4
+                }
+                let next = i &+ scalarByteCount
+                if next > count { return }
+                accum.write(contentsOf: basePtr.advanced(by: i), count: scalarByteCount)
+                lastWasWhite = false
+                reachedNonWhite = true
+                i = next
             }
-            let scalarByteCount: Int
-            if firstByte < 0xE0 {
-                scalarByteCount = 2
-            } else if firstByte < 0xF0 {
-                scalarByteCount = 3
-            } else {
-                scalarByteCount = 4
-            }
-            var next = i
-            for _ in 0..<scalarByteCount {
-                if next == end { return }
-                next = string.index(after: next)
-            }
-            accum.append(string[i..<next])
-            lastWasWhite = false
-            reachedNonWhite = true
-            i = next
         }
     }
 

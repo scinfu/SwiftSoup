@@ -148,6 +148,8 @@ open class Tag: Hashable, @unchecked Sendable {
     fileprivate let tagNameNormal: [UInt8]
     fileprivate let traits: Traits
     internal let tagId: Token.Tag.TagId
+    private let tagNameString: String
+    private let tagNameNormalString: String
 
     public convenience init(_ tagName: [UInt8]) {
         self.init(tagName, traits: .forBlockTag)
@@ -162,6 +164,8 @@ open class Tag: Hashable, @unchecked Sendable {
         self.tagNameNormal = tagName.lowercased()
         self.traits = traits
         self.tagId = Token.Tag.tagIdForBytes(self.tagNameNormal) ?? .none
+        self.tagNameString = String(decoding: self.tagName, as: UTF8.self)
+        self.tagNameNormalString = String(decoding: self.tagNameNormal, as: UTF8.self)
     }
     
     /**
@@ -170,10 +174,10 @@ open class Tag: Hashable, @unchecked Sendable {
      - returns: the tag's name
      */
     open func getName() -> String {
-        return String(decoding: self.tagName, as: UTF8.self)
+        return tagNameString
     }
     open func getNameNormal() -> String {
-        return String(decoding: self.tagNameNormal, as: UTF8.self)
+        return tagNameNormalString
     }
     open func getNameUTF8() -> [UInt8] {
         return self.tagName

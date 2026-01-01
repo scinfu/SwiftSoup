@@ -73,4 +73,5 @@ class TextNodeTest: XCTestCase {
 			XCTAssertEqual(String(Character(UnicodeScalar(135361)!)), try t.outerHtml().trim())
 		#endif
 	}
+
 }

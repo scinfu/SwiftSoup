@@ -1071,6 +1071,37 @@ final class BenchmarkProfileTest: XCTestCase {
             "</body></html>"
     }
 
+    private func buildManabiReaderBenchmarkHTML(repeatCount: Int) -> String {
+        let paragraph = "This is a paragraph with ruby <ruby>漢字<rt>かんじ</rt></ruby> and <em>emphasis</em>."
+        let segment = """
+        <span class=\"manabi-segment\" data-jmdict-entry-ids=\"[1,2,3]\" data-jmnedict-entry-ids=\"[4,5]\">
+          \(paragraph)
+        </span>
+        """
+        let section = """
+        <div class=\"manabi-tracking-section\">
+          <p>\(paragraph)</p>
+          <p>\(segment)</p>
+          <p style=\"display: none\">Hidden text</p>
+          <p style=\"visibility: hidden\">Hidden text</p>
+          <p type=\"hidden\">Hidden text</p>
+          <img src=\"/img.png\" alt=\"image\">
+        </div>
+        """
+        let body = """
+        <div id=\"reader-title\">Reader Title</div>
+        <div id=\"reader-byline\">Byline <span>Author</span></div>
+        <div id=\"reader-content\">
+          \(String(repeating: section, count: 3))
+        </div>
+        <script>var x = 1 &amp;&amp; 2;</script>
+        <style>.hidden { display: none; }</style>
+        """
+        return "<!doctype html><html><head><title>manabi-reader</title></head><body>" +
+            String(repeating: body, count: repeatCount) +
+            "</body></html>"
+    }
+
     private func exerciseSelectors(_ doc: Document) throws {
         let selectorFilter = ProcessInfo.processInfo.environment["SWIFTSOUP_BENCHMARK_SELECTOR_FILTER"]
         func shouldRun(_ label: String) -> Bool {
@@ -1155,6 +1186,78 @@ final class BenchmarkProfileTest: XCTestCase {
         _ = try doc.select(".omega-card[data-id=a]")
     }
 
+    private final class ManabiVisibleTextExtractor: NodeVisitor {
+        let accum: StringBuilder
+
+        init(_ accum: StringBuilder) {
+            self.accum = accum
+        }
+
+        func head(_ node: Node, _ depth: Int) {
+            guard let textNode = node as? TextNode,
+                  let parent = textNode.parent() as? Element else { return }
+            do {
+                let tagName = parent.tagName().lowercased()
+                if tagName == "script" || tagName == "style" { return }
+                if try parent.hasAttr("type") && parent.attr("type").lowercased() == "hidden" {
+                    return
+                }
+                let style = try parent.attr("style").lowercased()
+                if style.contains("display: none") || style.contains("visibility: hidden") {
+                    return
+                }
+                accum.append(textNode.text().trimmingCharacters(in: .whitespacesAndNewlines) + " ")
+            } catch {
+                return
+            }
+        }
+
+        func tail(_ node: Node, _ depth: Int) {}
+    }
+
+    private func exerciseManabiReaderOps(_ doc: Document) throws {
+        if let head = doc.head() {
+            try head.append("<style type='text/css' id='manabi-readability-styles'>.x{}</style>")
+        }
+        guard let body = doc.body() else { return }
+        try body.addClass("readability-mode")
+
+        if let title = try body.getElementById("reader-title") {
+            let titleText = try title.text(trimAndNormaliseWhitespace: false)
+            if !titleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                try title.wrap("<div></div>")
+                if let wrapper = title.parent() {
+                    try wrapper.addClass("manabi-tracking-section")
+                    try wrapper.addClass("manabi-tracking-section-title")
+                    try wrapper.attr("data-manabi-tracking-section-read", "true")
+                    try wrapper.attr("data-manabi-tracking-section-kind", "title")
+                }
+            }
+        }
+
+        if let content = try body.getElementById("reader-content") {
+            let segments = try content.getElementsByTag("manabi-segment")
+            for segment in segments {
+                _ = segment.dataset()["jmdict-entry-ids"]
+                _ = segment.dataset()["jmnedict-entry-ids"]
+            }
+
+            let insertAfter = try content.getElementsByClass("manabi-tracking-section").last() ?? content
+            let trackingFooter = try SwiftSoup.parseBodyFragment(
+                "<div id='manabi-tracking-footer'></div>"
+            ).getElementsByTag("div").first()!
+            try insertAfter.after(node: trackingFooter)
+            try trackingFooter.append("<button id='manabi-finished-reading-button'>Finish Reading</button>")
+        }
+
+        let accum = StringBuilder()
+        let extractor = ManabiVisibleTextExtractor(accum)
+        try body.traverse(extractor)
+        _ = accum.toString()
+
+        _ = try doc.outerHtmlUTF8()
+    }
+
     func testParseBenchmarkProfile() throws {
         guard ProcessInfo.processInfo.environment["SWIFTSOUP_BENCHMARK"] == "1" else {
             return
@@ -1214,6 +1317,7 @@ final class BenchmarkProfileTest: XCTestCase {
         let deepNestDepth = max(1, envInt("SWIFTSOUP_BENCHMARK_DEEP_NEST_DEPTH", 200))
         let deepNestWithAttrs = envInt("SWIFTSOUP_BENCHMARK_DEEP_NEST_ATTRS", 1) != 0
         let whitespaceHeavyRepeatCount = scaled(envInt("SWIFTSOUP_BENCHMARK_WHITESPACE_HEAVY_REPEAT", 2))
+        let manabiReaderRepeatCount = scaled(envInt("SWIFTSOUP_BENCHMARK_MANABI_REPEAT", 1))
         let warmupIterations = envInt("SWIFTSOUP_BENCHMARK_WARMUP", 5)
         let iterationsMultiplier = envInt("SWIFTSOUP_BENCHMARK_ITERATIONS_MULTIPLIER", 3)
         let iterations = envInt("SWIFTSOUP_BENCHMARK_ITERATIONS", 4860) * max(1, iterationsMultiplier)
@@ -1478,6 +1582,13 @@ final class BenchmarkProfileTest: XCTestCase {
             inputs.append((data: whitespaceData, bytes: whitespaceBytes))
             inputStrings.append(htmlWhitespace)
         }
+        if includeBenchmark("manabi-reader"), manabiReaderRepeatCount > 0 {
+            let htmlManabi = buildManabiReaderBenchmarkHTML(repeatCount: manabiReaderRepeatCount)
+            let manabiData = Data(htmlManabi.utf8)
+            let manabiBytes = [UInt8](manabiData)
+            inputs.append((data: manabiData, bytes: manabiBytes))
+            inputStrings.append(htmlManabi)
+        }
         let fileLimit = envInt("SWIFTSOUP_BENCHMARK_FILE_LIMIT", 0)
         if includeBenchmark("files"), ProcessInfo.processInfo.environment["SWIFTSOUP_BENCHMARK_FILES"] != "0" {
             let cwd = FileManager.default.currentDirectoryPath
@@ -1503,6 +1614,7 @@ final class BenchmarkProfileTest: XCTestCase {
         let useFastParse = ProcessInfo.processInfo.environment["SWIFTSOUP_FAST_PARSE"] == "1"
         let skipSelectors = ProcessInfo.processInfo.environment["SWIFTSOUP_BENCHMARK_SKIP_SELECTORS"] == "1"
         let skipText = ProcessInfo.processInfo.environment["SWIFTSOUP_BENCHMARK_SKIP_TEXT"] == "1"
+        let manabiReaderEnabled = includeBenchmark("manabi-reader")
         let parser: Parser? = {
             if useFastParse {
                 let parser = Parser.htmlParser()
@@ -1542,6 +1654,9 @@ final class BenchmarkProfileTest: XCTestCase {
                         }
                     }
                 }
+                if manabiReaderEnabled {
+                    try exerciseManabiReaderOps(doc)
+                }
                 if !skipText {
                     _ = try doc.text()
                     if textNodeTextEnabled {
@@ -1571,6 +1686,9 @@ final class BenchmarkProfileTest: XCTestCase {
                             try exerciseAttributeSelectors(doc)
                         }
                     }
+                }
+                if manabiReaderEnabled {
+                    try exerciseManabiReaderOps(doc)
                 }
                 if !skipText {
                     _ = try doc.text()
@@ -1613,6 +1731,9 @@ final class BenchmarkProfileTest: XCTestCase {
                                 }
                             }
                         }
+                        if manabiReaderEnabled {
+                            try exerciseManabiReaderOps(doc)
+                        }
                         if !skipText {
                             _ = try doc.text()
                             if textNodeTextEnabled {
@@ -1642,6 +1763,9 @@ final class BenchmarkProfileTest: XCTestCase {
                                     try exerciseAttributeSelectors(doc)
                                 }
                             }
+                        }
+                        if manabiReaderEnabled {
+                            try exerciseManabiReaderOps(doc)
                         }
                         if !skipText {
                             _ = try doc.text()

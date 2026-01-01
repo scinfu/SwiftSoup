@@ -24,12 +24,12 @@ final class Tokeniser {
     private static let ampCodepoints: [UnicodeScalar] = [UnicodeScalar.Ampersand]
     private static let ltCodepoints: [UnicodeScalar] = [UnicodeScalar.LessThan]
     private static let gtCodepoints: [UnicodeScalar] = [UnicodeScalar.GreaterThan]
-    private static let quotCodepoints: [UnicodeScalar] = [UnicodeScalar(0x22)!]
-    private static let aposCodepoints: [UnicodeScalar] = [UnicodeScalar(0x27)!]
-    private static let nbspCodepoints: [UnicodeScalar] = [UnicodeScalar(0xA0)!]
-    private static let copyCodepoints: [UnicodeScalar] = [UnicodeScalar(0xA9)!]
-    private static let regCodepoints: [UnicodeScalar] = [UnicodeScalar(0xAE)!]
-    private static let tradeCodepoints: [UnicodeScalar] = [UnicodeScalar(0x2122)!]
+    private static let quotCodepoints: [UnicodeScalar] = [UnicodeScalar(TokeniserStateVars.quoteCodepoint)!]
+    private static let aposCodepoints: [UnicodeScalar] = [UnicodeScalar(TokeniserStateVars.aposCodepoint)!]
+    private static let nbspCodepoints: [UnicodeScalar] = [UnicodeScalar(TokeniserStateVars.nbspCodepoint)!]
+    private static let copyCodepoints: [UnicodeScalar] = [UnicodeScalar(TokeniserStateVars.copyCodepoint)!]
+    private static let regCodepoints: [UnicodeScalar] = [UnicodeScalar(TokeniserStateVars.regCodepoint)!]
+    private static let tradeCodepoints: [UnicodeScalar] = [UnicodeScalar(TokeniserStateVars.tradeCodepoint)!]
     private static let replacementCodepoints: [UnicodeScalar] = [Tokeniser.replacementChar]
     private static let numericCharRefCache: [[UnicodeScalar]] = {
         var cache = Array(repeating: [UnicodeScalar](), count: 256)
@@ -45,99 +45,99 @@ final class Tokeniser {
         table[Int(TokeniserStateVars.carriageReturnByte)] = true // \r
         table[Int(TokeniserStateVars.formFeedByte)] = true // \f
         table[Int(TokeniserStateVars.spaceByte)] = true // space
-        table[0x3C] = true // <
-        table[0x26] = true // &
+        table[Int(TokeniserStateVars.lessThanByte)] = true // <
+        table[Int(TokeniserStateVars.ampersandByte)] = true // &
         return table
     }()
 
     @inline(__always)
     internal static func isNotCharRefAscii(_ byte: UInt8) -> Bool {
-        return byte < 0x80 && notCharRefAsciiTable[Int(byte)]
+        return byte < TokeniserStateVars.asciiUpperLimitByte && notCharRefAsciiTable[Int(byte)]
     }
 
     @inline(__always)
     private static func isAsciiDigit(_ byte: UInt8) -> Bool {
-        return byte >= 0x30 && byte <= 0x39
+        return byte >= TokeniserStateVars.zeroByte && byte <= TokeniserStateVars.nineByte
     }
 
     @inline(__always)
     func consumeBasicNamedEntityIfPresent() -> [UnicodeScalar]? {
-        guard let b0 = reader.currentByte(), b0 < 0x80 else { return nil }
+        guard let b0 = reader.currentByte(), b0 < TokeniserStateVars.asciiUpperLimitByte else { return nil }
         let pos = reader.pos
         let end = reader.end
         let input = reader.input
         switch b0 {
-        case 0x61: // a -> amp; / apos;
+        case TokeniserStateVars.lowerAByte: // a -> amp; / apos;
             if pos + 3 < end &&
-                input[pos + 1] == 0x6D && // m
-                input[pos + 2] == 0x70 && // p
+                input[pos + 1] == TokeniserStateVars.lowerMByte && // m
+                input[pos + 2] == TokeniserStateVars.lowerPByte && // p
                 input[pos + 3] == TokeniserStateVars.semicolonByte {
                 reader.pos = pos + 4
                 return Self.ampCodepoints
             }
             if pos + 4 < end &&
-                input[pos + 1] == 0x70 && // p
-                input[pos + 2] == 0x6F && // o
-                input[pos + 3] == 0x73 && // s
+                input[pos + 1] == TokeniserStateVars.lowerPByte && // p
+                input[pos + 2] == TokeniserStateVars.lowerOByte && // o
+                input[pos + 3] == TokeniserStateVars.lowerSByte && // s
                 input[pos + 4] == TokeniserStateVars.semicolonByte {
                 reader.pos = pos + 5
                 return Self.aposCodepoints
             }
-        case 0x6C: // l -> lt;
+        case TokeniserStateVars.lowerLByte: // l -> lt;
             if pos + 2 < end &&
-                input[pos + 1] == 0x74 && // t
+                input[pos + 1] == TokeniserStateVars.lowerTByte && // t
                 input[pos + 2] == TokeniserStateVars.semicolonByte {
                 reader.pos = pos + 3
                 return Self.ltCodepoints
             }
-        case 0x67: // g -> gt;
+        case TokeniserStateVars.lowerGByte: // g -> gt;
             if pos + 2 < end &&
-                input[pos + 1] == 0x74 && // t
+                input[pos + 1] == TokeniserStateVars.lowerTByte && // t
                 input[pos + 2] == TokeniserStateVars.semicolonByte {
                 reader.pos = pos + 3
                 return Self.gtCodepoints
             }
-        case 0x71: // q -> quot;
+        case TokeniserStateVars.lowerQByte: // q -> quot;
             if pos + 4 < end &&
-                input[pos + 1] == 0x75 && // u
-                input[pos + 2] == 0x6F && // o
-                input[pos + 3] == 0x74 && // t
+                input[pos + 1] == TokeniserStateVars.lowerUByte && // u
+                input[pos + 2] == TokeniserStateVars.lowerOByte && // o
+                input[pos + 3] == TokeniserStateVars.lowerTByte && // t
                 input[pos + 4] == TokeniserStateVars.semicolonByte {
                 reader.pos = pos + 5
                 return Self.quotCodepoints
             }
-        case 0x6E: // n -> nbsp;
+        case TokeniserStateVars.lowerNByte: // n -> nbsp;
             if pos + 4 < end &&
-                input[pos + 1] == 0x62 && // b
-                input[pos + 2] == 0x73 && // s
-                input[pos + 3] == 0x70 && // p
+                input[pos + 1] == TokeniserStateVars.lowerBByte && // b
+                input[pos + 2] == TokeniserStateVars.lowerSByte && // s
+                input[pos + 3] == TokeniserStateVars.lowerPByte && // p
                 input[pos + 4] == TokeniserStateVars.semicolonByte {
                 reader.pos = pos + 5
                 return Self.nbspCodepoints
             }
-        case 0x63: // c -> copy;
+        case TokeniserStateVars.lowerCByte: // c -> copy;
             if pos + 4 < end &&
-                input[pos + 1] == 0x6F && // o
-                input[pos + 2] == 0x70 && // p
-                input[pos + 3] == 0x79 && // y
+                input[pos + 1] == TokeniserStateVars.lowerOByte && // o
+                input[pos + 2] == TokeniserStateVars.lowerPByte && // p
+                input[pos + 3] == TokeniserStateVars.lowerYByte && // y
                 input[pos + 4] == TokeniserStateVars.semicolonByte {
                 reader.pos = pos + 5
                 return Self.copyCodepoints
             }
-        case 0x72: // r -> reg;
+        case TokeniserStateVars.lowerRByte: // r -> reg;
             if pos + 3 < end &&
-                input[pos + 1] == 0x65 && // e
-                input[pos + 2] == 0x67 && // g
+                input[pos + 1] == TokeniserStateVars.lowerEByte && // e
+                input[pos + 2] == TokeniserStateVars.lowerGByte && // g
                 input[pos + 3] == TokeniserStateVars.semicolonByte {
                 reader.pos = pos + 4
                 return Self.regCodepoints
             }
-        case 0x74: // t -> trade;
+        case TokeniserStateVars.lowerTByte: // t -> trade;
             if pos + 5 < end &&
-                input[pos + 1] == 0x72 && // r
-                input[pos + 2] == 0x61 && // a
-                input[pos + 3] == 0x64 && // d
-                input[pos + 4] == 0x65 && // e
+                input[pos + 1] == TokeniserStateVars.lowerRByte && // r
+                input[pos + 2] == TokeniserStateVars.lowerAByte && // a
+                input[pos + 3] == TokeniserStateVars.lowerDByte && // d
+                input[pos + 4] == TokeniserStateVars.lowerEByte && // e
                 input[pos + 5] == TokeniserStateVars.semicolonByte {
                 reader.pos = pos + 6
                 return Self.tradeCodepoints
@@ -276,8 +276,7 @@ final class Tokeniser {
             let _pEmit = Profiler.start("Tokeniser.read.emitBuilder")
             defer { Profiler.end("Tokeniser.read.emitBuilder", _pEmit) }
             #endif
-            let str = Array(charsBuilder.buffer)
-            charsBuilder.clear()
+            let str = charsBuilder.takeBuffer()
             // Clear any pending slices, as the builder takes precedence.
             charsSlice = nil
             charsSliceFromInput = false
@@ -366,6 +365,9 @@ final class Tokeniser {
         
         if (token.type == Token.TokenType.StartTag) {
             let startTag: Token.StartTag  = token as! Token.StartTag
+            if startTag.tagId == .none {
+                _ = startTag.normalNameSlice()
+            }
             if startTag.tagId != .none {
                 lastStartTagId = startTag.tagId
                 lastStartTag = nil
@@ -376,13 +378,18 @@ final class Tokeniser {
             if (startTag._selfClosing) {
                 selfClosingFlagAcknowledged = false
             }
-        } else if trackErrors && token.type == Token.TokenType.EndTag {
+        } else if token.type == Token.TokenType.EndTag {
             let endTag: Token.EndTag = token as! Token.EndTag
+            if endTag.tagId == .none {
+                _ = endTag.normalNameSlice()
+            }
+            if trackErrors {
             if endTag.hasAnyAttributes() {
                 endTag.ensureAttributes()
                 if !(endTag._attributes?.attributes.isEmpty ?? true) {
                     error("Attributes incorrectly present on end tag")
                 }
+            }
             }
         }
     }
@@ -473,7 +480,7 @@ final class Tokeniser {
                 return
             }
             let next = reader.input[reader.pos]
-            if next < 0x80, TokeniserStateVars.isAsciiAlpha(next) {
+            if next < TokeniserStateVars.asciiUpperLimitByte, TokeniserStateVars.isAsciiAlpha(next) {
                 if try TokeniserState.readTagNameFromTagOpen(self, reader, true) {
                     return
                 }
@@ -492,7 +499,7 @@ final class Tokeniser {
                     return
                 }
                 let endByte = reader.currentByte()!
-                if endByte < 0x80 {
+                if endByte < TokeniserStateVars.asciiUpperLimitByte {
                     if TokeniserStateVars.isAsciiAlpha(endByte) {
                         if try TokeniserState.readTagNameFromTagOpen(self, reader, false) {
                             return
@@ -520,7 +527,7 @@ final class Tokeniser {
             case TokeniserStateVars.questionMarkByte: // "?"
                 advanceTransitionAscii(.BogusComment)
             default:
-                if next >= 0x80, reader.matchesLetter() {
+                if next >= TokeniserStateVars.asciiUpperLimitByte, reader.matchesLetter() {
                     createTagPending(true)
                     try TokeniserState.readTagName(.TagName, self, reader)
                     return
@@ -532,7 +539,7 @@ final class Tokeniser {
         case TokeniserStateVars.nullByte:
             error(.Data)
             reader.advanceAscii()
-            emit(UnicodeScalar(0x00))
+            emit(TokeniserStateVars.nullScalr)
         default:
             break
         }
@@ -607,7 +614,7 @@ final class Tokeniser {
                 return
             }
             let next = reader.input[reader.pos]
-            if next < 0x80, TokeniserStateVars.isAsciiAlpha(next) {
+            if next < TokeniserStateVars.asciiUpperLimitByte, TokeniserStateVars.isAsciiAlpha(next) {
                 if try TokeniserState.readTagNameFromTagOpen(self, reader, true) {
                     return
                 }
@@ -625,7 +632,7 @@ final class Tokeniser {
                     return
                 }
                 let endByte = reader.currentByte()!
-                if endByte < 0x80 {
+                if endByte < TokeniserStateVars.asciiUpperLimitByte {
                     if TokeniserStateVars.isAsciiAlpha(endByte) {
                         if try TokeniserState.readTagNameFromTagOpen(self, reader, false) {
                             return
@@ -650,7 +657,7 @@ final class Tokeniser {
             case TokeniserStateVars.questionMarkByte: // "?"
                 advanceTransitionAscii(.BogusComment)
             default:
-                if next >= 0x80, reader.matchesLetter() {
+                if next >= TokeniserStateVars.asciiUpperLimitByte, reader.matchesLetter() {
                     createTagPending(true)
                     try TokeniserState.readTagName(.TagName, self, reader)
                     return
@@ -662,7 +669,7 @@ final class Tokeniser {
         case TokeniserStateVars.nullByte:
             error(.Data)
             reader.advanceAscii()
-            emit(UnicodeScalar(0x00))
+            emit(TokeniserStateVars.nullScalr)
         default:
             break
         }
@@ -785,7 +792,7 @@ final class Tokeniser {
     func emit(_ c: UnicodeScalar) {
         pendingCharRange = nil
         let val = c.value
-        if val < 0x80 {
+        if val < Int(TokeniserStateVars.asciiUpperLimitByte) {
             emitByte(UInt8(val))
             return
         }
@@ -842,14 +849,14 @@ final class Tokeniser {
         if (reader.isEmpty()) {
             return nil
         }
-        if let allowed = additionalAllowedCharacter, let byte = reader.currentByte(), byte < 0x80 {
+        if let allowed = additionalAllowedCharacter, let byte = reader.currentByte(), byte < TokeniserStateVars.asciiUpperLimitByte {
             if allowed.value == UInt32(byte) {
                 return nil
             }
         } else if (additionalAllowedCharacter != nil && additionalAllowedCharacter == reader.current()) {
             return nil
         }
-        if let byte = reader.currentByte(), byte < 0x80 {
+        if let byte = reader.currentByte(), byte < TokeniserStateVars.asciiUpperLimitByte {
             if Tokeniser.isNotCharRefAscii(byte) {
                 return nil
             }
@@ -858,7 +865,7 @@ final class Tokeniser {
         }
 
         if inAttribute {
-            if let b = reader.currentByte(), b < 0x80,
+            if let b = reader.currentByte(), b < TokeniserStateVars.asciiUpperLimitByte,
                (TokeniserStateVars.isAsciiAlpha(b) || Tokeniser.isAsciiDigit(b)) {
                 let start = reader.pos
                 var i = start
@@ -903,23 +910,23 @@ final class Tokeniser {
                 let maxIndex = end &- 1
                 if i <= maxIndex {
                     let d1 = reader.input[i]
-                    if d1 >= 0x30 && d1 <= 0x39 {
+                    if d1 >= TokeniserStateVars.zeroByte && d1 <= TokeniserStateVars.nineByte {
                         if i + 1 <= maxIndex {
                             let d2 = reader.input[i + 1]
-                            if d2 >= 0x30 && d2 <= 0x39 {
+                            if d2 >= TokeniserStateVars.zeroByte && d2 <= TokeniserStateVars.nineByte {
                                 if i + 2 <= maxIndex {
                                     let d3 = reader.input[i + 2]
                                     if d3 == TokeniserStateVars.semicolonByte {
-                                        let value = Int(d1 - 0x30) * 10 + Int(d2 - 0x30)
+                                        let value = Int(d1 - TokeniserStateVars.zeroByte) * 10 + Int(d2 - TokeniserStateVars.zeroByte)
                                         reader.pos = i + 2
                                         reader.advanceAscii()
                                         return Self.numericCharRefCache[value]
                                     }
-                                    if d3 >= 0x30 && d3 <= 0x39, i + 3 <= maxIndex,
+                                    if d3 >= TokeniserStateVars.zeroByte && d3 <= TokeniserStateVars.nineByte, i + 3 <= maxIndex,
                                        reader.input[i + 3] == TokeniserStateVars.semicolonByte {
-                                        let value = Int(d1 - 0x30) * 100 +
-                                            Int(d2 - 0x30) * 10 +
-                                            Int(d3 - 0x30)
+                                        let value = Int(d1 - TokeniserStateVars.zeroByte) * 100 +
+                                            Int(d2 - TokeniserStateVars.zeroByte) * 10 +
+                                            Int(d3 - TokeniserStateVars.zeroByte)
                                         reader.pos = i + 3
                                         reader.advanceAscii()
                                         if value < 256 {
@@ -929,7 +936,7 @@ final class Tokeniser {
                                     }
                                 }
                             } else if d2 == TokeniserStateVars.semicolonByte {
-                                let value = Int(d1 - 0x30)
+                                let value = Int(d1 - TokeniserStateVars.zeroByte)
                                 reader.pos = i + 1
                                 reader.advanceAscii()
                                 return Self.numericCharRefCache[value]
@@ -944,7 +951,7 @@ final class Tokeniser {
             var overflow = false
             while i < end {
                 let byte = reader.input[i]
-                if byte >= 0x80 { break }
+                if byte >= TokeniserStateVars.asciiUpperLimitByte { break }
                 let digit: Int
                 if byte >= 48 && byte <= 57 {
                     digit = Int(byte - 48)
@@ -976,7 +983,9 @@ final class Tokeniser {
                 characterReferenceError("missing semicolon")
             }
             let charval = overflow ? -1 : value
-            if (charval == -1 || (charval >= 0xD800 && charval <= 0xDFFF) || charval > 0x10FFFF) {
+            if (charval == -1 ||
+                (charval >= TokeniserStateVars.utf16SurrogateMin && charval <= TokeniserStateVars.utf16SurrogateMax) ||
+                charval > TokeniserStateVars.unicodeMaxScalar) {
                 characterReferenceError("character outside of valid range")
                 return Self.replacementCodepoints
             }
@@ -1002,11 +1011,11 @@ final class Tokeniser {
                 let nextIndex = pos + count
                 if nextIndex < end {
                     let nb = input[nextIndex]
-                    if nb >= 0x80 { return nil } // let slow path handle unicode letters/digits
+                    if nb >= TokeniserStateVars.asciiUpperLimitByte { return nil } // let slow path handle unicode letters/digits
                     if TokeniserStateVars.isAsciiAlpha(nb) || Tokeniser.isAsciiDigit(nb) {
                         return nil // not an exact match
                     }
-                if inAttribute && (nb == 0x3D || nb == 0x2D || nb == 0x5F) {
+                if inAttribute && (nb == TokeniserStateVars.equalSignByte || nb == TokeniserStateVars.hyphenByte || nb == TokeniserStateVars.underscoreByte) {
                     return nil
                 }
             }
@@ -1019,16 +1028,16 @@ final class Tokeniser {
             return codepoints
         }
 
-            if let b = reader.currentByte(), b < 0x80 {
+            if let b = reader.currentByte(), b < TokeniserStateVars.asciiUpperLimitByte {
                 switch b {
-                case 0x61: // a
+                case TokeniserStateVars.lowerAByte: // a
                     if let fast = fastNamedEntity(Self.ampName, Self.ampCodepoints) { return fast }
                     if let fast = fastNamedEntity(Self.aposName, Self.aposCodepoints) { return fast }
-                case 0x6C: // l
+                case TokeniserStateVars.lowerLByte: // l
                     if let fast = fastNamedEntity(Self.ltName, Self.ltCodepoints) { return fast }
-                case 0x67: // g
+                case TokeniserStateVars.lowerGByte: // g
                     if let fast = fastNamedEntity(Self.gtName, Self.gtCodepoints) { return fast }
-                case 0x71: // q
+                case TokeniserStateVars.lowerQByte: // q
                     if let fast = fastNamedEntity(Self.quotName, Self.quotCodepoints) { return fast }
                 default:
                     break
@@ -1036,7 +1045,7 @@ final class Tokeniser {
             }
              // get as many letters as possible, and look for matching entities.
             let nameRef: ArraySlice<UInt8>
-            if let b = reader.currentByte(), b < 0x80,
+            if let b = reader.currentByte(), b < TokeniserStateVars.asciiUpperLimitByte,
                TokeniserStateVars.isAsciiAlpha(b) {
                 let start = reader.pos
                 var i = start
@@ -1044,7 +1053,7 @@ final class Tokeniser {
                 var hitNonAscii = false
                 while i < end {
                     let c = reader.input[i]
-                    if c >= 0x80 {
+                    if c >= TokeniserStateVars.asciiUpperLimitByte {
                         hitNonAscii = true
                         break
                     }
@@ -1057,7 +1066,7 @@ final class Tokeniser {
                 var j = i
                 while j < end {
                     let c = reader.input[j]
-                    if c >= 0x80 {
+                    if c >= TokeniserStateVars.asciiUpperLimitByte {
                         hitNonAscii = true
                         break
                     }
@@ -1087,8 +1096,11 @@ final class Tokeniser {
                 return nil
             }
             if inAttribute {
-                if let byte = reader.currentByte(), byte < 0x80 {
-                    if TokeniserStateVars.isAsciiAlpha(byte) || Tokeniser.isAsciiDigit(byte) || byte == 0x3D || byte == 0x2D || byte == 0x5F {
+                if let byte = reader.currentByte(), byte < TokeniserStateVars.asciiUpperLimitByte {
+                    if TokeniserStateVars.isAsciiAlpha(byte) || Tokeniser.isAsciiDigit(byte) ||
+                        byte == TokeniserStateVars.equalSignByte ||
+                        byte == TokeniserStateVars.hyphenByte ||
+                        byte == TokeniserStateVars.underscoreByte {
                         // don't want that to match
                         reader.rewindToMark()
                         return nil

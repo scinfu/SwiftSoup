@@ -24,6 +24,7 @@ public class XmlDeclaration: Node {
         self._name = name
         self.isProcessingInstruction = isProcessingInstruction
         super.init(baseUri)
+        _ = ensureAttributesForWrite()
     }
     
     public convenience init(_ name: String, _ baseUri: String, _ isProcessingInstruction: Bool) {
@@ -51,7 +52,10 @@ public class XmlDeclaration: Node {
      - returns: XML declaration
      */
     public func getWholeDeclaration()throws->String {
-        return try attributes!.html().trim() // attr html starts with a " "
+        guard let attributes = attributes else {
+            return ""
+        }
+        return try attributes.html().trim() // attr html starts with a " "
     }
 
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {

@@ -70,12 +70,69 @@ class AttributesTest: XCTestCase {
 		XCTAssertEqual(datas.count, i)
 	}
 
-	func testIteratorEmpty() {
-		let a = Attributes()
+    func testIteratorEmpty() {
+        let a = Attributes()
 
-		let iterator = a.makeIterator()
-		XCTAssertNil(iterator.next())
-	}
+        let iterator = a.makeIterator()
+        XCTAssertNil(iterator.next())
+    }
+
+    func testParsedAttributesMaterializeAndMutate() throws {
+        let html = "<a href=\"/one\" data-foo=\"bar\" disabled class=\"A B\"></a>"
+        let doc = try SwiftSoup.parse(html)
+        let el = try doc.select("a").first()!
+        let attrs = el.getAttributes()!
+
+        XCTAssertEqual(4, attrs.size()) // force materialization
+        XCTAssertEqual("/one", attrs.get(key: "href"))
+        XCTAssertEqual("bar", attrs.get(key: "data-foo"))
+        XCTAssertEqual("", attrs.get(key: "disabled"))
+        XCTAssertEqual("A B", attrs.get(key: "class"))
+
+        try attrs.put("data-foo", "baz")
+        XCTAssertEqual("baz", attrs.get(key: "data-foo"))
+    }
+
+    func testLowercaseAllKeysAfterPreserveCaseParse() throws {
+        let html = "<a HREF=\"/one\" Data-Foo=\"bar\"></a>"
+        let parser = Parser.htmlParser()
+        parser.settings(ParseSettings.preserveCase)
+        let doc = try parser.parseInput(html, "")
+        let el = try doc.select("a").first()!
+        let attrs = el.getAttributes()!
+
+        XCTAssertEqual("/one", attrs.get(key: "HREF"))
+        XCTAssertEqual("bar", attrs.get(key: "Data-Foo"))
+        attrs.lowercaseAllKeys()
+        XCTAssertFalse(attrs.hasKey(key: "HREF"))
+        XCTAssertEqual("/one", attrs.get(key: "href"))
+        XCTAssertEqual("bar", attrs.get(key: "data-foo"))
+    }
+
+    func testParsedAttributesHtmlCloneAndEquals() throws {
+        let html = "<a href=\"/one\" disabled data-foo=\"a&b\"></a>"
+        let doc = try SwiftSoup.parse(html)
+        let el = try doc.select("a").first()!
+        let attrs = el.getAttributes()!
+
+        XCTAssertEqual(" href=\"/one\" disabled data-foo=\"a&amp;b\"", try attrs.html())
+
+        let clone = attrs.clone()
+        XCTAssertTrue(attrs.equals(o: clone))
+        try attrs.put("data-foo", "c&d")
+        XCTAssertFalse(attrs.equals(o: clone))
+    }
+
+    func testGetIgnoreCaseKeyIndexAfterParse() throws {
+        let html = "<a DaTa-FoO=\"bar\" href=\"/one\"></a>"
+        let doc = try SwiftSoup.parse(html)
+        let el = try doc.select("a").first()!
+        let attrs = el.getAttributes()!
+
+        XCTAssertEqual("bar", try attrs.getIgnoreCase(key: "data-foo"))
+        XCTAssertTrue(attrs.hasKeyIgnoreCase(key: "DATA-FOO"))
+        XCTAssertEqual("/one", attrs.get(key: "href"))
+    }
 
     func testRemoveAllKeys() {
         let a = Attributes()

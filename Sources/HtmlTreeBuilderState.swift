@@ -467,7 +467,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 #endif
                 let c: Token.Char = t.asCharacter()
                 let data = c.getDataSlice()
-                if let data, data.count == 1, data.first == 0x00 {
+                if let data, data.count == 1, data.first == TokeniserStateVars.nullByte {
                     // todo confirm that check
                     tb.error(self)
                     return false
@@ -517,6 +517,16 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     }
                     return hasFormatting
                 }
+                @inline(__always)
+                func closePIfInButtonScope() throws {
+                    if currentTagId == .p {
+                        try tb.processEndTag(UTF8Arrays.p)
+                        return
+                    }
+                    if (try tb.inButtonScope(UTF8Arrays.p)) {
+                        try tb.processEndTag(UTF8Arrays.p)
+                    }
+                }
                 switch startTag.tagId {
                 case .a:
                     if (tb.getActiveFormattingElement(UTF8Arrays.a) != nil) {
@@ -542,11 +552,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     }
                     try tb.insert(startTag)
                 case .p, .div:
-                    if (try tb.inButtonScope(UTF8Arrays.p)) {
-
-                        try tb.processEndTag(UTF8Arrays.p)
-
-                    }
+                    try closePIfInButtonScope()
                     try tb.insert(startTag)
                 case .li:
                     tb.framesetOk(false)
@@ -581,11 +587,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             }
                         }
                     }
-                    if (try tb.inButtonScope(UTF8Arrays.p)) {
-
-                        try tb.processEndTag(UTF8Arrays.p)
-
-                    }
+                    try closePIfInButtonScope()
                     try tb.insert(startTag)
                 case .em, .strong, .b, .i, .small:
                     if ensureHasFormatting() {
@@ -631,37 +633,21 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             }
                         }
                     }
-                    if (try tb.inButtonScope(UTF8Arrays.p)) {
-
-                        try tb.processEndTag(UTF8Arrays.p)
-
-                    }
+                    try closePIfInButtonScope()
                     try tb.insert(startTag)
                 case .ol, .ul, .address, .article, .aside, .blockquote, .center, .dir, .fieldset, .figcaption,
                      .figure, .footer, .header, .hgroup, .menu, .nav, .section, .summary:
-                    if (try tb.inButtonScope(UTF8Arrays.p)) {
-
-                        try tb.processEndTag(UTF8Arrays.p)
-
-                    }
+                    try closePIfInButtonScope()
                     try tb.insert(startTag)
                 case .h1, .h2, .h3, .h4, .h5, .h6:
-                    if (try tb.inButtonScope(UTF8Arrays.p)) {
-
-                        try tb.processEndTag(UTF8Arrays.p)
-
-                    }
+                    try closePIfInButtonScope()
                     if let currentTagId, Constants.Headings.containsTagId(currentTagId) {
                         tb.error(self)
                         tb.pop()
                     }
                     try tb.insert(startTag)
                 case .pre, .listing:
-                    if (try tb.inButtonScope(UTF8Arrays.p)) {
-
-                        try tb.processEndTag(UTF8Arrays.p)
-
-                    }
+                    try closePIfInButtonScope()
                     try tb.insert(startTag)
                     // todo: ignore LF if next token
                     tb.framesetOk(false)
@@ -685,11 +671,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         try tb.insert(startTag)
                     }
                 case .table:
-                    if (try tb.inButtonScope(UTF8Arrays.p)) {
-
-                        try tb.processEndTag(UTF8Arrays.p)
-
-                    }
+                    try closePIfInButtonScope()
                     try tb.insert(startTag)
                     tb.framesetOk(false)
                     tb.transition(.InTable)
@@ -699,9 +681,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         return false
                     }
                     if (try tb.inButtonScope(UTF8Arrays.p)) {
-
                         try tb.processEndTag(UTF8Arrays.p)
-
                     }
                     try tb.insertForm(startTag, false)
                     tb.framesetOk(false)
@@ -843,9 +823,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         }
                         if Constants.InBodyStartPClosers.containsTagId(tagId) {
                             if (try tb.inButtonScope(UTF8Arrays.p)) {
-
                                 try tb.processEndTag(UTF8Arrays.p)
-
                             }
                             try tb.insert(startTag)
                             return true
@@ -855,9 +833,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         }
                         if Constants.Headings.containsTagId(tagId) {
                             if (try tb.inButtonScope(UTF8Arrays.p)) {
-
                                 try tb.processEndTag(UTF8Arrays.p)
-
                             }
                             if let currentTagId, Constants.Headings.containsTagId(currentTagId) {
                                 tb.error(self)
@@ -868,9 +844,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         }
                         if Constants.InBodyStartPreListing.containsTagId(tagId) {
                             if (try tb.inButtonScope(UTF8Arrays.p)) {
-
                                 try tb.processEndTag(UTF8Arrays.p)
-
                             }
                             try tb.insert(startTag)
                             // todo: ignore LF if next token
@@ -943,9 +917,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             tb.framesetOk(false)
                         } else if Constants.InBodyStartPClosers.contains(nameSlice) {
                             if (try tb.inButtonScope(UTF8Arrays.p)) {
-
                                 try tb.processEndTag(UTF8Arrays.p)
-
                             }
                             try tb.insert(startTag)
                         } else if Constants.InBodyStartToHead.contains(nameSlice) {
@@ -956,26 +928,20 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 return false
                             }
                             if (try tb.inButtonScope(UTF8Arrays.p)) {
-
                                 try tb.processEndTag(UTF8Arrays.p)
-
                             }
                             try tb.insertForm(startTag, false)
                             tb.framesetOk(false)
                         } else if equalsSlice(UTF8Arrays.table, nameSlice) {
                             if (try tb.inButtonScope(UTF8Arrays.p)) {
-
                                 try tb.processEndTag(UTF8Arrays.p)
-
                             }
                             try tb.insert(startTag)
                             tb.framesetOk(false)
                             tb.transition(.InTable)
                         } else if Constants.Headings.contains(nameSlice) {
                             if (try tb.inButtonScope(UTF8Arrays.p)) {
-
                                 try tb.processEndTag(UTF8Arrays.p)
-
                             }
                             if let currentTagId, Constants.Headings.containsTagId(currentTagId) {
                                 tb.error(self)
@@ -984,9 +950,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             try tb.insert(startTag)
                         } else if Constants.InBodyStartPreListing.contains(nameSlice) {
                             if (try tb.inButtonScope(UTF8Arrays.p)) {
-
                                 try tb.processEndTag(UTF8Arrays.p)
-
                             }
                             try tb.insert(startTag)
                             // todo: ignore LF if next token
@@ -1020,9 +984,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 }
                             }
                             if (try tb.inButtonScope(UTF8Arrays.p)) {
-
                                 try tb.processEndTag(UTF8Arrays.p)
-
                             }
                             try tb.insert(startTag)
                         } else if Constants.InBodyStartApplets.contains(nameSlice) {
@@ -1673,7 +1635,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             switch (t.type) {
             case .Char:
                 let c: Token.Char = t.asCharacter()
-                if let data = c.getDataSlice(), data.count == 1, data.first == 0x00 {
+                if let data = c.getDataSlice(), data.count == 1, data.first == TokeniserStateVars.nullByte {
                     tb.error(self)
                     return false
                 } else {
@@ -2161,7 +2123,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
             switch (t.type) {
             case .Char:
                 let c: Token.Char = t.asCharacter()
-                if let data = c.getDataSlice(), data.count == 1, data.first == 0x00 {
+                if let data = c.getDataSlice(), data.count == 1, data.first == TokeniserStateVars.nullByte {
                     tb.error(self)
                     return false
                 } else {
@@ -2515,7 +2477,10 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         if let first = data.first, !table[Int(first)] {
             return false
         }
-        var it = data.startIndex
+        if data.count == 1 {
+            return true
+        }
+        var it = data.index(after: data.startIndex)
         while it < data.endIndex {
             if !table[Int(data[it])] {
                 return false
@@ -2533,7 +2498,10 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
         if let first = data.first, !table[Int(first)] {
             return false
         }
-        var i = 0
+        if data.count == 1 {
+            return true
+        }
+        var i = 1
         while i < data.count {
             if !table[Int(data[i])] {
                 return false

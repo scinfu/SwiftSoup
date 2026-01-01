@@ -102,7 +102,7 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
             if char.count == 1 {
                 let byte = char[0]
                 setBit(in: &byteMask, forByte: byte)
-                if byte >= 0x80 {
+                if byte >= TokeniserStateVars.asciiUpperLimitByte {
                     singleByteOnly = false
                 }
             } else {
@@ -228,7 +228,7 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
     @inline(__always)
     public func contains(_ scalar: UnicodeScalar) -> Bool {
         // Fast path for ASCII
-        if scalar.value < 0x80 {
+        if scalar.value < UInt32(TokeniserStateVars.asciiUpperLimitByte) {
             return contains(UInt8(scalar.value))
         }
         

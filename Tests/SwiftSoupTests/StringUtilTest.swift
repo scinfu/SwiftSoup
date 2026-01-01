@@ -115,6 +115,73 @@ class StringUtilTest: XCTestCase {
         XCTAssertEqual("alpha beta ", sb.toString())
     }
 
+    func testAppendNormalisedWhitespaceNBSPBytesPath() {
+        let input = "a\u{00a0}b \t c\n"
+        let bytes = input.utf8Array
+        let sbSlice = StringBuilder()
+        var lastWasWhite = false
+        StringUtil.appendNormalisedWhitespace(sbSlice, string: bytes[...], stripLeading: false, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("a b c ", sbSlice.toString())
+
+        let sbString = StringBuilder()
+        StringUtil.appendNormalisedWhitespace(sbString, string: input, stripLeading: false)
+        XCTAssertEqual("a\u{00a0}b c ", sbString.toString())
+    }
+
+    func testAppendNormalisedWhitespacePreservesMultibyteArraySlice() {
+        let input = "  πβ   😀 \tζ "
+        let bytes = input.utf8Array
+        let sb = StringBuilder()
+        StringUtil.appendNormalisedWhitespace(sb, string: bytes[...], stripLeading: true)
+        XCTAssertEqual("πβ 😀 ζ ", sb.toString())
+    }
+
+    func testAppendNormalisedWhitespaceTrackingMultibyte() {
+        var lastWasWhite = true
+        let input = "  😀\tπ"
+        let bytes = input.utf8Array
+        let sb = StringBuilder()
+        StringUtil.appendNormalisedWhitespace(sb, string: bytes[...], stripLeading: false, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("😀 π", sb.toString())
+        XCTAssertFalse(lastWasWhite)
+    }
+
+    func testAppendNormalisedWhitespaceBytes() {
+        let sb = StringBuilder()
+        let bytes = " alpha beta".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb, string: bytes, stripLeading: true)
+        XCTAssertEqual("alpha beta", sb.toString())
+    }
+
+    func testAppendNormalisedWhitespaceTracking() {
+        var lastWasWhite = false
+        let sb1 = StringBuilder()
+        let bytes1 = "alpha beta gamma".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb1, string: bytes1[...], stripLeading: false, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("alpha beta gamma", sb1.toString())
+        XCTAssertFalse(lastWasWhite)
+
+        lastWasWhite = false
+        let sb2 = StringBuilder()
+        let bytes2 = " alpha beta".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb2, string: bytes2[...], stripLeading: true, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("alpha beta", sb2.toString())
+        XCTAssertFalse(lastWasWhite)
+
+        lastWasWhite = true
+        let sb3 = StringBuilder()
+        let bytes3 = " alpha".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb3, string: bytes3[...], stripLeading: false, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("alpha", sb3.toString())
+        XCTAssertFalse(lastWasWhite)
+
+        lastWasWhite = false
+        let sb4 = StringBuilder()
+        let bytes4 = "a  b".utf8Array
+        StringUtil.appendNormalisedWhitespace(sb4, string: bytes4[...], stripLeading: false, lastWasWhite: &lastWasWhite)
+        XCTAssertEqual("a b", sb4.toString())
+    }
+
     func testResolvesRelativeUrls() {
         XCTAssertEqual("http://example.com/one/two?three", StringUtil.resolve("http://example.com", relUrl: "./one/two?three"))
         XCTAssertEqual("http://example.com/one/two?three", StringUtil.resolve("http://example.com?one", relUrl: "./one/two?three"))

@@ -26,17 +26,17 @@ open class Collector {
     public static func collect (_ eval: Evaluator, _ root: Element) throws -> Elements {
         if eval is Evaluator.AllElements {
             let elements = Elements()
-            var stack: [Element] = []
+            var stack: ContiguousArray<Element> = []
             stack.reserveCapacity(root.childNodes.count + 1)
             stack.append(root)
             while let el = stack.popLast() {
                 elements.add(el)
                 let children = el.childNodes
-                if !children.isEmpty {
-                    for child in children.reversed() {
-                        if let childEl = child as? Element {
-                            stack.append(childEl)
-                        }
+                var i = children.count
+                while i > 0 {
+                    i &-= 1
+                    if let childEl = children[i] as? Element {
+                        stack.append(childEl)
                     }
                 }
             }
@@ -48,13 +48,28 @@ open class Collector {
         let elements: Elements = Elements()
         if let andEval = eval as? CombiningEvaluator.And,
            let seeded = try seedCandidates(for: andEval, root: root) {
-            if seeded.isEmpty {
-                return seeded
+            let (seedElements, skipIndex) = seeded
+            if seedElements.isEmpty {
+                return seedElements
             }
-            for el in seeded.array() {
-                if try eval.matches(root, el) {
-                    elements.add(el)
+            elements.reserveCapacity(seedElements.size())
+            if let skipIndex {
+                let evaluators = andEval.evaluators
+                for el in seedElements.array() {
+                    var matchesAll = true
+                    for (idx, evaluator) in evaluators.enumerated() {
+                        if idx == skipIndex { continue }
+                        if try !evaluator.matches(root, el) {
+                            matchesAll = false
+                            break
+                        }
+                    }
+                    if matchesAll {
+                        elements.add(el)
+                    }
                 }
+            } else {
+                return seedElements
             }
             return elements
         }
@@ -62,7 +77,7 @@ open class Collector {
             return fast
         }
         // Manual DFS to reduce NodeTraversor/visitor overhead in hot selector paths.
-        var stack: [Element] = []
+        var stack: ContiguousArray<Element> = []
         stack.reserveCapacity(root.childNodes.count + 1)
         stack.append(root)
         while let el = stack.popLast() {
@@ -70,11 +85,11 @@ open class Collector {
                 elements.add(el)
             }
             let children = el.childNodes
-            if !children.isEmpty {
-                for child in children.reversed() {
-                    if let childEl = child as? Element {
-                        stack.append(childEl)
-                    }
+            var i = children.count
+            while i > 0 {
+                i &-= 1
+                if let childEl = children[i] as? Element {
+                    stack.append(childEl)
                 }
             }
         }
@@ -100,7 +115,8 @@ open class Collector {
             return Elements()
         }
         let elements = Elements()
-        var stack: [Element] = []
+        elements.reserveCapacity(hasDescendant.count)
+        var stack: ContiguousArray<Element> = []
         stack.reserveCapacity(root.childNodes.count + 1)
         stack.append(root)
         while let el = stack.popLast() {
@@ -108,11 +124,11 @@ open class Collector {
                 elements.add(el)
             }
             let children = el.childNodes
-            if !children.isEmpty {
-                for child in children.reversed() {
-                    if let childEl = child as? Element {
-                        stack.append(childEl)
-                    }
+            var i = children.count
+            while i > 0 {
+                i &-= 1
+                if let childEl = children[i] as? Element {
+                    stack.append(childEl)
                 }
             }
         }
@@ -140,13 +156,15 @@ open class Collector {
             return root.getElementsByAttributeNormalized(attrEval.keyBytes)
         }
         if let attrValueEval = eval as? Evaluator.AttributeWithValue {
-            let normalizedKey = attrValueEval.keyBytes.lowercased().trim()
-            let absPrefix = "abs:".utf8Array
-            if !normalizedKey.starts(with: absPrefix),
-               (Element.isHotAttributeKey(normalizedKey) ||
-                (Element.dynamicAttributeValueIndexMaxKeys > 0)) {
-                return try root.getElementsByAttributeValue(attrValueEval.key, attrValueEval.value)
+            if attrValueEval.keyBytes.starts(with: UTF8Arrays.absPrefix) {
+                return nil
             }
+            return try root.getElementsByAttributeValueNormalized(
+                attrValueEval.keyBytes,
+                attrValueEval.valueBytes,
+                attrValueEval.key,
+                attrValueEval.value
+            )
         }
         if eval is StructuralEvaluator.Root {
             return Elements([root])
@@ -154,96 +172,78 @@ open class Collector {
         return nil
     }
 
-    private static func seedCandidates(for eval: CombiningEvaluator.And, root: Element) throws -> Elements? {
-        var idEval: Evaluator.Id?
-        var attrValueEval: Evaluator.AttributeWithValue?
-        var classEval: Evaluator.Class?
-        var tagEval: Evaluator.Tag?
-        var attrEval: Evaluator.Attribute?
-        var attrKeyPairEval: Evaluator.AttributeKeyPair?
-        var attrMatchingEval: Evaluator.AttributeWithValueMatching?
+    private static func seedCandidates(for eval: CombiningEvaluator.And, root: Element) throws -> (Elements, Int?)? {
+        let evaluators = eval.evaluators
 
-        for evaluator in eval.evaluators {
-            if let idCandidate = evaluator as? Evaluator.Id {
-                idEval = idCandidate
-                break
-            }
-        }
-        if let idEval {
-            return root.getElementsById(idEval.idBytes)
+        @inline(__always)
+        func shouldSkipIndex(_ index: Int) -> Int? {
+            return evaluators.count > 1 ? index : nil
         }
 
-        for evaluator in eval.evaluators {
-            if let attrValueCandidate = evaluator as? Evaluator.AttributeWithValue {
-                attrValueEval = attrValueCandidate
-                break
+        for (idx, evaluator) in evaluators.enumerated() {
+            if let idEval = evaluator as? Evaluator.Id {
+                return (root.getElementsById(idEval.idBytes), shouldSkipIndex(idx))
             }
-        }
-        if let attrValueEval,
-           !(attrValueEval.keyBytes.lowercased().starts(with: "abs:".utf8Array)),
-           (Element.isHotAttributeKey(attrValueEval.keyBytes) ||
-            (Element.dynamicAttributeValueIndexMaxKeys > 0)) {
-            return try root.getElementsByAttributeValue(attrValueEval.key, attrValueEval.value)
         }
 
-        for evaluator in eval.evaluators {
-            if let classCandidate = evaluator as? Evaluator.Class {
-                classEval = classCandidate
-                break
+        for (idx, evaluator) in evaluators.enumerated() {
+            if let attrValueEval = evaluator as? Evaluator.AttributeWithValue {
+                if attrValueEval.keyBytes.starts(with: UTF8Arrays.absPrefix) {
+                    return nil
+                }
+                return (try root.getElementsByAttributeValueNormalized(
+                            attrValueEval.keyBytes,
+                            attrValueEval.valueBytes,
+                            attrValueEval.key,
+                            attrValueEval.value
+                        ),
+                        shouldSkipIndex(idx))
             }
-        }
-        if let classEval {
-            let classBytes = classEval.classNameBytes
-            let normalizedClass: [UInt8]
-            if !Attributes.containsAsciiUppercase(classBytes) {
-                normalizedClass = classBytes
-            } else {
-                normalizedClass = classBytes.lowercased()
-            }
-            return root.getElementsByClassNormalizedBytes(normalizedClass)
         }
 
-        for evaluator in eval.evaluators {
-            if let tagCandidate = evaluator as? Evaluator.Tag {
-                tagEval = tagCandidate
-                break
+        for (idx, evaluator) in evaluators.enumerated() {
+            if let classEval = evaluator as? Evaluator.Class {
+                let classBytes = classEval.classNameBytes
+                let normalizedClass: [UInt8]
+                if !Attributes.containsAsciiUppercase(classBytes) {
+                    normalizedClass = classBytes
+                } else {
+                    normalizedClass = classBytes.lowercased()
+                }
+                return (root.getElementsByClassNormalizedBytes(normalizedClass),
+                        shouldSkipIndex(idx))
             }
         }
-        if let tagEval {
-            return try root.getElementsByTagNormalized(tagEval.tagNameNormal)
-        }
 
-        for evaluator in eval.evaluators {
-            if let attrCandidate = evaluator as? Evaluator.Attribute {
-                attrEval = attrCandidate
-                break
+        for (idx, evaluator) in evaluators.enumerated() {
+            if let tagEval = evaluator as? Evaluator.Tag {
+                return (try root.getElementsByTagNormalized(tagEval.tagNameNormal),
+                        shouldSkipIndex(idx))
             }
         }
-        if let attrEval {
-            return root.getElementsByAttributeNormalized(attrEval.keyBytes)
-        }
 
-        for evaluator in eval.evaluators {
-            if let attrMatchingCandidate = evaluator as? Evaluator.AttributeWithValueMatching {
-                attrMatchingEval = attrMatchingCandidate
-                break
+        for (idx, evaluator) in evaluators.enumerated() {
+            if let attrEval = evaluator as? Evaluator.Attribute {
+                return (root.getElementsByAttributeNormalized(attrEval.keyBytes),
+                        shouldSkipIndex(idx))
             }
         }
-        if let attrMatchingEval {
-            return root.getElementsByAttributeNormalized(attrMatchingEval.key.utf8Array)
+
+        for (idx, evaluator) in evaluators.enumerated() {
+            if let attrMatchingEval = evaluator as? Evaluator.AttributeWithValueMatching {
+                return (root.getElementsByAttributeNormalized(attrMatchingEval.key.utf8Array),
+                        shouldSkipIndex(idx))
+            }
         }
 
-        for evaluator in eval.evaluators {
+        for (idx, evaluator) in evaluators.enumerated() {
             if evaluator is Evaluator.AttributeWithValueNot {
                 continue
             }
-            if let keyPairCandidate = evaluator as? Evaluator.AttributeKeyPair {
-                attrKeyPairEval = keyPairCandidate
-                break
+            if let attrKeyPairEval = evaluator as? Evaluator.AttributeKeyPair {
+                return (root.getElementsByAttributeNormalized(attrKeyPairEval.keyBytes),
+                        shouldSkipIndex(idx))
             }
-        }
-        if let attrKeyPairEval {
-            return root.getElementsByAttributeNormalized(attrKeyPairEval.keyBytes)
         }
 
         return nil

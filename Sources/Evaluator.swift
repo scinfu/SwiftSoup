@@ -206,8 +206,23 @@ open class Evaluator: @unchecked Sendable {
 
         public override func matches(_ root: Element, _ element: Element) throws -> Bool {
             if let values = element.getAttributes() {
-                for attribute in values where attribute.getKeyUTF8().lowercased().hasPrefix(keyPrefix) {
-                    return true
+                for attribute in values {
+                    let key = attribute.getKeyUTF8()
+                    if key.count < keyPrefix.count { continue }
+                    var matches = true
+                    var i = 0
+                    while i < keyPrefix.count {
+                        let b = key[i]
+                        let lower = (b >= 65 && b <= 90) ? (b &+ 32) : b
+                        if lower != keyPrefix[i] {
+                            matches = false
+                            break
+                        }
+                        i &+= 1
+                    }
+                    if matches {
+                        return true
+                    }
                 }
             }
             return false
@@ -228,11 +243,11 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if element.hasAttr(keyBytes) {
-                let bytes = try element.attr(keyBytes)
-                return valueBytes.equalsIgnoreCase(string: bytes.trim())
-            }
-            return false
+            let bytes = try element.attr(keyBytes)
+            if bytes.isEmpty { return false }
+            let needsTrim = (bytes.first?.isWhitespace ?? false) || (bytes.last?.isWhitespace ?? false)
+            let candidate = needsTrim ? bytes.trim() : bytes
+            return valueBytes.equalsIgnoreCase(string: candidate)
         }
 
         public override func toString() -> String {
@@ -251,6 +266,7 @@ open class Evaluator: @unchecked Sendable {
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             let bytes = try element.attr(keyBytes)
+            if bytes.isEmpty { return true }
             return !valueBytes.equalsIgnoreCase(string: bytes)
         }
 
@@ -269,15 +285,13 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if element.hasAttr(keyBytes) {
-                let bytes = try element.attr(keyBytes)
-                if StringUtil.isAscii(bytes),
-                   StringUtil.isAscii(valueBytes) {
-                    return StringUtil.hasPrefixIgnoreCaseAscii(bytes, valueBytes)
-                }
-                return String(decoding: bytes, as: UTF8.self).lowercased().hasPrefix(value)
+            let bytes = try element.attr(keyBytes)
+            if bytes.isEmpty { return false }
+            if StringUtil.isAscii(bytes),
+               StringUtil.isAscii(valueBytes) {
+                return StringUtil.hasPrefixLowercaseAscii(bytes, valueBytes)
             }
-            return false
+            return String(decoding: bytes, as: UTF8.self).lowercased().hasPrefix(value)
         }
 
         public override func toString() -> String {
@@ -295,15 +309,13 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if element.hasAttr(keyBytes) {
-                let bytes = try element.attr(keyBytes)
-                if StringUtil.isAscii(bytes),
-                   StringUtil.isAscii(valueBytes) {
-                    return StringUtil.hasSuffixIgnoreCaseAscii(bytes, valueBytes)
-                }
-                return String(decoding: bytes, as: UTF8.self).lowercased().hasSuffix(value)
+            let bytes = try element.attr(keyBytes)
+            if bytes.isEmpty { return false }
+            if StringUtil.isAscii(bytes),
+               StringUtil.isAscii(valueBytes) {
+                return StringUtil.hasSuffixLowercaseAscii(bytes, valueBytes)
             }
-            return false
+            return String(decoding: bytes, as: UTF8.self).lowercased().hasSuffix(value)
         }
 
         public override func toString() -> String {
@@ -321,15 +333,13 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if element.hasAttr(keyBytes) {
-                let bytes = try element.attr(keyBytes)
-                if StringUtil.isAscii(bytes),
-                   StringUtil.isAscii(valueBytes) {
-                    return StringUtil.containsIgnoreCaseAscii(bytes, valueBytes)
-                }
-                return String(decoding: bytes, as: UTF8.self).lowercased().contains(value)
+            let bytes = try element.attr(keyBytes)
+            if bytes.isEmpty { return false }
+            if StringUtil.isAscii(bytes),
+               StringUtil.isAscii(valueBytes) {
+                return StringUtil.containsLowercaseAscii(bytes, valueBytes)
             }
-            return false
+            return String(decoding: bytes, as: UTF8.self).lowercased().contains(value)
         }
 
         public override func toString() -> String {
@@ -343,20 +353,21 @@ open class Evaluator: @unchecked Sendable {
      */
     public final class AttributeWithValueMatching: Evaluator, @unchecked Sendable {
         let key: String
+        let keyBytes: [UInt8]
         let pattern: Pattern
 
         public init(_ key: String, _ pattern: Pattern) {
             self.key = key.trim().lowercased()
+            self.keyBytes = self.key.utf8Array
             self.pattern = pattern
             super.init()
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            if element.hasAttr(key) {
-                let string = try element.attr(key)
-                return pattern.matcher(in: string).find()
-            }
-            return false
+            let bytes = try element.attr(keyBytes)
+            if bytes.isEmpty { return false }
+            let string = String(decoding: bytes, as: UTF8.self)
+            return pattern.matcher(in: string).find()
         }
 
         public override func toString() -> String {
@@ -728,7 +739,7 @@ open class Evaluator: @unchecked Sendable {
             let lowered = searchText.lowercased()
             self.searchText = lowered
             let utf8 = [UInt8](lowered.utf8)
-            if utf8.allSatisfy({ $0 < 0x80 }) {
+            if utf8.allSatisfy({ $0 < TokeniserStateVars.asciiUpperLimitByte }) {
                 self.searchTextLowerUTF8 = utf8
             } else {
                 self.searchTextLowerUTF8 = nil
@@ -758,7 +769,7 @@ open class Evaluator: @unchecked Sendable {
             let lowered = searchText.lowercased()
             self.searchText = lowered
             let utf8 = [UInt8](lowered.utf8)
-            if utf8.allSatisfy({ $0 < 0x80 }) {
+            if utf8.allSatisfy({ $0 < TokeniserStateVars.asciiUpperLimitByte }) {
                 self.searchTextLowerUTF8 = utf8
             } else {
                 self.searchTextLowerUTF8 = nil

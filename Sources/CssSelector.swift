@@ -95,7 +95,7 @@ open class CssSelector {
         let query = query.trim()
         try Validate.notEmpty(string: query.utf8Array)
 
-        self.evaluator = try CssSelector.cachedEvaluator(query)
+        self.evaluator = try CssSelector.cachedEvaluatorTrimmed(query)
 
         self.root = root
     }
@@ -114,18 +114,27 @@ open class CssSelector {
      - throws ``Exception`` with ``ExceptionType/SelectorParseException`` (unchecked) on an invalid CSS query.
      */
     public static func select(_ query: String, _ root: Element)throws->Elements {
+        let query = query.trim()
+        try Validate.notEmpty(string: query.utf8Array)
         DebugTrace.log("CssSelector.select(query): \(query)")
         if let cached = root.cachedSelectorResult(query) {
             DebugTrace.log("CssSelector.select(query): selector cache hit")
             return cached
         }
-        if let fast = try fastSelectQuery(query, root) {
+        if let tagBytes = simpleTagQueryBytes(query) {
+            DebugTrace.log("CssSelector.select(query): simple tag fast path")
+            let result = try root.getElementsByTagNormalized(tagBytes)
+            root.storeSelectorResult(query, result)
+            return result
+        }
+        if let fast = try fastSelectQuery(query, root, query) {
             DebugTrace.log("CssSelector.select(query): fast path hit")
             root.storeSelectorResult(query, fast)
             return fast
         }
         DebugTrace.log("CssSelector.select(query): slow path")
-        let result = try CssSelector(query, root).select()
+        let evaluator = try cachedEvaluatorTrimmed(query)
+        let result = try select(evaluator, root)
         root.storeSelectorResult(query, result)
         return result
     }
@@ -149,19 +158,42 @@ open class CssSelector {
      - returns: matching elements, empty if none
      */
     public static func select(_ query: String, _ roots: Array<Element>)throws->Elements {
+        let query = query.trim()
         try Validate.notEmpty(string: query.utf8Array)
         if roots.count == 1, let root = roots.first {
             if let cached = root.cachedSelectorResult(query) {
                 return cached
             }
         }
-        if let fast = try fastSelectQuery(query, roots) {
+        if let tagBytes = simpleTagQueryBytes(query) {
+            if roots.count == 1, let root = roots.first {
+                let result = try root.getElementsByTagNormalized(tagBytes)
+                root.storeSelectorResult(query, result)
+                return result
+            }
+            var elements: Array<Element> = []
+            var seenIds = Set<ObjectIdentifier>()
+            seenIds.reserveCapacity(roots.count * 8)
+            for root in roots {
+                let found = try root.getElementsByTagNormalized(tagBytes)
+                for el in found.array() {
+                    let id = ObjectIdentifier(el)
+                    if seenIds.contains(id) {
+                        continue
+                    }
+                    seenIds.insert(id)
+                    elements.append(el)
+                }
+            }
+            return Elements(elements)
+        }
+        if let fast = try fastSelectQuery(query, roots, query) {
             if roots.count == 1, let root = roots.first {
                 root.storeSelectorResult(query, fast)
             }
             return fast
         }
-        let evaluator: Evaluator = try cachedEvaluator(query)
+        let evaluator: Evaluator = try cachedEvaluatorTrimmed(query)
         let result = try self.select(evaluator, roots)
         if roots.count == 1, let root = roots.first {
             root.storeSelectorResult(query, result)
@@ -212,8 +244,7 @@ open class CssSelector {
         return try Collector.collect(evaluator, root)
     }
     
-    private static func cachedEvaluator(_ query: String) throws -> Evaluator {
-        let key = query.trim()
+    private static func cachedEvaluatorTrimmed(_ key: String) throws -> Evaluator {
         selectorCache.lock.lock()
         if let cached = selectorCache.items[key] {
             selectorCache.lock.unlock()
@@ -253,8 +284,8 @@ open class CssSelector {
         case tagId([UInt8], Token.Tag.TagId?, [UInt8])
         case attr([UInt8])
         case tagAttr([UInt8], Token.Tag.TagId?, [UInt8])
-        case attrValue(String, String)
-        case tagAttrValue([UInt8], Token.Tag.TagId?, String, String)
+        case attrValue([UInt8], [UInt8], String, String)
+        case tagAttrValue([UInt8], Token.Tag.TagId?, [UInt8], [UInt8], String, String)
         case descendant(FastQueryPlan, FastQueryPlan)
         
         func apply(_ root: Element) throws -> Elements? {
@@ -273,6 +304,7 @@ open class CssSelector {
                 if classElements.isEmpty { return classElements }
                 if otherClasses.isEmpty { return classElements }
                 let output = Elements()
+                output.reserveCapacity(classElements.size())
                 for el in classElements.array() {
                     var matchesAll = true
                     for className in otherClasses where !el.hasClass(className) {
@@ -290,6 +322,7 @@ open class CssSelector {
                 let classElements = root.getElementsByClassNormalizedBytes(className)
                 if classElements.isEmpty { return classElements }
                 let output = Elements()
+                output.reserveCapacity(classElements.size())
                 for el in classElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
                     output.add(el)
                 }
@@ -298,6 +331,7 @@ open class CssSelector {
                 let classElements = root.getElementsByClassNormalizedBytes(firstClass)
                 if classElements.isEmpty { return classElements }
                 let output = Elements()
+                output.reserveCapacity(classElements.size())
                 for el in classElements.array() {
                     if !CssSelector.matchesTagBytes(el, tagBytes, tagId) {
                         continue
@@ -316,6 +350,7 @@ open class CssSelector {
                 let idElements = root.getElementsById(idBytes)
                 if idElements.isEmpty { return idElements }
                 let output = Elements()
+                output.reserveCapacity(idElements.size())
                 for el in idElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
                     output.add(el)
                 }
@@ -326,16 +361,18 @@ open class CssSelector {
                 let attrElements = root.getElementsByAttributeNormalized(attrBytes)
                 if attrElements.isEmpty { return attrElements }
                 let output = Elements()
+                output.reserveCapacity(attrElements.size())
                 for el in attrElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
                     output.add(el)
                 }
                 return output
-            case .attrValue(let key, let value):
-                return try root.getElementsByAttributeValue(key, value)
-            case .tagAttrValue(let tagBytes, let tagId, let key, let value):
-                let attrElements = try root.getElementsByAttributeValue(key, value)
+            case .attrValue(let keyBytes, let valueBytes, let key, let value):
+                return try root.getElementsByAttributeValueNormalized(keyBytes, valueBytes, key, value)
+            case .tagAttrValue(let tagBytes, let tagId, let keyBytes, let valueBytes, let key, let value):
+                let attrElements = try root.getElementsByAttributeValueNormalized(keyBytes, valueBytes, key, value)
                 if attrElements.isEmpty { return attrElements }
                 let output = Elements()
+                output.reserveCapacity(attrElements.size())
                 for el in attrElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
                     output.add(el)
                 }
@@ -359,7 +396,35 @@ open class CssSelector {
                 let leftCount = leftElements.size()
                 if leftCount == 1 {
                     let target = leftElements.get(0)
+                    if case .all = right {
+                        let output = Elements()
+                        let children = target.childNodes
+                        if !children.isEmpty {
+                            var stack: ContiguousArray<Element> = []
+                            stack.reserveCapacity(children.count)
+                            var i = children.count
+                            while i > 0 {
+                                i &-= 1
+                                if let childEl = children[i] as? Element {
+                                    stack.append(childEl)
+                                }
+                            }
+                            while let el = stack.popLast() {
+                                output.add(el)
+                                let children = el.childNodes
+                                var j = children.count
+                                while j > 0 {
+                                    j &-= 1
+                                    if let childEl = children[j] as? Element {
+                                        stack.append(childEl)
+                                    }
+                                }
+                            }
+                        }
+                        return output
+                    }
                     let output = Elements()
+                    output.reserveCapacity(candidates.size())
                     for el in candidates.array() {
                         var parent = el.parent()
                         var matched = false
@@ -379,6 +444,7 @@ open class CssSelector {
                 if leftCount <= 4 {
                     let leftArray = leftElements.array()
                     let output = Elements()
+                    output.reserveCapacity(candidates.size())
                     for el in candidates.array() {
                         var parent = el.parent()
                         var matched = false
@@ -402,6 +468,7 @@ open class CssSelector {
                     leftIds.insert(ObjectIdentifier(el))
                 }
                 let output = Elements()
+                output.reserveCapacity(candidates.size())
                 for el in candidates.array() {
                     var parent = el.parent()
                     var matched = false
@@ -443,16 +510,39 @@ open class CssSelector {
     }
 
     /// Ultra-fast path for very simple selectors without combinators or pseudos.
-    private static func fastSelectQuery(_ query: String, _ root: Element) throws -> Elements? {
+    private static func fastSelectQuery(_ query: String, _ root: Element, _ trimmed: String) throws -> Elements? {
         DebugTrace.log("CssSelector.fastSelectQuery: \(query)")
-        let plan = cachedFastQueryPlan(query)
+        let plan = cachedFastQueryPlan(trimmed)
         DebugTrace.log("CssSelector.fastSelectQuery: plan=\(plan)")
         return try plan.apply(root)
     }
 
-    private static func cachedFastQueryPlan(_ query: String) -> FastQueryPlan {
+    @inline(__always)
+    private static func simpleTagQueryBytes(_ trimmed: String) -> [UInt8]? {
+        if trimmed.isEmpty {
+            return nil
+        }
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(trimmed.utf8.count)
+        for b in trimmed.utf8 {
+            switch b {
+            case TokeniserStateVars.upperAByte...TokeniserStateVars.upperZByte:
+                bytes.append(b &+ 32)
+            case TokeniserStateVars.lowerAByte...TokeniserStateVars.lowerZByte,
+                 TokeniserStateVars.zeroByte...TokeniserStateVars.nineByte,
+                 TokeniserStateVars.hyphenByte,
+                 TokeniserStateVars.underscoreByte:
+                bytes.append(b)
+            default:
+                return nil
+            }
+        }
+        return bytes.isEmpty ? nil : bytes
+    }
+
+    private static func cachedFastQueryPlan(_ trimmed: String) -> FastQueryPlan {
         fastQueryCache.lock.lock()
-        if let cached = fastQueryCache.items[query] {
+        if let cached = fastQueryCache.items[trimmed] {
             fastQueryCache.lock.unlock()
             DebugTrace.log("CssSelector.cachedFastQueryPlan: cache hit")
             return cached
@@ -460,12 +550,12 @@ open class CssSelector {
         fastQueryCache.lock.unlock()
         
         DebugTrace.log("CssSelector.cachedFastQueryPlan: cache miss")
-        let plan = fastQueryPlan(query)
+        let plan = fastQueryPlan(trimmed)
         
         fastQueryCache.lock.lock()
-        if fastQueryCache.items[query] == nil {
-            fastQueryCache.items[query] = plan
-            fastQueryCache.order.append(query)
+        if fastQueryCache.items[trimmed] == nil {
+            fastQueryCache.items[trimmed] = plan
+            fastQueryCache.order.append(trimmed)
             if fastQueryCache.order.count > fastQueryCacheCapacity {
                 let overflow = fastQueryCache.order.count - fastQueryCacheCapacity
                 if overflow > 0 {
@@ -482,24 +572,56 @@ open class CssSelector {
     
     private static func fastQueryPlan(_ query: String) -> FastQueryPlan {
         DebugTrace.log("CssSelector.fastQueryPlan: \(query)")
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = query
         if trimmed.isEmpty {
             return .none
         }
-        if trimmed.contains(where: { $0 == "," || $0 == ">" || $0 == "+" || $0 == "~" }) {
-            return .none
+        var hasWhitespace = false
+        var sawNonAscii = false
+        for b in trimmed.utf8 {
+            switch b {
+            case TokeniserStateVars.commaByte,
+                 TokeniserStateVars.greaterThanByte,
+                 TokeniserStateVars.plusByte,
+                 TokeniserStateVars.tildeByte,
+                 TokeniserStateVars.colonByte,
+                 TokeniserStateVars.pipeByte: // , > + ~ : |
+                return .none
+            case TokeniserStateVars.spaceByte,
+                 TokeniserStateVars.newLineByte,
+                 TokeniserStateVars.tabByte,
+                 TokeniserStateVars.carriageReturnByte: // space, \n, \t, \r
+                hasWhitespace = true
+            default:
+                if b >= TokeniserStateVars.asciiUpperLimitByte {
+                    sawNonAscii = true
+                    break
+                }
+            }
+            if sawNonAscii {
+                break
+            }
         }
-        if trimmed.contains(":") || trimmed.contains("|") {
-            return .none
+        if sawNonAscii {
+            for ch in trimmed {
+                switch ch {
+                case ",", ">", "+", "~", ":", "|":
+                    return .none
+                case " ", "\n", "\t", "\r":
+                    hasWhitespace = true
+                default:
+                    break
+                }
+            }
         }
-        if let (leftToken, rightToken) = splitDescendantTokens(trimmed[...]) {
-            let leftPlan = fastSimpleQueryPlan(leftToken)
-            if case .none = leftPlan { return .none }
-            let rightPlan = fastSimpleQueryPlan(rightToken)
-            if case .none = rightPlan { return .none }
-            return .descendant(leftPlan, rightPlan)
-        }
-        if trimmed.contains(where: { $0 == " " || $0 == "\n" || $0 == "\t" || $0 == "\r" }) {
+        if hasWhitespace {
+            if let (leftToken, rightToken) = splitDescendantTokens(trimmed[...]) {
+                let leftPlan = fastSimpleQueryPlan(leftToken)
+                if case .none = leftPlan { return .none }
+                let rightPlan = fastSimpleQueryPlan(rightToken)
+                if case .none = rightPlan { return .none }
+                return .descendant(leftPlan, rightPlan)
+            }
             return .none
         }
         return fastSimpleQueryPlan(trimmed[...])
@@ -578,9 +700,6 @@ open class CssSelector {
         if trimmed.isEmpty {
             return .none
         }
-        if trimmed.contains(where: { $0 == " " || $0 == "\n" || $0 == "\t" || $0 == "\r" }) {
-            return .none
-        }
         @inline(__always)
         func isIdentChar(_ ch: Character) -> Bool {
             switch ch {
@@ -599,6 +718,37 @@ open class CssSelector {
                 }
             }
             return true
+        }
+        @inline(__always)
+        func asciiClassPartsLowercased(_ bytes: [UInt8]) -> [[UInt8]]? {
+            var parts: [[UInt8]] = []
+            var current: [UInt8] = []
+            current.reserveCapacity(bytes.count)
+            var i = 0
+            while i < bytes.count {
+                let b = bytes[i]
+                if b == TokeniserStateVars.dotByte { // "."
+                    if current.isEmpty {
+                        return nil
+                    }
+                    parts.append(current)
+                    current = []
+                } else if (b >= TokeniserStateVars.zeroByte && b <= TokeniserStateVars.nineByte) || // 0-9
+                            (b >= TokeniserStateVars.upperAByte && b <= TokeniserStateVars.upperZByte) || // A-Z
+                            (b >= TokeniserStateVars.lowerAByte && b <= TokeniserStateVars.lowerZByte) || // a-z
+                            b == TokeniserStateVars.hyphenByte || b == TokeniserStateVars.underscoreByte { // - _
+                    let lower = (b >= TokeniserStateVars.upperAByte && b <= TokeniserStateVars.upperZByte) ? (b &+ 32) : b
+                    current.append(lower)
+                } else {
+                    return nil
+                }
+                i &+= 1
+            }
+            if current.isEmpty {
+                return nil
+            }
+            parts.append(current)
+            return parts
         }
         @inline(__always)
         func splitClassList(_ s: Substring) -> [Substring]? {
@@ -641,18 +791,82 @@ open class CssSelector {
         
         if trimmed.first == "#" {
             let id = trimmed.dropFirst()
-            if !id.isEmpty, !id.contains(where: { " \t\n\r,>+~:.[#".contains($0) }) {
-                let idBytes = String(id).utf8Array.trim()
-                if !idBytes.isEmpty {
-                    return .id(idBytes)
+            if id.isEmpty {
+                return .none
+            }
+            var asciiOnly = true
+            var bytes: [UInt8] = []
+            bytes.reserveCapacity(id.count)
+            for b in id.utf8 {
+                bytes.append(b)
+                if b >= TokeniserStateVars.asciiUpperLimitByte {
+                    asciiOnly = false
+                    continue
                 }
+                switch b {
+                case TokeniserStateVars.spaceByte,
+                     TokeniserStateVars.tabByte,
+                     TokeniserStateVars.newLineByte,
+                     TokeniserStateVars.carriageReturnByte,
+                     TokeniserStateVars.commaByte,
+                     TokeniserStateVars.greaterThanByte,
+                     TokeniserStateVars.plusByte,
+                     TokeniserStateVars.tildeByte,
+                     TokeniserStateVars.colonByte,
+                     TokeniserStateVars.dotByte,
+                     TokeniserStateVars.leftBracketByte,
+                     TokeniserStateVars.hashByte:
+                    return .none
+                default:
+                    break
+                }
+            }
+            let idBytes = asciiOnly ? bytes : bytes.trim()
+            if !idBytes.isEmpty {
+                return .id(idBytes)
             }
             return .none
         }
         if trimmed.first == "." {
             let className = trimmed.dropFirst()
+            if className.isEmpty {
+                return .none
+            }
+            let classBytes = Array(className.utf8)
+            var asciiOnly = true
+            for b in classBytes {
+                if b >= TokeniserStateVars.asciiUpperLimitByte {
+                    asciiOnly = false
+                    break
+                }
+                switch b {
+                case TokeniserStateVars.spaceByte,
+                     TokeniserStateVars.tabByte,
+                     TokeniserStateVars.newLineByte,
+                     TokeniserStateVars.carriageReturnByte,
+                     TokeniserStateVars.commaByte,
+                     TokeniserStateVars.greaterThanByte,
+                     TokeniserStateVars.plusByte,
+                     TokeniserStateVars.tildeByte,
+                     TokeniserStateVars.colonByte,
+                     TokeniserStateVars.leftBracketByte,
+                     TokeniserStateVars.hashByte:
+                    return .none
+                default:
+                    break
+                }
+            }
+            if asciiOnly {
+                if let parts = asciiClassPartsLowercased(classBytes) {
+                    let firstClassNormalized = parts[0]
+                    if parts.count == 1 {
+                        return .className(firstClassNormalized)
+                    }
+                    return .classes(firstClassNormalized, Array(parts.dropFirst()))
+                }
+            }
             if let classParts = splitClassList(className) {
-                let firstClassBytes = String(classParts[0]).utf8Array
+                let firstClassBytes = Array(classParts[0].utf8)
                 let firstClassNormalized = Attributes.containsAsciiUppercase(firstClassBytes)
                     ? firstClassBytes.lowercased()
                     : firstClassBytes
@@ -660,7 +874,7 @@ open class CssSelector {
                     return .className(firstClassNormalized)
                 }
                 let otherClasses = classParts.dropFirst().map { part -> [UInt8] in
-                    let bytes = String(part).utf8Array
+                    let bytes = Array(part.utf8)
                     return Attributes.containsAsciiUppercase(bytes) ? bytes.lowercased() : bytes
                 }
                 return .classes(firstClassNormalized, otherClasses)
@@ -698,36 +912,109 @@ open class CssSelector {
                 if valuePart.isEmpty {
                     return .none
                 }
-                let key = String(keyPart)
-                let value = String(valuePart)
+                let rawKeyBytes = Array(keyPart.utf8).trim()
+                let rawValueBytes = Array(valuePart.utf8).trim()
+                if rawKeyBytes.isEmpty || rawValueBytes.isEmpty {
+                    return .none
+                }
+                let keyBytes = Attributes.containsAsciiUppercase(rawKeyBytes) ? rawKeyBytes.lowercased() : rawKeyBytes
+                let valueBytes = Attributes.containsAsciiUppercase(rawValueBytes) ? rawValueBytes.lowercased() : rawValueBytes
+                let needsOriginal = keyBytes.starts(with: UTF8Arrays.absPrefix)
+                let key = needsOriginal ? String(keyPart) : ""
+                let value = needsOriginal ? String(valuePart) : ""
                 if tagPart.isEmpty {
-                    return .attrValue(key, value)
+                    return .attrValue(keyBytes, valueBytes, key, value)
                 }
                 guard isSimpleIdent(tagPart) else { return .none }
-                let tagBytes = String(tagPart).utf8Array.lowercased().trim()
-                if tagBytes.isEmpty { return .none }
-                return .tagAttrValue(tagBytes, Token.Tag.tagIdForBytes(tagBytes), key, value)
+                let rawTagBytes = Array(tagPart.utf8).trim()
+                if rawTagBytes.isEmpty { return .none }
+                let tagBytes = Attributes.containsAsciiUppercase(rawTagBytes) ? rawTagBytes.lowercased() : rawTagBytes
+                return .tagAttrValue(tagBytes, Token.Tag.tagIdForBytes(tagBytes), keyBytes, valueBytes, key, value)
             }
             guard isSimpleIdent(attrPart) else { return .none }
-            let attrBytes = String(attrPart).utf8Array.lowercased().trim()
-            if attrBytes.isEmpty { return .none }
+            let rawAttrBytes = Array(attrPart.utf8).trim()
+            if rawAttrBytes.isEmpty { return .none }
+            let attrBytes = Attributes.containsAsciiUppercase(rawAttrBytes) ? rawAttrBytes.lowercased() : rawAttrBytes
             if tagPart.isEmpty {
                 return .attr(attrBytes)
             }
             guard isSimpleIdent(tagPart) else { return .none }
-            let tagBytes = String(tagPart).utf8Array.lowercased().trim()
-            if tagBytes.isEmpty { return .none }
+            let rawTagBytes = Array(tagPart.utf8).trim()
+            if rawTagBytes.isEmpty { return .none }
+            let tagBytes = Attributes.containsAsciiUppercase(rawTagBytes) ? rawTagBytes.lowercased() : rawTagBytes
             return .tagAttr(tagBytes, Token.Tag.tagIdForBytes(tagBytes), attrBytes)
         }
         
         if let dot = trimmed.firstIndex(of: ".") {
             let tagPart = trimmed[..<dot]
             let classPart = trimmed[trimmed.index(after: dot)...]
+            let tagBytes = Array(tagPart.utf8)
+            let classBytes = Array(classPart.utf8)
+            var asciiTag = !tagBytes.isEmpty
+            for b in tagBytes {
+                if b >= TokeniserStateVars.asciiUpperLimitByte {
+                    asciiTag = false
+                    break
+                }
+                if (b >= TokeniserStateVars.zeroByte && b <= TokeniserStateVars.nineByte) ||
+                    (b >= TokeniserStateVars.upperAByte && b <= TokeniserStateVars.upperZByte) ||
+                    (b >= TokeniserStateVars.lowerAByte && b <= TokeniserStateVars.lowerZByte) ||
+                    b == TokeniserStateVars.hyphenByte || b == TokeniserStateVars.underscoreByte {
+                    continue
+                }
+                asciiTag = false
+                break
+            }
+            var asciiClass = !classBytes.isEmpty
+            if asciiClass {
+                for b in classBytes {
+                    if b >= TokeniserStateVars.asciiUpperLimitByte {
+                        asciiClass = false
+                        break
+                    }
+                    switch b {
+                    case TokeniserStateVars.spaceByte,
+                         TokeniserStateVars.tabByte,
+                         TokeniserStateVars.newLineByte,
+                         TokeniserStateVars.carriageReturnByte,
+                         TokeniserStateVars.commaByte,
+                         TokeniserStateVars.greaterThanByte,
+                         TokeniserStateVars.plusByte,
+                         TokeniserStateVars.tildeByte,
+                         TokeniserStateVars.colonByte,
+                         TokeniserStateVars.leftBracketByte,
+                         TokeniserStateVars.hashByte:
+                        asciiClass = false
+                        break
+                    default:
+                        break
+                    }
+                    if !asciiClass { break }
+                }
+            }
+            if asciiTag, asciiClass, let parts = asciiClassPartsLowercased(classBytes) {
+                let tagLower: [UInt8] = {
+                    var out: [UInt8] = []
+                    out.reserveCapacity(tagBytes.count)
+                    for b in tagBytes {
+                        let lower = (b >= TokeniserStateVars.upperAByte && b <= TokeniserStateVars.upperZByte) ? (b &+ 32) : b
+                        out.append(lower)
+                    }
+                    return out
+                }()
+                let firstClassNormalized = parts[0]
+                if parts.count == 1 {
+                    return .tagClass(tagLower, Token.Tag.tagIdForBytes(tagLower), firstClassNormalized)
+                }
+                return .tagClasses(tagLower, Token.Tag.tagIdForBytes(tagLower), firstClassNormalized, Array(parts.dropFirst()))
+            }
             if isSimpleIdent(tagPart) {
                 if let classParts = splitClassList(classPart) {
-                    let tagBytes = String(tagPart).utf8Array.lowercased().trim()
+                    let rawTagBytes = Array(tagPart.utf8).trim()
+                    if rawTagBytes.isEmpty { return .none }
+                    let tagBytes = Attributes.containsAsciiUppercase(rawTagBytes) ? rawTagBytes.lowercased() : rawTagBytes
                     if tagBytes.isEmpty { return .none }
-                    let firstClassBytes = String(classParts[0]).utf8Array
+                    let firstClassBytes = Array(classParts[0].utf8)
                     let firstClassNormalized = Attributes.containsAsciiUppercase(firstClassBytes)
                         ? firstClassBytes.lowercased()
                         : firstClassBytes
@@ -735,7 +1022,7 @@ open class CssSelector {
                         return .tagClass(tagBytes, Token.Tag.tagIdForBytes(tagBytes), firstClassNormalized)
                     }
                     let otherClasses = classParts.dropFirst().map { part -> [UInt8] in
-                        let bytes = String(part).utf8Array
+                        let bytes = Array(part.utf8)
                         return Attributes.containsAsciiUppercase(bytes) ? bytes.lowercased() : bytes
                     }
                     return .tagClasses(tagBytes, Token.Tag.tagIdForBytes(tagBytes), firstClassNormalized, otherClasses)
@@ -747,24 +1034,28 @@ open class CssSelector {
             let tagPart = trimmed[..<hash]
             let idPart = trimmed[trimmed.index(after: hash)...]
             if isSimpleIdent(tagPart), isSimpleIdent(idPart) {
-                let idBytes = String(idPart).utf8Array.trim()
+                let idBytes = Array(idPart.utf8).trim()
                 if idBytes.isEmpty { return .none }
-                let tagBytes = String(tagPart).utf8Array.lowercased().trim()
+                let rawTagBytes = Array(tagPart.utf8).trim()
+                if rawTagBytes.isEmpty { return .none }
+                let tagBytes = Attributes.containsAsciiUppercase(rawTagBytes) ? rawTagBytes.lowercased() : rawTagBytes
                 if tagBytes.isEmpty { return .none }
                 return .tagId(tagBytes, Token.Tag.tagIdForBytes(tagBytes), idBytes)
             }
             return .none
         }
         if isSimpleIdent(trimmed[...]) {
-            let tagBytes = String(trimmed).utf8Array.lowercased().trim()
+            let rawTagBytes = Array(trimmed.utf8).trim()
+            if rawTagBytes.isEmpty { return .none }
+            let tagBytes = Attributes.containsAsciiUppercase(rawTagBytes) ? rawTagBytes.lowercased() : rawTagBytes
             if tagBytes.isEmpty { return .none }
             return .tag(tagBytes, Token.Tag.tagIdForBytes(tagBytes))
         }
         return .none
     }
 
-    private static func fastSelectQuery(_ query: String, _ roots: Array<Element>) throws -> Elements? {
-        let plan = cachedFastQueryPlan(query)
+    private static func fastSelectQuery(_ query: String, _ roots: Array<Element>, _ trimmed: String) throws -> Elements? {
+        let plan = cachedFastQueryPlan(trimmed)
         if case .none = plan {
             return nil
         }
@@ -797,18 +1088,23 @@ open class CssSelector {
             return try root.getElementsByTag(eval.tagNameNormal)
         }
         if let eval = evaluator as? Evaluator.Id {
-            return root.getElementsById(eval.id.utf8Array)
+            return root.getElementsById(eval.idBytes)
         }
         if let eval = evaluator as? Evaluator.Class {
-            let key = eval.className.utf8Array
+            let key = eval.classNameBytes
             let normalized = Attributes.containsAsciiUppercase(key) ? key.lowercased() : key
             return root.getElementsByClassNormalizedBytes(normalized)
         }
         if let eval = evaluator as? Evaluator.Attribute {
-            return try root.getElementsByAttribute(eval.key)
+            return root.getElementsByAttributeNormalized(eval.keyBytes)
         }
         if let eval = evaluator as? Evaluator.AttributeWithValue {
-            return try root.getElementsByAttributeValue(eval.key, eval.value)
+            return try root.getElementsByAttributeValueNormalized(
+                eval.keyBytes,
+                eval.valueBytes,
+                eval.key,
+                eval.value
+            )
         }
         if let eval = evaluator as? CombiningEvaluator.And {
             return try fastSelectAnd(eval, root)
@@ -819,6 +1115,7 @@ open class CssSelector {
     private struct IndexedCandidate {
         let elements: Elements
         let priority: Int
+        let evaluator: Evaluator
     }
 
     /// Fast‑path for AND chains: pick an indexed candidate set, then filter by the full evaluator list.
@@ -835,9 +1132,14 @@ open class CssSelector {
         guard let best else { return nil }
 
         let output = Elements()
+        output.reserveCapacity(best.elements.size())
+        let skipEval = best.evaluator
         for element in best.elements.array() {
             var matchesAll = true
             for sub in evaluator.evaluators {
+                if sub === skipEval {
+                    continue
+                }
                 if try !sub.matches(root, element) {
                     matchesAll = false
                     break
@@ -852,23 +1154,32 @@ open class CssSelector {
 
     private static func indexedCandidate(for evaluator: Evaluator, _ root: Element) throws -> IndexedCandidate? {
         if let eval = evaluator as? Evaluator.Id {
-            return IndexedCandidate(elements: root.getElementsById(eval.id.utf8Array), priority: 0)
+            return IndexedCandidate(elements: root.getElementsById(eval.idBytes), priority: 0, evaluator: evaluator)
         }
         if let eval = evaluator as? Evaluator.AttributeWithValue {
-            let normalizedKey = eval.key.utf8Array.lowercased().trim()
+            let normalizedKey = eval.keyBytes
             guard Element.isHotAttributeKey(normalizedKey) else { return nil }
-            return IndexedCandidate(elements: try root.getElementsByAttributeValue(eval.key, eval.value), priority: 1)
+            return IndexedCandidate(
+                elements: try root.getElementsByAttributeValueNormalized(
+                    eval.keyBytes,
+                    eval.valueBytes,
+                    eval.key,
+                    eval.value
+                ),
+                priority: 1,
+                evaluator: evaluator
+            )
         }
         if let eval = evaluator as? Evaluator.Class {
-            let key = eval.className.utf8Array
+            let key = eval.classNameBytes
             let normalized = Attributes.containsAsciiUppercase(key) ? key.lowercased() : key
-            return IndexedCandidate(elements: root.getElementsByClassNormalizedBytes(normalized), priority: 2)
+            return IndexedCandidate(elements: root.getElementsByClassNormalizedBytes(normalized), priority: 2, evaluator: evaluator)
         }
         if let eval = evaluator as? Evaluator.Attribute {
-            return IndexedCandidate(elements: try root.getElementsByAttribute(eval.key), priority: 3)
+            return IndexedCandidate(elements: root.getElementsByAttributeNormalized(eval.keyBytes), priority: 3, evaluator: evaluator)
         }
         if let eval = evaluator as? Evaluator.Tag {
-            return IndexedCandidate(elements: try root.getElementsByTag(eval.tagNameNormal), priority: 4)
+            return IndexedCandidate(elements: try root.getElementsByTag(eval.tagNameNormal), priority: 4, evaluator: evaluator)
         }
         return nil
     }

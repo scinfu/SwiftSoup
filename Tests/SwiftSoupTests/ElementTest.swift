@@ -66,12 +66,37 @@ class ElementTest: XCTestCase {
 		XCTAssertEqual("Hello now", p.ownText())
 	}
 
-	func testNormalisesText() {
-		let h: String = "<p>Hello<p>There.</p> \n <p>Here <b>is</b> \n s<b>om</b>e text."
-		let doc: Document = try! SwiftSoup.parse(h)
-		let text: String = try! doc.text()
-		XCTAssertEqual("Hello There. Here is some text.", text)
-	}
+    func testNormalisesText() {
+        let h: String = "<p>Hello<p>There.</p> \n <p>Here <b>is</b> \n s<b>om</b>e text."
+        let doc: Document = try! SwiftSoup.parse(h)
+        let text: String = try! doc.text()
+        XCTAssertEqual("Hello There. Here is some text.", text)
+    }
+
+    func testNormalisesNBSPText() {
+        let h = "<p>a\u{00a0}b\tc</p><p>d</p>"
+        let doc: Document = try! SwiftSoup.parse(h)
+        XCTAssertEqual("a b c d", try! doc.text())
+
+        let p = try! doc.select("p").first()!
+        XCTAssertEqual("a b c", try! p.text())
+        XCTAssertEqual("a b c", p.ownText())
+    }
+
+    func testOwnTextExcludesChildTextWithNBSP() {
+        let h = "<p>a\u{00a0}b<span>c</span>d</p>"
+        let doc = try! SwiftSoup.parse(h)
+        let p = try! doc.select("p").first()!
+        XCTAssertEqual("a bd", p.ownText())
+        XCTAssertEqual("a bcd", try! p.text())
+    }
+
+    func testTextTrimsTrailingNBSP() {
+        let doc = try! SwiftSoup.parse("<p>a&nbsp;</p>")
+        XCTAssertEqual("a", try! doc.text())
+        let p = try! doc.select("p").first()!
+        XCTAssertEqual("a", try! p.text())
+    }
 
 	func testKeepsPreText() {
 		let h = "<p>Hello \n \n there.</p> <div><pre>  What's \n\n  that?</pre>"

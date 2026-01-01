@@ -592,17 +592,22 @@ open class Elements: NSCopying {
 	- returns: The first matched element, or `nil` if content is empty.
 	*/
 	open func first() -> Element? {
-		return isEmpty() ? nil : get(0)
+		return this.first
 	}
 
 	/// Check if the receiver contains no elemens.
 	open func isEmpty() -> Bool {
-		return array().isEmpty
+		return this.isEmpty
 	}
 
 	/// Get the elements count.
 	open func size() -> Int {
-		return array().count
+		return this.count
+	}
+
+	@inline(__always)
+	internal func reserveCapacity(_ capacity: Int) {
+		this.reserveCapacity(capacity)
 	}
 
 	/**
@@ -610,7 +615,7 @@ open class Elements: NSCopying {
 	- returns: The last matched element, or `nil` if content is empty.
 	*/
 	open func last() -> Element? {
-		return isEmpty() ? nil : get(size() - 1)
+		return this.last
 	}
 
 	/**
