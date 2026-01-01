@@ -278,16 +278,7 @@ class HtmlTreeBuilder: TreeBuilder {
             startTag.ensureAttributes()
         }
         // Resolve tag once and avoid normalizeAttributes when there are no attrs.
-        let tag: Tag
-        if settings.preservesTagCase() {
-            tag = try Tag.valueOf(startTag.name(), settings)
-        } else if let fastTag = Tag.valueOfTagId(startTag.tagId) {
-            tag = fastTag
-        } else if let normalName = startTag.normalName() {
-            tag = try Tag.valueOfNormalized(normalName, isSelfClosing: isSelfClosing)
-        } else {
-            tag = try Tag.valueOf(startTag.name(), settings)
-        }
+        let tag: Tag = try startTag.resolveTag(settings, isSelfClosing: isSelfClosing)
         let skipChildReserve = isBulkBuilding || !hasAttributes
         let el: Element
         if hasAttributes {
@@ -352,16 +343,7 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         // For unknown tags, remember this is self closing for output
         let isSelfClosing = startTag.isSelfClosing()
-        let tag: Tag
-        if settings.preservesTagCase() {
-            tag = try Tag.valueOf(startTag.name(), settings, isSelfClosing: isSelfClosing)
-        } else if let fastTag = Tag.valueOfTagId(startTag.tagId) {
-            tag = fastTag
-        } else if let normalName = startTag.normalName() {
-            tag = try Tag.valueOfNormalized(normalName, isSelfClosing: isSelfClosing)
-        } else {
-            tag = try Tag.valueOf(startTag.name(), settings, isSelfClosing: isSelfClosing)
-        }
+        let tag: Tag = try startTag.resolveTag(settings, isSelfClosing: isSelfClosing)
         let skipChildReserve = isSelfClosing || isBulkBuilding || !hasAttributes
         let el: Element
         if hasAttributes {

@@ -581,9 +581,26 @@ open class StringUtil {
                                                   string: ArraySlice<UInt8>,
                                                   stripLeading: Bool,
                                                   lastWasWhite: inout Bool) {
+        var sawWhitespace = false
+        appendNormalisedWhitespace(
+            accum,
+            string: string,
+            stripLeading: stripLeading,
+            lastWasWhite: &lastWasWhite,
+            sawWhitespace: &sawWhitespace
+        )
+    }
+
+    @inlinable
+    public static func appendNormalisedWhitespace(_ accum: StringBuilder,
+                                                  string: ArraySlice<UInt8>,
+                                                  stripLeading: Bool,
+                                                  lastWasWhite: inout Bool,
+                                                  sawWhitespace: inout Bool) {
         if !string.isEmpty {
             // Fast path for ASCII slices that only contain single spaces (no tabs/newlines/NBSP, no doubles).
             var previousWasSpace = false
+            var sawSpace = false
             var asciiOnlySingleSpace = true
             var i = string.startIndex
             let end = string.endIndex
@@ -594,6 +611,7 @@ open class StringUtil {
                     break
                 }
                 if b == TokeniserStateVars.spaceByte {
+                    sawSpace = true
                     if previousWasSpace {
                         asciiOnlySingleSpace = false
                         break
@@ -621,6 +639,9 @@ open class StringUtil {
                 accum.append(string[start..<end])
                 if let last = string.last {
                     lastWasWhite = (last == TokeniserStateVars.spaceByte)
+                }
+                if sawSpace {
+                    sawWhitespace = true
                 }
                 return
             }
@@ -707,6 +728,7 @@ open class StringUtil {
                         }
                         accum.append(TokeniserStateVars.spaceByte)
                         lastWasWhite = true
+                        sawWhitespace = true
                         i &+= 1
                         continue
                     }
@@ -733,6 +755,7 @@ open class StringUtil {
                         }
                         accum.append(TokeniserStateVars.spaceByte)
                         lastWasWhite = true
+                        sawWhitespace = true
                         i = next &+ 1
                         continue
                     }

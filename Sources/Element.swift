@@ -917,12 +917,7 @@ open class Element: Node {
             return try getElementsByTagNormalized(trimmed)
         }
         let normalizedTagName = trimmed.lowercased()
-        
-        if isTagQueryIndexDirty || normalizedTagNameIndex == nil {
-            rebuildQueryIndexesForAllTags()
-            isTagQueryIndexDirty = false
-        }
-        let weakElements = normalizedTagNameIndex?[normalizedTagName] ?? []
+        let weakElements = tagQueryIndexForKey(normalizedTagName)
         return Elements(weakElements.compactMap { $0.value })
     }
 
@@ -939,11 +934,7 @@ open class Element: Node {
         if key.isEmpty {
             return Elements()
         }
-        if isTagQueryIndexDirty || normalizedTagNameIndex == nil {
-            rebuildQueryIndexesForAllTags()
-            isTagQueryIndexDirty = false
-        }
-        let weakElements = normalizedTagNameIndex?[key] ?? []
+        let weakElements = tagQueryIndexForKey(key)
         return Elements(weakElements.compactMap { $0.value })
     }
     
@@ -1463,14 +1454,20 @@ open class Element: Node {
     }
 
     @inline(__always)
-    private func collectTextFastTrimmed(_ accum: StringBuilder) -> Bool {
+    private func collectTextFastTrimmed(_ accum: StringBuilder) -> (Bool, Bool) {
         var stack: ContiguousArray<Node> = []
         stack.reserveCapacity(childNodes.count + 1)
         stack.append(self)
         var lastWasWhite = false
+        var sawWhitespace = false
         while let node = stack.popLast() {
             if let textNode = node as? TextNode {
-                Element.appendNormalisedTextTracking(accum, textNode, lastWasWhite: &lastWasWhite)
+                Element.appendNormalisedTextTracking(
+                    accum,
+                    textNode,
+                    lastWasWhite: &lastWasWhite,
+                    sawWhitespace: &sawWhitespace
+                )
                 continue
             }
             if let element = node as? Element {
@@ -1479,6 +1476,7 @@ open class Element: Node {
                     !lastWasWhite {
                     accum.append(UTF8Arrays.whitespace)
                     lastWasWhite = true
+                    sawWhitespace = true
                 }
             }
             let children = node.childNodes
@@ -1490,7 +1488,7 @@ open class Element: Node {
                 }
             }
         }
-        return lastWasWhite
+        return (lastWasWhite, sawWhitespace)
     }
 
     @inline(__always)
@@ -1548,12 +1546,12 @@ open class Element: Node {
             let _p = Profiler.start("Element.text.traverse")
             defer { Profiler.end("Element.text.traverse", _p) }
             #endif
-            let lastWasWhite = collectTextFastTrimmed(accum)
-            if let first = accum.buffer.first, first.isWhitespace {
+            let (lastWasWhite, sawWhitespace) = collectTextFastTrimmed(accum)
+            if sawWhitespace, let first = accum.buffer.first, first.isWhitespace {
                 let trimmed = accum.buffer.trim()
                 return String(decoding: trimmed, as: UTF8.self)
             }
-            if lastWasWhite {
+            if sawWhitespace, lastWasWhite {
                 accum.trimTrailingWhitespace()
             }
             return String(decoding: accum.buffer, as: UTF8.self)
@@ -1569,11 +1567,11 @@ open class Element: Node {
         }
         let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         if trimAndNormaliseWhitespace {
-            let lastWasWhite = collectTextFastTrimmed(accum)
-            if let first = accum.buffer.first, first.isWhitespace {
+            let (lastWasWhite, sawWhitespace) = collectTextFastTrimmed(accum)
+            if sawWhitespace, let first = accum.buffer.first, first.isWhitespace {
                 return Array(accum.buffer.trim())
             }
-            if lastWasWhite {
+            if sawWhitespace, lastWasWhite {
                 accum.trimTrailingWhitespace()
             }
             return Array(accum.buffer)
@@ -1588,11 +1586,11 @@ open class Element: Node {
         }
         let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         if trimAndNormaliseWhitespace {
-            let lastWasWhite = collectTextFastTrimmed(accum)
-            if let first = accum.buffer.first, first.isWhitespace {
+            let (lastWasWhite, sawWhitespace) = collectTextFastTrimmed(accum)
+            if sawWhitespace, let first = accum.buffer.first, first.isWhitespace {
                 return accum.buffer.trim()
             }
-            if lastWasWhite {
+            if sawWhitespace, lastWasWhite {
                 accum.trimTrailingWhitespace()
             }
             return accum.buffer
@@ -1696,6 +1694,29 @@ open class Element: Node {
             string: text,
             stripLeading: accum.isEmpty || lastWasWhite,
             lastWasWhite: &lastWasWhite
+        )
+    }
+
+    @inline(__always)
+    private static func appendNormalisedTextTracking(_ accum: StringBuilder,
+                                                     _ textNode: TextNode,
+                                                     lastWasWhite: inout Bool,
+                                                     sawWhitespace: inout Bool) {
+        let text = textNode.wholeTextSlice()
+        if Element.preserveWhitespace(textNode.parentNode) {
+            accum.append(text)
+            if let last = text.last {
+                lastWasWhite = (last == TokeniserStateVars.spaceByte)
+            }
+            sawWhitespace = true
+            return
+        }
+        StringUtil.appendNormalisedWhitespace(
+            accum,
+            string: text,
+            stripLeading: accum.isEmpty || lastWasWhite,
+            lastWasWhite: &lastWasWhite,
+            sawWhitespace: &sawWhitespace
         )
     }
 
@@ -2826,23 +2847,46 @@ internal extension Element {
         normalizedTagNameIndex = newIndex
         isTagQueryIndexDirty = false
     }
+
+    @usableFromInline
+    @inline(__always)
+    func tagQueryIndexForKey(_ key: [UInt8]) -> [Weak<Element>] {
+        if isTagQueryIndexDirty {
+            normalizedTagNameIndex = nil
+            isTagQueryIndexDirty = false
+        }
+        if normalizedTagNameIndex == nil {
+            normalizedTagNameIndex = [:]
+        }
+        if let existing = normalizedTagNameIndex?[key] {
+            return existing
+        }
+        var matches: [Weak<Element>] = []
+        let childNodeCount = childNodeSize()
+        matches.reserveCapacity(max(4, childNodeCount / 8))
+        traverseElementsDepthFirst { element in
+            if element.tagNameNormalUTF8() == key {
+                matches.append(Weak(element))
+            }
+        }
+        normalizedTagNameIndex?[key] = matches
+        return matches
+    }
     
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForAllClasses() {
-        let needsTags = isTagQueryIndexDirty || normalizedTagNameIndex == nil
         let needsIds = isIdQueryIndexDirty || normalizedIdIndex == nil
         let needsAttributes = isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil
         let needsHotAttributes = isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil
         let combinedCount = 1 +
-            (needsTags ? 1 : 0) +
             (needsIds ? 1 : 0) +
             (needsAttributes ? 1 : 0) +
             (needsHotAttributes ? 1 : 0)
         if combinedCount > 1 {
             DebugTrace.log("Element.rebuildQueryIndexesForAllClasses: combined rebuild")
             rebuildQueryIndexesCombined(
-                needsTags: needsTags,
+                needsTags: false,
                 needsClasses: true,
                 needsIds: needsIds,
                 needsAttributes: needsAttributes,
@@ -2876,18 +2920,16 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForAllIds() {
-        let needsTags = isTagQueryIndexDirty || normalizedTagNameIndex == nil
         let needsClasses = isClassQueryIndexDirty || normalizedClassNameIndex == nil
         let needsAttributes = isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil
         let needsHotAttributes = isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil
         let combinedCount = 1 +
-            (needsTags ? 1 : 0) +
             (needsClasses ? 1 : 0) +
             (needsAttributes ? 1 : 0) +
             (needsHotAttributes ? 1 : 0)
         if combinedCount > 1 {
             rebuildQueryIndexesCombined(
-                needsTags: needsTags,
+                needsTags: false,
                 needsClasses: needsClasses,
                 needsIds: true,
                 needsAttributes: needsAttributes,
@@ -2916,18 +2958,16 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForAllAttributes() {
-        let needsTags = isTagQueryIndexDirty || normalizedTagNameIndex == nil
         let needsClasses = isClassQueryIndexDirty || normalizedClassNameIndex == nil
         let needsIds = isIdQueryIndexDirty || normalizedIdIndex == nil
         let needsHotAttributes = isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil
         let combinedCount = 1 +
-            (needsTags ? 1 : 0) +
             (needsClasses ? 1 : 0) +
             (needsIds ? 1 : 0) +
             (needsHotAttributes ? 1 : 0)
         if combinedCount > 1 {
             rebuildQueryIndexesCombined(
-                needsTags: needsTags,
+                needsTags: false,
                 needsClasses: needsClasses,
                 needsIds: needsIds,
                 needsAttributes: true,
@@ -2961,18 +3001,16 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForHotAttributes() {
-        let needsTags = isTagQueryIndexDirty || normalizedTagNameIndex == nil
         let needsClasses = isClassQueryIndexDirty || normalizedClassNameIndex == nil
         let needsIds = isIdQueryIndexDirty || normalizedIdIndex == nil
         let needsAttributes = isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil
         let combinedCount = 1 +
-            (needsTags ? 1 : 0) +
             (needsClasses ? 1 : 0) +
             (needsIds ? 1 : 0) +
             (needsAttributes ? 1 : 0)
         if combinedCount > 1 {
             rebuildQueryIndexesCombined(
-                needsTags: needsTags,
+                needsTags: false,
                 needsClasses: needsClasses,
                 needsIds: needsIds,
                 needsAttributes: needsAttributes,

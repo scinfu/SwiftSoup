@@ -84,7 +84,7 @@ public class XmlTreeBuilder: TreeBuilder {
     func insert(_ startTag: Token.StartTag) throws -> Element {
         startTag.ensureAttributes()
         // For unknown tags, remember this is self closing for output
-        let tag: Tag = try Tag.valueOf(startTag.name(), settings, isSelfClosing: startTag.isSelfClosing())
+        let tag: Tag = try startTag.resolveTag(settings, isSelfClosing: startTag.isSelfClosing())
         // todo: wonder if for xml parsing, should treat all tags as unknown? because it's not html.
         let skipChildReserve = startTag.isSelfClosing() || isBulkBuilding
         let el: Element

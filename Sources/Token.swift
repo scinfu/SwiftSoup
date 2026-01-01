@@ -348,7 +348,7 @@ open class Token {
             _pendingAttributeNameS = nil
             Token.reset(_pendingAttributeValue)
             _pendingAttributeValueS = nil
-            _pendingAttributeValueSlices = nil
+            _pendingAttributeValueSlices?.removeAll(keepingCapacity: true)
             _pendingAttributeValueSlicesCount = 0
             _hasEmptyAttributeValue = false
             _hasPendingAttributeValue = false
@@ -373,7 +373,7 @@ open class Token {
                 if _hasPendingAttributeValue {
                     if !_pendingAttributeValue.isEmpty {
                         value = .bytes(Array(_pendingAttributeValue.buffer))
-                    } else if let slices = _pendingAttributeValueSlices {
+                    } else if let slices = _pendingAttributeValueSlices, _pendingAttributeValueSlicesCount > 0 {
                         value = .slices(slices, _pendingAttributeValueSlicesCount)
                     } else if let pendingSlice = _pendingAttributeValueS {
                         value = .slice(pendingSlice)
@@ -410,7 +410,7 @@ open class Token {
             _hasPendingAttributeValue = false
             Token.reset(_pendingAttributeValue)
             _pendingAttributeValueS = nil
-            _pendingAttributeValueSlices = nil
+            _pendingAttributeValueSlices?.removeAll(keepingCapacity: true)
             _pendingAttributeValueSlicesCount = 0
         }
         
@@ -1092,11 +1092,11 @@ open class Token {
         @inline(__always)
         private func ensureAttributeValue() {
             _hasPendingAttributeValue = true
-            if let slices = _pendingAttributeValueSlices {
+            if let slices = _pendingAttributeValueSlices, _pendingAttributeValueSlicesCount > 0 {
                 for slice in slices {
                     _pendingAttributeValue.append(slice)
                 }
-                _pendingAttributeValueSlices = nil
+                _pendingAttributeValueSlices?.removeAll(keepingCapacity: true)
                 _pendingAttributeValueSlicesCount = 0
             }
             // if on second hit, we'll need to move to the builder
@@ -1108,6 +1108,13 @@ open class Token {
     }
     
     final class StartTag: Tag {
+        @usableFromInline
+        var resolvedTag: SwiftSoup.Tag? = nil
+        @usableFromInline
+        var resolvedTagPreservesCase: Bool = false
+        @usableFromInline
+        var resolvedTagIsSelfClosing: Bool = false
+
         override init() {
             super.init()
             type = TokenType.StartTag
@@ -1117,7 +1124,33 @@ open class Token {
         @inline(__always)
         override func reset() -> Tag {
             super.reset()
+            resolvedTag = nil
+            resolvedTagPreservesCase = false
+            resolvedTagIsSelfClosing = false
             return self
+        }
+
+        @inline(__always)
+        func resolveTag(_ settings: ParseSettings, isSelfClosing: Bool) throws -> SwiftSoup.Tag {
+            if let cached = resolvedTag,
+               resolvedTagPreservesCase == settings.preservesTagCase(),
+               resolvedTagIsSelfClosing == isSelfClosing {
+                return cached
+            }
+            let resolved: SwiftSoup.Tag
+            if settings.preservesTagCase() {
+                resolved = try SwiftSoup.Tag.valueOf(try name(), settings, isSelfClosing: isSelfClosing)
+            } else if let fastTag = SwiftSoup.Tag.valueOfTagId(tagId) {
+                resolved = fastTag
+            } else if let normalName = normalName() {
+                resolved = try SwiftSoup.Tag.valueOfNormalized(normalName, isSelfClosing: isSelfClosing)
+            } else {
+                resolved = try SwiftSoup.Tag.valueOf(try name(), settings, isSelfClosing: isSelfClosing)
+            }
+            resolvedTag = resolved
+            resolvedTagPreservesCase = settings.preservesTagCase()
+            resolvedTagIsSelfClosing = isSelfClosing
+            return resolved
         }
         
         @discardableResult
@@ -1129,6 +1162,7 @@ open class Token {
             _normalName = _tagName?.lowercased()
             _attributesAreNormalized = false
             _hasAttributes = !attributes.attributes.isEmpty || attributes.pendingAttributesCount > 0
+            resolvedTag = nil
             return self
         }
         

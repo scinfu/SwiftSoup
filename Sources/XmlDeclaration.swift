@@ -24,6 +24,7 @@ public class XmlDeclaration: Node {
         self._name = name
         self.isProcessingInstruction = isProcessingInstruction
         super.init(baseUri)
+        _ = ensureAttributesForWrite()
     }
     
     public convenience init(_ name: String, _ baseUri: String, _ isProcessingInstruction: Bool) {
