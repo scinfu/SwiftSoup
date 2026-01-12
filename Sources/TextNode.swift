@@ -72,6 +72,23 @@ open class TextNode: Node {
     @discardableResult
     @inline(__always)
     public func text(_ text: String) -> TextNode {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if libxml2CanSyncContent() {
+            return withLibxml2DirtySuppressed {
+                _textSlice = nil
+                _text = text.utf8Array
+                if let attributes = attributes {
+                    do {
+                        try attributes.put(TextNode.TEXT_KEY, _text)
+                    } catch {}
+                }
+                libxml2SetNodeContent(_text)
+                bumpTextMutationVersion()
+                markSourceDirty()
+                return self
+            }
+        }
+#endif
         _textSlice = nil
         _text = text.utf8Array
         guard let attributes = attributes else {

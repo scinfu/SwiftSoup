@@ -71,6 +71,21 @@ public class DocumentType: Node {
         return "#doctype"
     }
 
+    @usableFromInline
+    internal func getNameUTF8() -> [UInt8] {
+        return (try? attr(DocumentType.NAME)) ?? []
+    }
+
+    @usableFromInline
+    internal func getPublicIdUTF8() -> [UInt8] {
+        return (try? attr(DocumentType.PUBLIC_ID)) ?? []
+    }
+
+    @usableFromInline
+    internal func getSystemIdUTF8() -> [UInt8] {
+        return (try? attr(DocumentType.SYSTEM_ID)) ?? []
+    }
+
 
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         if (out.syntax() == OutputSettings.Syntax.html && !has(DocumentType.PUBLIC_ID) && !has(DocumentType.SYSTEM_ID)) {

@@ -70,6 +70,19 @@ open class DataNode: Node {
 
     @usableFromInline
     internal func appendSlice(_ slice: ArraySlice<UInt8>) {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if libxml2CanSyncContent() {
+            return withLibxml2DirtySuppressed {
+                var data = getWholeDataUTF8()
+                data.append(contentsOf: slice)
+                do {
+                    try ensureAttributesForWrite().put(DataNode.DATA_KEY, data)
+                } catch {}
+                libxml2SetNodeContent(data)
+                markSourceDirty()
+            }
+        }
+#endif
         var data = getWholeDataUTF8()
         data.append(contentsOf: slice)
         do {
@@ -112,6 +125,20 @@ open class DataNode: Node {
     @discardableResult
     @inline(__always)
     open func setWholeData(_ data: String) -> DataNode {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if libxml2CanSyncContent() {
+            return withLibxml2DirtySuppressed {
+                rawDataSlice = nil
+                let bytes = data.utf8Array
+                do {
+                    try ensureAttributesForWrite().put(DataNode.DATA_KEY, bytes)
+                } catch {}
+                libxml2SetNodeContent(bytes)
+                markSourceDirty()
+                return self
+            }
+        }
+#endif
         rawDataSlice = nil
         do {
             try ensureAttributesForWrite().put(DataNode.DATA_KEY, data.utf8Array)

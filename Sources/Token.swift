@@ -744,6 +744,93 @@ open class Token {
         }
 
         @inline(__always)
+        internal static func tagIdForSlicePublic(_ slice: ArraySlice<UInt8>) -> TagId? {
+            if slice.isEmpty {
+                return nil
+            }
+            return tagIdForSlice(slice)
+        }
+
+        @inline(__always)
+        internal static func tagIdForAsciiLowercaseSlice(_ slice: ArraySlice<UInt8>) -> TagId? {
+            let count = slice.count
+            if count == 0 {
+                return nil
+            }
+            if count <= 8, count < packedTagIdEntriesByLength.count {
+                var value: UInt64 = 0
+                var shift: UInt64 = 0
+                for b in slice {
+                    if b >= 0x80 {
+                        return nil
+                    }
+                    let lower = (b >= 65 && b <= 90) ? (b &+ 32) : b
+                    value |= (UInt64(lower) << shift)
+                    shift &+= 8
+                }
+                if let id = packedTagIdEntriesByLength[count][value] {
+                    return id
+                }
+            }
+            if count < tagIdEntriesByLength.count {
+                for entry in tagIdEntriesByLength[count] {
+                    if equalsSliceAsciiLower(entry.bytes, slice) {
+                        return entry.id
+                    }
+                }
+            }
+            return nil
+        }
+
+        @inline(__always)
+        internal static func tagIdForAsciiLowercaseBytes(_ bytes: UnsafePointer<UInt8>, _ start: Int, _ end: Int) -> TagId? {
+            let count = end - start
+            if count <= 0 {
+                return nil
+            }
+            if count <= 8, count < packedTagIdEntriesByLength.count {
+                var value: UInt64 = 0
+                var shift: UInt64 = 0
+                var i = 0
+                while i < count {
+                    let b = bytes[start + i]
+                    if b >= 0x80 {
+                        return nil
+                    }
+                    let lower = (b >= 65 && b <= 90) ? (b &+ 32) : b
+                    value |= (UInt64(lower) << shift)
+                    shift &+= 8
+                    i += 1
+                }
+                if let id = packedTagIdEntriesByLength[count][value] {
+                    return id
+                }
+            }
+            if count < tagIdEntriesByLength.count {
+                for entry in tagIdEntriesByLength[count] {
+                    var matches = true
+                    var i = 0
+                    while i < count {
+                        let b = bytes[start + i]
+                        if b >= 0x80 {
+                            return nil
+                        }
+                        let lower = (b >= 65 && b <= 90) ? (b &+ 32) : b
+                        if entry.bytes[i] != lower {
+                            matches = false
+                            break
+                        }
+                        i += 1
+                    }
+                    if matches {
+                        return entry.id
+                    }
+                }
+            }
+            return nil
+        }
+
+        @inline(__always)
         func setTagIdFromSlice(_ slice: ArraySlice<UInt8>) {
             tagId = Self.tagIdForSlice(slice) ?? .none
         }
@@ -758,6 +845,29 @@ open class Token {
             let end = array.endIndex
             while i < end {
                 if array[i] != slice[j] {
+                    return false
+                }
+                i = array.index(after: i)
+                j = slice.index(after: j)
+            }
+            return true
+        }
+
+        @inline(__always)
+        private static func equalsSliceAsciiLower(_ array: [UInt8], _ slice: ArraySlice<UInt8>) -> Bool {
+            if array.count != slice.count {
+                return false
+            }
+            var i = array.startIndex
+            var j = slice.startIndex
+            let end = array.endIndex
+            while i < end {
+                let b = slice[j]
+                if b >= 0x80 {
+                    return false
+                }
+                let lower = (b >= 65 && b <= 90) ? (b &+ 32) : b
+                if array[i] != lower {
                     return false
                 }
                 i = array.index(after: i)

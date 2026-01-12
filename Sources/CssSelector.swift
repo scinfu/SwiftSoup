@@ -6,6 +6,13 @@
 //
 
 import Foundation
+#if canImport(CLibxml2) || canImport(libxml2)
+#if canImport(CLibxml2)
+@preconcurrency import CLibxml2
+#elseif canImport(libxml2)
+@preconcurrency import libxml2
+#endif
+#endif
 
 
 @available(*, deprecated, renamed: "CssSelector")
@@ -121,6 +128,14 @@ open class CssSelector {
             DebugTrace.log("CssSelector.select(query): selector cache hit")
             return cached
         }
+#if canImport(CLibxml2) || canImport(libxml2)
+        if root.ownerDocument()?.libxml2Only == true,
+           let libxml2 = try libxml2Select(query, root) {
+            DebugTrace.log("CssSelector.select(query): libxml2 xpath fast path hit")
+            root.storeSelectorResult(query, libxml2)
+            return libxml2
+        }
+#endif
         if let tagBytes = simpleTagQueryBytes(query) {
             DebugTrace.log("CssSelector.select(query): simple tag fast path")
             let result = try root.getElementsByTagNormalized(tagBytes)
@@ -132,6 +147,13 @@ open class CssSelector {
             root.storeSelectorResult(query, fast)
             return fast
         }
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let libxml2 = try libxml2Select(query, root) {
+            DebugTrace.log("CssSelector.select(query): libxml2 xpath fast path hit")
+            root.storeSelectorResult(query, libxml2)
+            return libxml2
+        }
+#endif
         DebugTrace.log("CssSelector.select(query): slow path")
         let evaluator = try cachedEvaluatorTrimmed(query)
         let result = try select(evaluator, root)
@@ -193,6 +215,12 @@ open class CssSelector {
             }
             return fast
         }
+#if canImport(CLibxml2) || canImport(libxml2)
+        if roots.count == 1, let root = roots.first, let libxml2 = try libxml2Select(query, root) {
+            root.storeSelectorResult(query, libxml2)
+            return libxml2
+        }
+#endif
         let evaluator: Evaluator = try cachedEvaluatorTrimmed(query)
         let result = try self.select(evaluator, roots)
         if roots.count == 1, let root = roots.first {
@@ -1183,6 +1211,566 @@ open class CssSelector {
         }
         return nil
     }
+
+#if canImport(CLibxml2) || canImport(libxml2)
+    private static let libxml2XPathEnabled: Bool = {
+        let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_LIBXML2_XPATH"]?.lowercased()
+        return raw == "1" || raw == "true" || raw == "yes"
+    }()
+    private static let libxml2XPathCacheEnabled: Bool = {
+        guard let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_LIBXML2_XPATH_CACHE"]?.lowercased() else {
+            return true
+        }
+        return !(raw == "0" || raw == "false" || raw == "no")
+    }()
+    private static let libxml2XPathCacheCapacity: Int = 64
+    private final class Libxml2XPathCache: @unchecked Sendable {
+        var items: [String: xmlXPathCompExprPtr] = [:]
+        var order: [String] = []
+        let lock = NSLock()
+    }
+    private static let libxml2XPathCache = Libxml2XPathCache()
+
+    private enum Libxml2Combinator {
+        case descendant
+        case child
+        case adjacent
+        case sibling
+    }
+
+    private enum Libxml2AttrOp {
+        case exists
+        case equals
+        case prefix
+        case suffix
+        case contains
+    }
+
+    private struct Libxml2AttrSelector {
+        var name: String
+        var op: Libxml2AttrOp
+        var value: String?
+    }
+
+    private struct Libxml2SimpleSelector {
+        var tag: String?
+        var id: String?
+        var classes: [String]
+        var attrs: [Libxml2AttrSelector]
+    }
+
+    private static let libxml2UpperAscii = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    private static let libxml2LowerAscii = "abcdefghijklmnopqrstuvwxyz"
+
+    private static func libxml2XPathBypassForOverrides(_ query: String, _ doc: Document) -> Bool {
+        guard let overrides = doc.libxml2AttributeOverrides, !overrides.isEmpty else { return false }
+        var quote: Character? = nil
+        for ch in query {
+            if let q = quote {
+                if ch == q { quote = nil }
+                continue
+            }
+            if ch == "'" || ch == "\"" {
+                quote = ch
+                continue
+            }
+            if ch == "[" || ch == "#" || ch == "." {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func libxml2Select(_ query: String, _ root: Element) throws -> Elements? {
+        guard let doc = root.ownerDocument() else { return nil }
+        let xpathAllowed = libxml2XPathEnabled || doc.libxml2Only || doc.libxml2Preferred
+        guard xpathAllowed else { return nil }
+        if doc.libxml2LazyState != nil { return nil }
+        guard let docPtr = doc.libxml2DocPtr, !doc.libxml2BackedDirty else { return nil }
+        let trimmed = query.trim()
+        if libxml2XPathBypassForOverrides(trimmed, doc) { return nil }
+        guard let xpath = libxml2XPath(from: trimmed) else { return nil }
+        let contextNode: xmlNodePtr?
+        if let rootPtr = root.libxml2NodePtr {
+            contextNode = rootPtr
+        } else if root is Document {
+            contextNode = xmlDocGetRootElement(docPtr)
+        } else {
+            return nil
+        }
+        guard let contextNode else { return nil }
+        guard let context = xmlXPathNewContext(docPtr) else { return nil }
+        defer { xmlXPathFreeContext(context) }
+        context.pointee.node = contextNode
+        guard let xpathObj = libxml2EvalXPath(xpath, context) else { return nil }
+        defer { xmlXPathFreeObject(xpathObj) }
+        guard let nodeset = xpathObj.pointee.nodesetval else {
+            return Elements()
+        }
+        let count = Int(nodeset.pointee.nodeNr)
+        if count <= 0 { return Elements() }
+        let output = Elements()
+        output.reserveCapacity(count)
+        var seen = Set<ObjectIdentifier>()
+        seen.reserveCapacity(count)
+        let nodeTab = nodeset.pointee.nodeTab
+        for i in 0..<count {
+            guard let nodePtr = nodeTab?[i] else { continue }
+            if nodePtr.pointee.type != XML_ELEMENT_NODE { continue }
+            let node: Node?
+            if let opaque = nodePtr.pointee._private {
+                node = Unmanaged<Node>.fromOpaque(opaque).takeUnretainedValue()
+            } else {
+                node = Libxml2Backend.wrapNodeForSelection(nodePtr, doc: doc)
+            }
+            guard let node else { continue }
+            guard let element = node as? Element else { continue }
+            let id = ObjectIdentifier(element)
+            if seen.contains(id) { continue }
+            seen.insert(id)
+            output.add(element)
+        }
+        return output
+    }
+
+    private static func libxml2EvalXPath(_ xpath: String, _ context: xmlXPathContextPtr) -> xmlXPathObjectPtr? {
+        if libxml2XPathCacheEnabled, let compiled = libxml2XPathCachedCompile(xpath) {
+            return xmlXPathCompiledEval(compiled, context)
+        }
+        var bytes = Array(xpath.utf8)
+        bytes.append(0)
+        return bytes.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return nil }
+            return base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
+                xmlXPathEvalExpression(ptr, context)
+            }
+        }
+    }
+
+    private static func libxml2XPathCachedCompile(_ xpath: String) -> xmlXPathCompExprPtr? {
+        libxml2XPathCache.lock.lock()
+        if let cached = libxml2XPathCache.items[xpath] {
+            libxml2XPathCache.lock.unlock()
+            return cached
+        }
+        libxml2XPathCache.lock.unlock()
+        var bytes = Array(xpath.utf8)
+        bytes.append(0)
+        let compiled: xmlXPathCompExprPtr? = bytes.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return nil }
+            return base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
+                xmlXPathCompile(ptr)
+            }
+        }
+        guard let compiled else { return nil }
+        libxml2XPathCache.lock.lock()
+        if libxml2XPathCache.items[xpath] == nil {
+            libxml2XPathCache.items[xpath] = compiled
+            libxml2XPathCache.order.append(xpath)
+            if libxml2XPathCache.order.count > libxml2XPathCacheCapacity {
+                let overflow = libxml2XPathCache.order.count - libxml2XPathCacheCapacity
+                if overflow > 0 {
+                    for _ in 0..<overflow {
+                        let key = libxml2XPathCache.order.removeFirst()
+                        if let expr = libxml2XPathCache.items.removeValue(forKey: key) {
+                            xmlXPathFreeCompExpr(expr)
+                        }
+                    }
+                }
+            }
+        }
+        libxml2XPathCache.lock.unlock()
+        return compiled
+    }
+
+    private static func libxml2XPath(from query: String) -> String? {
+        if query.isEmpty { return nil }
+        if libxml2HasUnsupportedTokens(query) { return nil }
+        for b in query.utf8 where b >= 0x80 {
+            return nil
+        }
+        let groups = libxml2SplitGroups(query)
+        if groups.isEmpty { return nil }
+        var expressions: [String] = []
+        expressions.reserveCapacity(groups.count)
+        for group in groups {
+            let trimmed = group.trim()
+            if trimmed.isEmpty { continue }
+            guard let steps = libxml2ParseSequence(trimmed) else { return nil }
+            guard let xpath = libxml2BuildXPath(steps) else { return nil }
+            expressions.append(xpath)
+        }
+        return expressions.isEmpty ? nil : expressions.joined(separator: " | ")
+    }
+
+    private static func libxml2HasUnsupportedTokens(_ query: String) -> Bool {
+        var bracketDepth = 0
+        var quote: Character? = nil
+        for ch in query {
+            if let q = quote {
+                if ch == q { quote = nil }
+                continue
+            }
+            if ch == "'" || ch == "\"" {
+                quote = ch
+                continue
+            }
+            if ch == "[" {
+                bracketDepth += 1
+                continue
+            }
+            if ch == "]" {
+                if bracketDepth > 0 { bracketDepth -= 1 }
+                continue
+            }
+            if bracketDepth == 0 {
+                if ch == ":" || ch == "|" {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private static func libxml2SplitGroups(_ query: String) -> [String] {
+        var groups: [String] = []
+        groups.reserveCapacity(2)
+        var start = query.startIndex
+        var i = query.startIndex
+        var bracketDepth = 0
+        var quote: Character? = nil
+        while i < query.endIndex {
+            let ch = query[i]
+            if let q = quote {
+                if ch == q { quote = nil }
+            } else {
+                if ch == "'" || ch == "\"" {
+                    quote = ch
+                } else if ch == "[" {
+                    bracketDepth += 1
+                } else if ch == "]" {
+                    if bracketDepth > 0 { bracketDepth -= 1 }
+                } else if ch == "," && bracketDepth == 0 {
+                    groups.append(String(query[start..<i]))
+                    start = query.index(after: i)
+                }
+            }
+            i = query.index(after: i)
+        }
+        if start < query.endIndex {
+            groups.append(String(query[start..<query.endIndex]))
+        } else if start == query.endIndex {
+            groups.append("")
+        }
+        return groups
+    }
+
+    private static func libxml2ParseSequence(_ query: String) -> [(Libxml2Combinator?, Libxml2SimpleSelector)]? {
+        var steps: [(Libxml2Combinator?, Libxml2SimpleSelector)] = []
+        var pendingCombinator: Libxml2Combinator? = nil
+        var i = query.startIndex
+        while i < query.endIndex {
+            var sawWhitespace = false
+            while i < query.endIndex, query[i].isWhitespace {
+                sawWhitespace = true
+                i = query.index(after: i)
+            }
+            if i >= query.endIndex { break }
+            if sawWhitespace, !steps.isEmpty, pendingCombinator == nil {
+                pendingCombinator = .descendant
+            }
+            let ch = query[i]
+            if ch == ">" || ch == "+" || ch == "~" {
+                if steps.isEmpty { return nil }
+                pendingCombinator = (ch == ">") ? .child : (ch == "+") ? .adjacent : .sibling
+                i = query.index(after: i)
+                continue
+            }
+            if ch == "," { return nil }
+            let start = i
+            var bracketDepth = 0
+            var quote: Character? = nil
+            while i < query.endIndex {
+                let current = query[i]
+                if let q = quote {
+                    if current == q { quote = nil }
+                } else {
+                    if current == "'" || current == "\"" {
+                        quote = current
+                    } else if current == "[" {
+                        bracketDepth += 1
+                    } else if current == "]" {
+                        if bracketDepth > 0 { bracketDepth -= 1 }
+                    } else if bracketDepth == 0 {
+                        if current.isWhitespace || current == ">" || current == "+" || current == "~" || current == "," {
+                            break
+                        }
+                    }
+                }
+                i = query.index(after: i)
+            }
+            let token = String(query[start..<i]).trim()
+            guard let selector = libxml2ParseSimpleSelector(token) else { return nil }
+            let combinator = pendingCombinator ?? (steps.isEmpty ? nil : .descendant)
+            steps.append((combinator, selector))
+            pendingCombinator = nil
+        }
+        if pendingCombinator != nil {
+            return nil
+        }
+        return steps
+    }
+
+    private static func libxml2ParseSimpleSelector(_ token: String) -> Libxml2SimpleSelector? {
+        let bytes = Array(token.utf8)
+        if bytes.isEmpty { return nil }
+        var i = 0
+        var tag: String? = nil
+        var id: String? = nil
+        var classes: [String] = []
+        var attrs: [Libxml2AttrSelector] = []
+
+        func isNameChar(_ b: UInt8) -> Bool {
+            switch b {
+            case TokeniserStateVars.lowerAByte...TokeniserStateVars.lowerZByte,
+                 TokeniserStateVars.upperAByte...TokeniserStateVars.upperZByte,
+                 TokeniserStateVars.zeroByte...TokeniserStateVars.nineByte,
+                 TokeniserStateVars.hyphenByte,
+                 TokeniserStateVars.underscoreByte:
+                return true
+            default:
+                return false
+            }
+        }
+
+        if bytes[i] == 0x2A { // *
+            tag = "*"
+            i += 1
+        } else if isNameChar(bytes[i]) {
+            let start = i
+            i += 1
+            while i < bytes.count && isNameChar(bytes[i]) {
+                i += 1
+            }
+            tag = String(decoding: bytes[start..<i], as: UTF8.self).lowercased()
+        }
+
+        func parseName() -> String? {
+            let start = i
+            while i < bytes.count && isNameChar(bytes[i]) {
+                i += 1
+            }
+            if i == start { return nil }
+            return String(decoding: bytes[start..<i], as: UTF8.self).lowercased()
+        }
+
+        while i < bytes.count {
+            let b = bytes[i]
+            if b == 0x23 { // #
+                i += 1
+                guard let value = parseName() else { return nil }
+                if id != nil { return nil }
+                id = value
+                continue
+            }
+            if b == 0x2E { // .
+                i += 1
+                guard let value = parseName() else { return nil }
+                classes.append(value)
+                continue
+            }
+            if b == 0x5B { // [
+                i += 1
+                while i < bytes.count && bytes[i].isWhitespace {
+                    i += 1
+                }
+                let nameStart = i
+                while i < bytes.count && isNameChar(bytes[i]) {
+                    i += 1
+                }
+                if i == nameStart { return nil }
+                let name = String(decoding: bytes[nameStart..<i], as: UTF8.self).lowercased()
+                while i < bytes.count && bytes[i].isWhitespace {
+                    i += 1
+                }
+                if i >= bytes.count { return nil }
+                if bytes[i] == 0x5D { // ]
+                    i += 1
+                    attrs.append(Libxml2AttrSelector(name: name, op: .exists, value: nil))
+                    continue
+                }
+                var op: Libxml2AttrOp?
+                if i + 1 < bytes.count {
+                    let op0 = bytes[i]
+                    let op1 = bytes[i + 1]
+                    if op0 == 0x5E && op1 == 0x3D { // ^=
+                        op = .prefix
+                        i += 2
+                    } else if op0 == 0x24 && op1 == 0x3D { // $=
+                        op = .suffix
+                        i += 2
+                    } else if op0 == 0x2A && op1 == 0x3D { // *=
+                        op = .contains
+                        i += 2
+                    } else if op0 == 0x3D { // =
+                        op = .equals
+                        i += 1
+                    }
+                } else if bytes[i] == 0x3D {
+                    op = .equals
+                    i += 1
+                }
+                guard let attrOp = op else { return nil }
+                while i < bytes.count && bytes[i].isWhitespace {
+                    i += 1
+                }
+                if i >= bytes.count { return nil }
+                var valueBytes: ArraySlice<UInt8>
+                if bytes[i] == 0x22 || bytes[i] == 0x27 { // " or '
+                    let quote = bytes[i]
+                    i += 1
+                    let startValue = i
+                    while i < bytes.count && bytes[i] != quote {
+                        i += 1
+                    }
+                    if i >= bytes.count { return nil }
+                    valueBytes = bytes[startValue..<i]
+                    i += 1
+                } else {
+                    let startValue = i
+                    while i < bytes.count && bytes[i] != 0x5D {
+                        i += 1
+                    }
+                    if i > bytes.count { return nil }
+                    var endValue = i
+                    while endValue > startValue && bytes[endValue - 1].isWhitespace {
+                        endValue -= 1
+                    }
+                    valueBytes = bytes[startValue..<endValue]
+                }
+                while i < bytes.count && bytes[i].isWhitespace {
+                    i += 1
+                }
+                if i >= bytes.count || bytes[i] != 0x5D { return nil }
+                i += 1
+                let value = String(decoding: valueBytes, as: UTF8.self).lowercased()
+                attrs.append(Libxml2AttrSelector(name: name, op: attrOp, value: value))
+                continue
+            }
+            return nil
+        }
+
+        return Libxml2SimpleSelector(tag: tag, id: id, classes: classes, attrs: attrs)
+    }
+
+    private static func libxml2BuildXPath(_ steps: [(Libxml2Combinator?, Libxml2SimpleSelector)]) -> String? {
+        if steps.isEmpty { return nil }
+        var parts: [String] = []
+        parts.reserveCapacity(steps.count * 2)
+        for (index, step) in steps.enumerated() {
+            let combinator = step.0
+            let selector = step.1
+            guard let segment = libxml2XPathSegment(selector) else { return nil }
+            if index == 0 {
+                parts.append("descendant-or-self::" + segment)
+            } else {
+                let axis: String
+                switch combinator ?? .descendant {
+                case .descendant:
+                    axis = "descendant::"
+                case .child:
+                    axis = "child::"
+                case .adjacent:
+                    axis = "following-sibling::*[1]/self::"
+                case .sibling:
+                    axis = "following-sibling::"
+                }
+                parts.append("/" + axis + segment)
+            }
+        }
+        return parts.joined()
+    }
+
+    private static func libxml2XPathSegment(_ selector: Libxml2SimpleSelector) -> String? {
+        let tag = selector.tag ?? "*"
+        if tag.contains(":") { return nil }
+        var predicates: [String] = []
+        if let id = selector.id {
+            let idExpr = libxml2LowercaseExpr("@id")
+            predicates.append("\(idExpr) = \(libxml2XPathLiteral(id))")
+        }
+        if !selector.classes.isEmpty {
+            let classExpr = "concat(' ', normalize-space(\(libxml2LowercaseExpr("@class"))), ' ')"
+            for cls in selector.classes {
+                predicates.append("contains(\(classExpr), \(libxml2XPathLiteral(" " + cls + " ")))")
+            }
+        }
+        for attr in selector.attrs {
+            let name = attr.name
+            if name.contains(":") { return nil }
+            switch attr.op {
+            case .exists:
+                predicates.append("@\(name)")
+            case .equals:
+                guard let value = attr.value else { return nil }
+                let expr = libxml2LowercaseExpr("@\(name)")
+                predicates.append("\(expr) = \(libxml2XPathLiteral(value))")
+            case .prefix:
+                guard let value = attr.value else { return nil }
+                let expr = libxml2LowercaseExpr("@\(name)")
+                predicates.append("starts-with(\(expr), \(libxml2XPathLiteral(value)))")
+            case .suffix:
+                guard let value = attr.value else { return nil }
+                let expr = libxml2LowercaseExpr("@\(name)")
+                let literal = libxml2XPathLiteral(value)
+                predicates.append("substring(\(expr), string-length(\(expr)) - string-length(\(literal)) + 1) = \(literal)")
+            case .contains:
+                guard let value = attr.value else { return nil }
+                let expr = libxml2LowercaseExpr("@\(name)")
+                predicates.append("contains(\(expr), \(libxml2XPathLiteral(value)))")
+            }
+        }
+        if predicates.isEmpty {
+            return tag
+        }
+        return "\(tag)[\(predicates.joined(separator: " and "))]"
+    }
+
+    @inline(__always)
+    private static func libxml2LowercaseExpr(_ expr: String) -> String {
+        return "translate(\(expr), '\(libxml2UpperAscii)', '\(libxml2LowerAscii)')"
+    }
+
+    private static func libxml2XPathLiteral(_ value: String) -> String {
+        if !value.contains("'") {
+            return "'\(value)'"
+        }
+        if !value.contains("\"") {
+            return "\"\(value)\""
+        }
+        var parts: [String] = []
+        var start = value.startIndex
+        var i = value.startIndex
+        while i < value.endIndex {
+            if value[i] == "'" {
+                let segment = String(value[start..<i])
+                if !segment.isEmpty {
+                    parts.append("'\(segment)'")
+                }
+                parts.append("\"'\"")
+                i = value.index(after: i)
+                start = i
+                continue
+            }
+            i = value.index(after: i)
+        }
+        let tail = String(value[start..<value.endIndex])
+        if !tail.isEmpty {
+            parts.append("'\(tail)'")
+        }
+        return "concat(\(parts.joined(separator: ", ")))"
+    }
+#endif
 
     // exclude set. package open so that Elements can implement .not() selector.
     static func filterOut(_ elements: Array<Element>, _ outs: Array<Element>) -> Elements {

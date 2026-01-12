@@ -7,6 +7,14 @@
 
 import Foundation
 
+#if canImport(CLibxml2) || canImport(libxml2)
+#if canImport(CLibxml2)
+@preconcurrency import CLibxml2
+#elseif canImport(libxml2)
+@preconcurrency import libxml2
+#endif
+#endif
+
 open class Element: Node {
     var _tag: Tag
     
@@ -235,6 +243,13 @@ open class Element: Node {
     // attribute fiddling. create on first access.
     @inline(__always)
     private func ensureAttributes() -> Attributes {
+        #if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(), doc.libxml2Only {
+            Libxml2Backend.hydrateAttributesIfNeeded(self)
+        } else if libxml2Context != nil {
+            Libxml2Backend.hydrateAttributesIfNeeded(self)
+        }
+        #endif
         if let attributes {
             return attributes
         }
@@ -530,11 +545,42 @@ open class Element: Node {
         } else {
             try reparentChild(child)
         }
+#if canImport(CLibxml2) || canImport(libxml2)
+        var didSyncLibxml2 = false
+        if !isBulkBuilding,
+           let parentPtr = libxml2NodePtr,
+           let doc = ownerDocument(),
+           doc.libxml2DocPtr != nil,
+           child.ownerDocument() === doc {
+            let childPtr = child.libxml2NodePtr ?? child.libxml2EnsureNode(in: doc)
+            if let childPtr {
+                if child.libxml2NodePtr != nil {
+                    xmlUnlinkNode(childPtr)
+                }
+                xmlAddChild(parentPtr, childPtr)
+                didSyncLibxml2 = true
+            }
+        }
+#endif
         childNodes.append(child)
         child.setSiblingIndex(childNodes.count - 1)
         if !isBulkBuilding {
+#if canImport(CLibxml2) || canImport(libxml2)
+            if didSyncLibxml2 {
+                withLibxml2DirtySuppressed {
+                    child.withLibxml2DirtySuppressed {
+                        child.markSourceDirty()
+                        markSourceDirty()
+                    }
+                }
+            } else {
+                child.markSourceDirty()
+                markSourceDirty()
+            }
+#else
             child.markSourceDirty()
             markSourceDirty()
+#endif
         }
         return self
     }
@@ -734,9 +780,30 @@ open class Element: Node {
     @inline(__always)
     public func empty() -> Element {
         markQueryIndexesDirty()
+#if canImport(CLibxml2) || canImport(libxml2)
+        var didSyncLibxml2 = false
+        if let doc = ownerDocument(),
+           doc.libxml2DocPtr != nil,
+           libxml2NodePtr != nil {
+            for child in childNodes {
+                _ = child.libxml2DetachAndFreeIfPossible()
+            }
+            didSyncLibxml2 = true
+        }
+#endif
         childNodes.removeAll()
         bumpTextMutationVersion()
+#if canImport(CLibxml2) || canImport(libxml2)
+        if didSyncLibxml2 {
+            withLibxml2DirtySuppressed {
+                markSourceDirty()
+            }
+        } else {
+            markSourceDirty()
+        }
+#else
         markSourceDirty()
+#endif
         return self
     }
     
@@ -935,7 +1002,21 @@ open class Element: Node {
             return Elements()
         }
         let weakElements = tagQueryIndexForKey(key)
-        return Elements(weakElements.compactMap { $0.value })
+        let elements = weakElements.compactMap { $0.value }
+        if ownerDocument()?.libxml2Only == true, elements.count > 1 {
+            var seen = Set<ObjectIdentifier>()
+            seen.reserveCapacity(elements.count)
+            var unique: [Element] = []
+            unique.reserveCapacity(elements.count)
+            for element in elements {
+                let id = ObjectIdentifier(element)
+                if seen.contains(id) { continue }
+                seen.insert(id)
+                unique.append(element)
+            }
+            return Elements(unique)
+        }
+        return Elements(elements)
     }
     
     /**
@@ -2323,6 +2404,26 @@ open class Element: Node {
      */
     @inline(__always)
     public func html() throws -> String {
+#if canImport(CLibxml2) || canImport(libxml2)
+        let out = getOutputSettings()
+        let hasOverrides = (ownerDocument()?.libxml2AttributeOverrides?.isEmpty == false)
+        if Libxml2Serialization.enabled,
+           let doc = ownerDocument(),
+           let docPtr = doc.libxml2DocPtr,
+           !doc.libxml2BackedDirty,
+           out.syntax() == .html,
+           !out.prettyPrint(),
+           !hasOverrides,
+           let nodePtr = libxml2NodePtr,
+           let dumped = Libxml2Serialization.htmlDumpChildren(node: nodePtr, doc: docPtr) {
+#if DEBUG && SWIFTSOUP_LIBXML2_DEBUG_OVERRIDES
+            if String(decoding: tagNameUTF8(), as: UTF8.self) == "body" {
+                print("Libxml2 html() using libxml2 serialization")
+            }
+#endif
+            return String(decoding: dumped, as: UTF8.self)
+        }
+#endif
         let accum: StringBuilder = StringBuilder()
         try html2(accum)
         return getOutputSettings().prettyPrint() ? accum.toString().trim() : accum.toString()
@@ -2337,6 +2438,21 @@ open class Element: Node {
      */
     @inline(__always)
     public func htmlUTF8() throws -> [UInt8] {
+#if canImport(CLibxml2) || canImport(libxml2)
+        let out = getOutputSettings()
+        let hasOverrides = (ownerDocument()?.libxml2AttributeOverrides?.isEmpty == false)
+        if Libxml2Serialization.enabled,
+           let doc = ownerDocument(),
+           let docPtr = doc.libxml2DocPtr,
+           !doc.libxml2BackedDirty,
+           out.syntax() == .html,
+           !out.prettyPrint(),
+           !hasOverrides,
+           let nodePtr = libxml2NodePtr,
+           let dumped = Libxml2Serialization.htmlDumpChildren(node: nodePtr, doc: docPtr) {
+            return dumped
+        }
+#endif
         let accum: StringBuilder = StringBuilder()
         try html2(accum)
         return Array(getOutputSettings().prettyPrint() ? accum.buffer.trim() : accum.buffer)
@@ -2351,6 +2467,22 @@ open class Element: Node {
     
     @inline(__always)
     open override func html(_ appendable: StringBuilder) throws -> StringBuilder {
+#if canImport(CLibxml2) || canImport(libxml2)
+        let out = getOutputSettings()
+        let hasOverrides = (ownerDocument()?.libxml2AttributeOverrides?.isEmpty == false)
+        if Libxml2Serialization.enabled,
+           let doc = ownerDocument(),
+           let docPtr = doc.libxml2DocPtr,
+           !doc.libxml2BackedDirty,
+           out.syntax() == .html,
+           !out.prettyPrint(),
+           !hasOverrides,
+           let nodePtr = libxml2NodePtr,
+           let dumped = Libxml2Serialization.htmlDumpChildren(node: nodePtr, doc: docPtr) {
+            appendable.append(dumped)
+            return appendable
+        }
+#endif
         for node in childNodes {
             try node.outerHtml(appendable)
         }
@@ -2538,6 +2670,72 @@ internal extension Element {
             markAttributeValueQueryIndexDirty()
         }
     }
+
+#if canImport(CLibxml2) || canImport(libxml2)
+    @inline(__always)
+    @usableFromInline
+    func libxml2SyncAttribute(key: [UInt8], value: [UInt8], isBoolean: Bool) {
+        guard !key.isEmpty else { return }
+        guard let nodePtr = libxml2NodePtr else { return }
+        guard let doc = ownerDocument(), doc.libxml2DocPtr != nil else { return }
+        var keyTerm = key
+        keyTerm.append(0)
+        let rawValue: [UInt8]
+        if value.isEmpty && isBoolean {
+            rawValue = key
+        } else {
+            rawValue = value
+        }
+        var valueTerm = rawValue
+        valueTerm.append(0)
+        keyTerm.withUnsafeBufferPointer { keyBuf in
+            guard let keyBase = keyBuf.baseAddress else { return }
+            keyBase.withMemoryRebound(to: xmlChar.self, capacity: keyBuf.count) { keyPtr in
+                valueTerm.withUnsafeBufferPointer { valueBuf in
+                    guard let valueBase = valueBuf.baseAddress else { return }
+                    valueBase.withMemoryRebound(to: xmlChar.self, capacity: valueBuf.count) { valuePtr in
+                        _ = xmlSetProp(nodePtr, keyPtr, valuePtr)
+                    }
+                }
+            }
+        }
+    }
+
+    @inline(__always)
+    @usableFromInline
+    func libxml2SyncAttributeRemoved(key: [UInt8]) {
+        guard !key.isEmpty else { return }
+        guard let nodePtr = libxml2NodePtr else { return }
+        guard let doc = ownerDocument(), doc.libxml2DocPtr != nil else { return }
+        var keyTerm = key
+        keyTerm.append(0)
+        keyTerm.withUnsafeBufferPointer { keyBuf in
+            guard let keyBase = keyBuf.baseAddress else { return }
+            keyBase.withMemoryRebound(to: xmlChar.self, capacity: keyBuf.count) { keyPtr in
+                _ = xmlUnsetProp(nodePtr, keyPtr)
+            }
+        }
+    }
+
+    @inline(__always)
+    @usableFromInline
+    func libxml2CreateNode() -> xmlNodePtr? {
+        let name = tagNameNormalUTF8()
+        guard !name.isEmpty else { return nil }
+        var nameTerm = name
+        nameTerm.append(0)
+        return nameTerm.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return nil }
+            return base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
+                let nodePtr = xmlNewNode(nil, ptr)
+                if let nodePtr {
+                    nodePtr.pointee._private = Unmanaged.passUnretained(self).toOpaque()
+                }
+                return nodePtr
+            }
+        }
+    }
+#endif
 
     @usableFromInline
     @inline(__always)

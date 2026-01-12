@@ -79,6 +79,31 @@ print(try document.title()) // Output: Example
 ```
 
 ---
+## Backends (opt-in libxml2)
+
+SwiftSoup ships with two parsing backends:
+
+- `Parser.Backend.swiftSoup` (default): SwiftSoup’s HTML5-compliant parser.
+- `Parser.Backend.libxml2` (opt-in): libxml2-backed parser for faster parsing and mutation.
+
+Select the backend explicitly when parsing:
+
+```swift
+let document = try SwiftSoup.parse(html, backend: .libxml2)
+```
+
+Or construct a parser with a backend and mode:
+
+```swift
+let parser = Parser(backend: .libxml2, mode: .html)
+let doc = try parser.parseInput(html, "")
+```
+
+### libxml2 dependency notes
+SwiftSoup links against the system `libxml2` on Apple platforms. On Linux, install the development package
+so `pkg-config` can locate it (for example `libxml2-dev` on Debian/Ubuntu).
+
+---
 ## Profiling
 
 SwiftSoup includes a lightweight profiler (gated by a compile-time flag) and a small CLI harness for parsing benchmarks.
@@ -265,6 +290,9 @@ Current maintainer: Alex Ehlke, available for hire for SwiftSoup related work or
 
 ## Note
 SwiftSoup was ported to Swift from Java [Jsoup](https://jsoup.org/) library.
+
+## Acknowledgements
+Inspiration for the libxml2-backed refactor came from the Fuzi project by Ce Zheng.
 
 ## License
 

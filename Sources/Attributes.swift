@@ -96,6 +96,22 @@ open class Attributes: NSCopying {
     // TODO: Delegate would be cleaner...
     @usableFromInline
     weak var ownerElement: SwiftSoup.Element?
+
+    @discardableResult
+    @usableFromInline
+    @inline(__always)
+    internal func withLibxml2DirtySuppressedIfNeeded<T>(_ body: () throws -> T) rethrows -> T {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let element = ownerElement,
+           element.libxml2NodePtr != nil,
+           element.ownerDocument()?.libxml2DocPtr != nil {
+            return try element.withLibxml2DirtySuppressed(body)
+        }
+        return try body()
+#else
+        return try body()
+#endif
+    }
     
     public init() {
         attributes.reserveCapacity(16)
@@ -307,15 +323,17 @@ open class Attributes: NSCopying {
         let key = attribute.getKeyUTF8()
         let hasUppercase = Attributes.containsAsciiUppercase(key)
         let normalizedKey = hasUppercase ? key.lowercased() : key
-        if let ix = indexForKey(key) {
-            attributes[ix] = attribute
-            if !keyIndexDirty, keyIndex != nil {
-                keyIndex?[key] = ix
-            }
-        } else {
-            attributes.append(attribute)
-            if !keyIndexDirty, keyIndex != nil {
-                keyIndex?[key] = attributes.count - 1
+        withLibxml2DirtySuppressedIfNeeded {
+            if let ix = indexForKey(key) {
+                attributes[ix] = attribute
+                if !keyIndexDirty, keyIndex != nil {
+                    keyIndex?[key] = ix
+                }
+            } else {
+                attributes.append(attribute)
+                if !keyIndexDirty, keyIndex != nil {
+                    keyIndex?[key] = attributes.count - 1
+                }
             }
         }
         if !hasUppercaseKeys && hasUppercase {
@@ -330,6 +348,9 @@ open class Attributes: NSCopying {
         }
         ownerElement?.markAttributeQueryIndexDirty()
         ownerElement?.markAttributeValueQueryIndexDirty(for: key)
+#if canImport(CLibxml2) || canImport(libxml2)
+        ownerElement?.libxml2SyncAttribute(key: key, value: attribute.getValueUTF8(), isBoolean: attribute.isBooleanAttribute())
+#endif
     }
     
     @usableFromInline
@@ -548,7 +569,9 @@ open class Attributes: NSCopying {
         ensureMaterialized()
         try Validate.notEmpty(string: key)
         if let ix = indexForKey(key) {
-            attributes.remove(at: ix)
+            withLibxml2DirtySuppressedIfNeeded {
+                attributes.remove(at: ix)
+            }
             invalidateLowercasedKeysCache()
             invalidateKeyIndex()
             let normalizedKey = key.lowercased()
@@ -560,6 +583,9 @@ open class Attributes: NSCopying {
             }
             ownerElement?.markAttributeQueryIndexDirty()
             ownerElement?.markAttributeValueQueryIndexDirty(for: key)
+#if canImport(CLibxml2) || canImport(libxml2)
+            ownerElement?.libxml2SyncAttributeRemoved(key: key)
+#endif
         }
     }
     
@@ -572,8 +598,11 @@ open class Attributes: NSCopying {
         ensureMaterialized()
         try Validate.notEmpty(string: key)
         if let ix = attributes.firstIndex(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame}) {
-            let normalizedKey = key.lowercased()
-            attributes.remove(at: ix)
+            let removedKey = attributes[ix].getKeyUTF8()
+            let normalizedKey = removedKey.lowercased()
+            withLibxml2DirtySuppressedIfNeeded {
+                attributes.remove(at: ix)
+            }
             invalidateLowercasedKeysCache()
             invalidateKeyIndex()
             if normalizedKey == UTF8Arrays.class_ {
@@ -583,7 +612,10 @@ open class Attributes: NSCopying {
                 ownerElement?.markIdQueryIndexDirty()
             }
             ownerElement?.markAttributeQueryIndexDirty()
-            ownerElement?.markAttributeValueQueryIndexDirty(for: key)
+            ownerElement?.markAttributeValueQueryIndexDirty(for: removedKey)
+#if canImport(CLibxml2) || canImport(libxml2)
+            ownerElement?.libxml2SyncAttributeRemoved(key: removedKey)
+#endif
         }
     }
 
@@ -601,23 +633,25 @@ open class Attributes: NSCopying {
         removedKeys.reserveCapacity(Swift.min(keys.count, attributes.count))
         var writeIndex = 0
         let originalCount = attributes.count
-        for readIndex in 0..<originalCount {
-            let attr = attributes[readIndex]
-            let key = attr.getKeyUTF8()
-            var shouldRemove = false
-            for removalKey in keys {
-                if removalKey == key {
-                    shouldRemove = true
-                    break
+        withLibxml2DirtySuppressedIfNeeded {
+            for readIndex in 0..<originalCount {
+                let attr = attributes[readIndex]
+                let key = attr.getKeyUTF8()
+                var shouldRemove = false
+                for removalKey in keys {
+                    if removalKey == key {
+                        shouldRemove = true
+                        break
+                    }
                 }
-            }
-            if shouldRemove {
-                removedKeys.append(key)
-            } else {
-                if writeIndex != readIndex {
-                    attributes[writeIndex] = attr
+                if shouldRemove {
+                    removedKeys.append(key)
+                } else {
+                    if writeIndex != readIndex {
+                        attributes[writeIndex] = attr
+                    }
+                    writeIndex += 1
                 }
-                writeIndex += 1
             }
         }
 
@@ -638,6 +672,9 @@ open class Attributes: NSCopying {
                     ownerElement.markIdQueryIndexDirty()
                 }
                 ownerElement.markAttributeValueQueryIndexDirty(for: key)
+#if canImport(CLibxml2) || canImport(libxml2)
+                ownerElement.libxml2SyncAttributeRemoved(key: key)
+#endif
             }
             ownerElement.markAttributeQueryIndexDirty()
         }
@@ -671,31 +708,43 @@ open class Attributes: NSCopying {
 
         var writeIndex = 0
         let originalCount = attributes.count
-        for readIndex in 0..<originalCount {
-            let attr = attributes[readIndex]
-            let decision = body(attr)
-            if let newValue = decision.newValue {
-                _ = attr.setValue(value: newValue)
-                if ownerElement != nil {
-                    markDirty(for: attr.getKeyUTF8())
+        withLibxml2DirtySuppressedIfNeeded {
+            for readIndex in 0..<originalCount {
+                let attr = attributes[readIndex]
+                let decision = body(attr)
+                if let newValue = decision.newValue {
+                    _ = attr.setValue(value: newValue)
+                    if ownerElement != nil {
+                        let key = attr.getKeyUTF8()
+                        markDirty(for: key)
+#if canImport(CLibxml2) || canImport(libxml2)
+                        ownerElement?.libxml2SyncAttribute(key: key, value: newValue, isBoolean: attr.isBooleanAttribute())
+#endif
+                    }
+                    didMutate = true
                 }
-                didMutate = true
-            }
-            if decision.keep {
-                if writeIndex != readIndex {
-                    attributes[writeIndex] = attr
+                if decision.keep {
+                    if writeIndex != readIndex {
+                        attributes[writeIndex] = attr
+                    }
+                    writeIndex += 1
+                } else {
+                    if ownerElement != nil {
+                        let key = attr.getKeyUTF8()
+                        markDirty(for: key)
+#if canImport(CLibxml2) || canImport(libxml2)
+                        ownerElement?.libxml2SyncAttributeRemoved(key: key)
+#endif
+                    }
+                    didMutate = true
                 }
-                writeIndex += 1
-            } else {
-                if ownerElement != nil {
-                    markDirty(for: attr.getKeyUTF8())
-                }
-                didMutate = true
             }
         }
 
         if writeIndex < originalCount {
-            attributes.removeLast(originalCount - writeIndex)
+            withLibxml2DirtySuppressedIfNeeded {
+                attributes.removeLast(originalCount - writeIndex)
+            }
             didMutate = true
         }
 

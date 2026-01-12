@@ -7,6 +7,14 @@
 
 import Foundation
 
+#if canImport(CLibxml2) || canImport(libxml2)
+#if canImport(CLibxml2)
+@preconcurrency import CLibxml2
+#elseif canImport(libxml2)
+@preconcurrency import libxml2
+#endif
+#endif
+
 @usableFromInline
 internal final class SourceBuffer {
     @usableFromInline
@@ -17,6 +25,37 @@ internal final class SourceBuffer {
         self.bytes = bytes
     }
 }
+
+#if canImport(CLibxml2) || canImport(libxml2)
+@usableFromInline
+internal final class Libxml2DocumentContext {
+    @usableFromInline
+    let docPtr: htmlDocPtr
+    @usableFromInline
+    let settings: ParseSettings
+    @usableFromInline
+    let baseUri: [UInt8]
+    @usableFromInline
+    var attributeOverrides: [UnsafeMutableRawPointer: Attributes]?
+    @usableFromInline
+    var tagNameOverrides: [UnsafeMutableRawPointer: [UInt8]]?
+    @usableFromInline
+    var nodeCache: [UnsafeMutableRawPointer: Node]?
+    @usableFromInline
+    weak var document: Document? = nil
+
+    @usableFromInline
+    init(docPtr: htmlDocPtr, settings: ParseSettings, baseUri: [UInt8]) {
+        self.docPtr = docPtr
+        self.settings = settings
+        self.baseUri = baseUri
+    }
+
+    deinit {
+        xmlFreeDoc(docPtr)
+    }
+}
+#endif
 
 open class Document: Element {
     public enum QuirksMode {
@@ -30,6 +69,84 @@ open class Document: Element {
     
     @usableFromInline
     internal var parsedAsXml: Bool = false
+
+#if canImport(CLibxml2) || canImport(libxml2)
+    @usableFromInline
+    internal var libxml2DocPtr: htmlDocPtr? = nil
+    @usableFromInline
+    internal var libxml2BackedDirty: Bool = false
+    @usableFromInline
+    internal var libxml2LazyState: Libxml2LazyState? = nil
+    @usableFromInline
+    internal var libxml2LazyMaterializing: Bool = false
+    @usableFromInline
+    internal var libxml2Only: Bool = false
+    @usableFromInline
+    internal var libxml2AttributeOverrides: [UnsafeMutableRawPointer: Attributes]? = nil
+    @usableFromInline
+    internal var libxml2TagNameOverrides: [UnsafeMutableRawPointer: [UInt8]]? = nil
+    @usableFromInline
+    internal var libxml2NodeCache: [UnsafeMutableRawPointer: Node]? = nil
+    @usableFromInline
+    internal var libxml2OriginalInput: [UInt8]? = nil
+    @usableFromInline
+    internal var libxml2Preferred: Bool = false
+#endif
+
+#if canImport(CLibxml2) || canImport(libxml2)
+    deinit {
+        if libxml2Context == nil, let docPtr = libxml2DocPtr {
+            xmlFreeDoc(docPtr)
+        }
+        libxml2DocPtr = nil
+    }
+#endif
+
+#if canImport(CLibxml2) || canImport(libxml2)
+    @usableFromInline
+    internal override func ensureLibxml2TreeIfNeeded() {
+        if libxml2Only {
+            return
+        }
+        guard let state = libxml2LazyState else { return }
+        if libxml2LazyMaterializing {
+            return
+        }
+        libxml2LazyMaterializing = true
+        Libxml2Backend.materializeLazyDocument(self, state: state)
+        libxml2LazyState = nil
+        libxml2LazyMaterializing = false
+    }
+
+    @usableFromInline
+    internal func adopt(from other: Document, builder: TreeBuilder?) {
+        parsedAsXml = other.parsedAsXml
+        _attributes = other._attributes
+        attributes?.ownerElement = self
+
+        childNodes.removeAll(keepingCapacity: true)
+        childNodes = other.childNodes
+        for (idx, child) in childNodes.enumerated() {
+            child.parentNode = self
+            child.setSiblingIndex(idx)
+        }
+        if let builder {
+            var stack: [Node] = childNodes
+            while let node = stack.popLast() {
+                node.treeBuilder = builder
+                if let element = node as? Element {
+                    element.attributes?.ownerElement = element
+                }
+                let children = node.childNodes
+                if !children.isEmpty {
+                    for child in children {
+                        stack.append(child)
+                    }
+                }
+            }
+        }
+    }
+#endif
 
 
 
@@ -223,12 +340,76 @@ open class Document: Element {
 
     @inline(__always)
     open override func outerHtml() throws -> String {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if Libxml2Serialization.enabled,
+           let docPtr = libxml2DocPtr,
+           !libxml2BackedDirty,
+           outputSettings().syntax() == .html,
+           !outputSettings().prettyPrint(),
+           let dumped = Libxml2Serialization.htmlDump(doc: docPtr) {
+            return String(decoding: dumped, as: UTF8.self)
+        }
+        if let original = libxml2OriginalInput,
+           !libxml2BackedDirty,
+           parsedAsXml,
+           outputSettings().syntax() == .xml,
+           !outputSettings().prettyPrint() {
+            return String(decoding: original, as: UTF8.self)
+        }
+#endif
         return try super.html() // no outer wrapper tag
+    }
+
+    @inline(__always)
+    public override func html() throws -> String {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if Libxml2Serialization.enabled,
+           let docPtr = libxml2DocPtr,
+           !libxml2BackedDirty,
+           outputSettings().syntax() == .html,
+           !outputSettings().prettyPrint(),
+           let dumped = Libxml2Serialization.htmlDump(doc: docPtr) {
+            return String(decoding: dumped, as: UTF8.self)
+        }
+#endif
+        return try super.html()
     }
     
     @inline(__always)
     open func outerHtmlUTF8() throws -> [UInt8] {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if Libxml2Serialization.enabled,
+           let docPtr = libxml2DocPtr,
+           !libxml2BackedDirty,
+           outputSettings().syntax() == .html,
+           !outputSettings().prettyPrint(),
+           let dumped = Libxml2Serialization.htmlDump(doc: docPtr) {
+            return dumped
+        }
+        if let original = libxml2OriginalInput,
+           !libxml2BackedDirty,
+           parsedAsXml,
+           outputSettings().syntax() == .xml,
+           !outputSettings().prettyPrint() {
+            return original
+        }
+#endif
         return try super.htmlUTF8() // no outer wrapper tag
+    }
+
+    @inline(__always)
+    public override func htmlUTF8() throws -> [UInt8] {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if Libxml2Serialization.enabled,
+           let docPtr = libxml2DocPtr,
+           !libxml2BackedDirty,
+           outputSettings().syntax() == .html,
+           !outputSettings().prettyPrint(),
+           let dumped = Libxml2Serialization.htmlDump(doc: docPtr) {
+            return dumped
+        }
+#endif
+        return try super.htmlUTF8()
     }
 
     /**
@@ -241,6 +422,48 @@ open class Document: Element {
     public override func text(_ text: String) throws -> Element {
         try body()?.text(text) // overridden to not nuke doc structure
         return self
+    }
+
+    @inline(__always)
+    public override func text(trimAndNormaliseWhitespace: Bool = true) throws -> String {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if libxml2Only,
+           let bytes = Libxml2Backend.textFromLibxml2Doc(self, trim: trimAndNormaliseWhitespace),
+           !libxml2BackedDirty {
+            return String(decoding: bytes, as: UTF8.self)
+        }
+        if let bytes = Libxml2Backend.textFromLibxml2Document(self, trim: trimAndNormaliseWhitespace) {
+            return String(decoding: bytes, as: UTF8.self)
+        }
+        let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_LIBXML2_TEXT"]?.lowercased()
+        if raw == "1" || raw == "true" || raw == "yes",
+           let bytes = Libxml2Backend.textFromLibxml2Doc(self, trim: trimAndNormaliseWhitespace),
+           !libxml2BackedDirty {
+            return String(decoding: bytes, as: UTF8.self)
+        }
+#endif
+        return try super.text(trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)
+    }
+
+    @inline(__always)
+    public override func textUTF8(trimAndNormaliseWhitespace: Bool = true) throws -> [UInt8] {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if libxml2Only,
+           let bytes = Libxml2Backend.textFromLibxml2Doc(self, trim: trimAndNormaliseWhitespace),
+           !libxml2BackedDirty {
+            return bytes
+        }
+        if let bytes = Libxml2Backend.textFromLibxml2Document(self, trim: trimAndNormaliseWhitespace) {
+            return bytes
+        }
+        let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_LIBXML2_TEXT"]?.lowercased()
+        if raw == "1" || raw == "true" || raw == "yes",
+           let bytes = Libxml2Backend.textFromLibxml2Doc(self, trim: trimAndNormaliseWhitespace),
+           !libxml2BackedDirty {
+            return bytes
+        }
+#endif
+        return try super.textUTF8(trimAndNormaliseWhitespace: trimAndNormaliseWhitespace)
     }
 
     @inline(__always)

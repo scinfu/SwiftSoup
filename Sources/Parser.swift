@@ -19,6 +19,18 @@ public class Parser {
 	private var _errors: ParseErrorList = ParseErrorList(16, 16)
 	private var _settings: ParseSettings
 
+    public enum Backend: Sendable {
+        case swiftSoup
+#if canImport(CLibxml2) || canImport(libxml2)
+        case libxml2
+#endif
+    }
+
+    public enum Mode: Sendable {
+        case html
+        case xml
+    }
+
 	/**
 	 Create a new Parser, using the specified TreeBuilder
 	 - parameter treeBuilder: TreeBuilder to use to parse input into Documents.
@@ -27,6 +39,54 @@ public class Parser {
 		self._treeBuilder = treeBuilder
 		_settings = treeBuilder.defaultSettings()
 	}
+
+    private static let defaultBackendOverride: Backend? = {
+        guard let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_TEST_BACKEND"]?.lowercased(),
+              !raw.isEmpty else {
+            return nil
+        }
+        switch raw {
+        case "swiftsoup", "swift", "default":
+            return .swiftSoup
+#if canImport(CLibxml2) || canImport(libxml2)
+        case "libxml2":
+            return .libxml2
+#endif
+        default:
+            return nil
+        }
+    }()
+
+    @inline(__always)
+    private static func defaultBackend() -> Backend {
+        return defaultBackendOverride ?? .swiftSoup
+    }
+
+    @inline(__always)
+    private static func builder(for backend: Backend, parserType: ParserType) -> TreeBuilder {
+        switch (backend, parserType) {
+        case (.swiftSoup, .html):
+            return HtmlTreeBuilder()
+        case (.swiftSoup, .xml):
+            return XmlTreeBuilder()
+#if canImport(CLibxml2) || canImport(libxml2)
+        case (.libxml2, .html):
+            return Libxml2TreeBuilder()
+        case (.libxml2, .xml):
+            return Libxml2XmlTreeBuilder()
+#endif
+        }
+    }
+
+    private enum ParserType {
+        case html
+        case xml
+    }
+
+    public convenience init(backend: Backend, mode: Mode = .html) {
+        let parserType: ParserType = (mode == .html) ? .html : .xml
+        self.init(Parser.builder(for: backend, parserType: parserType))
+    }
 
 	public func parseInput(_ html: [UInt8], _ baseUri: [UInt8]) throws -> Document {
 		_errors = isTrackErrors() ? ParseErrorList.tracking(_maxErrors) : ParseErrorList.noTracking()
@@ -110,8 +170,7 @@ public class Parser {
 	 - returns: parsed Document
 	*/
 	public static func parse(_ html: [UInt8], _ baseUri: [UInt8]) throws -> Document {
-		let treeBuilder: TreeBuilder = HtmlTreeBuilder()
-		return try treeBuilder.parse(html, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
+        return try parse(html, baseUri, backend: defaultBackend())
 	}
     
     public static func parse(_ html: String, _ baseUri: String) throws -> Document {
@@ -119,12 +178,19 @@ public class Parser {
     }
 
     public static func parse(_ data: Data, _ baseUri: [UInt8]) throws -> Document {
-        let treeBuilder: TreeBuilder = HtmlTreeBuilder()
-        return try treeBuilder.parse([UInt8](data), baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
+        return try parse([UInt8](data), baseUri, backend: defaultBackend())
     }
 
     public static func parse(_ data: Data, _ baseUri: String) throws -> Document {
         return try parse([UInt8](data), baseUri.utf8Array)
+    }
+
+    public static func parse(_ html: String, _ baseUri: String, backend: Backend) throws -> Document {
+        return try parse(html.utf8Array, baseUri.utf8Array, backend: backend)
+    }
+
+    public static func parse(_ data: Data, _ baseUri: String, backend: Backend) throws -> Document {
+        return try parse([UInt8](data), baseUri.utf8Array, backend: backend)
     }
 
 	/**
@@ -138,12 +204,57 @@ public class Parser {
 	 - returns: list of nodes parsed from the input HTML. Note that the context element, if supplied, is not modified.
 	*/
 	public static func parseFragment(_ fragmentHtml: [UInt8], _ context: Element?, _ baseUri: [UInt8]) throws -> Array<Node> {
-		let treeBuilder = HtmlTreeBuilder()
-		return try treeBuilder.parseFragment(fragmentHtml, context, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
+        #if canImport(CLibxml2) || canImport(libxml2)
+        if let context,
+           context.ownerDocument()?.libxml2Only == true || context.libxml2Context != nil {
+            return try parseFragment(fragmentHtml, context, baseUri, backend: .libxml2)
+        }
+        #endif
+        let treeBuilder = HtmlTreeBuilder()
+        return try treeBuilder.parseFragment(fragmentHtml, context, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
 	}
     
     public static func parseFragment(_ fragmentHtml: String, _ context: Element?, _ baseUri: [UInt8]) throws -> Array<Node> {
         return try parseFragment(fragmentHtml.utf8Array, context, baseUri)
+    }
+
+    public static func parseFragment(
+        _ fragmentHtml: [UInt8],
+        _ context: Element?,
+        _ baseUri: [UInt8],
+        backend: Backend
+    ) throws -> Array<Node> {
+        switch backend {
+        case .swiftSoup:
+            let treeBuilder = HtmlTreeBuilder()
+            return try treeBuilder.parseFragment(
+                fragmentHtml,
+                context,
+                baseUri,
+                ParseErrorList.noTracking(),
+                treeBuilder.defaultSettings()
+            )
+#if canImport(CLibxml2) || canImport(libxml2)
+        case .libxml2:
+            let treeBuilder = HtmlTreeBuilder()
+            return try treeBuilder.parseFragment(
+                fragmentHtml,
+                context,
+                baseUri,
+                ParseErrorList.noTracking(),
+                treeBuilder.defaultSettings()
+            )
+#endif
+        }
+    }
+
+    public static func parseFragment(
+        _ fragmentHtml: String,
+        _ context: Element?,
+        _ baseUri: [UInt8],
+        backend: Backend
+    ) throws -> Array<Node> {
+        return try parseFragment(fragmentHtml.utf8Array, context, baseUri, backend: backend)
     }
 
 	/**
@@ -221,8 +332,12 @@ public class Parser {
 	 - returns: a new HTML parser.
 	*/
 	public static func htmlParser() -> Parser {
-		return Parser(HtmlTreeBuilder())
+		return htmlParser(defaultBackend())
 	}
+
+    public static func htmlParser(_ backend: Backend) -> Parser {
+        return Parser(builder(for: backend, parserType: .html))
+    }
 
 	/**
 	 Create a new XML parser. This parser assumes no knowledge of the incoming tags and does not treat it as HTML,
@@ -230,6 +345,19 @@ public class Parser {
 	 - returns: a new simple XML parser.
 	*/
 	public static func xmlParser() -> Parser {
-		return Parser(XmlTreeBuilder())
+		return xmlParser(defaultBackend())
 	}
+
+    public static func xmlParser(_ backend: Backend) -> Parser {
+        return Parser(builder(for: backend, parserType: .xml))
+    }
+
+    public static func parse(_ html: [UInt8], _ baseUri: [UInt8], backend: Backend) throws -> Document {
+        let treeBuilder = builder(for: backend, parserType: .html)
+        return try treeBuilder.parse(html, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
+    }
+
+    public static func parse(_ data: Data, _ baseUri: [UInt8], backend: Backend) throws -> Document {
+        return try parse([UInt8](data), baseUri, backend: backend)
+    }
 }
