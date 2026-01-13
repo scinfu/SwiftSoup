@@ -95,7 +95,7 @@ let document = try SwiftSoup.parse(html, backend: .libxml2)
 Or construct a parser with a backend and mode:
 
 ```swift
-let parser = Parser(backend: .libxml2, mode: .html)
+let parser = Parser(mode: .html, backend: .libxml2)
 let doc = try parser.parseInput(html, "")
 ```
 

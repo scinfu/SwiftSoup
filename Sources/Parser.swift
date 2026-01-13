@@ -83,7 +83,7 @@ public class Parser {
         case xml
     }
 
-    public convenience init(backend: Backend, mode: Mode = .html) {
+    public convenience init(mode: Mode = .html, backend: Backend) {
         let parserType: ParserType = (mode == .html) ? .html : .xml
         self.init(Parser.builder(for: backend, parserType: parserType))
     }
