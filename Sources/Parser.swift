@@ -206,7 +206,7 @@ public class Parser {
 	public static func parseFragment(_ fragmentHtml: [UInt8], _ context: Element?, _ baseUri: [UInt8]) throws -> Array<Node> {
         #if canImport(CLibxml2) || canImport(libxml2)
         if let context,
-           context.ownerDocument()?.libxml2Only == true || context.libxml2Context != nil {
+           context.ownerDocument()?.isLibxml2Backend == true || context.libxml2Context != nil {
             return try parseFragment(fragmentHtml, context, baseUri, backend: .libxml2)
         }
         #endif

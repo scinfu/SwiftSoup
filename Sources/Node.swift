@@ -51,7 +51,7 @@ open class Node: Equatable, Hashable {
 #if canImport(CLibxml2) || canImport(libxml2)
         if let element = self as? Element,
            let doc = ownerDocument(),
-           doc.libxml2Only {
+           doc.isLibxml2Backend {
             Libxml2Backend.hydrateAttributesIfNeeded(element)
         }
 #endif
@@ -109,7 +109,7 @@ open class Node: Equatable, Hashable {
     internal var attributes: Attributes? {
         get {
 #if canImport(CLibxml2) || canImport(libxml2)
-            if let doc = ownerDocument(), doc.libxml2Only {
+            if let doc = ownerDocument(), doc.isLibxml2Backend {
                 if let element = self as? Element {
                     Libxml2Backend.hydrateAttributesIfNeeded(element)
                 }
@@ -138,7 +138,7 @@ open class Node: Equatable, Hashable {
     internal var childNodes: [Node] {
         get {
 #if canImport(CLibxml2) || canImport(libxml2)
-            if let doc = ownerDocument(), doc.libxml2Only {
+            if let doc = ownerDocument(), doc.isLibxml2Backend {
                 Libxml2Backend.hydrateChildrenIfNeeded(self)
             } else if libxml2Context != nil {
                 Libxml2Backend.hydrateChildrenIfNeeded(self)
@@ -377,7 +377,7 @@ open class Node: Equatable, Hashable {
     
     open func getBaseUriUTF8() -> [UInt8] {
 #if canImport(CLibxml2) || canImport(libxml2)
-        if let doc = ownerDocument(), !doc.libxml2Only {
+        if let doc = ownerDocument(), !doc.isLibxml2Backend {
             ensureLibxml2TreeIfNeeded()
         }
 #endif
@@ -694,10 +694,16 @@ open class Node: Equatable, Hashable {
     internal func removeLibxml2OverridesRecursive(in doc: Document) {
         if let nodePtr = libxml2NodePtr {
             let key = UnsafeMutableRawPointer(nodePtr)
-            doc.libxml2AttributeOverrides?[key] = nil
-            doc.libxml2TagNameOverrides?[key] = nil
-            doc.libxml2Context?.attributeOverrides?[key] = nil
-            doc.libxml2Context?.tagNameOverrides?[key] = nil
+            doc.withLibxml2CacheLock {
+                doc.libxml2AttributeOverrides?[key] = nil
+                doc.libxml2TagNameOverrides?[key] = nil
+            }
+            if let context = doc.libxml2Context {
+                context.withCacheLock {
+                    context.attributeOverrides?[key] = nil
+                    context.tagNameOverrides?[key] = nil
+                }
+            }
         }
         for child in childNodes {
             child.removeLibxml2OverridesRecursive(in: doc)
@@ -1408,7 +1414,11 @@ open class Node: Equatable, Hashable {
     @usableFromInline
     internal func outerHtmlUTF8Internal(_ out: OutputSettings, allowRawSource: Bool) throws -> [UInt8] {
 #if canImport(CLibxml2) || canImport(libxml2)
-        let hasOverrides = (ownerDocument()?.libxml2AttributeOverrides?.isEmpty == false)
+        let hasOverrides = ownerDocument().map { doc in
+            doc.withLibxml2CacheLock {
+                doc.libxml2AttributeOverrides?.isEmpty == false
+            }
+        } ?? false
         if Libxml2Serialization.enabled,
            let nodePtr = libxml2NodePtr,
            let doc = ownerDocument(),

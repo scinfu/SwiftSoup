@@ -96,6 +96,8 @@ open class Element: Node {
     @usableFromInline
     internal static let selectorResultCacheCapacity: Int = 32
     @usableFromInline
+    internal let selectorResultCacheLock = Mutex()
+    @usableFromInline
     internal var selectorResultCache: [String: Elements]? = nil
     @usableFromInline
     internal var selectorResultCacheOrder: [String] = []
@@ -244,7 +246,7 @@ open class Element: Node {
     @inline(__always)
     private func ensureAttributes() -> Attributes {
         #if canImport(CLibxml2) || canImport(libxml2)
-        if let doc = ownerDocument(), doc.libxml2Only {
+        if let doc = ownerDocument(), doc.isLibxml2Backend {
             Libxml2Backend.hydrateAttributesIfNeeded(self)
         } else if libxml2Context != nil {
             Libxml2Backend.hydrateAttributesIfNeeded(self)
@@ -1003,7 +1005,8 @@ open class Element: Node {
         }
         let weakElements = tagQueryIndexForKey(key)
         let elements = weakElements.compactMap { $0.value }
-        if ownerDocument()?.libxml2Only == true, elements.count > 1 {
+        #if canImport(CLibxml2) || canImport(libxml2)
+        if ownerDocument()?.isLibxml2Backend == true, elements.count > 1 {
             var seen = Set<ObjectIdentifier>()
             seen.reserveCapacity(elements.count)
             var unique: [Element] = []
@@ -1016,6 +1019,7 @@ open class Element: Node {
             }
             return Elements(unique)
         }
+        #endif
         return Elements(elements)
     }
     
@@ -2406,7 +2410,11 @@ open class Element: Node {
     public func html() throws -> String {
 #if canImport(CLibxml2) || canImport(libxml2)
         let out = getOutputSettings()
-        let hasOverrides = (ownerDocument()?.libxml2AttributeOverrides?.isEmpty == false)
+        let hasOverrides = ownerDocument().map { doc in
+            doc.withLibxml2CacheLock {
+                doc.libxml2AttributeOverrides?.isEmpty == false
+            }
+        } ?? false
         if Libxml2Serialization.enabled,
            let doc = ownerDocument(),
            let docPtr = doc.libxml2DocPtr,
@@ -2440,7 +2448,11 @@ open class Element: Node {
     public func htmlUTF8() throws -> [UInt8] {
 #if canImport(CLibxml2) || canImport(libxml2)
         let out = getOutputSettings()
-        let hasOverrides = (ownerDocument()?.libxml2AttributeOverrides?.isEmpty == false)
+        let hasOverrides = ownerDocument().map { doc in
+            doc.withLibxml2CacheLock {
+                doc.libxml2AttributeOverrides?.isEmpty == false
+            }
+        } ?? false
         if Libxml2Serialization.enabled,
            let doc = ownerDocument(),
            let docPtr = doc.libxml2DocPtr,
@@ -2469,7 +2481,11 @@ open class Element: Node {
     open override func html(_ appendable: StringBuilder) throws -> StringBuilder {
 #if canImport(CLibxml2) || canImport(libxml2)
         let out = getOutputSettings()
-        let hasOverrides = (ownerDocument()?.libxml2AttributeOverrides?.isEmpty == false)
+        let hasOverrides = ownerDocument().map { doc in
+            doc.withLibxml2CacheLock {
+                doc.libxml2AttributeOverrides?.isEmpty == false
+            }
+        } ?? false
         if Libxml2Serialization.enabled,
            let doc = ownerDocument(),
            let docPtr = doc.libxml2DocPtr,
@@ -2740,6 +2756,8 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func cachedSelectorResult(_ query: String) -> Elements? {
+        selectorResultCacheLock.lock()
+        defer { selectorResultCacheLock.unlock() }
         guard let cache = selectorResultCache else { return nil }
         let root: Node
         if let cachedRoot = selectorResultCacheRoot, cachedRoot.parentNode == nil {
@@ -2750,7 +2768,7 @@ internal extension Element {
         }
         let currentTextVersion = root.textMutationVersion
         if currentTextVersion != selectorResultTextVersion {
-            invalidateSelectorResultCache()
+            invalidateSelectorResultCacheUnlocked()
             selectorResultTextVersion = currentTextVersion
             return nil
         }
@@ -2760,6 +2778,8 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func storeSelectorResult(_ query: String, _ result: Elements) {
+        selectorResultCacheLock.lock()
+        defer { selectorResultCacheLock.unlock() }
         if selectorResultCache == nil {
             selectorResultCache = [:]
             selectorResultCacheOrder = []
@@ -2792,6 +2812,13 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func invalidateSelectorResultCache() {
+        selectorResultCacheLock.lock()
+        defer { selectorResultCacheLock.unlock() }
+        invalidateSelectorResultCacheUnlocked()
+    }
+
+    @inline(__always)
+    private func invalidateSelectorResultCacheUnlocked() {
         if selectorResultCache != nil {
             selectorResultCache = nil
             selectorResultCacheOrder.removeAll(keepingCapacity: true)

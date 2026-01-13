@@ -92,6 +92,15 @@ open class Attributes: NSCopying {
     
     @usableFromInline
     internal var pendingAttributesCount: Int = 0
+
+    @inline(__always)
+    private func withCacheLock<T>(_ body: () -> T) -> T {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        return body()
+    }
+
+    private let cacheLock = Mutex()
     
     // TODO: Delegate would be cleaner...
     @usableFromInline
@@ -297,15 +306,17 @@ open class Attributes: NSCopying {
                 attributes.append(attribute)
             }
         }
-        if let localIndex {
-            keyIndex = localIndex
-            keyIndexDirty = false
-        } else {
-            keyIndexDirty = true
+        withCacheLock {
+            if let localIndex {
+                keyIndex = localIndex
+                keyIndexDirty = false
+            } else {
+                keyIndexDirty = true
+            }
+            lowercasedKeyIndexDirty = true
+            lowercasedKeyIndex = nil
+            lowercasedKeysCache = nil
         }
-        lowercasedKeyIndexDirty = true
-        lowercasedKeyIndex = nil
-        lowercasedKeysCache = nil
         if touchedClass {
             ownerElement?.markClassQueryIndexDirty()
         }
@@ -326,13 +337,17 @@ open class Attributes: NSCopying {
         withLibxml2DirtySuppressedIfNeeded {
             if let ix = indexForKey(key) {
                 attributes[ix] = attribute
-                if !keyIndexDirty, keyIndex != nil {
-                    keyIndex?[key] = ix
+                withCacheLock {
+                    if !keyIndexDirty, keyIndex != nil {
+                        keyIndex?[key] = ix
+                    }
                 }
             } else {
                 attributes.append(attribute)
-                if !keyIndexDirty, keyIndex != nil {
-                    keyIndex?[key] = attributes.count - 1
+                withCacheLock {
+                    if !keyIndexDirty, keyIndex != nil {
+                        keyIndex?[key] = attributes.count - 1
+                    }
                 }
             }
         }
@@ -357,16 +372,15 @@ open class Attributes: NSCopying {
     @inline(__always)
     internal func updateLowercasedKeysCache() {
         ensureMaterialized()
-        lowercasedKeysCache = Set(attributes.map { attr in
-            attr.getKeyUTF8().map(Self.asciiLowercase)
-        })
+        withCacheLock {
+            lowercasedKeysCache = Set(attributes.map { attr in
+                attr.getKeyUTF8().map(Self.asciiLowercase)
+            })
+        }
     }
 
-    @usableFromInline
     @inline(__always)
-    internal func ensureLowercasedKeyIndex() {
-        ensureMaterialized()
-        guard shouldBuildKeyIndex() else { return }
+    private func ensureLowercasedKeyIndexLocked() {
         if lowercasedKeyIndexDirty || lowercasedKeyIndex == nil {
             var rebuilt: [Array<UInt8>: Int] = [:]
             rebuilt.reserveCapacity(attributes.count)
@@ -380,20 +394,34 @@ open class Attributes: NSCopying {
             lowercasedKeyIndexDirty = false
         }
     }
+
+    @usableFromInline
+    @inline(__always)
+    internal func ensureLowercasedKeyIndex() {
+        ensureMaterialized()
+        guard shouldBuildKeyIndex() else { return }
+        withCacheLock {
+            ensureLowercasedKeyIndexLocked()
+        }
+    }
     
     @usableFromInline
     @inline(__always)
     internal func invalidateLowercasedKeysCache() {
-        lowercasedKeysCache = nil
-        lowercasedKeyIndex = nil
-        lowercasedKeyIndexDirty = true
+        withCacheLock {
+            lowercasedKeysCache = nil
+            lowercasedKeyIndex = nil
+            lowercasedKeyIndexDirty = true
+        }
     }
 
     @usableFromInline
     @inline(__always)
     internal func invalidateKeyIndex() {
-        keyIndex = nil
-        keyIndexDirty = true
+        withCacheLock {
+            keyIndex = nil
+            keyIndexDirty = true
+        }
     }
 
     @usableFromInline
@@ -407,14 +435,16 @@ open class Attributes: NSCopying {
     func ensureKeyIndex() {
         ensureMaterialized()
         guard shouldBuildKeyIndex() else { return }
-        if keyIndexDirty || keyIndex == nil {
-            var rebuilt: [Array<UInt8>: Int] = [:]
-            rebuilt.reserveCapacity(attributes.count)
-            for (index, attr) in attributes.enumerated() {
-                rebuilt[attr.getKeyUTF8()] = index
+        withCacheLock {
+            if keyIndexDirty || keyIndex == nil {
+                var rebuilt: [Array<UInt8>: Int] = [:]
+                rebuilt.reserveCapacity(attributes.count)
+                for (index, attr) in attributes.enumerated() {
+                    rebuilt[attr.getKeyUTF8()] = index
+                }
+                keyIndex = rebuilt
+                keyIndexDirty = false
             }
-            keyIndex = rebuilt
-            keyIndexDirty = false
         }
     }
 
@@ -423,8 +453,18 @@ open class Attributes: NSCopying {
     func indexForKey(_ key: [UInt8]) -> Int? {
         ensureMaterialized()
         if !Self.disableLowercasedKeyIndex, shouldBuildKeyIndex() {
-            ensureKeyIndex()
-            return keyIndex?[key]
+            return withCacheLock {
+                if keyIndexDirty || keyIndex == nil {
+                    var rebuilt: [Array<UInt8>: Int] = [:]
+                    rebuilt.reserveCapacity(attributes.count)
+                    for (index, attr) in attributes.enumerated() {
+                        rebuilt[attr.getKeyUTF8()] = index
+                    }
+                    keyIndex = rebuilt
+                    keyIndexDirty = false
+                }
+                return keyIndex?[key]
+            }
         }
         return attributes.firstIndex(where: { $0.getKeyUTF8() == key })
     }
@@ -472,30 +512,37 @@ open class Attributes: NSCopying {
         ensureMaterialized()
         try Validate.notEmpty(string: key)
         if !Self.disableLowercasedKeyIndex, shouldBuildKeyIndex() {
-            ensureLowercasedKeyIndex()
-            if let lowercasedKeyIndex {
+            let index = withCacheLock { () -> Int? in
+                ensureLowercasedKeyIndexLocked()
+                guard let lowercasedKeyIndex else { return nil }
                 if !Attributes.containsAsciiUppercase(key) {
-                    if let ix = lowercasedKeyIndex[key] {
-                        return attributes[ix].getValueUTF8()
-                    }
-                    return []
+                    return lowercasedKeyIndex[key]
                 }
                 var lowerQuery: [UInt8] = []
                 lowerQuery.reserveCapacity(key.count)
                 for b in key {
                     lowerQuery.append(Self.asciiLowercase(b))
                 }
-                if let ix = lowercasedKeyIndex[lowerQuery] {
-                    return attributes[ix].getValueUTF8()
-                }
-                return []
+                return lowercasedKeyIndex[lowerQuery]
+            }
+            if let index {
+                return attributes[index].getValueUTF8()
             }
         }
-        if lowercasedKeysCache == nil {
-            updateLowercasedKeysCache()
+        let hasKey = withCacheLock { () -> Bool in
+            if lowercasedKeysCache == nil {
+                lowercasedKeysCache = Set(attributes.map { attr in
+                    attr.getKeyUTF8().map(Self.asciiLowercase)
+                })
+            }
+            if !Attributes.containsAsciiUppercase(key) {
+                return lowercasedKeysCache?.contains(key) ?? false
+            }
+            let lowerQuery = key.lowercased()
+            return lowercasedKeysCache?.contains(lowerQuery) ?? false
         }
         if !Attributes.containsAsciiUppercase(key) {
-            guard lowercasedKeysCache?.contains(key) ?? false else { return [] }
+            guard hasKey else { return [] }
             if !hasUppercaseKeys {
                 return get(key: key)
             }
@@ -505,7 +552,7 @@ open class Attributes: NSCopying {
             return []
         }
         let lowerQuery = key.lowercased()
-        guard lowercasedKeysCache?.contains(lowerQuery) ?? false else { return [] }
+        guard hasKey else { return [] }
         if let attr = attributes.first(where: { $0.getKeyUTF8().caseInsensitiveCompare(key) == .orderedSame }) {
             return attr.getValueUTF8()
         }
@@ -804,8 +851,9 @@ open class Attributes: NSCopying {
         ensureMaterialized()
         guard !key.isEmpty else { return false }
         if shouldBuildKeyIndex() {
-            ensureLowercasedKeyIndex()
-            if let lowercasedKeyIndex {
+            let found = withCacheLock { () -> Bool in
+                ensureLowercasedKeyIndexLocked()
+                guard let lowercasedKeyIndex else { return false }
                 if !Attributes.containsAsciiUppercase(key) {
                     return lowercasedKeyIndex[key] != nil
                 }
@@ -816,19 +864,26 @@ open class Attributes: NSCopying {
                 }
                 return lowercasedKeyIndex[lowerQuery] != nil
             }
+            if found {
+                return true
+            }
         }
-        if lowercasedKeysCache == nil {
-            updateLowercasedKeysCache()
+        return withCacheLock {
+            if lowercasedKeysCache == nil {
+                lowercasedKeysCache = Set(attributes.map { attr in
+                    attr.getKeyUTF8().map(Self.asciiLowercase)
+                })
+            }
+            if !Attributes.containsAsciiUppercase(key) {
+                return lowercasedKeysCache?.contains(key) ?? false
+            }
+            var lowerQuery: [UInt8] = []
+            lowerQuery.reserveCapacity(key.count)
+            for b in key {
+                lowerQuery.append(Self.asciiLowercase(b))
+            }
+            return lowercasedKeysCache?.contains(lowerQuery) ?? false
         }
-        if !Attributes.containsAsciiUppercase(key) {
-            return lowercasedKeysCache!.contains(key)
-        }
-        var lowerQuery: [UInt8] = []
-        lowerQuery.reserveCapacity(key.count)
-        for b in key {
-            lowerQuery.append(Self.asciiLowercase(b))
-        }
-        return lowercasedKeysCache!.contains(lowerQuery)
     }
 
     @inline(__always)
@@ -846,8 +901,9 @@ open class Attributes: NSCopying {
         ensureMaterialized()
         guard !key.isEmpty else { return false }
         if shouldBuildKeyIndex() {
-            ensureLowercasedKeyIndex()
-            if let lowercasedKeyIndex {
+            let found = withCacheLock { () -> Bool in
+                ensureLowercasedKeyIndexLocked()
+                guard let lowercasedKeyIndex else { return false }
                 if let key = key as? [UInt8], key.allSatisfy({ $0 < 65 || $0 > 90 }) {
                     return lowercasedKeyIndex[key] != nil
                 }
@@ -858,19 +914,26 @@ open class Attributes: NSCopying {
                 }
                 return lowercasedKeyIndex[lowerQuery] != nil
             }
+            if found {
+                return true
+            }
         }
-        if lowercasedKeysCache == nil {
-            updateLowercasedKeysCache()
+        return withCacheLock {
+            if lowercasedKeysCache == nil {
+                lowercasedKeysCache = Set(attributes.map { attr in
+                    attr.getKeyUTF8().map(Self.asciiLowercase)
+                })
+            }
+            if let key = key as? [UInt8], key.allSatisfy({ $0 < 65 || $0 > 90 }) {
+                return lowercasedKeysCache?.contains(key) ?? false
+            }
+            var lowerQuery: [UInt8] = []
+            lowerQuery.reserveCapacity(key.count)
+            for b in key {
+                lowerQuery.append(Self.asciiLowercase(b))
+            }
+            return lowercasedKeysCache?.contains(lowerQuery) ?? false
         }
-        if let key = key as? [UInt8], key.allSatisfy({ $0 < 65 || $0 > 90 }) {
-            return lowercasedKeysCache!.contains(key)
-        }
-        var lowerQuery: [UInt8] = []
-        lowerQuery.reserveCapacity(key.count)
-        for b in key {
-            lowerQuery.append(Self.asciiLowercase(b))
-        }
-        return lowercasedKeysCache!.contains(lowerQuery)
     }
 
     @inline(__always)

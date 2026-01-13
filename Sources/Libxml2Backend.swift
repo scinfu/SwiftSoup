@@ -167,6 +167,7 @@ final class Libxml2XmlTreeBuilder: TreeBuilder {
         let fallbackBuilder = XmlTreeBuilder()
         let doc = try fallbackBuilder.parse(input, baseUri, errors, settings)
 #if canImport(CLibxml2) || canImport(libxml2)
+        doc.parserBackend = .libxml2
         doc.libxml2Preferred = true
         Libxml2Backend.attachLibxml2Document(doc, isXml: true)
 #endif
@@ -952,6 +953,21 @@ enum Libxml2Backend {
     }
 
     @inline(__always)
+    private static func withCacheLock<T>(
+        doc: Document?,
+        context: Libxml2DocumentContext?,
+        _ body: () -> T
+    ) -> T {
+        if let doc {
+            return doc.withLibxml2CacheLock(body)
+        }
+        if let context {
+            return context.withCacheLock(body)
+        }
+        return body()
+    }
+
+    @inline(__always)
     private static func isAsciiLetter(_ b: UInt8) -> Bool {
         return (b >= 0x41 && b <= 0x5A) || (b >= 0x61 && b <= 0x7A)
     }
@@ -1320,7 +1336,7 @@ enum Libxml2Backend {
         let doc = parent.ownerDocument()
         let context = doc?.libxml2Context ?? parent.libxml2Context
         if let doc {
-            guard doc.libxml2Only else { return }
+            guard doc.isLibxml2Backend else { return }
         } else {
             guard context != nil else { return }
         }
@@ -1429,7 +1445,7 @@ enum Libxml2Backend {
         let doc = element.ownerDocument()
         let context = doc?.libxml2Context ?? element.libxml2Context
         if let doc {
-            guard doc.libxml2Only else { return }
+            guard doc.isLibxml2Backend else { return }
         } else {
             guard context != nil else { return }
         }
@@ -1442,8 +1458,10 @@ enum Libxml2Backend {
         element.libxml2AttributesHydrated = true
         guard let nodePtr = element.libxml2NodePtr,
               let docPtr = doc?.libxml2DocPtr ?? context?.docPtr else { return }
-        if let overrides = doc?.libxml2AttributeOverrides ?? context?.attributeOverrides,
-           let override = overrides[UnsafeMutableRawPointer(nodePtr)] {
+        let override = withCacheLock(doc: doc, context: context) {
+            (doc?.libxml2AttributeOverrides ?? context?.attributeOverrides)?[UnsafeMutableRawPointer(nodePtr)]
+        }
+        if let override {
             override.ownerElement = element
             element.attributes = override
             return
@@ -1590,7 +1608,9 @@ enum Libxml2Backend {
         let type = node.pointee.type
         switch type {
         case XML_ELEMENT_NODE:
-            let overrideName = doc?.libxml2TagNameOverrides?[UnsafeMutableRawPointer(node)]
+            let overrideName = withCacheLock(doc: doc, context: context) {
+                doc?.libxml2TagNameOverrides?[UnsafeMutableRawPointer(node)]
+            }
             let rawName = overrideName ?? qualifiedName(for: node)
             let normalizedName = containsUppercaseAscii(rawName) ? settings.normalizeTag(rawName) : rawName
             let isUnknown = !Tag.isKnownTag(normalizedName)
@@ -1676,20 +1696,27 @@ enum Libxml2Backend {
     @inline(__always)
     private static func cacheNode(_ node: Node, nodePtr: xmlNodePtr, context: Libxml2DocumentContext?, doc: Document?) {
         if let context {
-            if context.nodeCache == nil {
-                context.nodeCache = [:]
+            let cacheSnapshot: [UnsafeMutableRawPointer: Node]? = context.withCacheLock {
+                if context.nodeCache == nil {
+                    context.nodeCache = [:]
+                }
+                context.nodeCache?[UnsafeMutableRawPointer(nodePtr)] = node
+                return context.nodeCache
             }
-            context.nodeCache?[UnsafeMutableRawPointer(nodePtr)] = node
             if let doc {
-                doc.libxml2NodeCache = context.nodeCache
+                doc.withLibxml2CacheLock {
+                    doc.libxml2NodeCache = cacheSnapshot
+                }
             }
             return
         }
         if let doc {
-            if doc.libxml2NodeCache == nil {
-                doc.libxml2NodeCache = [:]
+            doc.withLibxml2CacheLock {
+                if doc.libxml2NodeCache == nil {
+                    doc.libxml2NodeCache = [:]
+                }
+                doc.libxml2NodeCache?[UnsafeMutableRawPointer(nodePtr)] = node
             }
-            doc.libxml2NodeCache?[UnsafeMutableRawPointer(nodePtr)] = node
         }
     }
 
@@ -1895,9 +1922,9 @@ enum Libxml2Backend {
 #if canImport(CLibxml2) || canImport(libxml2)
         let context = Libxml2DocumentContext(docPtr: docPtr, settings: settings, baseUri: baseUri)
         context.document = doc
+        doc.parserBackend = .libxml2
         doc.libxml2DocPtr = docPtr
         doc.libxml2BackedDirty = false
-        doc.libxml2Only = true
         doc.libxml2ChildrenHydrated = false
         doc._childNodes.removeAll(keepingCapacity: true)
         doc.libxml2Preferred = true
@@ -1909,15 +1936,23 @@ enum Libxml2Backend {
                 settings: settings,
                 docPtr: docPtr
             )
-            context.attributeOverrides = overrides.attributes
-            context.tagNameOverrides = overrides.tagNames
-            doc.libxml2AttributeOverrides = overrides.attributes
-            doc.libxml2TagNameOverrides = overrides.tagNames
+            context.withCacheLock {
+                context.attributeOverrides = overrides.attributes
+                context.tagNameOverrides = overrides.tagNames
+            }
+            doc.withLibxml2CacheLock {
+                doc.libxml2AttributeOverrides = overrides.attributes
+                doc.libxml2TagNameOverrides = overrides.tagNames
+            }
         } else {
-            context.attributeOverrides = nil
-            doc.libxml2AttributeOverrides = nil
-            context.tagNameOverrides = nil
-            doc.libxml2TagNameOverrides = nil
+            context.withCacheLock {
+                context.attributeOverrides = nil
+                context.tagNameOverrides = nil
+            }
+            doc.withLibxml2CacheLock {
+                doc.libxml2AttributeOverrides = nil
+                doc.libxml2TagNameOverrides = nil
+            }
         }
         doc.libxml2Context = context
         doc.libxml2OriginalInput = nil
@@ -2130,6 +2165,9 @@ enum Libxml2Backend {
             var sawTable = false
             var sawNoscript = false
             var sawFrameset = false
+            let overridesSnapshot = doc.withLibxml2CacheLock {
+                (doc.libxml2AttributeOverrides, doc.libxml2TagNameOverrides)
+            }
             let doc = try buildDocument(
                 doc: doc,
                 docPtr: docPtr,
@@ -2141,8 +2179,8 @@ enum Libxml2Backend {
                 sawTable: &sawTable,
                 sawNoscript: &sawNoscript,
                 sawFrameset: &sawFrameset,
-                attributeOverrides: doc.libxml2AttributeOverrides,
-                tagNameOverrides: doc.libxml2TagNameOverrides
+                attributeOverrides: overridesSnapshot.0,
+                tagNameOverrides: overridesSnapshot.1
             )
             if sawNoscript {
                 try normalizeNoscriptInHead(in: doc, baseUri: state.baseUri, builder: builder)
@@ -2216,9 +2254,9 @@ enum Libxml2Backend {
 #if canImport(CLibxml2) || canImport(libxml2)
         let context = Libxml2DocumentContext(docPtr: docPtr, settings: settings, baseUri: baseUri)
         context.document = doc
+        doc.parserBackend = .libxml2
         doc.libxml2DocPtr = docPtr
         doc.libxml2BackedDirty = false
-        doc.libxml2Only = true
         doc.libxml2ChildrenHydrated = false
         doc._childNodes.removeAll(keepingCapacity: true)
         doc.libxml2Preferred = true
@@ -2230,15 +2268,23 @@ enum Libxml2Backend {
                 settings: settings,
                 docPtr: docPtr
             )
-            context.attributeOverrides = overrides.attributes
-            context.tagNameOverrides = overrides.tagNames
-            doc.libxml2AttributeOverrides = overrides.attributes
-            doc.libxml2TagNameOverrides = overrides.tagNames
+            context.withCacheLock {
+                context.attributeOverrides = overrides.attributes
+                context.tagNameOverrides = overrides.tagNames
+            }
+            doc.withLibxml2CacheLock {
+                doc.libxml2AttributeOverrides = overrides.attributes
+                doc.libxml2TagNameOverrides = overrides.tagNames
+            }
         } else {
-            context.attributeOverrides = nil
-            doc.libxml2AttributeOverrides = nil
-            context.tagNameOverrides = nil
-            doc.libxml2TagNameOverrides = nil
+            context.withCacheLock {
+                context.attributeOverrides = nil
+                context.tagNameOverrides = nil
+            }
+            doc.withLibxml2CacheLock {
+                doc.libxml2AttributeOverrides = nil
+                doc.libxml2TagNameOverrides = nil
+            }
         }
         doc.libxml2Context = context
         doc.libxml2OriginalInput = input
@@ -2261,9 +2307,10 @@ enum Libxml2Backend {
         guard let docPtr else { return }
         doc.libxml2DocPtr = docPtr
         doc.libxml2BackedDirty = false
-        doc.libxml2Only = false
-        doc.libxml2AttributeOverrides = nil
-        doc.libxml2TagNameOverrides = nil
+        doc.withLibxml2CacheLock {
+            doc.libxml2AttributeOverrides = nil
+            doc.libxml2TagNameOverrides = nil
+        }
         doc.libxml2OriginalInput = nil
         doc.libxml2Context = nil
         doc.libxml2Preferred = true
@@ -2971,7 +3018,9 @@ enum Libxml2Backend {
 
     private static func normalizeImplicitParagraphs(in doc: Document) throws {
         guard let body = doc.body() else { return }
-        let overrides = doc.libxml2AttributeOverrides
+        let overrides = doc.withLibxml2CacheLock {
+            doc.libxml2AttributeOverrides
+        }
         var candidates: [Element] = []
         for child in body.children().array() {
             if child.tagNameNormalUTF8() != UTF8Arrays.p {

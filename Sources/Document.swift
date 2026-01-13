@@ -35,6 +35,7 @@ internal final class Libxml2DocumentContext {
     let settings: ParseSettings
     @usableFromInline
     let baseUri: [UInt8]
+    private let cacheLock = Mutex()
     @usableFromInline
     var attributeOverrides: [UnsafeMutableRawPointer: Attributes]?
     @usableFromInline
@@ -49,6 +50,13 @@ internal final class Libxml2DocumentContext {
         self.docPtr = docPtr
         self.settings = settings
         self.baseUri = baseUri
+    }
+
+    @inline(__always)
+    func withCacheLock<T>(_ body: () -> T) -> T {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        return body()
     }
 
     deinit {
@@ -70,7 +78,11 @@ open class Document: Element {
     @usableFromInline
     internal var parsedAsXml: Bool = false
 
+    @usableFromInline
+    internal var parserBackend: Parser.Backend = .swiftSoup
 #if canImport(CLibxml2) || canImport(libxml2)
+    @usableFromInline
+    internal let libxml2CacheLock = Mutex()
     @usableFromInline
     internal var libxml2DocPtr: htmlDocPtr? = nil
     @usableFromInline
@@ -79,8 +91,6 @@ open class Document: Element {
     internal var libxml2LazyState: Libxml2LazyState? = nil
     @usableFromInline
     internal var libxml2LazyMaterializing: Bool = false
-    @usableFromInline
-    internal var libxml2Only: Bool = false
     @usableFromInline
     internal var libxml2AttributeOverrides: [UnsafeMutableRawPointer: Attributes]? = nil
     @usableFromInline
@@ -91,6 +101,24 @@ open class Document: Element {
     internal var libxml2OriginalInput: [UInt8]? = nil
     @usableFromInline
     internal var libxml2Preferred: Bool = false
+#endif
+
+    @inline(__always)
+    internal var isLibxml2Backend: Bool {
+#if canImport(CLibxml2) || canImport(libxml2)
+        return parserBackend == .libxml2
+#else
+        return false
+#endif
+    }
+
+#if canImport(CLibxml2) || canImport(libxml2)
+    @inline(__always)
+    internal func withLibxml2CacheLock<T>(_ body: () -> T) -> T {
+        libxml2CacheLock.lock()
+        defer { libxml2CacheLock.unlock() }
+        return body()
+    }
 #endif
 
 #if canImport(CLibxml2) || canImport(libxml2)
@@ -105,7 +133,7 @@ open class Document: Element {
 #if canImport(CLibxml2) || canImport(libxml2)
     @usableFromInline
     internal override func ensureLibxml2TreeIfNeeded() {
-        if libxml2Only {
+        if isLibxml2Backend {
             return
         }
         guard let state = libxml2LazyState else { return }
@@ -121,6 +149,7 @@ open class Document: Element {
     @usableFromInline
     internal func adopt(from other: Document, builder: TreeBuilder?) {
         parsedAsXml = other.parsedAsXml
+        parserBackend = other.parserBackend
         _attributes = other._attributes
         attributes?.ownerElement = self
 
@@ -427,7 +456,7 @@ open class Document: Element {
     @inline(__always)
     public override func text(trimAndNormaliseWhitespace: Bool = true) throws -> String {
 #if canImport(CLibxml2) || canImport(libxml2)
-        if libxml2Only,
+        if isLibxml2Backend,
            let bytes = Libxml2Backend.textFromLibxml2Doc(self, trim: trimAndNormaliseWhitespace),
            !libxml2BackedDirty {
             return String(decoding: bytes, as: UTF8.self)
@@ -448,7 +477,7 @@ open class Document: Element {
     @inline(__always)
     public override func textUTF8(trimAndNormaliseWhitespace: Bool = true) throws -> [UInt8] {
 #if canImport(CLibxml2) || canImport(libxml2)
-        if libxml2Only,
+        if isLibxml2Backend,
            let bytes = Libxml2Backend.textFromLibxml2Doc(self, trim: trimAndNormaliseWhitespace),
            !libxml2BackedDirty {
             return bytes

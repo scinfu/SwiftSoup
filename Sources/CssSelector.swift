@@ -129,7 +129,7 @@ open class CssSelector {
             return cached
         }
 #if canImport(CLibxml2) || canImport(libxml2)
-        if root.ownerDocument()?.libxml2Only == true,
+        if root.ownerDocument()?.isLibxml2Backend == true,
            let libxml2 = try libxml2Select(query, root) {
             DebugTrace.log("CssSelector.select(query): libxml2 xpath fast path hit")
             root.storeSelectorResult(query, libxml2)
@@ -1263,7 +1263,10 @@ open class CssSelector {
     private static let libxml2LowerAscii = "abcdefghijklmnopqrstuvwxyz"
 
     private static func libxml2XPathBypassForOverrides(_ query: String, _ doc: Document) -> Bool {
-        guard let overrides = doc.libxml2AttributeOverrides, !overrides.isEmpty else { return false }
+        let hasOverrides = doc.withLibxml2CacheLock {
+            doc.libxml2AttributeOverrides?.isEmpty == false
+        }
+        guard hasOverrides else { return false }
         var quote: Character? = nil
         for ch in query {
             if let q = quote {
@@ -1283,7 +1286,7 @@ open class CssSelector {
 
     private static func libxml2Select(_ query: String, _ root: Element) throws -> Elements? {
         guard let doc = root.ownerDocument() else { return nil }
-        let xpathAllowed = libxml2XPathEnabled || doc.libxml2Only || doc.libxml2Preferred
+        let xpathAllowed = libxml2XPathEnabled || doc.isLibxml2Backend || doc.libxml2Preferred
         guard xpathAllowed else { return nil }
         if doc.libxml2LazyState != nil { return nil }
         guard let docPtr = doc.libxml2DocPtr, !doc.libxml2BackedDirty else { return nil }
