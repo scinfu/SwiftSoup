@@ -35,13 +35,14 @@ internal final class Libxml2DocumentContext {
     let settings: ParseSettings
     @usableFromInline
     let baseUri: [UInt8]
-    private let cacheLock = Mutex()
     @usableFromInline
     var attributeOverrides: [UnsafeMutableRawPointer: Attributes]?
     @usableFromInline
     var tagNameOverrides: [UnsafeMutableRawPointer: [UInt8]]?
     @usableFromInline
     var nodeCache: [UnsafeMutableRawPointer: Node]?
+    @usableFromInline
+    var explicitBooleanAttributes: [UnsafeMutableRawPointer: Set<[UInt8]>]?
     @usableFromInline
     weak var document: Document? = nil
 
@@ -52,12 +53,6 @@ internal final class Libxml2DocumentContext {
         self.baseUri = baseUri
     }
 
-    @inline(__always)
-    func withCacheLock<T>(_ body: () -> T) -> T {
-        cacheLock.lock()
-        defer { cacheLock.unlock() }
-        return body()
-    }
 
     deinit {
         xmlFreeDoc(docPtr)
@@ -82,7 +77,23 @@ open class Document: Element {
     internal var parserBackend: Parser.Backend = .swiftSoup
 #if canImport(CLibxml2) || canImport(libxml2)
     @usableFromInline
-    internal let libxml2CacheLock = Mutex()
+    internal struct AttributeValueCacheKey: Hashable {
+        let key: [UInt8]
+        let value: [UInt8]
+
+        @usableFromInline
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(key.count)
+            hasher.combine(value.count)
+            for b in key { hasher.combine(b) }
+            for b in value { hasher.combine(b) }
+        }
+
+        @usableFromInline
+        static func == (lhs: AttributeValueCacheKey, rhs: AttributeValueCacheKey) -> Bool {
+            return lhs.key == rhs.key && lhs.value == rhs.value
+        }
+    }
     @usableFromInline
     internal var libxml2DocPtr: htmlDocPtr? = nil
     @usableFromInline
@@ -96,17 +107,48 @@ open class Document: Element {
     @usableFromInline
     internal var libxml2TagNameOverrides: [UnsafeMutableRawPointer: [UInt8]]? = nil
     @usableFromInline
+    internal var libxml2ExplicitBooleanAttributes: [UnsafeMutableRawPointer: Set<[UInt8]>]? = nil
+    @usableFromInline
     internal var libxml2NodeCache: [UnsafeMutableRawPointer: Node]? = nil
     @usableFromInline
     internal var libxml2OriginalInput: [UInt8]? = nil
     @usableFromInline
     internal var libxml2Preferred: Bool = false
+    @usableFromInline
+    internal var libxml2XPathContext: xmlXPathContextPtr? = nil
+    @usableFromInline
+    internal var libxml2SkipFallbackTagCache: [Array<UInt8>: Elements]? = nil
+    @usableFromInline
+    internal var libxml2SkipFallbackTagCacheOrder: [Array<UInt8>] = []
+    @usableFromInline
+    internal var libxml2SkipFallbackTagCacheOrderHead: Int = 0
+    @usableFromInline
+    internal var libxml2SkipFallbackClassCache: [Array<UInt8>: Elements]? = nil
+    @usableFromInline
+    internal var libxml2SkipFallbackClassCacheOrder: [Array<UInt8>] = []
+    @usableFromInline
+    internal var libxml2SkipFallbackClassCacheOrderHead: Int = 0
+    @usableFromInline
+    internal var libxml2SkipFallbackAttrCache: [Array<UInt8>: Elements]? = nil
+    @usableFromInline
+    internal var libxml2SkipFallbackAttrCacheOrder: [Array<UInt8>] = []
+    @usableFromInline
+    internal var libxml2SkipFallbackAttrCacheOrderHead: Int = 0
+    @usableFromInline
+    internal var libxml2SkipFallbackAttrValueCache: [AttributeValueCacheKey: Elements]? = nil
+    @usableFromInline
+    internal var libxml2SkipFallbackAttrValueCacheOrder: [AttributeValueCacheKey] = []
+    @usableFromInline
+    internal var libxml2SkipFallbackAttrValueCacheOrderHead: Int = 0
 #endif
 
     @inline(__always)
     internal var isLibxml2Backend: Bool {
 #if canImport(CLibxml2) || canImport(libxml2)
-        return parserBackend == .libxml2
+        if case .libxml2 = parserBackend {
+            return true
+        }
+        return false
 #else
         return false
 #endif
@@ -114,15 +156,187 @@ open class Document: Element {
 
 #if canImport(CLibxml2) || canImport(libxml2)
     @inline(__always)
-    internal func withLibxml2CacheLock<T>(_ body: () -> T) -> T {
-        libxml2CacheLock.lock()
-        defer { libxml2CacheLock.unlock() }
-        return body()
+    internal var libxml2SkipSwiftSoupFallbacks: Bool {
+        if case .libxml2(let mode) = parserBackend {
+            return mode.skipSwiftSoupFallbacks
+        }
+        return false
+    }
+
+#if canImport(CLibxml2) || canImport(libxml2)
+    @inline(__always)
+    internal func libxml2SkipFallbackTagCacheGet(_ key: [UInt8]) -> Elements? {
+        return libxml2SkipFallbackTagCache?[key]
+    }
+
+    @inline(__always)
+    internal func libxml2SkipFallbackTagCachePut(_ key: [UInt8], _ elements: Elements) {
+        if libxml2SkipFallbackTagCache == nil {
+            libxml2SkipFallbackTagCache = [:]
+            libxml2SkipFallbackTagCacheOrder = []
+            libxml2SkipFallbackTagCacheOrderHead = 0
+        }
+        if libxml2SkipFallbackTagCache?[key] == nil {
+            libxml2SkipFallbackTagCacheOrder.append(key)
+        }
+        libxml2SkipFallbackTagCache?[key] = elements
+        let liveCount = libxml2SkipFallbackTagCacheOrder.count - libxml2SkipFallbackTagCacheOrderHead
+        if liveCount > 64 {
+            let overflow = liveCount - 64
+            if overflow > 0 {
+                for _ in 0..<overflow {
+                    let removed = libxml2SkipFallbackTagCacheOrder[libxml2SkipFallbackTagCacheOrderHead]
+                    libxml2SkipFallbackTagCacheOrderHead += 1
+                    libxml2SkipFallbackTagCache?.removeValue(forKey: removed)
+                }
+            }
+            if libxml2SkipFallbackTagCacheOrderHead > 64
+                && libxml2SkipFallbackTagCacheOrderHead > libxml2SkipFallbackTagCacheOrder.count / 2 {
+                libxml2SkipFallbackTagCacheOrder.removeFirst(libxml2SkipFallbackTagCacheOrderHead)
+                libxml2SkipFallbackTagCacheOrderHead = 0
+            }
+        }
+    }
+
+    @inline(__always)
+    internal func libxml2SkipFallbackTagCacheClear() {
+        libxml2SkipFallbackTagCache = nil
+        libxml2SkipFallbackTagCacheOrder.removeAll(keepingCapacity: true)
+        libxml2SkipFallbackTagCacheOrderHead = 0
+    }
+
+    @inline(__always)
+    internal func libxml2SkipFallbackClassCacheGet(_ key: [UInt8]) -> Elements? {
+        return libxml2SkipFallbackClassCache?[key]
+    }
+
+    @inline(__always)
+    internal func libxml2SkipFallbackClassCachePut(_ key: [UInt8], _ elements: Elements) {
+        if libxml2SkipFallbackClassCache == nil {
+            libxml2SkipFallbackClassCache = [:]
+            libxml2SkipFallbackClassCacheOrder = []
+            libxml2SkipFallbackClassCacheOrderHead = 0
+        }
+        if libxml2SkipFallbackClassCache?[key] == nil {
+            libxml2SkipFallbackClassCacheOrder.append(key)
+        }
+        libxml2SkipFallbackClassCache?[key] = elements
+        let liveCount = libxml2SkipFallbackClassCacheOrder.count - libxml2SkipFallbackClassCacheOrderHead
+        if liveCount > 64 {
+            let overflow = liveCount - 64
+            if overflow > 0 {
+                for _ in 0..<overflow {
+                    let removed = libxml2SkipFallbackClassCacheOrder[libxml2SkipFallbackClassCacheOrderHead]
+                    libxml2SkipFallbackClassCacheOrderHead += 1
+                    libxml2SkipFallbackClassCache?.removeValue(forKey: removed)
+                }
+            }
+            if libxml2SkipFallbackClassCacheOrderHead > 64
+                && libxml2SkipFallbackClassCacheOrderHead > libxml2SkipFallbackClassCacheOrder.count / 2 {
+                libxml2SkipFallbackClassCacheOrder.removeFirst(libxml2SkipFallbackClassCacheOrderHead)
+                libxml2SkipFallbackClassCacheOrderHead = 0
+            }
+        }
+    }
+
+    @inline(__always)
+    internal func libxml2SkipFallbackClassCacheClear() {
+        libxml2SkipFallbackClassCache = nil
+        libxml2SkipFallbackClassCacheOrder.removeAll(keepingCapacity: true)
+        libxml2SkipFallbackClassCacheOrderHead = 0
+    }
+
+    @inline(__always)
+    internal func libxml2SkipFallbackAttrCacheGet(_ key: [UInt8]) -> Elements? {
+        return libxml2SkipFallbackAttrCache?[key]
+    }
+
+    @inline(__always)
+    internal func libxml2SkipFallbackAttrCachePut(_ key: [UInt8], _ elements: Elements) {
+        if libxml2SkipFallbackAttrCache == nil {
+            libxml2SkipFallbackAttrCache = [:]
+            libxml2SkipFallbackAttrCacheOrder = []
+            libxml2SkipFallbackAttrCacheOrderHead = 0
+        }
+        if libxml2SkipFallbackAttrCache?[key] == nil {
+            libxml2SkipFallbackAttrCacheOrder.append(key)
+        }
+        libxml2SkipFallbackAttrCache?[key] = elements
+        let liveCount = libxml2SkipFallbackAttrCacheOrder.count - libxml2SkipFallbackAttrCacheOrderHead
+        if liveCount > 64 {
+            let overflow = liveCount - 64
+            if overflow > 0 {
+                for _ in 0..<overflow {
+                    let removed = libxml2SkipFallbackAttrCacheOrder[libxml2SkipFallbackAttrCacheOrderHead]
+                    libxml2SkipFallbackAttrCacheOrderHead += 1
+                    libxml2SkipFallbackAttrCache?.removeValue(forKey: removed)
+                }
+            }
+            if libxml2SkipFallbackAttrCacheOrderHead > 64
+                && libxml2SkipFallbackAttrCacheOrderHead > libxml2SkipFallbackAttrCacheOrder.count / 2 {
+                libxml2SkipFallbackAttrCacheOrder.removeFirst(libxml2SkipFallbackAttrCacheOrderHead)
+                libxml2SkipFallbackAttrCacheOrderHead = 0
+            }
+        }
+    }
+
+    @inline(__always)
+    internal func libxml2SkipFallbackAttrCacheClear() {
+        libxml2SkipFallbackAttrCache = nil
+        libxml2SkipFallbackAttrCacheOrder.removeAll(keepingCapacity: true)
+        libxml2SkipFallbackAttrCacheOrderHead = 0
+    }
+
+    @inline(__always)
+    internal func libxml2SkipFallbackAttrValueCacheGet(_ key: AttributeValueCacheKey) -> Elements? {
+        return libxml2SkipFallbackAttrValueCache?[key]
+    }
+
+    @inline(__always)
+    internal func libxml2SkipFallbackAttrValueCachePut(_ key: AttributeValueCacheKey, _ elements: Elements) {
+        if libxml2SkipFallbackAttrValueCache == nil {
+            libxml2SkipFallbackAttrValueCache = [:]
+            libxml2SkipFallbackAttrValueCacheOrder = []
+            libxml2SkipFallbackAttrValueCacheOrderHead = 0
+        }
+        if libxml2SkipFallbackAttrValueCache?[key] == nil {
+            libxml2SkipFallbackAttrValueCacheOrder.append(key)
+        }
+        libxml2SkipFallbackAttrValueCache?[key] = elements
+        let liveCount = libxml2SkipFallbackAttrValueCacheOrder.count - libxml2SkipFallbackAttrValueCacheOrderHead
+        if liveCount > 16 {
+            let overflow = liveCount - 16
+            if overflow > 0 {
+                for _ in 0..<overflow {
+                    let removed = libxml2SkipFallbackAttrValueCacheOrder[libxml2SkipFallbackAttrValueCacheOrderHead]
+                    libxml2SkipFallbackAttrValueCacheOrderHead += 1
+                    libxml2SkipFallbackAttrValueCache?.removeValue(forKey: removed)
+                }
+            }
+            if libxml2SkipFallbackAttrValueCacheOrderHead > 32
+                && libxml2SkipFallbackAttrValueCacheOrderHead > libxml2SkipFallbackAttrValueCacheOrder.count / 2 {
+                libxml2SkipFallbackAttrValueCacheOrder.removeFirst(libxml2SkipFallbackAttrValueCacheOrderHead)
+                libxml2SkipFallbackAttrValueCacheOrderHead = 0
+            }
+        }
+    }
+
+    @inline(__always)
+    internal func libxml2SkipFallbackAttrValueCacheClear() {
+        libxml2SkipFallbackAttrValueCache = nil
+        libxml2SkipFallbackAttrValueCacheOrder.removeAll(keepingCapacity: true)
+        libxml2SkipFallbackAttrValueCacheOrderHead = 0
     }
 #endif
+#endif
+
 
 #if canImport(CLibxml2) || canImport(libxml2)
     deinit {
+        if let ctx = libxml2XPathContext {
+            xmlXPathFreeContext(ctx)
+            libxml2XPathContext = nil
+        }
         if libxml2Context == nil, let docPtr = libxml2DocPtr {
             xmlFreeDoc(docPtr)
         }
@@ -152,6 +366,7 @@ open class Document: Element {
         parserBackend = other.parserBackend
         _attributes = other._attributes
         attributes?.ownerElement = self
+        libxml2XPathContext = nil
 
         childNodes.removeAll(keepingCapacity: true)
         childNodes = other.childNodes
@@ -227,6 +442,18 @@ open class Document: Element {
      - returns: `head`
      */
     public func head() -> Element? {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if isLibxml2Backend,
+           libxml2SkipSwiftSoupFallbacks,
+           let docPtr = libxml2DocPtr,
+           !libxml2BackedDirty {
+            let settings = treeBuilder?.settings ?? ParseSettings.htmlDefault
+            if let nodePtr = Libxml2Backend.findFirstElementPtrByTagName(UTF8Arrays.head, docPtr: docPtr, settings: settings),
+               let node = Libxml2Backend.wrapNodeForSelection(nodePtr, doc: self) as? Element {
+                return node
+            }
+        }
+#endif
         return findFirstElementByTagName(UTF8Arrays.head, self)
     }
 
@@ -235,6 +462,18 @@ open class Document: Element {
      - returns: `body`
      */
     public func body() -> Element? {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if isLibxml2Backend,
+           libxml2SkipSwiftSoupFallbacks,
+           let docPtr = libxml2DocPtr,
+           !libxml2BackedDirty {
+            let settings = treeBuilder?.settings ?? ParseSettings.htmlDefault
+            if let nodePtr = Libxml2Backend.findFirstElementPtrByTagName(UTF8Arrays.body, docPtr: docPtr, settings: settings),
+               let node = Libxml2Backend.wrapNodeForSelection(nodePtr, doc: self) as? Element {
+                return node
+            }
+        }
+#endif
         return findFirstElementByTagName(UTF8Arrays.body, self)
     }
 
@@ -330,7 +569,9 @@ open class Document: Element {
 
     // merge multiple <head> or <body> contents into one, delete the remainder, and ensure they are owned by <html>
     private func normaliseStructure(_ tag: [UInt8], _ htmlEl: Element) throws {
-        let elements: Elements = try self.getElementsByTag(tag)
+        // Use the current SwiftSoup tree to avoid libxml2-only fast paths during normalization.
+        let elementsList = elementsByTagName(tag, root: self)
+        let elements = Elements(elementsList)
         let master: Element? = elements.first() // will always be available as created above if not existent
         if (elements.size() > 1) { // dupes, move contents to master
             var toMove: Array<Node> = Array<Node>()
@@ -352,6 +593,23 @@ open class Document: Element {
         }
     }
 
+    private func elementsByTagName(_ tag: [UInt8], root: Node) -> [Element] {
+        var output: [Element] = []
+        var stack: [Node] = [root]
+        while let node = stack.popLast() {
+            if node.nodeNameUTF8() == tag, let el = node as? Element {
+                output.append(el)
+            }
+            let children = node.childNodes
+            if !children.isEmpty {
+                for child in children {
+                    stack.append(child)
+                }
+            }
+        }
+        return output
+    }
+
     // fast method to get first by tag name, used for html, head, body finders
     private func findFirstElementByTagName(_ tag: [UInt8], _ node: Node) -> Element? {
         if (node.nodeNameUTF8() == tag) {
@@ -370,19 +628,25 @@ open class Document: Element {
     @inline(__always)
     open override func outerHtml() throws -> String {
 #if canImport(CLibxml2) || canImport(libxml2)
-        if Libxml2Serialization.enabled,
+        let out = outputSettings()
+        let allowFastSerialize = Libxml2Serialization.enabled || libxml2SkipSwiftSoupFallbacks
+        if allowFastSerialize,
            let docPtr = libxml2DocPtr,
            !libxml2BackedDirty,
-           outputSettings().syntax() == .html,
-           !outputSettings().prettyPrint(),
-           let dumped = Libxml2Serialization.htmlDump(doc: docPtr) {
-            return String(decoding: dumped, as: UTF8.self)
+           out.syntax() == .html {
+            if out.prettyPrint(),
+               let dumped = Libxml2Serialization.htmlDumpFormat(doc: docPtr, prettyPrint: true) {
+                return String(decoding: dumped, as: UTF8.self)
+            }
+            if let dumped = Libxml2Serialization.htmlDump(doc: docPtr) {
+                return String(decoding: dumped, as: UTF8.self)
+            }
         }
         if let original = libxml2OriginalInput,
            !libxml2BackedDirty,
            parsedAsXml,
-           outputSettings().syntax() == .xml,
-           !outputSettings().prettyPrint() {
+           out.syntax() == .xml,
+           !out.prettyPrint() {
             return String(decoding: original, as: UTF8.self)
         }
 #endif
@@ -392,13 +656,19 @@ open class Document: Element {
     @inline(__always)
     public override func html() throws -> String {
 #if canImport(CLibxml2) || canImport(libxml2)
-        if Libxml2Serialization.enabled,
+        let out = outputSettings()
+        let allowFastSerialize = Libxml2Serialization.enabled || libxml2SkipSwiftSoupFallbacks
+        if allowFastSerialize,
            let docPtr = libxml2DocPtr,
            !libxml2BackedDirty,
-           outputSettings().syntax() == .html,
-           !outputSettings().prettyPrint(),
-           let dumped = Libxml2Serialization.htmlDump(doc: docPtr) {
-            return String(decoding: dumped, as: UTF8.self)
+           out.syntax() == .html {
+            if out.prettyPrint(),
+               let dumped = Libxml2Serialization.htmlDumpFormat(doc: docPtr, prettyPrint: true) {
+                return String(decoding: dumped, as: UTF8.self)
+            }
+            if let dumped = Libxml2Serialization.htmlDump(doc: docPtr) {
+                return String(decoding: dumped, as: UTF8.self)
+            }
         }
 #endif
         return try super.html()
@@ -407,19 +677,25 @@ open class Document: Element {
     @inline(__always)
     open func outerHtmlUTF8() throws -> [UInt8] {
 #if canImport(CLibxml2) || canImport(libxml2)
-        if Libxml2Serialization.enabled,
+        let out = outputSettings()
+        let allowFastSerialize = Libxml2Serialization.enabled || libxml2SkipSwiftSoupFallbacks
+        if allowFastSerialize,
            let docPtr = libxml2DocPtr,
            !libxml2BackedDirty,
-           outputSettings().syntax() == .html,
-           !outputSettings().prettyPrint(),
-           let dumped = Libxml2Serialization.htmlDump(doc: docPtr) {
-            return dumped
+           out.syntax() == .html {
+            if out.prettyPrint(),
+               let dumped = Libxml2Serialization.htmlDumpFormat(doc: docPtr, prettyPrint: true) {
+                return dumped
+            }
+            if let dumped = Libxml2Serialization.htmlDump(doc: docPtr) {
+                return dumped
+            }
         }
         if let original = libxml2OriginalInput,
            !libxml2BackedDirty,
            parsedAsXml,
-           outputSettings().syntax() == .xml,
-           !outputSettings().prettyPrint() {
+           out.syntax() == .xml,
+           !out.prettyPrint() {
             return original
         }
 #endif
@@ -429,13 +705,19 @@ open class Document: Element {
     @inline(__always)
     public override func htmlUTF8() throws -> [UInt8] {
 #if canImport(CLibxml2) || canImport(libxml2)
-        if Libxml2Serialization.enabled,
+        let out = outputSettings()
+        let allowFastSerialize = Libxml2Serialization.enabled || libxml2SkipSwiftSoupFallbacks
+        if allowFastSerialize,
            let docPtr = libxml2DocPtr,
            !libxml2BackedDirty,
-           outputSettings().syntax() == .html,
-           !outputSettings().prettyPrint(),
-           let dumped = Libxml2Serialization.htmlDump(doc: docPtr) {
-            return dumped
+           out.syntax() == .html {
+            if out.prettyPrint(),
+               let dumped = Libxml2Serialization.htmlDumpFormat(doc: docPtr, prettyPrint: true) {
+                return dumped
+            }
+            if let dumped = Libxml2Serialization.htmlDump(doc: docPtr) {
+                return dumped
+            }
         }
 #endif
         return try super.htmlUTF8()

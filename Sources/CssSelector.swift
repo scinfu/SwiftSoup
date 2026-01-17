@@ -87,14 +87,56 @@ open class CssSelector {
     private final class SelectorCache: @unchecked Sendable {
         var items: [String: Evaluator] = [:]
         var order: [String] = []
+        var orderHead: Int = 0
         let lock = NSLock()
+
+        @inline(__always)
+        func record(_ key: String, capacity: Int) {
+            order.append(key)
+            let liveCount = order.count - orderHead
+            if liveCount > capacity {
+                let overflow = liveCount - capacity
+                if overflow > 0 {
+                    for _ in 0..<overflow {
+                        let removedKey = order[orderHead]
+                        orderHead += 1
+                        items.removeValue(forKey: removedKey)
+                    }
+                }
+                if orderHead > 64 && orderHead > order.count / 2 {
+                    order.removeFirst(orderHead)
+                    orderHead = 0
+                }
+            }
+        }
     }
     private static let selectorCache = SelectorCache()
     private static let fastQueryCacheCapacity: Int = selectorCacheCapacity
     private final class FastQueryCache: @unchecked Sendable {
         var items: [String: FastQueryPlan] = [:]
         var order: [String] = []
+        var orderHead: Int = 0
         let lock = NSLock()
+
+        @inline(__always)
+        func record(_ key: String, capacity: Int) {
+            order.append(key)
+            let liveCount = order.count - orderHead
+            if liveCount > capacity {
+                let overflow = liveCount - capacity
+                if overflow > 0 {
+                    for _ in 0..<overflow {
+                        let removedKey = order[orderHead]
+                        orderHead += 1
+                        items.removeValue(forKey: removedKey)
+                    }
+                }
+                if orderHead > 64 && orderHead > order.count / 2 {
+                    order.removeFirst(orderHead)
+                    orderHead = 0
+                }
+            }
+        }
     }
     private static let fastQueryCache = FastQueryCache()
 
@@ -128,6 +170,28 @@ open class CssSelector {
             DebugTrace.log("CssSelector.select(query): selector cache hit")
             return cached
         }
+        let skipFallbackFastPath = root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true
+#if canImport(CLibxml2) || canImport(libxml2)
+        if skipFallbackFastPath {
+            if let tagBytes = simpleTagQueryBytes(query) {
+                DebugTrace.log("CssSelector.select(query): simple tag fast path")
+                let result = try root.getElementsByTagNormalized(tagBytes)
+                root.storeSelectorResult(query, result)
+                return result
+            }
+            if root.ownerDocument()?.isLibxml2Backend == true,
+               let libxml2 = try libxml2Select(query, root) {
+                DebugTrace.log("CssSelector.select(query): libxml2 xpath fast path hit")
+                root.storeSelectorResult(query, libxml2)
+                return libxml2
+            }
+            if let fast = try fastSelectQuery(query, root, query) {
+                DebugTrace.log("CssSelector.select(query): fast path hit")
+                root.storeSelectorResult(query, fast)
+                return fast
+            }
+        }
+#endif
 #if canImport(CLibxml2) || canImport(libxml2)
         if root.ownerDocument()?.isLibxml2Backend == true,
            let libxml2 = try libxml2Select(query, root) {
@@ -136,13 +200,13 @@ open class CssSelector {
             return libxml2
         }
 #endif
-        if let tagBytes = simpleTagQueryBytes(query) {
+        if !skipFallbackFastPath, let tagBytes = simpleTagQueryBytes(query) {
             DebugTrace.log("CssSelector.select(query): simple tag fast path")
             let result = try root.getElementsByTagNormalized(tagBytes)
             root.storeSelectorResult(query, result)
             return result
         }
-        if let fast = try fastSelectQuery(query, root, query) {
+        if !skipFallbackFastPath, let fast = try fastSelectQuery(query, root, query) {
             DebugTrace.log("CssSelector.select(query): fast path hit")
             root.storeSelectorResult(query, fast)
             return fast
@@ -187,7 +251,26 @@ open class CssSelector {
                 return cached
             }
         }
-        if let tagBytes = simpleTagQueryBytes(query) {
+        let skipFallbackFastPath = roots.count == 1 && roots.first?.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true
+#if canImport(CLibxml2) || canImport(libxml2)
+        if skipFallbackFastPath, let root = roots.first {
+            if let tagBytes = simpleTagQueryBytes(query) {
+                let result = try root.getElementsByTagNormalized(tagBytes)
+                root.storeSelectorResult(query, result)
+                return result
+            }
+            if root.ownerDocument()?.isLibxml2Backend == true,
+               let libxml2 = try libxml2Select(query, root) {
+                root.storeSelectorResult(query, libxml2)
+                return libxml2
+            }
+            if let fast = try fastSelectQuery(query, root, query) {
+                root.storeSelectorResult(query, fast)
+                return fast
+            }
+        }
+#endif
+        if !skipFallbackFastPath, let tagBytes = simpleTagQueryBytes(query) {
             if roots.count == 1, let root = roots.first {
                 let result = try root.getElementsByTagNormalized(tagBytes)
                 root.storeSelectorResult(query, result)
@@ -209,7 +292,7 @@ open class CssSelector {
             }
             return Elements(elements)
         }
-        if let fast = try fastSelectQuery(query, roots, query) {
+        if !skipFallbackFastPath, let fast = try fastSelectQuery(query, roots, query) {
             if roots.count == 1, let root = roots.first {
                 root.storeSelectorResult(query, fast)
             }
@@ -285,16 +368,7 @@ open class CssSelector {
         selectorCache.lock.lock()
         if selectorCache.items[key] == nil {
             selectorCache.items[key] = parsed
-            selectorCache.order.append(key)
-            if selectorCache.order.count > selectorCacheCapacity {
-                let overflow = selectorCache.order.count - selectorCacheCapacity
-                if overflow > 0 {
-                    for _ in 0..<overflow {
-                        let removedKey = selectorCache.order.removeFirst()
-                        selectorCache.items.removeValue(forKey: removedKey)
-                    }
-                }
-            }
+            selectorCache.record(key, capacity: selectorCacheCapacity)
         }
         selectorCache.lock.unlock()
         return parsed
@@ -303,6 +377,7 @@ open class CssSelector {
     private indirect enum FastQueryPlan: Sendable {
         case none
         case all
+        case group([FastQueryPlan])
         case id([UInt8])
         case className([UInt8])
         case classes([UInt8], [[UInt8]])
@@ -323,6 +398,67 @@ open class CssSelector {
                 return nil
             case .all:
                 return try root.getAllElements()
+            case .group(let plans):
+                guard !plans.isEmpty else { return nil }
+                if plans.count == 1 {
+                    return try plans[0].apply(root)
+                }
+#if canImport(CLibxml2) || canImport(libxml2)
+                if let doc = root.ownerDocument(),
+                   doc.libxml2SkipSwiftSoupFallbacks,
+                   !doc.libxml2BackedDirty,
+                   let docPtr = doc.libxml2DocPtr {
+                    var tags: [[UInt8]] = []
+                    tags.reserveCapacity(plans.count)
+                    for plan in plans {
+                        guard case .tag(let tagBytes, _) = plan else {
+                            tags.removeAll()
+                            break
+                        }
+                        if tagBytes.contains(0x3A) {
+                            tags.removeAll()
+                            break
+                        }
+                        tags.append(tagBytes)
+                    }
+                    if !tags.isEmpty {
+                        let startNode: xmlNodePtr?
+                        if root is Document {
+                            startNode = xmlDocGetRootElement(docPtr)
+                        } else {
+                            startNode = root.libxml2NodePtr
+                        }
+                        if let startNode {
+                            return Libxml2Backend.collectElementsByTagNames(
+                                start: startNode,
+                                tags: tags,
+                                doc: doc
+                            )
+                        }
+                    }
+                }
+#endif
+                var seen = Set<ObjectIdentifier>()
+                seen.reserveCapacity(16)
+                for plan in plans {
+                    guard let elements = try plan.apply(root) else {
+                        return nil
+                    }
+                    for el in elements.array() {
+                        let id = ObjectIdentifier(el)
+                        if seen.contains(id) { continue }
+                        seen.insert(id)
+                    }
+                }
+                let output = Elements()
+                output.reserveCapacity(seen.count)
+                let ordered = try root.getAllElements()
+                for el in ordered.array() {
+                    if seen.contains(ObjectIdentifier(el)) {
+                        output.add(el)
+                    }
+                }
+                return output
             case .id(let idBytes):
                 return root.getElementsById(idBytes)
             case .className(let className):
@@ -384,8 +520,18 @@ open class CssSelector {
                 }
                 return output
             case .attr(let attrBytes):
+                if let doc = root.ownerDocument(),
+                   doc.libxml2SkipSwiftSoupFallbacks,
+                   doc.libxml2AttributeOverrides?.isEmpty == false {
+                    return nil
+                }
                 return root.getElementsByAttributeNormalized(attrBytes)
             case .tagAttr(let tagBytes, let tagId, let attrBytes):
+                if let doc = root.ownerDocument(),
+                   doc.libxml2SkipSwiftSoupFallbacks,
+                   doc.libxml2AttributeOverrides?.isEmpty == false {
+                    return nil
+                }
                 let attrElements = root.getElementsByAttributeNormalized(attrBytes)
                 if attrElements.isEmpty { return attrElements }
                 let output = Elements()
@@ -395,8 +541,18 @@ open class CssSelector {
                 }
                 return output
             case .attrValue(let keyBytes, let valueBytes, let key, let value):
+                if let doc = root.ownerDocument(),
+                   doc.libxml2SkipSwiftSoupFallbacks,
+                   doc.libxml2AttributeOverrides?.isEmpty == false {
+                    return nil
+                }
                 return try root.getElementsByAttributeValueNormalized(keyBytes, valueBytes, key, value)
             case .tagAttrValue(let tagBytes, let tagId, let keyBytes, let valueBytes, let key, let value):
+                if let doc = root.ownerDocument(),
+                   doc.libxml2SkipSwiftSoupFallbacks,
+                   doc.libxml2AttributeOverrides?.isEmpty == false {
+                    return nil
+                }
                 let attrElements = try root.getElementsByAttributeValueNormalized(keyBytes, valueBytes, key, value)
                 if attrElements.isEmpty { return attrElements }
                 let output = Elements()
@@ -532,6 +688,8 @@ open class CssSelector {
         switch plan {
         case .none, .descendant:
             return false
+        case .group:
+            return false
         default:
             return true
         }
@@ -583,16 +741,7 @@ open class CssSelector {
         fastQueryCache.lock.lock()
         if fastQueryCache.items[trimmed] == nil {
             fastQueryCache.items[trimmed] = plan
-            fastQueryCache.order.append(trimmed)
-            if fastQueryCache.order.count > fastQueryCacheCapacity {
-                let overflow = fastQueryCache.order.count - fastQueryCacheCapacity
-                if overflow > 0 {
-                    for _ in 0..<overflow {
-                        let removedKey = fastQueryCache.order.removeFirst()
-                        fastQueryCache.items.removeValue(forKey: removedKey)
-                    }
-                }
-            }
+            fastQueryCache.record(trimmed, capacity: fastQueryCacheCapacity)
         }
         fastQueryCache.lock.unlock()
         return plan
@@ -600,6 +749,13 @@ open class CssSelector {
     
     private static func fastQueryPlan(_ query: String) -> FastQueryPlan {
         DebugTrace.log("CssSelector.fastQueryPlan: \(query)")
+        if let grouped = fastGroupPlan(query) {
+            return grouped
+        }
+        return fastQueryPlanNoGroup(query)
+    }
+
+    private static func fastQueryPlanNoGroup(_ query: String) -> FastQueryPlan {
         let trimmed = query
         if trimmed.isEmpty {
             return .none
@@ -653,6 +809,69 @@ open class CssSelector {
             return .none
         }
         return fastSimpleQueryPlan(trimmed[...])
+    }
+
+    private static func fastGroupPlan(_ query: String) -> FastQueryPlan? {
+        if !query.contains(",") {
+            return nil
+        }
+        var groups: [Substring] = []
+        var start = query.startIndex
+        var quote: Character? = nil
+        var bracketDepth = 0
+        var parenDepth = 0
+        for idx in query.indices {
+            let ch = query[idx]
+            if let q = quote {
+                if ch == q { quote = nil }
+                continue
+            }
+            if ch == "'" || ch == "\"" {
+                quote = ch
+                continue
+            }
+            if ch == "[" {
+                bracketDepth &+= 1
+                continue
+            }
+            if ch == "]" {
+                if bracketDepth > 0 { bracketDepth &-= 1 }
+                continue
+            }
+            if ch == "(" {
+                parenDepth &+= 1
+                continue
+            }
+            if ch == ")" {
+                if parenDepth > 0 { parenDepth &-= 1 }
+                continue
+            }
+            if ch == "," && bracketDepth == 0 && parenDepth == 0 {
+                groups.append(query[start..<idx])
+                start = query.index(after: idx)
+            }
+        }
+        if bracketDepth != 0 || parenDepth != 0 || quote != nil {
+            return nil
+        }
+        if groups.isEmpty {
+            return nil
+        }
+        groups.append(query[start..<query.endIndex])
+        var plans: [FastQueryPlan] = []
+        plans.reserveCapacity(groups.count)
+        for group in groups {
+            let trimmed = group.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { return nil }
+            let plan = fastQueryPlanNoGroup(trimmed)
+            if case .none = plan { return nil }
+            if case .descendant = plan { return nil }
+            plans.append(plan)
+        }
+        if plans.isEmpty {
+            return nil
+        }
+        return plans.count == 1 ? plans[0] : .group(plans)
     }
 
     @inline(__always)
@@ -1149,6 +1368,10 @@ open class CssSelector {
     /// Fast‑path for AND chains: pick an indexed candidate set, then filter by the full evaluator list.
     /// This preserves document order while avoiding a full traversal in common selector shapes.
     private static func fastSelectAnd(_ evaluator: CombiningEvaluator.And, _ root: Element) throws -> Elements? {
+        if root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true,
+           evaluator.evaluators.contains(where: { $0 is StructuralEvaluator }) {
+            return nil
+        }
         var best: IndexedCandidate? = nil
         for sub in evaluator.evaluators {
             if let candidate = try indexedCandidate(for: sub, root) {
@@ -1213,20 +1436,28 @@ open class CssSelector {
     }
 
 #if canImport(CLibxml2) || canImport(libxml2)
-    private static let libxml2XPathEnabled: Bool = {
-        let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_LIBXML2_XPATH"]?.lowercased()
-        return raw == "1" || raw == "true" || raw == "yes"
-    }()
-    private static let libxml2XPathCacheEnabled: Bool = {
-        guard let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_LIBXML2_XPATH_CACHE"]?.lowercased() else {
-            return true
-        }
-        return !(raw == "0" || raw == "false" || raw == "no")
-    }()
+    private static let libxml2XPathEnabled: Bool = true
+    private static let libxml2XPathCacheEnabled: Bool = true
     private static let libxml2XPathCacheCapacity: Int = 64
     private final class Libxml2XPathCache: @unchecked Sendable {
-        var items: [String: xmlXPathCompExprPtr] = [:]
-        var order: [String] = []
+        final class Node {
+            let key: String
+            var prev: Node?
+            var next: Node?
+
+            init(key: String) {
+                self.key = key
+            }
+        }
+
+        struct Entry {
+            let expr: xmlXPathCompExprPtr
+            let node: Node
+        }
+
+        var items: [String: Entry] = [:]
+        var head: Node?
+        var tail: Node?
         let lock = NSLock()
     }
     private static let libxml2XPathCache = Libxml2XPathCache()
@@ -1257,16 +1488,202 @@ open class CssSelector {
         var id: String?
         var classes: [String]
         var attrs: [Libxml2AttrSelector]
+        var pseudos: Libxml2Pseudo
+        var nth: Libxml2NthSelector?
+    }
+
+    private struct Libxml2Pseudo: OptionSet {
+        let rawValue: Int
+        static let firstChild = Libxml2Pseudo(rawValue: 1 << 0)
+        static let lastChild = Libxml2Pseudo(rawValue: 1 << 1)
+        static let firstOfType = Libxml2Pseudo(rawValue: 1 << 2)
+        static let lastOfType = Libxml2Pseudo(rawValue: 1 << 3)
+        static let onlyChild = Libxml2Pseudo(rawValue: 1 << 4)
+        static let onlyOfType = Libxml2Pseudo(rawValue: 1 << 5)
+        static let root = Libxml2Pseudo(rawValue: 1 << 6)
+        static let empty = Libxml2Pseudo(rawValue: 1 << 7)
+    }
+
+    private struct Libxml2NthSelector {
+        enum Kind {
+            case child
+            case lastChild
+            case ofType
+            case lastOfType
+        }
+
+        var kind: Kind
+        var a: Int
+        var b: Int
     }
 
     private static let libxml2UpperAscii = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     private static let libxml2LowerAscii = "abcdefghijklmnopqrstuvwxyz"
+    private static let libxml2NthAB: Pattern = Pattern.compile(
+        "((\\+|-)?(\\d+)?)n(\\s*(\\+|-)?\\s*\\d+)?",
+        Pattern.CASE_INSENSITIVE
+    )
+    private static let libxml2NthB: Pattern = Pattern.compile("(\\+|-)?(\\d+)")
+
+    private static func libxml2SelectSimple(
+        _ plan: FastQueryPlan,
+        _ root: Element,
+        _ doc: Document
+    ) -> Elements? {
+        guard let docPtr = doc.libxml2DocPtr, !doc.libxml2BackedDirty else { return nil }
+        let startNode: xmlNodePtr?
+        if let rootPtr = root.libxml2NodePtr {
+            startNode = rootPtr
+        } else if root is Document {
+            startNode = xmlDocGetRootElement(docPtr)
+        } else {
+            return nil
+        }
+        guard let startNode else { return nil }
+        let settings = doc.treeBuilder?.settings ?? ParseSettings.htmlDefault
+
+        var result: Elements?
+        switch plan {
+        case .tag(let tagBytes, _):
+            result = Libxml2Backend.collectElementsByTagName(start: startNode, tag: tagBytes, settings: settings, doc: doc)
+        case .id(let idBytes):
+            if let found = Libxml2Backend.findFirstElementById(start: startNode, id: idBytes, doc: doc) {
+                let output = Elements()
+                output.add(found)
+                result = output
+            } else {
+                result = Elements()
+            }
+        case .className(let className):
+            result = Libxml2Backend.collectElementsByClassName(start: startNode, className: className, doc: doc)
+        case .classes(let firstClass, let otherClasses):
+            let classElements = Libxml2Backend.collectElementsByClassName(start: startNode, className: firstClass, doc: doc)
+            if classElements.isEmpty || otherClasses.isEmpty {
+                result = classElements
+                break
+            }
+            let output = Elements()
+            output.reserveCapacity(classElements.size())
+            for el in classElements.array() {
+                var matchesAll = true
+                for className in otherClasses where !el.hasClass(className) {
+                    matchesAll = false
+                    break
+                }
+                if matchesAll {
+                    output.add(el)
+                }
+            }
+            result = output
+        case .tagClass(let tagBytes, let tagId, let className):
+            let classElements = Libxml2Backend.collectElementsByClassName(start: startNode, className: className, doc: doc)
+            if classElements.isEmpty {
+                result = classElements
+                break
+            }
+            let output = Elements()
+            output.reserveCapacity(classElements.size())
+            for el in classElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                output.add(el)
+            }
+            result = output
+        case .tagClasses(let tagBytes, let tagId, let firstClass, let otherClasses):
+            let classElements = Libxml2Backend.collectElementsByClassName(start: startNode, className: firstClass, doc: doc)
+            if classElements.isEmpty {
+                result = classElements
+                break
+            }
+            let output = Elements()
+            output.reserveCapacity(classElements.size())
+            for el in classElements.array() {
+                if !CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                    continue
+                }
+                var matchesAll = true
+                for className in otherClasses where !el.hasClass(className) {
+                    matchesAll = false
+                    break
+                }
+                if matchesAll {
+                    output.add(el)
+                }
+            }
+            result = output
+        case .tagId(let tagBytes, let tagId, let idBytes):
+            if let found = Libxml2Backend.findFirstElementById(start: startNode, id: idBytes, doc: doc) {
+                let output = Elements()
+                if CssSelector.matchesTagBytes(found, tagBytes, tagId) {
+                    output.add(found)
+                }
+                result = output
+            } else {
+                result = Elements()
+            }
+        case .attr(let attrBytes):
+            result = Libxml2Backend.collectElementsByAttributeName(start: startNode, key: attrBytes, doc: doc)
+        case .tagAttr(let tagBytes, let tagId, let attrBytes):
+            let attrElements = Libxml2Backend.collectElementsByAttributeName(start: startNode, key: attrBytes, doc: doc)
+            if attrElements.isEmpty {
+                result = attrElements
+                break
+            }
+            let output = Elements()
+            output.reserveCapacity(attrElements.size())
+            for el in attrElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                output.add(el)
+            }
+            result = output
+        case .attrValue(let keyBytes, let valueBytes, _, _):
+            result = Libxml2Backend.collectElementsByAttributeValue(start: startNode, key: keyBytes, value: valueBytes, doc: doc)
+        case .tagAttrValue(let tagBytes, let tagId, let keyBytes, let valueBytes, _, _):
+            let attrElements = Libxml2Backend.collectElementsByAttributeValue(start: startNode, key: keyBytes, value: valueBytes, doc: doc)
+            if attrElements.isEmpty {
+                result = attrElements
+                break
+            }
+            let output = Elements()
+            output.reserveCapacity(attrElements.size())
+            for el in attrElements.array() where CssSelector.matchesTagBytes(el, tagBytes, tagId) {
+                output.add(el)
+            }
+            result = output
+        case .group(let plans):
+            guard !plans.isEmpty else {
+                result = nil
+                break
+            }
+            var tags: [[UInt8]] = []
+            tags.reserveCapacity(plans.count)
+            for plan in plans {
+                guard case .tag(let tagBytes, _) = plan else {
+                    tags.removeAll()
+                    break
+                }
+                if tagBytes.contains(0x3A) {
+                    tags.removeAll()
+                    break
+                }
+                tags.append(tagBytes)
+            }
+            if tags.isEmpty {
+                result = nil
+                break
+            }
+            result = Libxml2Backend.collectElementsByTagNames(start: startNode, tags: tags, doc: doc)
+        case .descendant:
+            result = nil
+        case .all:
+            result = Libxml2Backend.collectAllElements(start: startNode, doc: doc, includeSelf: !(root is Document))
+        case .none:
+            result = nil
+        }
+        return result
+    }
 
     private static func libxml2XPathBypassForOverrides(_ query: String, _ doc: Document) -> Bool {
-        let hasOverrides = doc.withLibxml2CacheLock {
-            doc.libxml2AttributeOverrides?.isEmpty == false
+        guard let overrides = doc.libxml2AttributeOverrides, !overrides.isEmpty else {
+            return false
         }
-        guard hasOverrides else { return false }
         var quote: Character? = nil
         for ch in query {
             if let q = quote {
@@ -1288,10 +1705,16 @@ open class CssSelector {
         guard let doc = root.ownerDocument() else { return nil }
         let xpathAllowed = libxml2XPathEnabled || doc.isLibxml2Backend || doc.libxml2Preferred
         guard xpathAllowed else { return nil }
-        if doc.libxml2LazyState != nil { return nil }
+        if doc.libxml2LazyState != nil, !doc.libxml2SkipSwiftSoupFallbacks { return nil }
         guard let docPtr = doc.libxml2DocPtr, !doc.libxml2BackedDirty else { return nil }
         let trimmed = query.trim()
         if libxml2XPathBypassForOverrides(trimmed, doc) { return nil }
+        if doc.libxml2SkipSwiftSoupFallbacks {
+            let plan = cachedFastQueryPlan(trimmed)
+            if let simple = libxml2SelectSimple(plan, root, doc) {
+                return simple
+            }
+        }
         guard let xpath = libxml2XPath(from: trimmed) else { return nil }
         let contextNode: xmlNodePtr?
         if let rootPtr = root.libxml2NodePtr {
@@ -1302,8 +1725,19 @@ open class CssSelector {
             return nil
         }
         guard let contextNode else { return nil }
-        guard let context = xmlXPathNewContext(docPtr) else { return nil }
-        defer { xmlXPathFreeContext(context) }
+        let context: xmlXPathContextPtr?
+        if let cached = doc.libxml2XPathContext, cached.pointee.doc == docPtr {
+            context = cached
+        } else {
+            if let cached = doc.libxml2XPathContext {
+                xmlXPathFreeContext(cached)
+                doc.libxml2XPathContext = nil
+            }
+            let created = xmlXPathNewContext(docPtr)
+            doc.libxml2XPathContext = created
+            context = created
+        }
+        guard let context else { return nil }
         context.pointee.node = contextNode
         guard let xpathObj = libxml2EvalXPath(xpath, context) else { return nil }
         defer { xmlXPathFreeObject(xpathObj) }
@@ -1314,24 +1748,46 @@ open class CssSelector {
         if count <= 0 { return Elements() }
         let output = Elements()
         output.reserveCapacity(count)
-        var seen = Set<ObjectIdentifier>()
-        seen.reserveCapacity(count)
         let nodeTab = nodeset.pointee.nodeTab
-        for i in 0..<count {
-            guard let nodePtr = nodeTab?[i] else { continue }
-            if nodePtr.pointee.type != XML_ELEMENT_NODE { continue }
+        let preferFastWrap = doc.libxml2SkipSwiftSoupFallbacks
+        let shouldDedup = !preferFastWrap
+        if shouldDedup {
+            var seen = Set<ObjectIdentifier>()
+            seen.reserveCapacity(count)
+            for i in 0..<count {
+                guard let nodePtr = nodeTab?[i] else { continue }
+                if nodePtr.pointee.type != XML_ELEMENT_NODE { continue }
             let node: Node?
             if let opaque = nodePtr.pointee._private {
                 node = Unmanaged<Node>.fromOpaque(opaque).takeUnretainedValue()
+            } else if preferFastWrap {
+                node = Libxml2Backend.wrapNodeForSelectionFast(nodePtr, doc: doc)
             } else {
                 node = Libxml2Backend.wrapNodeForSelection(nodePtr, doc: doc)
             }
-            guard let node else { continue }
-            guard let element = node as? Element else { continue }
-            let id = ObjectIdentifier(element)
-            if seen.contains(id) { continue }
-            seen.insert(id)
-            output.add(element)
+                guard let node else { continue }
+                guard let element = node as? Element else { continue }
+                let id = ObjectIdentifier(element)
+                if seen.contains(id) { continue }
+                seen.insert(id)
+                output.add(element)
+            }
+        } else {
+            for i in 0..<count {
+                guard let nodePtr = nodeTab?[i] else { continue }
+                if nodePtr.pointee.type != XML_ELEMENT_NODE { continue }
+            let node: Node?
+            if let opaque = nodePtr.pointee._private {
+                node = Unmanaged<Node>.fromOpaque(opaque).takeUnretainedValue()
+            } else if preferFastWrap {
+                node = Libxml2Backend.wrapNodeForSelectionFast(nodePtr, doc: doc)
+            } else {
+                node = Libxml2Backend.wrapNodeForSelection(nodePtr, doc: doc)
+            }
+                guard let node else { continue }
+                guard let element = node as? Element else { continue }
+                output.add(element)
+            }
         }
         return output
     }
@@ -1353,8 +1809,29 @@ open class CssSelector {
     private static func libxml2XPathCachedCompile(_ xpath: String) -> xmlXPathCompExprPtr? {
         libxml2XPathCache.lock.lock()
         if let cached = libxml2XPathCache.items[xpath] {
+            let node = cached.node
+            if libxml2XPathCache.head !== node {
+                if let prev = node.prev {
+                    prev.next = node.next
+                } else {
+                    libxml2XPathCache.head = node.next
+                }
+                if let next = node.next {
+                    next.prev = node.prev
+                } else {
+                    libxml2XPathCache.tail = node.prev
+                }
+                node.prev = nil
+                node.next = libxml2XPathCache.head
+                libxml2XPathCache.head?.prev = node
+                libxml2XPathCache.head = node
+                if libxml2XPathCache.tail == nil {
+                    libxml2XPathCache.tail = node
+                }
+            }
+            let expr = cached.expr
             libxml2XPathCache.lock.unlock()
-            return cached
+            return expr
         }
         libxml2XPathCache.lock.unlock()
         var bytes = Array(xpath.utf8)
@@ -1367,19 +1844,30 @@ open class CssSelector {
         }
         guard let compiled else { return nil }
         libxml2XPathCache.lock.lock()
-        if libxml2XPathCache.items[xpath] == nil {
-            libxml2XPathCache.items[xpath] = compiled
-            libxml2XPathCache.order.append(xpath)
-            if libxml2XPathCache.order.count > libxml2XPathCacheCapacity {
-                let overflow = libxml2XPathCache.order.count - libxml2XPathCacheCapacity
-                if overflow > 0 {
-                    for _ in 0..<overflow {
-                        let key = libxml2XPathCache.order.removeFirst()
-                        if let expr = libxml2XPathCache.items.removeValue(forKey: key) {
-                            xmlXPathFreeCompExpr(expr)
-                        }
-                    }
-                }
+        if let cached = libxml2XPathCache.items[xpath] {
+            let expr = cached.expr
+            libxml2XPathCache.lock.unlock()
+            xmlXPathFreeCompExpr(compiled)
+            return expr
+        }
+        let node = Libxml2XPathCache.Node(key: xpath)
+        node.next = libxml2XPathCache.head
+        libxml2XPathCache.head?.prev = node
+        libxml2XPathCache.head = node
+        if libxml2XPathCache.tail == nil {
+            libxml2XPathCache.tail = node
+        }
+        libxml2XPathCache.items[xpath] = Libxml2XPathCache.Entry(expr: compiled, node: node)
+        if libxml2XPathCache.items.count > libxml2XPathCacheCapacity, let tail = libxml2XPathCache.tail {
+            let key = tail.key
+            if let prev = tail.prev {
+                prev.next = nil
+            } else {
+                libxml2XPathCache.head = nil
+            }
+            libxml2XPathCache.tail = tail.prev
+            if let removed = libxml2XPathCache.items.removeValue(forKey: key) {
+                xmlXPathFreeCompExpr(removed.expr)
             }
         }
         libxml2XPathCache.lock.unlock()
@@ -1532,6 +2020,8 @@ open class CssSelector {
         var id: String? = nil
         var classes: [String] = []
         var attrs: [Libxml2AttrSelector] = []
+        var pseudos: Libxml2Pseudo = []
+        var nthSelector: Libxml2NthSelector? = nil
 
         func isNameChar(_ b: UInt8) -> Bool {
             switch b {
@@ -1660,10 +2150,101 @@ open class CssSelector {
                 attrs.append(Libxml2AttrSelector(name: name, op: attrOp, value: value))
                 continue
             }
+            if b == 0x3A { // :
+                i += 1
+                let start = i
+                while i < bytes.count && isNameChar(bytes[i]) {
+                    i += 1
+                }
+                if i == start { return nil }
+                let pseudo = String(decoding: bytes[start..<i], as: UTF8.self).lowercased()
+                switch pseudo {
+                case "first-child":
+                    pseudos.insert(.firstChild)
+                case "last-child":
+                    pseudos.insert(.lastChild)
+                case "first-of-type":
+                    pseudos.insert(.firstOfType)
+                case "last-of-type":
+                    pseudos.insert(.lastOfType)
+                case "only-child":
+                    pseudos.insert(.onlyChild)
+                case "only-of-type":
+                    pseudos.insert(.onlyOfType)
+                case "root":
+                    pseudos.insert(.root)
+                case "empty":
+                    pseudos.insert(.empty)
+                case "nth-child", "nth-last-child", "nth-of-type", "nth-last-of-type":
+                    if nthSelector != nil { return nil }
+                    while i < bytes.count && bytes[i].isWhitespace {
+                        i += 1
+                    }
+                    if i >= bytes.count || bytes[i] != 0x28 { return nil } // (
+                    i += 1
+                    let argStart = i
+                    while i < bytes.count && bytes[i] != 0x29 {
+                        i += 1
+                    }
+                    if i >= bytes.count { return nil }
+                    let arg = String(decoding: bytes[argStart..<i], as: UTF8.self).trim().lowercased()
+                    i += 1
+                    guard let (a, b) = libxml2ParseNthExpression(arg) else { return nil }
+                    let kind: Libxml2NthSelector.Kind
+                    switch pseudo {
+                    case "nth-child":
+                        kind = .child
+                    case "nth-last-child":
+                        kind = .lastChild
+                    case "nth-of-type":
+                        kind = .ofType
+                    default:
+                        kind = .lastOfType
+                    }
+                    nthSelector = Libxml2NthSelector(kind: kind, a: a, b: b)
+                default:
+                    return nil
+                }
+                continue
+            }
             return nil
         }
 
-        return Libxml2SimpleSelector(tag: tag, id: id, classes: classes, attrs: attrs)
+        return Libxml2SimpleSelector(
+            tag: tag,
+            id: id,
+            classes: classes,
+            attrs: attrs,
+            pseudos: pseudos,
+            nth: nthSelector
+        )
+    }
+
+    private static func libxml2ParseNthExpression(_ arg: String) -> (Int, Int)? {
+        if arg == "odd" {
+            return (2, 1)
+        }
+        if arg == "even" {
+            return (2, 0)
+        }
+        let mAB = libxml2NthAB.matcher(in: arg)
+        let mB = libxml2NthB.matcher(in: arg)
+        if !mAB.matches.isEmpty {
+            _ = mAB.find()
+            let a = mAB.group(3) != nil
+                ? Int(mAB.group(1)!.replaceFirst(of: "^\\+", with: ""))!
+                : 1
+            let b = mAB.group(4) != nil
+                ? Int(mAB.group(4)!.replaceFirst(of: "^\\+", with: ""))!
+                : 0
+            return (a, b)
+        }
+        if !mB.matches.isEmpty {
+            _ = mB.find()
+            let b = Int(mB.group()!.replaceFirst(of: "^\\+", with: ""))!
+            return (0, b)
+        }
+        return nil
     }
 
     private static func libxml2BuildXPath(_ steps: [(Libxml2Combinator?, Libxml2SimpleSelector)]) -> String? {
@@ -1698,6 +2279,54 @@ open class CssSelector {
         let tag = selector.tag ?? "*"
         if tag.contains(":") { return nil }
         var predicates: [String] = []
+        let pseudos = selector.pseudos
+        if !pseudos.isEmpty {
+            if pseudos.contains(.root) {
+                predicates.append("not(parent::*)")
+            }
+            if pseudos.contains(.empty) {
+                predicates.append("not(node())")
+            }
+            if pseudos.contains(.onlyChild) {
+                predicates.append("not(preceding-sibling::*) and not(following-sibling::*)")
+            } else {
+                if pseudos.contains(.firstChild) {
+                    predicates.append("not(preceding-sibling::*)")
+                }
+                if pseudos.contains(.lastChild) {
+                    predicates.append("not(following-sibling::*)")
+                }
+            }
+            if pseudos.contains(.onlyOfType) {
+                if tag == "*" { return nil }
+                predicates.append("not(preceding-sibling::\(tag)) and not(following-sibling::\(tag))")
+            } else {
+                if pseudos.contains(.firstOfType) {
+                    if tag == "*" { return nil }
+                    predicates.append("not(preceding-sibling::\(tag))")
+                }
+                if pseudos.contains(.lastOfType) {
+                    if tag == "*" { return nil }
+                    predicates.append("not(following-sibling::\(tag))")
+                }
+            }
+        }
+        if let nth = selector.nth {
+            let posExpr: String
+            switch nth.kind {
+            case .child:
+                posExpr = "count(preceding-sibling::*) + 1"
+            case .lastChild:
+                posExpr = "count(following-sibling::*) + 1"
+            case .ofType:
+                if tag == "*" { return nil }
+                posExpr = "count(preceding-sibling::\(tag)) + 1"
+            case .lastOfType:
+                if tag == "*" { return nil }
+                posExpr = "count(following-sibling::\(tag)) + 1"
+            }
+            predicates.append(libxml2NthPredicate(posExpr: posExpr, a: nth.a, b: nth.b))
+        }
         if let id = selector.id {
             let idExpr = libxml2LowercaseExpr("@id")
             predicates.append("\(idExpr) = \(libxml2XPathLiteral(id))")
@@ -1737,6 +2366,17 @@ open class CssSelector {
             return tag
         }
         return "\(tag)[\(predicates.joined(separator: " and "))]"
+    }
+
+    private static func libxml2NthPredicate(posExpr: String, a: Int, b: Int) -> String {
+        if a == 0 {
+            return "\(posExpr) = \(b)"
+        }
+        if a > 0 {
+            return "(\(posExpr) >= \(b)) and (((\(posExpr) - \(b)) mod \(a)) = 0)"
+        }
+        let aAbs = -a
+        return "(\(posExpr) <= \(b)) and (((\(b) - \(posExpr)) mod \(aAbs)) = 0)"
     }
 
     @inline(__always)

@@ -268,6 +268,46 @@ open class Element: Node {
 
     @inline(__always)
     open override func attr(_ attributeKey: [UInt8]) throws -> [UInt8] {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           doc.libxml2SkipSwiftSoupFallbacks,
+           !doc.libxml2BackedDirty,
+           let nodePtr = libxml2NodePtr {
+            if attributeKey.count >= UTF8Arrays.absPrefix.count {
+                @inline(__always)
+                func lowerAscii(_ b: UInt8) -> UInt8 {
+                    return (b >= 65 && b <= 90) ? (b &+ 32) : b
+                }
+                if lowerAscii(attributeKey[0]) == UTF8Arrays.absPrefix[0] &&
+                    lowerAscii(attributeKey[1]) == UTF8Arrays.absPrefix[1] &&
+                    lowerAscii(attributeKey[2]) == UTF8Arrays.absPrefix[2] &&
+                    attributeKey[3] == UTF8Arrays.absPrefix[3] {
+                    return try absUrl(attributeKey.substring(UTF8Arrays.absPrefix.count))
+                }
+            }
+            let needsTrim = (attributeKey.first?.isWhitespace ?? false)
+                || (attributeKey.last?.isWhitespace ?? false)
+            let trimmedKey = needsTrim ? attributeKey.trim() : attributeKey
+            if trimmedKey.isEmpty { return [] }
+            let settings = doc.treeBuilder?.settings ?? doc.libxml2Context?.settings ?? ParseSettings.htmlDefault
+            let normalizedKey: [UInt8]
+            if settings.preservesAttributeCase() || !Attributes.containsAsciiUppercase(trimmedKey) {
+                normalizedKey = trimmedKey
+            } else {
+                normalizedKey = trimmedKey.lowercased()
+            }
+            if let overrides = doc.libxml2AttributeOverrides,
+               let override = overrides[UnsafeMutableRawPointer(nodePtr)] {
+                if override.hasKeyIgnoreCase(key: normalizedKey) {
+                    return (try? override.getIgnoreCase(key: normalizedKey)) ?? []
+                }
+            }
+            if let value = Libxml2Backend.attributeValueFromLibxml2Node(nodePtr, key: normalizedKey) {
+                return value
+            }
+            return []
+        }
+#endif
         guard attributes != nil else {
             if attributeKey.count >= UTF8Arrays.absPrefix.count {
                 @inline(__always)
@@ -427,6 +467,13 @@ open class Element: Node {
      */
     @inline(__always)
     open func children() -> Elements {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty {
+            return Elements(childNodes.lazy.compactMap { $0 as? Element })
+        }
+#endif
         // create on the fly rather than maintaining two lists. if gets slow, memoize, and mark dirty on change
         return Elements(childNodes.lazy.compactMap { $0 as? Element })
     }
@@ -448,6 +495,30 @@ open class Element: Node {
      */
     @inline(__always)
     open func textNodes() -> Array<TextNode> {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty {
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = doc.libxml2DocPtr.flatMap { xmlDocGetRootElement($0) }
+            } else {
+                startNode = libxml2NodePtr?.pointee.children
+            }
+            if let startNode {
+                var output: [TextNode] = []
+                var cursor: xmlNodePtr? = startNode
+                while let node = cursor {
+                    if node.pointee.type == XML_TEXT_NODE,
+                       let text = Libxml2Backend.wrapNodeForSelectionFast(node, doc: doc) as? TextNode {
+                        output.append(text)
+                    }
+                    cursor = node.pointee.next
+                }
+                return output
+            }
+        }
+#endif
         return childNodes.compactMap { $0 as? TextNode }
     }
     
@@ -462,6 +533,33 @@ open class Element: Node {
      */
     @inline(__always)
     open func dataNodes() -> Array<DataNode> {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty {
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = doc.libxml2DocPtr.flatMap { xmlDocGetRootElement($0) }
+            } else {
+                startNode = libxml2NodePtr?.pointee.children
+            }
+            if let startNode {
+                var output: [DataNode] = []
+                var cursor: xmlNodePtr? = startNode
+                while let node = cursor {
+                    if node.pointee.type == XML_TEXT_NODE,
+                       let data = Libxml2Backend.wrapNodeForSelectionFast(node, doc: doc) as? DataNode {
+                        output.append(data)
+                    } else if node.pointee.type == XML_CDATA_SECTION_NODE,
+                              let data = Libxml2Backend.wrapNodeForSelectionFast(node, doc: doc) as? DataNode {
+                        output.append(data)
+                    }
+                    cursor = node.pointee.next
+                }
+                return output
+            }
+        }
+#endif
         return childNodes.compactMap { $0 as? DataNode }
     }
     
@@ -865,6 +963,26 @@ open class Element: Node {
      - returns: sibling elements
      */
     public func siblingElements() -> Elements {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if parentNode == nil,
+           let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let nodePtr = libxml2NodePtr,
+           let parentPtr = nodePtr.pointee.parent {
+            let siblings = Elements()
+            var cursor: xmlNodePtr? = parentPtr.pointee.children
+            while let current = cursor {
+                if current != nodePtr,
+                   current.pointee.type == XML_ELEMENT_NODE,
+                   let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                    siblings.add(wrapped)
+                }
+                cursor = current.pointee.next
+            }
+            return siblings
+        }
+#endif
         if (parentNode == nil) {return Elements()}
         
         let elements: Array<Element>? = parent()?.children().array()
@@ -889,6 +1007,23 @@ open class Element: Node {
      - seealso: ``previousElementSibling()``
      */
     public func nextElementSibling()throws->Element? {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if parentNode == nil,
+           let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let nodePtr = libxml2NodePtr {
+            var cursor = nodePtr.pointee.next
+            while let current = cursor {
+                if current.pointee.type == XML_ELEMENT_NODE,
+                   let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                    return wrapped
+                }
+                cursor = current.pointee.next
+            }
+            return nil
+        }
+#endif
         if (parentNode == nil) {return nil}
         let siblings: Array<Element>? = parent()?.children().array()
         let index: Int? = try Element.indexInList(self, siblings)
@@ -909,6 +1044,23 @@ open class Element: Node {
      - seealso: ``nextElementSibling()``
      */
     public func previousElementSibling()throws->Element? {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if parentNode == nil,
+           let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let nodePtr = libxml2NodePtr {
+            var cursor = nodePtr.pointee.prev
+            while let current = cursor {
+                if current.pointee.type == XML_ELEMENT_NODE,
+                   let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                    return wrapped
+                }
+                cursor = current.pointee.prev
+            }
+            return nil
+        }
+#endif
         if (parentNode == nil) {return nil}
         let siblings: Array<Element>? = parent()?.children().array()
         let index: Int? = try Element.indexInList(self, siblings)
@@ -926,6 +1078,29 @@ open class Element: Node {
      */
     public func firstElementSibling() -> Element? {
         // todo: should firstSibling() exclude this?
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let nodePtr = libxml2NodePtr,
+           let parentPtr = nodePtr.pointee.parent {
+            var cursor: xmlNodePtr? = parentPtr.pointee.children
+            var first: Element? = nil
+            var count = 0
+            while let current = cursor {
+                if current.pointee.type == XML_ELEMENT_NODE,
+                   let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                    if first == nil { first = wrapped }
+                    count += 1
+                    if count > 1 {
+                        break
+                    }
+                }
+                cursor = current.pointee.next
+            }
+            return count > 1 ? first : nil
+        }
+#endif
         let siblings: Array<Element>? = parent()?.children().array()
         return (siblings != nil && siblings!.count > 1) ? siblings![0] : nil
     }
@@ -938,6 +1113,26 @@ open class Element: Node {
      */
     public func elementSiblingIndex()throws->Int {
         if (parent() == nil) {return 0}
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let nodePtr = libxml2NodePtr,
+           let parentPtr = nodePtr.pointee.parent {
+            var cursor: xmlNodePtr? = parentPtr.pointee.children
+            var index = 0
+            while let current = cursor {
+                if current.pointee.type == XML_ELEMENT_NODE {
+                    if current == nodePtr {
+                        return index
+                    }
+                    index += 1
+                }
+                cursor = current.pointee.next
+            }
+            return 0
+        }
+#endif
         let x = try Element.indexInList(self, parent()?.children().array())
         return x == nil ? 0 : x!
     }
@@ -948,6 +1143,26 @@ open class Element: Node {
      */
     @inline(__always)
     public func lastElementSibling() -> Element? {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let nodePtr = libxml2NodePtr,
+           let parentPtr = nodePtr.pointee.parent {
+            var cursor: xmlNodePtr? = parentPtr.pointee.children
+            var last: Element? = nil
+            var count = 0
+            while let current = cursor {
+                if current.pointee.type == XML_ELEMENT_NODE,
+                   let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                    last = wrapped
+                    count += 1
+                }
+                cursor = current.pointee.next
+            }
+            return count > 1 ? last : nil
+        }
+#endif
         let siblings: Array<Element>? = parent()?.children().array()
         return (siblings != nil && siblings!.count > 1) ? siblings![siblings!.count - 1] : nil
     }
@@ -1003,6 +1218,38 @@ open class Element: Node {
         if key.isEmpty {
             return Elements()
         }
+        if key.count == 1, key[0] == UInt8(ascii: "*") {
+            return try getAllElements()
+        }
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let docPtr = doc.libxml2DocPtr {
+            let settings = doc.treeBuilder?.settings ?? ParseSettings.htmlDefault
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = xmlDocGetRootElement(docPtr)
+            } else {
+                startNode = libxml2NodePtr
+            }
+            if let startNode {
+                if self is Document, let cached = doc.libxml2SkipFallbackTagCacheGet(key) {
+                    return cached
+                }
+                let elements = Libxml2Backend.collectElementsByTagName(
+                    start: startNode,
+                    tag: key,
+                    settings: settings,
+                    doc: doc
+                )
+                if self is Document {
+                    doc.libxml2SkipFallbackTagCachePut(key, elements)
+                }
+                return elements
+            }
+        }
+#endif
         let weakElements = tagQueryIndexForKey(key)
         let elements = weakElements.compactMap { $0.value }
         #if canImport(CLibxml2) || canImport(libxml2)
@@ -1036,6 +1283,47 @@ open class Element: Node {
         if key.isEmpty {
             return Elements()
         }
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let docPtr = doc.libxml2DocPtr {
+            if doc.libxml2AttributeOverrides?.isEmpty == false {
+                return collectElementsByAttributePredicate { element in
+                    element.idUTF8() == key
+                }
+            }
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = xmlDocGetRootElement(docPtr)
+            } else {
+                startNode = libxml2NodePtr
+            }
+            if let startNode {
+                let idKey = "id".utf8Array
+                if self is Document {
+                    let cacheKey = Document.AttributeValueCacheKey(key: idKey, value: key)
+                    if let cached = doc.libxml2SkipFallbackAttrValueCacheGet(cacheKey) {
+                        return cached
+                    }
+                    let elements = Libxml2Backend.collectElementsByAttributeValue(
+                        start: startNode,
+                        key: idKey,
+                        value: key,
+                        doc: doc
+                    )
+                    doc.libxml2SkipFallbackAttrValueCachePut(cacheKey, elements)
+                    return elements
+                }
+                return Libxml2Backend.collectElementsByAttributeValue(
+                    start: startNode,
+                    key: idKey,
+                    value: key,
+                    doc: doc
+                )
+            }
+        }
+#endif
         if isIdQueryIndexDirty || normalizedIdIndex == nil {
             rebuildQueryIndexesForAllIds()
             isIdQueryIndexDirty = false
@@ -1063,6 +1351,23 @@ open class Element: Node {
         if key.isEmpty {
             return nil
         }
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty {
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = doc.libxml2DocPtr.flatMap { xmlDocGetRootElement($0) }
+            } else {
+                startNode = libxml2NodePtr
+            }
+            if let startNode {
+                if let match = Libxml2Backend.findFirstElementById(start: startNode, id: key, doc: doc) {
+                    return match
+                }
+            }
+        }
+#endif
         if isIdQueryIndexDirty || normalizedIdIndex == nil {
             rebuildQueryIndexesForAllIds()
             isIdQueryIndexDirty = false
@@ -1103,6 +1408,26 @@ open class Element: Node {
         } else {
             normalizedKey = key.lowercased()
         }
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let docPtr = doc.libxml2DocPtr {
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = xmlDocGetRootElement(docPtr)
+            } else {
+                startNode = libxml2NodePtr
+            }
+            if let startNode {
+                return Libxml2Backend.collectElementsByClassName(
+                    start: startNode,
+                    className: normalizedKey,
+                    doc: doc
+                )
+            }
+        }
+#endif
         let results = normalizedClassNameIndex?[normalizedKey]?.compactMap { $0.value } ?? []
         return Elements(results)
     }
@@ -1113,6 +1438,33 @@ open class Element: Node {
         if normalizedClassName.isEmpty {
             return Elements()
         }
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let docPtr = doc.libxml2DocPtr {
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = xmlDocGetRootElement(docPtr)
+            } else {
+                startNode = libxml2NodePtr
+            }
+            if let startNode {
+                if self is Document, let cached = doc.libxml2SkipFallbackClassCacheGet(normalizedClassName) {
+                    return cached
+                }
+                let elements = Libxml2Backend.collectElementsByClassName(
+                    start: startNode,
+                    className: normalizedClassName,
+                    doc: doc
+                )
+                if self is Document {
+                    doc.libxml2SkipFallbackClassCachePut(normalizedClassName, elements)
+                }
+                return elements
+            }
+        }
+#endif
         if isClassQueryIndexDirty || normalizedClassNameIndex == nil {
             rebuildQueryIndexesForAllClasses()
             isClassQueryIndexDirty = false
@@ -1178,6 +1530,38 @@ open class Element: Node {
         if key.isEmpty {
             return Elements()
         }
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let docPtr = doc.libxml2DocPtr {
+            if doc.libxml2AttributeOverrides?.isEmpty == false {
+                return collectElementsByAttributePredicate { element in
+                    element.hasAttr(key)
+                }
+            }
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = xmlDocGetRootElement(docPtr)
+            } else {
+                startNode = libxml2NodePtr
+            }
+            if let startNode {
+                if self is Document, let cached = doc.libxml2SkipFallbackAttrCacheGet(key) {
+                    return cached
+                }
+                let elements = Libxml2Backend.collectElementsByAttributeName(
+                    start: startNode,
+                    key: key,
+                    doc: doc
+                )
+                if self is Document {
+                    doc.libxml2SkipFallbackAttrCachePut(key, elements)
+                }
+                return elements
+            }
+        }
+#endif
         if isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil {
             rebuildQueryIndexesForAllAttributes()
             isAttributeQueryIndexDirty = false
@@ -1196,6 +1580,33 @@ open class Element: Node {
     public func getElementsByAttributeStarting(_ keyPrefix: String) throws -> Elements {
         try Validate.notEmpty(string: keyPrefix.utf8Array)
         let keyPrefix = keyPrefix.trim()
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let docPtr = doc.libxml2DocPtr {
+            if doc.libxml2AttributeOverrides?.isEmpty == false {
+                let normalizedPrefix = keyPrefix.lowercased().utf8Array
+                return try collectElementsByAttributeNamePrefix(normalizedPrefix)
+            }
+            let normalizedPrefix = keyPrefix.lowercased().utf8Array
+            if !normalizedPrefix.isEmpty {
+                let startNode: xmlNodePtr?
+                if self is Document {
+                    startNode = xmlDocGetRootElement(docPtr)
+                } else {
+                    startNode = libxml2NodePtr
+                }
+                if let startNode {
+                    return Libxml2Backend.collectElementsByAttributeNamePrefix(
+                        start: startNode,
+                        keyPrefix: normalizedPrefix,
+                        doc: doc
+                    )
+                }
+            }
+        }
+#endif
         return try Collector.collect(Evaluator.AttributeStarting(keyPrefix.utf8Array), self)
     }
     
@@ -1261,6 +1672,41 @@ open class Element: Node {
         if keyBytes.starts(with: UTF8Arrays.absPrefix) {
             return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
         }
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let docPtr = doc.libxml2DocPtr {
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = xmlDocGetRootElement(docPtr)
+            } else {
+                startNode = libxml2NodePtr
+            }
+            if let startNode {
+                if self is Document {
+                    let cacheKey = Document.AttributeValueCacheKey(key: keyBytes, value: valueBytes)
+                    if let cached = doc.libxml2SkipFallbackAttrValueCacheGet(cacheKey) {
+                        return cached
+                    }
+                    let elements = Libxml2Backend.collectElementsByAttributeValue(
+                        start: startNode,
+                        key: keyBytes,
+                        value: valueBytes,
+                        doc: doc
+                    )
+                    doc.libxml2SkipFallbackAttrValueCachePut(cacheKey, elements)
+                    return elements
+                }
+                return Libxml2Backend.collectElementsByAttributeValue(
+                    start: startNode,
+                    key: keyBytes,
+                    value: valueBytes,
+                    doc: doc
+                )
+            }
+        }
+#endif
         let isHotKey = Element.isHotAttributeKey(keyBytes)
         if Element.dynamicAttributeValueIndexMaxKeys > 0,
            !isHotKey {
@@ -1286,6 +1732,37 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValueNot(_ key: String, _ value: String)throws->Elements {
+#if canImport(CLibxml2) || canImport(libxml2)
+        let (_, keyBytes, _, valueBytes) = try Element.normalizeAttributeKeyValue(key, value)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let docPtr = doc.libxml2DocPtr {
+            if doc.libxml2AttributeOverrides?.isEmpty == false {
+                return try collectElementsByAttributePredicate { element in
+                    if !element.hasAttr(keyBytes) {
+                        return true
+                    }
+                    let elementValue = try element.attr(keyBytes)
+                    return !elementValue.equalsIgnoreCase(string: valueBytes)
+                }
+            }
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = xmlDocGetRootElement(docPtr)
+            } else {
+                startNode = libxml2NodePtr
+            }
+            if let startNode {
+                return Libxml2Backend.collectElementsByAttributeValueNot(
+                    start: startNode,
+                    key: keyBytes,
+                    value: valueBytes,
+                    doc: doc
+                )
+            }
+        }
+#endif
         return try Collector.collect(Evaluator.AttributeWithValueNot(key, value), self)
     }
     
@@ -1298,6 +1775,39 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValueStarting(_ key: String, _ valuePrefix: String)throws->Elements {
+#if canImport(CLibxml2) || canImport(libxml2)
+        let (_, keyBytes, normalizedValue, valueBytes) = try Element.normalizeAttributeKeyValue(key, valuePrefix)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let docPtr = doc.libxml2DocPtr {
+            if doc.libxml2AttributeOverrides?.isEmpty == false {
+                return try collectElementsByAttributePredicate { element in
+                    guard element.hasAttr(keyBytes) else { return false }
+                    let elementValue = try element.attr(keyBytes)
+                    let normalizedElementValue = Attributes.containsAsciiUppercase(elementValue)
+                        ? elementValue.lowercased()
+                        : elementValue
+                    return Element.bytesStartsWith(normalizedElementValue, valueBytes)
+                }
+            }
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = xmlDocGetRootElement(docPtr)
+            } else {
+                startNode = libxml2NodePtr
+            }
+            if let startNode {
+                return Libxml2Backend.collectElementsByAttributeValueStarting(
+                    start: startNode,
+                    key: keyBytes,
+                    value: valueBytes,
+                    valueLower: normalizedValue,
+                    doc: doc
+                )
+            }
+        }
+#endif
         return try Collector.collect(Evaluator.AttributeWithValueStarting(key, valuePrefix), self)
     }
     
@@ -1310,6 +1820,39 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValueEnding(_ key: String, _ valueSuffix: String)throws->Elements {
+#if canImport(CLibxml2) || canImport(libxml2)
+        let (_, keyBytes, normalizedValue, valueBytes) = try Element.normalizeAttributeKeyValue(key, valueSuffix)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let docPtr = doc.libxml2DocPtr {
+            if doc.libxml2AttributeOverrides?.isEmpty == false {
+                return try collectElementsByAttributePredicate { element in
+                    guard element.hasAttr(keyBytes) else { return false }
+                    let elementValue = try element.attr(keyBytes)
+                    let normalizedElementValue = Attributes.containsAsciiUppercase(elementValue)
+                        ? elementValue.lowercased()
+                        : elementValue
+                    return Element.bytesEndsWith(normalizedElementValue, valueBytes)
+                }
+            }
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = xmlDocGetRootElement(docPtr)
+            } else {
+                startNode = libxml2NodePtr
+            }
+            if let startNode {
+                return Libxml2Backend.collectElementsByAttributeValueEnding(
+                    start: startNode,
+                    key: keyBytes,
+                    value: valueBytes,
+                    valueLower: normalizedValue,
+                    doc: doc
+                )
+            }
+        }
+#endif
         return try Collector.collect(Evaluator.AttributeWithValueEnding(key, valueSuffix), self)
     }
     
@@ -1322,6 +1865,39 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValueContaining(_ key: String, _ match: String)throws->Elements {
+#if canImport(CLibxml2) || canImport(libxml2)
+        let (_, keyBytes, normalizedValue, valueBytes) = try Element.normalizeAttributeKeyValue(key, match)
+        if let doc = ownerDocument(),
+           (doc.libxml2SkipSwiftSoupFallbacks),
+           !doc.libxml2BackedDirty,
+           let docPtr = doc.libxml2DocPtr {
+            if doc.libxml2AttributeOverrides?.isEmpty == false {
+                return try collectElementsByAttributePredicate { element in
+                    guard element.hasAttr(keyBytes) else { return false }
+                    let elementValue = try element.attr(keyBytes)
+                    let normalizedElementValue = Attributes.containsAsciiUppercase(elementValue)
+                        ? elementValue.lowercased()
+                        : elementValue
+                    return Element.bytesContains(normalizedElementValue, valueBytes)
+                }
+            }
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = xmlDocGetRootElement(docPtr)
+            } else {
+                startNode = libxml2NodePtr
+            }
+            if let startNode {
+                return Libxml2Backend.collectElementsByAttributeValueContaining(
+                    start: startNode,
+                    key: keyBytes,
+                    value: valueBytes,
+                    valueLower: normalizedValue,
+                    doc: doc
+                )
+            }
+        }
+#endif
         return try Collector.collect(Evaluator.AttributeWithValueContaining(key, match), self)
     }
     
@@ -1462,6 +2038,24 @@ open class Element: Node {
      - returns: all elements
      */
     public func getAllElements()throws->Elements {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           doc.libxml2SkipSwiftSoupFallbacks,
+           !doc.libxml2BackedDirty,
+           let docPtr = doc.libxml2DocPtr {
+            let startNode: xmlNodePtr?
+            if self is Document {
+                startNode = xmlDocGetRootElement(docPtr)
+            } else {
+                startNode = libxml2NodePtr
+            }
+            return Libxml2Backend.collectAllElements(
+                start: startNode,
+                doc: doc,
+                includeSelf: !(self is Document)
+            )
+        }
+#endif
         return try Collector.collect(Evaluator.AllElements(), self)
     }
     
@@ -1611,6 +2205,11 @@ open class Element: Node {
     }
     
     public func text(trimAndNormaliseWhitespace: Bool = true) throws -> String {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let bytes = Libxml2Backend.textFromLibxml2Node(self, trim: trimAndNormaliseWhitespace) {
+            return String(decoding: bytes, as: UTF8.self)
+        }
+#endif
         if trimAndNormaliseWhitespace {
             if let slice = singleTextNoWhitespaceSlice() {
                 return String(decoding: slice, as: UTF8.self)
@@ -1647,6 +2246,11 @@ open class Element: Node {
     }
     
     public func textUTF8(trimAndNormaliseWhitespace: Bool = true) throws -> [UInt8] {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let bytes = Libxml2Backend.textFromLibxml2Node(self, trim: trimAndNormaliseWhitespace) {
+            return bytes
+        }
+#endif
         if trimAndNormaliseWhitespace, let slice = singleTextNoWhitespaceSlice() {
             return Array(slice)
         }
@@ -1714,6 +2318,11 @@ open class Element: Node {
      - seealso: ``text(_:)``, ``textNodes()``
      */
     public func ownText() -> String {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let bytes = Libxml2Backend.ownTextFromLibxml2Node(self) {
+            return String(decoding: bytes, as: UTF8.self)
+        }
+#endif
         let sb: StringBuilder = StringBuilder()
         ownText(sb)
         return sb.toString().trim()
@@ -1730,6 +2339,11 @@ open class Element: Node {
      - seealso: ``text(_:)``, ``textNodes()``
      */
     public func ownTextUTF8() -> [UInt8] {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let bytes = Libxml2Backend.ownTextFromLibxml2Node(self) {
+            return bytes
+        }
+#endif
         let sb: StringBuilder = StringBuilder()
         ownText(sb)
         if let first = sb.buffer.first, first.isWhitespace {
@@ -2410,16 +3024,14 @@ open class Element: Node {
     public func html() throws -> String {
 #if canImport(CLibxml2) || canImport(libxml2)
         let out = getOutputSettings()
-        let hasOverrides = ownerDocument().map { doc in
-            doc.withLibxml2CacheLock {
-                doc.libxml2AttributeOverrides?.isEmpty == false
-            }
-        } ?? false
+        let doc = ownerDocument()
+        let hasOverrides = (doc?.libxml2AttributeOverrides?.isEmpty == false)
+           
         if Libxml2Serialization.enabled,
-           let doc = ownerDocument(),
+           let doc,
            let docPtr = doc.libxml2DocPtr,
            !doc.libxml2BackedDirty,
-           out.syntax() == .html,
+            out.syntax() == .html,
            !out.prettyPrint(),
            !hasOverrides,
            let nodePtr = libxml2NodePtr,
@@ -2430,6 +3042,23 @@ open class Element: Node {
             }
 #endif
             return String(decoding: dumped, as: UTF8.self)
+        }
+        let allowFastSerialize = Libxml2Serialization.enabled
+            || (doc?.libxml2SkipSwiftSoupFallbacks == true)
+           
+        if allowFastSerialize,
+           let doc,
+           let docPtr = doc.libxml2DocPtr,
+           !doc.libxml2BackedDirty,
+            out.syntax() == .html,
+           !hasOverrides,
+           let nodePtr = libxml2NodePtr {
+            if out.prettyPrint(),
+               let dumped = Libxml2Serialization.htmlDumpChildrenFormat(node: nodePtr, doc: docPtr, prettyPrint: true) {
+                return String(decoding: dumped, as: UTF8.self).trim()
+            } else if let dumped = Libxml2Serialization.htmlDumpChildren(node: nodePtr, doc: docPtr) {
+                return String(decoding: dumped, as: UTF8.self)
+            }
         }
 #endif
         let accum: StringBuilder = StringBuilder()
@@ -2448,21 +3077,36 @@ open class Element: Node {
     public func htmlUTF8() throws -> [UInt8] {
 #if canImport(CLibxml2) || canImport(libxml2)
         let out = getOutputSettings()
-        let hasOverrides = ownerDocument().map { doc in
-            doc.withLibxml2CacheLock {
-                doc.libxml2AttributeOverrides?.isEmpty == false
-            }
-        } ?? false
+        let doc = ownerDocument()
+        let hasOverrides = (doc?.libxml2AttributeOverrides?.isEmpty == false)
+           
         if Libxml2Serialization.enabled,
-           let doc = ownerDocument(),
+           let doc,
            let docPtr = doc.libxml2DocPtr,
            !doc.libxml2BackedDirty,
-           out.syntax() == .html,
+            out.syntax() == .html,
            !out.prettyPrint(),
            !hasOverrides,
            let nodePtr = libxml2NodePtr,
            let dumped = Libxml2Serialization.htmlDumpChildren(node: nodePtr, doc: docPtr) {
             return dumped
+        }
+        let allowFastSerialize = Libxml2Serialization.enabled
+            || (doc?.libxml2SkipSwiftSoupFallbacks == true)
+           
+        if allowFastSerialize,
+           let doc,
+           let docPtr = doc.libxml2DocPtr,
+           !doc.libxml2BackedDirty,
+            out.syntax() == .html,
+           !hasOverrides,
+           let nodePtr = libxml2NodePtr {
+            if out.prettyPrint(),
+               let dumped = Libxml2Serialization.htmlDumpChildrenFormat(node: nodePtr, doc: docPtr, prettyPrint: true) {
+                return Array(dumped.trim())
+            } else if let dumped = Libxml2Serialization.htmlDumpChildren(node: nodePtr, doc: docPtr) {
+                return dumped
+            }
         }
 #endif
         let accum: StringBuilder = StringBuilder()
@@ -2481,22 +3125,39 @@ open class Element: Node {
     open override func html(_ appendable: StringBuilder) throws -> StringBuilder {
 #if canImport(CLibxml2) || canImport(libxml2)
         let out = getOutputSettings()
-        let hasOverrides = ownerDocument().map { doc in
-            doc.withLibxml2CacheLock {
-                doc.libxml2AttributeOverrides?.isEmpty == false
-            }
-        } ?? false
+        let doc = ownerDocument()
+        let hasOverrides = (doc?.libxml2AttributeOverrides?.isEmpty == false)
+           
         if Libxml2Serialization.enabled,
-           let doc = ownerDocument(),
+           let doc,
            let docPtr = doc.libxml2DocPtr,
            !doc.libxml2BackedDirty,
-           out.syntax() == .html,
+            out.syntax() == .html,
            !out.prettyPrint(),
            !hasOverrides,
            let nodePtr = libxml2NodePtr,
            let dumped = Libxml2Serialization.htmlDumpChildren(node: nodePtr, doc: docPtr) {
             appendable.append(dumped)
             return appendable
+        }
+        let allowFastSerialize = Libxml2Serialization.enabled
+            || (doc?.libxml2SkipSwiftSoupFallbacks == true)
+           
+        if allowFastSerialize,
+           let doc,
+           let docPtr = doc.libxml2DocPtr,
+           !doc.libxml2BackedDirty,
+            out.syntax() == .html,
+           !hasOverrides,
+           let nodePtr = libxml2NodePtr {
+            if out.prettyPrint(),
+               let dumped = Libxml2Serialization.htmlDumpChildrenFormat(node: nodePtr, doc: docPtr, prettyPrint: true) {
+                appendable.append(Array(dumped.trim()))
+                return appendable
+            } else if let dumped = Libxml2Serialization.htmlDumpChildren(node: nodePtr, doc: docPtr) {
+                appendable.append(dumped)
+                return appendable
+            }
         }
 #endif
         for node in childNodes {
@@ -2833,6 +3494,22 @@ internal extension Element {
     }
 
     @inline(__always)
+    private static func normalizeAttributeKeyValue(
+        _ key: String,
+        _ value: String
+    ) throws -> (String, [UInt8], String, [UInt8]) {
+        var value = value
+        try Validate.notEmpty(string: key)
+        try Validate.notEmpty(string: value)
+        let normalizedKey = key.trim().lowercased()
+        if (value.startsWith("\"") && value.hasSuffix("\"")) || (value.startsWith("'") && value.hasSuffix("'")) {
+            value = value.substring(1, value.count - 2)
+        }
+        let normalizedValue = value.trim().lowercased()
+        return (normalizedKey, normalizedKey.utf8Array, normalizedValue, normalizedValue.utf8Array)
+    }
+
+    @inline(__always)
     private func traverseElementsDepthFirst(_ visitor: (Element) -> Void) {
         var stack: [Element] = []
         stack.reserveCapacity(childNodes.count + 1)
@@ -2848,6 +3525,84 @@ internal extension Element {
                 }
             }
         }
+    }
+
+    @inline(__always)
+    private func collectElementsByAttributePredicate(
+        _ predicate: (Element) throws -> Bool
+    ) rethrows -> Elements {
+        var matches: [Element] = []
+        matches.reserveCapacity(16)
+        var stack: [Element] = []
+        stack.reserveCapacity(childNodes.count + 1)
+        stack.append(self)
+        while let element = stack.popLast() {
+            if try predicate(element) {
+                matches.append(element)
+            }
+            let children = element.childNodes
+            if !children.isEmpty {
+                for child in children.reversed() {
+                    if let childElement = child as? Element {
+                        stack.append(childElement)
+                    }
+                }
+            }
+        }
+        return Elements(matches)
+    }
+
+    @inline(__always)
+    private func collectElementsByAttributeNamePrefix(
+        _ keyPrefixLower: [UInt8]
+    ) throws -> Elements {
+        collectElementsByAttributePredicate { element in
+            guard let attributes = element.getAttributes(), attributes.size() > 0 else {
+                return false
+            }
+            for attr in attributes.asList() {
+                let keyBytes = attr.getKeyUTF8()
+                let normalizedKey = Attributes.containsAsciiUppercase(keyBytes)
+                    ? keyBytes.lowercased()
+                    : keyBytes
+                if normalizedKey.starts(with: keyPrefixLower) {
+                    return true
+                }
+            }
+            return false
+        }
+    }
+
+    @inline(__always)
+    private static func bytesStartsWith(_ value: [UInt8], _ prefix: [UInt8]) -> Bool {
+        return value.starts(with: prefix)
+    }
+
+    @inline(__always)
+    private static func bytesEndsWith(_ value: [UInt8], _ suffix: [UInt8]) -> Bool {
+        guard value.count >= suffix.count else { return false }
+        return value.suffix(suffix.count).elementsEqual(suffix)
+    }
+
+    @inline(__always)
+    private static func bytesContains(_ haystack: [UInt8], _ needle: [UInt8]) -> Bool {
+        if needle.isEmpty { return true }
+        if needle.count > haystack.count { return false }
+        let lastStart = haystack.count - needle.count
+        var i = 0
+        while i <= lastStart {
+            if haystack[i] == needle[0] {
+                var j = 1
+                while j < needle.count && haystack[i + j] == needle[j] {
+                    j += 1
+                }
+                if j == needle.count {
+                    return true
+                }
+            }
+            i += 1
+        }
+        return false
     }
 
     @usableFromInline

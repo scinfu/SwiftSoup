@@ -25,6 +25,11 @@ open class Elements: NSCopying {
 		this.append(contentsOf: a)
 	}
 
+	@inline(__always)
+	internal func reserveCapacity(_ minimumCapacity: Int) {
+		this.reserveCapacity(minimumCapacity)
+	}
+
 
 	/**
 	 Creates a deep copy of these elements.
@@ -606,10 +611,6 @@ open class Elements: NSCopying {
 	}
 
 	@inline(__always)
-	internal func reserveCapacity(_ capacity: Int) {
-		this.reserveCapacity(capacity)
-	}
-
 	/**
 	Get the last matched element.
 	- returns: The last matched element, or `nil` if content is empty.

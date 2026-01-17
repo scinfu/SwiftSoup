@@ -24,8 +24,13 @@ struct Options {
     var includeText: Bool
     var includeInnerHtml: Bool
     var selectQuery: String?
+    var selectQueries: [String]?
     var selectIterations: Int
     var backend: Parser.Backend
+    var skipFallbacks: Bool
+    var applyDefaultWorkload: Bool
+    var applyLibxml2FastWorkload: Bool
+    var applyLibxml2SimpleWorkload: Bool
 }
 
 func parseOptions() -> Options {
@@ -34,8 +39,13 @@ func parseOptions() -> Options {
     var includeText = false
     var includeInnerHtml = false
     var selectQuery: String? = nil
+    var selectQueries: [String]? = nil
     var selectIterations = 1
     var backend: Parser.Backend = .swiftSoup
+    var skipFallbacks = false
+    var applyDefaultWorkload = false
+    var applyLibxml2FastWorkload = false
+    var applyLibxml2SimpleWorkload = false
 
     var i = 1
     while i < args.count {
@@ -55,7 +65,9 @@ func parseOptions() -> Options {
                 backend = .swiftSoup
 #if canImport(CLibxml2) || canImport(libxml2)
             case "libxml2":
-                backend = .libxml2
+                backend = .libxml2(
+                    swiftSoupParityMode: skipFallbacks ? .libxml2Only : .swiftSoupParity
+                )
 #endif
             default:
                 writeStderr("Unknown backend: \(value)\n")
@@ -63,8 +75,21 @@ func parseOptions() -> Options {
             }
             i += 2
             continue
+        } else if arg == "--skip-fallbacks" {
+            skipFallbacks = true
+            if case .libxml2 = backend {
+                backend = .libxml2(swiftSoupParityMode: .libxml2Only)
+            }
+            i += 1
+            continue
         } else if arg == "--select", i + 1 < args.count {
             selectQuery = args[i + 1]
+            i += 2
+            continue
+        } else if arg == "--select-queries", i + 1 < args.count {
+            let raw = args[i + 1]
+            let parsed = raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            selectQueries = parsed.filter { !$0.isEmpty }
             i += 2
             continue
         } else if arg == "--select-iterations", i + 1 < args.count {
@@ -72,6 +97,18 @@ func parseOptions() -> Options {
                 selectIterations = parsed
             }
             i += 2
+            continue
+        } else if arg == "--workload-defaults" {
+            applyDefaultWorkload = true
+            i += 1
+            continue
+        } else if arg == "--workload-libxml2-fast" {
+            applyLibxml2FastWorkload = true
+            i += 1
+            continue
+        } else if arg == "--workload-libxml2-simple" {
+            applyLibxml2SimpleWorkload = true
+            i += 1
             continue
         }
         i += 1
@@ -81,13 +118,66 @@ func parseOptions() -> Options {
         fixturesPath = "/Users/alex/Code/lake-of-fire/swift-readability/Tests/SwiftReadabilityTests/Fixtures"
     }
 
+    if applyDefaultWorkload {
+        includeText = true
+        includeInnerHtml = true
+        if selectQuery == nil && selectQueries == nil {
+            selectQuery = "article,main,div.content,p,a,span"
+        }
+        if selectIterations < 10 {
+            selectIterations = 10
+        }
+    }
+
+    if applyLibxml2FastWorkload {
+        includeText = true
+        includeInnerHtml = true
+        if selectQuery == nil && selectQueries == nil {
+            selectQueries = [
+                "article,main,div.content",
+                "a[href],img[src],link[rel],meta[name]",
+                "div[class],span[class]",
+                "p,li,td,th",
+                "table td,table th",
+                "ul li,ol li"
+            ]
+        }
+        if selectIterations < 25 {
+            selectIterations = 25
+        }
+    }
+
+    if applyLibxml2SimpleWorkload {
+        includeText = true
+        includeInnerHtml = true
+        if selectQuery == nil && selectQueries == nil {
+            selectQueries = [
+                "article",
+                "main",
+                "div.content",
+                "#content",
+                ".content",
+                "a[href]",
+                "img[src]"
+            ]
+        }
+        if selectIterations < 50 {
+            selectIterations = 50
+        }
+    }
+
     return Options(
         fixturesPath: fixturesPath!,
         includeText: includeText,
         includeInnerHtml: includeInnerHtml,
         selectQuery: selectQuery,
+        selectQueries: selectQueries,
         selectIterations: selectIterations,
-        backend: backend
+        backend: backend,
+        skipFallbacks: skipFallbacks,
+        applyDefaultWorkload: applyDefaultWorkload,
+        applyLibxml2FastWorkload: applyLibxml2FastWorkload,
+        applyLibxml2SimpleWorkload: applyLibxml2SimpleWorkload
     )
 }
 
@@ -129,6 +219,17 @@ var totalSelectTime: TimeInterval = 0
 var totalTextTime: TimeInterval = 0
 var totalHtmlTime: TimeInterval = 0
 
+let resolvedSelectQueries: [String]? = {
+    if let queries = options.selectQueries, !queries.isEmpty {
+        return queries
+    }
+    if let query = options.selectQuery {
+        return [query]
+    }
+    return nil
+}()
+var selectQueryTimes: [TimeInterval]? = resolvedSelectQueries?.map { _ in 0 }
+
 for url in files {
     withAutoreleasepool {
         do {
@@ -147,18 +248,24 @@ for url in files {
                 _ = try doc.body()?.html()
                 totalHtmlTime += Date().timeIntervalSince(htmlStart)
             }
-            if let query = options.selectQuery {
-                let selectStart = Date()
-                if options.selectIterations == 1 {
-                    _ = try doc.select(query)
-                } else {
-                    var iter = 0
-                    while iter < options.selectIterations {
+            if let queries = resolvedSelectQueries {
+                for (index, query) in queries.enumerated() {
+                    let selectStart = Date()
+                    if options.selectIterations == 1 {
                         _ = try doc.select(query)
-                        iter += 1
+                    } else {
+                        var iter = 0
+                        while iter < options.selectIterations {
+                            _ = try doc.select(query)
+                            iter += 1
+                        }
+                    }
+                    let elapsed = Date().timeIntervalSince(selectStart)
+                    totalSelectTime += elapsed
+                    if selectQueryTimes != nil {
+                        selectQueryTimes![index] += elapsed
                     }
                 }
-                totalSelectTime += Date().timeIntervalSince(selectStart)
             }
             parsedCount += 1
         } catch {
@@ -178,7 +285,12 @@ if options.includeText {
 if options.includeInnerHtml {
     print("HTML time: \(String(format: "%.2f", totalHtmlTime)) s")
 }
-if options.selectQuery != nil {
+if let queries = resolvedSelectQueries {
+    if let perQuery = selectQueryTimes, options.selectQueries != nil {
+        for (index, query) in queries.enumerated() {
+            print("Select time (\(query)): \(String(format: "%.2f", perQuery[index])) s")
+        }
+    }
     print("Select time: \(String(format: "%.2f", totalSelectTime)) s")
 }
 print(Profiler.report(top: 40))

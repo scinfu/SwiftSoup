@@ -22,8 +22,23 @@ public class Parser {
     public enum Backend: Sendable {
         case swiftSoup
 #if canImport(CLibxml2) || canImport(libxml2)
-        case libxml2
+        case libxml2(swiftSoupParityMode: SwiftSoupParityMode)
 #endif
+    }
+
+    public enum SwiftSoupParityMode: Sendable {
+        case swiftSoupParity
+        case libxml2Only
+
+        @inline(__always)
+        var skipSwiftSoupFallbacks: Bool {
+            switch self {
+            case .swiftSoupParity:
+                return false
+            case .libxml2Only:
+                return true
+            }
+        }
     }
 
     public enum Mode: Sendable {
@@ -41,6 +56,12 @@ public class Parser {
 	}
 
     private static let defaultBackendOverride: Backend? = {
+        func envBool(_ key: String) -> Bool {
+            guard let raw = ProcessInfo.processInfo.environment[key]?.lowercased() else {
+                return false
+            }
+            return raw == "1" || raw == "true" || raw == "yes"
+        }
         guard let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_TEST_BACKEND"]?.lowercased(),
               !raw.isEmpty else {
             return nil
@@ -50,16 +71,42 @@ public class Parser {
             return .swiftSoup
 #if canImport(CLibxml2) || canImport(libxml2)
         case "libxml2":
-            return .libxml2
+            return .libxml2(swiftSoupParityMode: envBool("SWIFTSOUP_TEST_LIBXML2_SKIP_FALLBACKS") ? .libxml2Only : .swiftSoupParity)
+        case "libxml2-nofallback", "libxml2-skip-fallbacks", "libxml2-fast":
+            return .libxml2(swiftSoupParityMode: .libxml2Only)
 #endif
         default:
             return nil
         }
     }()
 
+    // Test-only override set by SwiftSoupTests to avoid env var dependency.
+    @usableFromInline
+    final class TestBackendOverrideBox: @unchecked Sendable {
+        var value: Backend? = nil
+        let lock = Mutex()
+    }
+
+    private static let testBackendOverrideBox = TestBackendOverrideBox()
+
+    internal static func setTestDefaultBackendOverride(_ backend: Backend?) {
+        let box = testBackendOverrideBox
+        box.lock.lock()
+        box.value = backend
+        box.lock.unlock()
+    }
+
+    private static func getTestDefaultBackendOverride() -> Backend? {
+        let box = testBackendOverrideBox
+        box.lock.lock()
+        let value = box.value
+        box.lock.unlock()
+        return value
+    }
+
     @inline(__always)
     private static func defaultBackend() -> Backend {
-        return defaultBackendOverride ?? .swiftSoup
+        return getTestDefaultBackendOverride() ?? defaultBackendOverride ?? .swiftSoup
     }
 
     @inline(__always)
@@ -70,10 +117,10 @@ public class Parser {
         case (.swiftSoup, .xml):
             return XmlTreeBuilder()
 #if canImport(CLibxml2) || canImport(libxml2)
-        case (.libxml2, .html):
-            return Libxml2TreeBuilder()
-        case (.libxml2, .xml):
-            return Libxml2XmlTreeBuilder()
+        case (.libxml2(let mode), .html):
+            return Libxml2TreeBuilder(skipSwiftSoupFallbacks: mode.skipSwiftSoupFallbacks)
+        case (.libxml2(let mode), .xml):
+            return Libxml2XmlTreeBuilder(skipSwiftSoupFallbacks: mode.skipSwiftSoupFallbacks)
 #endif
         }
     }
@@ -84,6 +131,11 @@ public class Parser {
     }
 
     public convenience init(mode: Mode = .html, backend: Backend) {
+        let parserType: ParserType = (mode == .html) ? .html : .xml
+        self.init(Parser.builder(for: backend, parserType: parserType))
+    }
+
+    public convenience init(backend: Backend, mode: Mode = .html) {
         let parserType: ParserType = (mode == .html) ? .html : .xml
         self.init(Parser.builder(for: backend, parserType: parserType))
     }
@@ -205,9 +257,19 @@ public class Parser {
 	*/
 	public static func parseFragment(_ fragmentHtml: [UInt8], _ context: Element?, _ baseUri: [UInt8]) throws -> Array<Node> {
         #if canImport(CLibxml2) || canImport(libxml2)
-        if let context,
-           context.ownerDocument()?.isLibxml2Backend == true || context.libxml2Context != nil {
-            return try parseFragment(fragmentHtml, context, baseUri, backend: .libxml2)
+        if let context {
+            if let backend = context.ownerDocument()?.parserBackend,
+               case .libxml2 = backend {
+                return try parseFragment(fragmentHtml, context, baseUri, backend: backend)
+            }
+            if context.libxml2Context != nil {
+                return try parseFragment(
+                    fragmentHtml,
+                    context,
+                    baseUri,
+                    backend: .libxml2(swiftSoupParityMode: .swiftSoupParity)
+                )
+            }
         }
         #endif
         let treeBuilder = HtmlTreeBuilder()
@@ -235,7 +297,29 @@ public class Parser {
                 treeBuilder.defaultSettings()
             )
 #if canImport(CLibxml2) || canImport(libxml2)
-        case .libxml2:
+        case .libxml2(let mode):
+            if mode == .libxml2Only {
+                if let context {
+                    let tagName = context.tagNameUTF8()
+                    if tagName == UTF8Arrays.title || tagName == UTF8Arrays.textarea || tagName == UTF8Arrays.head {
+                        let treeBuilder = HtmlTreeBuilder()
+                        return try treeBuilder.parseFragment(
+                            fragmentHtml,
+                            context,
+                            baseUri,
+                            ParseErrorList.noTracking(),
+                            treeBuilder.defaultSettings()
+                        )
+                    }
+                }
+                if let parsed = try Libxml2Backend.parseHtmlFragmentLibxml2Only(
+                        fragmentHtml,
+                        context: context,
+                        baseUri: baseUri
+                   ) {
+                    return parsed
+                }
+            }
             let treeBuilder = HtmlTreeBuilder()
             return try treeBuilder.parseFragment(
                 fragmentHtml,
@@ -271,6 +355,48 @@ public class Parser {
     
     public static func parseXmlFragment(_ fragmentXml: String, _ baseUri: String) throws -> Array<Node> {
         return try parseXmlFragment(fragmentXml.utf8Array, baseUri.utf8Array)
+    }
+
+    public static func parseXmlFragment(
+        _ fragmentXml: [UInt8],
+        _ baseUri: [UInt8],
+        backend: Backend
+    ) throws -> Array<Node> {
+        switch backend {
+        case .swiftSoup:
+            let treeBuilder: XmlTreeBuilder = XmlTreeBuilder()
+            return try treeBuilder.parseFragment(
+                fragmentXml,
+                baseUri,
+                ParseErrorList.noTracking(),
+                treeBuilder.defaultSettings()
+            )
+#if canImport(CLibxml2) || canImport(libxml2)
+        case .libxml2(let mode):
+            if mode == .libxml2Only,
+               let parsed = try Libxml2Backend.parseXmlFragmentLibxml2Only(
+                    fragmentXml,
+                    baseUri: baseUri
+               ) {
+                return parsed
+            }
+            let treeBuilder: XmlTreeBuilder = XmlTreeBuilder()
+            return try treeBuilder.parseFragment(
+                fragmentXml,
+                baseUri,
+                ParseErrorList.noTracking(),
+                treeBuilder.defaultSettings()
+            )
+#endif
+        }
+    }
+
+    public static func parseXmlFragment(
+        _ fragmentXml: String,
+        _ baseUri: String,
+        backend: Backend
+    ) throws -> Array<Node> {
+        return try parseXmlFragment(fragmentXml.utf8Array, baseUri.utf8Array, backend: backend)
     }
 
 	/**

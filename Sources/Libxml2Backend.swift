@@ -128,6 +128,13 @@ private final class Libxml2FallbackStats: @unchecked Sendable {
 }
 
 final class Libxml2TreeBuilder: TreeBuilder {
+    let skipSwiftSoupFallbacks: Bool
+
+    init(skipSwiftSoupFallbacks: Bool) {
+        self.skipSwiftSoupFallbacks = skipSwiftSoupFallbacks
+        super.init()
+    }
+
     override func defaultSettings() -> ParseSettings {
         return ParseSettings.htmlDefault
     }
@@ -154,6 +161,13 @@ final class Libxml2TreeBuilder: TreeBuilder {
 }
 
 final class Libxml2XmlTreeBuilder: TreeBuilder {
+    let skipSwiftSoupFallbacks: Bool
+
+    init(skipSwiftSoupFallbacks: Bool) {
+        self.skipSwiftSoupFallbacks = skipSwiftSoupFallbacks
+        super.init()
+    }
+
     override func defaultSettings() -> ParseSettings {
         return ParseSettings.preserveCase
     }
@@ -164,14 +178,13 @@ final class Libxml2XmlTreeBuilder: TreeBuilder {
         _ errors: ParseErrorList,
         _ settings: ParseSettings
     ) throws -> Document {
-        let fallbackBuilder = XmlTreeBuilder()
-        let doc = try fallbackBuilder.parse(input, baseUri, errors, settings)
-#if canImport(CLibxml2) || canImport(libxml2)
-        doc.parserBackend = .libxml2
-        doc.libxml2Preferred = true
-        Libxml2Backend.attachLibxml2Document(doc, isXml: true)
-#endif
-        return doc
+        return try Libxml2Backend.parseXML(
+            input,
+            baseUri: baseUri,
+            settings: settings,
+            errors: errors,
+            builder: self
+        )
     }
 }
 
@@ -266,6 +279,13 @@ private struct HtmlScanHints {
     mutating func consumeBooleanAttribute(index: Int) -> Bool {
         var queue = booleanAttributeOccurrences[index]
         guard let value = queue.consume() else { return false }
+        booleanAttributeOccurrences[index] = queue
+        return value
+    }
+
+    mutating func consumeBooleanAttributeOptional(index: Int) -> Bool? {
+        var queue = booleanAttributeOccurrences[index]
+        guard let value = queue.consume() else { return nil }
         booleanAttributeOccurrences[index] = queue
         return value
     }
@@ -543,46 +563,23 @@ private struct HtmlScanHintsCContext {
 }
 
 @inline(__always)
-private func lazyBuildEnabled() -> Bool {
-    let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_LIBXML2_LAZY"]?.lowercased()
-    return raw == "1" || raw == "true" || raw == "yes"
-}
-
-@inline(__always)
-private func unsafeNoScanEnabled() -> Bool {
-    let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_LIBXML2_UNSAFE_NO_SCAN"]?.lowercased()
-    return raw == "1" || raw == "true" || raw == "yes"
-}
-
-@inline(__always)
 private func scanHintsCEnabled(settings: ParseSettings) -> Bool {
-    if settings.preservesTagCase() {
-        return false
-    }
-    guard let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_LIBXML2_CSCAN"]?.lowercased() else {
-        return true
-    }
-    return !(raw == "0" || raw == "false" || raw == "no")
+    return !settings.preservesTagCase()
 }
 
 @inline(__always)
 private func fallbackCEnabled() -> Bool {
-    guard let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_LIBXML2_CFALLBACK"]?.lowercased() else {
-        return true
-    }
-    return !(raw == "0" || raw == "false" || raw == "no")
+    return true
 }
 
 @inline(__always)
 private func booleanHintsEnabled() -> Bool {
-    let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_LIBXML2_SKIP_BOOLEAN_HINTS"]?.lowercased()
-    return !(raw == "1" || raw == "true" || raw == "yes")
+    return true
 }
 
 @inline(__always)
 private func booleanCollectEnabled() -> Bool {
-    let raw = ProcessInfo.processInfo.environment["SWIFTSOUP_LIBXML2_COLLECT_BOOLEAN"]?.lowercased()
-    return raw == "1" || raw == "true" || raw == "yes"
+    return false
 }
 
 private let swiftsoupRecordSelfClosing: swiftsoup_record_selfclosing_fn = { name, length, isSelfClosing, ctx in
@@ -914,6 +911,11 @@ enum Libxml2Backend {
     private static let initialized: Void = {
         xmlInitParser()
     }()
+    private static let fragmentWrapperPrefix: [UInt8] = Array("<html><body>".utf8)
+    private static let fragmentWrapperSuffix: [UInt8] = Array("</body></html>".utf8)
+    private static let xmlFragmentWrapperPrefix: [UInt8] = Array("<root>".utf8)
+    private static let xmlFragmentWrapperSuffix: [UInt8] = Array("</root>".utf8)
+
     private struct Libxml2StartTagOverrides {
         var attributes: [UnsafeMutableRawPointer: Attributes]
         var tagNames: [UnsafeMutableRawPointer: [UInt8]]
@@ -936,6 +938,10 @@ enum Libxml2Backend {
     }
 
     private static let ltEntityBytes: [UInt8] = [0x26, 0x6C, 0x74, 0x3B] // "&lt;"
+    private static let htmlVoidTags: Set<[UInt8]> = Set([
+        "meta", "link", "base", "frame", "img", "br", "wbr", "embed", "hr", "input", "keygen", "col",
+        "command", "device", "area", "basefont", "bgsound", "menuitem", "param", "source", "track"
+    ].map { $0.utf8Array })
 
     private static func hasLeadingHtmlComment(_ input: [UInt8]) -> Bool {
         var i = 0
@@ -953,57 +959,555 @@ enum Libxml2Backend {
     }
 
     @inline(__always)
-    private static func withCacheLock<T>(
-        doc: Document?,
-        context: Libxml2DocumentContext?,
-        _ body: () -> T
-    ) -> T {
-        if let doc {
-            return doc.withLibxml2CacheLock(body)
-        }
-        if let context {
-            return context.withCacheLock(body)
-        }
-        return body()
-    }
-
-    @inline(__always)
     private static func isAsciiLetter(_ b: UInt8) -> Bool {
         return (b >= 0x41 && b <= 0x5A) || (b >= 0x61 && b <= 0x7A)
     }
 
     private static func sanitizeHtmlInputForLibxml2(_ input: [UInt8]) -> [UInt8] {
-        var needsEscape = false
+        var output: [UInt8]? = nil
         var i = 0
-        while i < input.count {
-            if input[i] == 0x3C { // '<'
-                let next = (i + 1 < input.count) ? input[i + 1] : nil
-                if shouldEscapeTagOpen(next: next, nextNext: (i + 2 < input.count) ? input[i + 2] : nil) {
-                    needsEscape = true
-                    break
-                }
-            }
-            i += 1
+        if input.count >= 3, input[0] == 0xEF, input[1] == 0xBB, input[2] == 0xBF {
+            var scratch: [UInt8] = []
+            scratch.reserveCapacity(input.count)
+            output = scratch
+            i = 3
         }
-        if !needsEscape { return input }
-        var output: [UInt8] = []
-        output.reserveCapacity(input.count + 8)
-        i = 0
+        var lowerNameBuffer: [UInt8] = []
+        lowerNameBuffer.reserveCapacity(16)
         while i < input.count {
             let b = input[i]
-            if b == 0x3C {
+            if b == 0x3C { // '<'
+                if i + 1 < input.count, input[i + 1] == 0x2F { // '</'
+                    var j = i + 2
+                    while j < input.count && isWhitespaceTable[Int(input[j])] {
+                        j += 1
+                    }
+                    let nameStart = j
+                    while j < input.count && isNameCharTable[Int(input[j])] {
+                        j += 1
+                    }
+                    if nameStart < j {
+                        let rawName = input[nameStart..<j]
+                        var sawUppercase = false
+                        for byte in rawName {
+                            if byte >= 0x41 && byte <= 0x5A {
+                                sawUppercase = true
+                                break
+                            }
+                        }
+                        let name: [UInt8]
+                        if sawUppercase {
+                            lowerNameBuffer.removeAll(keepingCapacity: true)
+                            lowerNameBuffer.reserveCapacity(rawName.count)
+                            for byte in rawName {
+                                lowerNameBuffer.append(asciiLowerTable[Int(byte)])
+                            }
+                            name = lowerNameBuffer
+                        } else {
+                            name = Array(rawName)
+                        }
+                        if htmlVoidTags.contains(name) {
+                            if output == nil {
+                                var scratch: [UInt8] = []
+                                scratch.reserveCapacity(input.count + 8)
+                                if i > 0 {
+                                    scratch.append(contentsOf: input[0..<i])
+                                }
+                                output = scratch
+                            }
+                            while j < input.count && input[j] != 0x3E {
+                                j += 1
+                            }
+                            i = min(j + 1, input.count)
+                            continue
+                        }
+                    }
+                }
                 let next = (i + 1 < input.count) ? input[i + 1] : nil
                 let nextNext = (i + 2 < input.count) ? input[i + 2] : nil
                 if shouldEscapeTagOpen(next: next, nextNext: nextNext) {
-                    output.append(contentsOf: ltEntityBytes)
+                    if output == nil {
+                        var scratch: [UInt8] = []
+                        scratch.reserveCapacity(input.count + 8)
+                        if i > 0 {
+                            scratch.append(contentsOf: input[0..<i])
+                        }
+                        output = scratch
+                    }
+                    output?.append(contentsOf: ltEntityBytes)
                     i += 1
                     continue
                 }
             }
+            if output != nil {
+                output?.append(b)
+            }
+            i += 1
+        }
+        return output ?? input
+    }
+
+    private static func sanitizeXmlInputForLibxml2(_ input: [UInt8], settings: ParseSettings) -> [UInt8] {
+        let (stripped, strippedChanged) = stripUnmatchedXmlEndTags(input, settings: settings)
+        guard !stripped.isEmpty else { return stripped }
+        var output: [UInt8] = []
+        output.reserveCapacity(stripped.count + 16)
+        var inTag = false
+        var quote: UInt8? = nil
+        var changed = false
+        var i = 0
+        while i < stripped.count {
+            let b = stripped[i]
+            if !inTag {
+                if b == 0x3C { // '<'
+                    inTag = true
+                    quote = nil
+                }
+                output.append(b)
+                i += 1
+                continue
+            }
+            if let q = quote {
+                output.append(b)
+                if b == q {
+                    quote = nil
+                }
+                i += 1
+                continue
+            }
+            if b == 0x22 || b == 0x27 { // '"' or '\''
+                quote = b
+                output.append(b)
+                i += 1
+                continue
+            }
+            if b == 0x3E { // '>'
+                inTag = false
+                output.append(b)
+                i += 1
+                continue
+            }
+            if b == 0x3D { // '='
+                output.append(b)
+                i += 1
+                while i < stripped.count && isWhitespaceTable[Int(stripped[i])] {
+                    output.append(stripped[i])
+                    i += 1
+                }
+                if i >= stripped.count {
+                    break
+                }
+                let next = stripped[i]
+                if next == 0x22 || next == 0x27 { // already quoted
+                    continue
+                }
+                if next == 0x3E { // end tag
+                    continue
+                }
+                if next == 0x2F && i + 1 < stripped.count && stripped[i + 1] == 0x3E { // />
+                    continue
+                }
+                // Unquoted attribute value; quote it until whitespace or tag end.
+                output.append(0x22) // "
+                var k = i
+                while k < stripped.count {
+                    let c = stripped[k]
+                    if isWhitespaceTable[Int(c)] || c == 0x3E { break }
+                    if c == 0x2F && k + 1 < stripped.count && stripped[k + 1] == 0x3E { break }
+                    output.append(c)
+                    k += 1
+                }
+                output.append(0x22)
+                changed = true
+                i = k
+                continue
+            }
             output.append(b)
             i += 1
         }
-        return output
+        return (changed || strippedChanged) ? output : input
+    }
+
+    private static func stripUnmatchedXmlEndTags(_ input: [UInt8], settings: ParseSettings) -> ([UInt8], Bool) {
+        guard !input.isEmpty else { return (input, false) }
+        var output: [UInt8] = []
+        output.reserveCapacity(input.count)
+        var stack: [[UInt8]] = []
+        var i = 0
+        var changed = false
+
+        @inline(__always)
+        func normalized(_ name: [UInt8]) -> [UInt8] {
+            return containsUppercaseAscii(name) ? settings.normalizeTag(name) : name
+        }
+
+        @inline(__always)
+        func scanTagEnd(from start: Int) -> Int {
+            var idx = start
+            var quote: UInt8? = nil
+            while idx < input.count {
+                let b = input[idx]
+                if let q = quote {
+                    if b == q { quote = nil }
+                } else {
+                    if b == 0x22 || b == 0x27 {
+                        quote = b
+                    } else if b == 0x3E {
+                        return idx + 1
+                    }
+                }
+                idx += 1
+            }
+            return input.count
+        }
+
+        @inline(__always)
+        func isSelfClosingTag(start: Int, end: Int) -> Bool {
+            var idx = end - 1
+            while idx > start && isWhitespaceTable[Int(input[idx])] {
+                idx -= 1
+            }
+            return idx > start && input[idx] == 0x2F
+        }
+
+        while i < input.count {
+            let b = input[i]
+            if b != 0x3C { // '<'
+                output.append(b)
+                i += 1
+                continue
+            }
+            if i + 1 >= input.count {
+                output.append(b)
+                break
+            }
+            let next = input[i + 1]
+            if next == 0x21 { // '!' comment/cdata/doctype
+                if i + 3 < input.count && input[i + 2] == 0x2D && input[i + 3] == 0x2D { // <!--
+                    var j = i + 4
+                    while j + 2 < input.count {
+                        if input[j] == 0x2D && input[j + 1] == 0x2D && input[j + 2] == 0x3E {
+                            j += 3
+                            break
+                        }
+                        j += 1
+                    }
+                    let end = min(j, input.count)
+                    output.append(contentsOf: input[i..<end])
+                    i = end
+                    continue
+                }
+                if i + 8 < input.count,
+                   input[i + 2] == 0x5B,
+                   input[i + 3] == 0x43,
+                   input[i + 4] == 0x44,
+                   input[i + 5] == 0x41,
+                   input[i + 6] == 0x54,
+                   input[i + 7] == 0x41,
+                   input[i + 8] == 0x5B { // <![CDATA[
+                    var j = i + 9
+                    while j + 2 < input.count {
+                        if input[j] == 0x5D && input[j + 1] == 0x5D && input[j + 2] == 0x3E {
+                            j += 3
+                            break
+                        }
+                        j += 1
+                    }
+                    let end = min(j, input.count)
+                    output.append(contentsOf: input[i..<end])
+                    i = end
+                    continue
+                }
+                let end = scanTagEnd(from: i + 2)
+                output.append(contentsOf: input[i..<end])
+                i = end
+                continue
+            }
+            if next == 0x3F { // '?'
+                var j = i + 2
+                while j + 1 < input.count {
+                    if input[j] == 0x3F && input[j + 1] == 0x3E {
+                        j += 2
+                        break
+                    }
+                    j += 1
+                }
+                let end = min(j, input.count)
+                output.append(contentsOf: input[i..<end])
+                i = end
+                continue
+            }
+            if next == 0x2F { // end tag
+                var j = i + 2
+                while j < input.count && isWhitespaceTable[Int(input[j])] {
+                    j += 1
+                }
+                let nameStart = j
+                while j < input.count && isNameCharTable[Int(input[j])] {
+                    j += 1
+                }
+                let tagEnd = scanTagEnd(from: j)
+                if nameStart == j {
+                    output.append(contentsOf: input[i..<tagEnd])
+                    i = tagEnd
+                    continue
+                }
+                let rawName = Array(input[nameStart..<j])
+                let name = normalized(rawName)
+                if let idx = stack.lastIndex(of: name) {
+                    stack.removeSubrange(idx..<stack.count)
+                    output.append(contentsOf: input[i..<tagEnd])
+                } else {
+                    changed = true
+                }
+                i = tagEnd
+                continue
+            }
+            if !isNameCharTable[Int(next)] {
+                output.append(b)
+                i += 1
+                continue
+            }
+            var j = i + 1
+            while j < input.count && isNameCharTable[Int(input[j])] {
+                j += 1
+            }
+            let nameBytes = Array(input[(i + 1)..<j])
+            let tagEnd = scanTagEnd(from: j)
+            if !isSelfClosingTag(start: i + 1, end: tagEnd - 1), !nameBytes.isEmpty {
+                stack.append(normalized(nameBytes))
+            }
+            output.append(contentsOf: input[i..<tagEnd])
+            i = tagEnd
+        }
+
+        return changed ? (output, true) : (input, false)
+    }
+
+    private static func containsEndTagForHtmlVoidTags(_ input: [UInt8]) -> Bool {
+        guard !input.isEmpty else { return false }
+        var i = 0
+
+        @inline(__always)
+        func scanTagEnd(from start: Int) -> Int {
+            var idx = start
+            var quote: UInt8? = nil
+            while idx < input.count {
+                let b = input[idx]
+                if let q = quote {
+                    if b == q { quote = nil }
+                } else {
+                    if b == 0x22 || b == 0x27 {
+                        quote = b
+                    } else if b == 0x3E {
+                        return idx + 1
+                    }
+                }
+                idx += 1
+            }
+            return input.count
+        }
+
+        @inline(__always)
+        func loweredAscii(_ bytes: [UInt8]) -> [UInt8] {
+            var lowered = bytes
+            for idx in lowered.indices {
+                lowered[idx] = asciiLowerTable[Int(lowered[idx])]
+            }
+            return lowered
+        }
+
+        while i < input.count {
+            let b = input[i]
+            if b != 0x3C { // '<'
+                i += 1
+                continue
+            }
+            if i + 1 >= input.count {
+                return false
+            }
+            let next = input[i + 1]
+            if next == 0x21 { // '!' comment/cdata/doctype
+                if i + 3 < input.count && input[i + 2] == 0x2D && input[i + 3] == 0x2D { // <!--
+                    var j = i + 4
+                    while j + 2 < input.count {
+                        if input[j] == 0x2D && input[j + 1] == 0x2D && input[j + 2] == 0x3E {
+                            j += 3
+                            break
+                        }
+                        j += 1
+                    }
+                    i = min(j, input.count)
+                    continue
+                }
+                if i + 8 < input.count,
+                   input[i + 2] == 0x5B,
+                   input[i + 3] == 0x43,
+                   input[i + 4] == 0x44,
+                   input[i + 5] == 0x41,
+                   input[i + 6] == 0x54,
+                   input[i + 7] == 0x41,
+                   input[i + 8] == 0x5B { // <![CDATA[
+                    var j = i + 9
+                    while j + 2 < input.count {
+                        if input[j] == 0x5D && input[j + 1] == 0x5D && input[j + 2] == 0x3E {
+                            j += 3
+                            break
+                        }
+                        j += 1
+                    }
+                    i = min(j, input.count)
+                    continue
+                }
+                i = scanTagEnd(from: i + 2)
+                continue
+            }
+            if next == 0x3F { // '?'
+                var j = i + 2
+                while j + 1 < input.count {
+                    if input[j] == 0x3F && input[j + 1] == 0x3E {
+                        j += 2
+                        break
+                    }
+                    j += 1
+                }
+                i = min(j, input.count)
+                continue
+            }
+            if next == 0x2F { // end tag
+                var j = i + 2
+                while j < input.count && isWhitespaceTable[Int(input[j])] {
+                    j += 1
+                }
+                let nameStart = j
+                while j < input.count && isNameCharTable[Int(input[j])] {
+                    j += 1
+                }
+                let tagEnd = scanTagEnd(from: j)
+                if nameStart < j {
+                    let rawName = Array(input[nameStart..<j])
+                    let name = containsUppercaseAscii(rawName) ? loweredAscii(rawName) : rawName
+                    if htmlVoidTags.contains(name) {
+                        return true
+                    }
+                }
+                i = tagEnd
+                continue
+            }
+            i += 1
+        }
+        return false
+    }
+
+    private static func containsHtmlCommentDashDashDash(_ input: [UInt8]) -> Bool {
+        guard input.count >= 5 else { return false }
+        let limit = input.count - 4
+        var i = 0
+        while i < limit {
+            if input[i] == 0x3C, // '<'
+               input[i + 1] == 0x21, // '!'
+               input[i + 2] == 0x2D, // '-'
+               input[i + 3] == 0x2D, // '-'
+               input[i + 4] == 0x2D { // '-'
+                return true
+            }
+            i += 1
+        }
+        return false
+    }
+
+    private static func containsHtmlCdata(_ input: [UInt8]) -> Bool {
+        guard input.count >= 9 else { return false }
+        let limit = input.count - 8
+        var i = 0
+        while i < limit {
+            if input[i] == 0x3C, // '<'
+               input[i + 1] == 0x21, // '!'
+               input[i + 2] == 0x5B, // '['
+               input[i + 3] == 0x43, // 'C'
+               input[i + 4] == 0x44, // 'D'
+               input[i + 5] == 0x41, // 'A'
+               input[i + 6] == 0x54, // 'T'
+               input[i + 7] == 0x41, // 'A'
+               input[i + 8] == 0x5B { // '['
+                return true
+            }
+            i += 1
+        }
+        return false
+    }
+
+    private static func containsConditionalComment(_ input: [UInt8]) -> Bool {
+        guard input.count >= 7 else { return false }
+        let needle: [UInt8] = [0x3C, 0x21, 0x2D, 0x2D, 0x5B, 0x69, 0x66] // "<!--[if"
+        let limit = input.count - needle.count
+        var i = 0
+        while i <= limit {
+            if input[i] == needle[0],
+               input[i + 1] == needle[1],
+               input[i + 2] == needle[2],
+               input[i + 3] == needle[3],
+               input[i + 4] == needle[4],
+               (input[i + 5] | 0x20) == needle[5],
+               (input[i + 6] | 0x20) == needle[6] {
+                return true
+            }
+            i += 1
+        }
+        return false
+    }
+
+    private static func containsXmlnsAttribute(_ input: [UInt8]) -> Bool {
+        guard input.count >= 5 else { return false }
+        let needle: [UInt8] = [0x78, 0x6D, 0x6C, 0x6E, 0x73] // "xmlns"
+        let limit = input.count - needle.count
+        var i = 0
+        while i <= limit {
+            if (input[i] | 0x20) == needle[0],
+               (input[i + 1] | 0x20) == needle[1],
+               (input[i + 2] | 0x20) == needle[2],
+               (input[i + 3] | 0x20) == needle[3],
+               (input[i + 4] | 0x20) == needle[4] {
+                return true
+            }
+            i += 1
+        }
+        return false
+    }
+
+    private static func containsAnchorWithParagraph(_ input: [UInt8]) -> Bool {
+        guard input.count >= 4 else { return false }
+        var inAnchor = false
+        var sawParagraphInAnchor = false
+        var i = 0
+        let count = input.count
+        while i + 2 < count {
+            if input[i] == 0x3C { // '<'
+                let next = input[i + 1]
+                let tagStart = i + (next == 0x2F ? 2 : 1)
+                if tagStart < count {
+                    let b = input[tagStart] | 0x20
+                    if next == 0x2F {
+                        if b == 0x61 { // </a>
+                            if inAnchor && sawParagraphInAnchor {
+                                return true
+                            }
+                            inAnchor = false
+                            sawParagraphInAnchor = false
+                        }
+                    } else {
+                        if b == 0x61 { // <a>
+                            inAnchor = true
+                            sawParagraphInAnchor = false
+                        } else if b == 0x70, inAnchor { // <p> inside <a>
+                            sawParagraphInAnchor = true
+                        }
+                    }
+                }
+            }
+            i += 1
+        }
+        return false
     }
 
     @inline(__always)
@@ -1028,6 +1532,61 @@ enum Libxml2Backend {
     @inline(__always)
     private static func tagForName(_ name: [UInt8]) -> Tag? {
         return try? Tag.valueOfNormalized(name, isSelfClosing: false)
+    }
+
+    private static func xmlDeclarationFromInput(
+        _ input: [UInt8],
+        baseUri: [UInt8],
+        settings: ParseSettings
+    ) -> XmlDeclaration? {
+        guard !input.isEmpty else { return nil }
+        var i = 0
+        while i < input.count, input[i].isWhitespace {
+            i += 1
+        }
+        guard i + 4 < input.count else { return nil }
+        guard input[i] == 0x3C, input[i + 1] == 0x3F else { return nil } // <?
+        let x = input[i + 2]
+        let m = input[i + 3]
+        let l = input[i + 4]
+        guard x == 0x78 && m == 0x6D && l == 0x6C else {
+            return nil
+        }
+        var end = i + 5
+        while end + 1 < input.count {
+            if input[end] == 0x3F && input[end + 1] == 0x3E {
+                break
+            }
+            end += 1
+        }
+        guard end + 1 < input.count else { return nil }
+        let attrStart = i + 5
+        if attrStart > end { return nil }
+        var attrs = Array(input[attrStart..<end])
+        if !attrs.isEmpty {
+            attrs = attrs.trim()
+        }
+        var tagBytes: [UInt8] = []
+        tagBytes.reserveCapacity(attrs.count + 8)
+        tagBytes.append(contentsOf: UTF8Arrays.tagStart)
+        tagBytes.append(contentsOf: "xml".utf8Array)
+        if !attrs.isEmpty {
+            tagBytes.append(0x20)
+            tagBytes.append(contentsOf: attrs)
+        }
+        tagBytes.append(contentsOf: UTF8Arrays.tagEnd)
+
+        let collector = Libxml2AttributeCollector()
+        collector.initialiseParse(tagBytes, baseUri, ParseErrorList.noTracking(), settings)
+        _ = try? collector.runParser()
+        let declName = "xml".utf8Array
+        let declaration = XmlDeclaration(declName, baseUri, false)
+        if let entry = collector.startTags.first {
+            for attr in entry.attributes.asList() {
+                _ = try? declaration.attr(attr.getKeyUTF8(), attr.getValueUTF8())
+            }
+        }
+        return declaration
     }
 
     @inline(__always)
@@ -1213,10 +1772,107 @@ enum Libxml2Backend {
         return textFromLibxml2DocPtr(docPtr, settings: state.settings, trim: trim)
     }
 
+    static func textFromLibxml2Node(_ element: Element, trim: Bool) -> [UInt8]? {
+        let doc = element.ownerDocument()
+        let context = doc?.libxml2Context ?? element.libxml2Context
+        if let doc {
+            guard doc.isLibxml2Backend else { return nil }
+            if doc.libxml2BackedDirty {
+                return nil
+            }
+        } else {
+            guard context != nil else { return nil }
+        }
+        guard let nodePtr = element.libxml2NodePtr else { return nil }
+        let settings = doc?.treeBuilder?.settings ?? context?.settings ?? ParseSettings.htmlDefault
+        return textFromLibxml2NodePtr(nodePtr, settings: settings, trim: trim)
+    }
+
+    static func ownTextFromLibxml2Node(_ element: Element) -> [UInt8]? {
+        let doc = element.ownerDocument()
+        let context = doc?.libxml2Context ?? element.libxml2Context
+        if let doc {
+            guard doc.isLibxml2Backend else { return nil }
+            if doc.libxml2BackedDirty {
+                return nil
+            }
+        } else {
+            guard context != nil else { return nil }
+        }
+        guard let nodePtr = element.libxml2NodePtr else { return nil }
+        let settings = doc?.treeBuilder?.settings ?? context?.settings ?? ParseSettings.htmlDefault
+        return ownTextFromLibxml2NodePtr(nodePtr, settings: settings, element: element)
+    }
+
     static func textFromLibxml2Doc(_ doc: Document, trim: Bool) -> [UInt8]? {
         guard let docPtr = doc.libxml2DocPtr else { return nil }
         let settings = doc.treeBuilder?.settings ?? ParseSettings.htmlDefault
         return textFromLibxml2DocPtr(docPtr, settings: settings, trim: trim)
+    }
+
+    private static func textFromLibxml2NodePtr(
+        _ nodePtr: xmlNodePtr,
+        settings: ParseSettings,
+        trim: Bool
+    ) -> [UInt8] {
+        let accum = StringBuilder()
+        if trim {
+            let (lastWasWhite, sawWhitespace) = collectTextLibxml2Trimmed(
+                from: nodePtr,
+                settings: settings,
+                accum: accum
+            )
+            if sawWhitespace, let first = accum.buffer.first, first.isWhitespace {
+                return Array(accum.buffer.trim())
+            }
+            if sawWhitespace, lastWasWhite {
+                accum.trimTrailingWhitespace()
+            }
+            return Array(accum.buffer)
+        }
+        collectTextLibxml2Raw(from: nodePtr, settings: settings, accum: accum)
+        return Array(accum.buffer)
+    }
+
+    private static func ownTextFromLibxml2NodePtr(
+        _ nodePtr: xmlNodePtr,
+        settings: ParseSettings,
+        element: Element
+    ) -> [UInt8] {
+        let accum = StringBuilder()
+        let preserveWhitespace = Element.preserveWhitespace(element)
+        var cursor: xmlNodePtr? = nodePtr.pointee.children
+        while let current = cursor {
+            switch current.pointee.type {
+            case XML_TEXT_NODE, XML_CDATA_SECTION_NODE, XML_ENTITY_REF_NODE:
+                let content = libxml2NodeContent(current)
+                if preserveWhitespace {
+                    accum.append(content)
+                } else {
+                    StringUtil.appendNormalisedWhitespace(
+                        accum,
+                        string: content,
+                        stripLeading: TextNode.lastCharIsWhitespace(accum)
+                    )
+                }
+            case XML_ELEMENT_NODE:
+                if let name = current.pointee.name {
+                    let tagName = bytesFromXmlChar(name)
+                    if equalsIgnoreCaseAscii(tagName, UTF8Arrays.br),
+                       !TextNode.lastCharIsWhitespace(accum) {
+                        accum.append(UTF8Arrays.whitespace)
+                    }
+                }
+            default:
+                break
+            }
+            cursor = current.pointee.next
+        }
+        if let first = accum.buffer.first, first.isWhitespace {
+            return Array(accum.buffer.trim())
+        }
+        accum.trimTrailingWhitespace()
+        return Array(accum.buffer)
     }
 
     private static func buildStartTagOverrides(
@@ -1315,6 +1971,64 @@ enum Libxml2Backend {
         return Libxml2StartTagOverrides(attributes: attributes, tagNames: tagNames)
     }
 
+    private static func buildExplicitBooleanAttributes(
+        docPtr: xmlDocPtr,
+        settings: ParseSettings,
+        hints: inout HtmlScanHints
+    ) -> [UnsafeMutableRawPointer: Set<[UInt8]>] {
+        var explicit: [UnsafeMutableRawPointer: Set<[UInt8]>] = [:]
+
+        var stack: [xmlNodePtr] = []
+        if let root = docPtr.pointee.children {
+            var cursor: xmlNodePtr? = root
+            var roots: [xmlNodePtr] = []
+            while let node = cursor {
+                roots.append(node)
+                cursor = node.pointee.next
+            }
+            for node in roots.reversed() {
+                stack.append(node)
+            }
+        }
+
+        while let node = stack.popLast() {
+            if node.pointee.type == XML_ELEMENT_NODE {
+                var explicitSet: Set<[UInt8]> = []
+                if var attr = node.pointee.properties {
+                    while true {
+                        let rawAttrName = qualifiedName(for: attr)
+                        let attrName = containsUppercaseAscii(rawAttrName) ? settings.normalizeAttribute(rawAttrName) : rawAttrName
+                        if let booleanIndex = booleanAttributeIndex(for: attrName[...]),
+                           let isBoolean = hints.consumeBooleanAttributeOptional(index: booleanIndex),
+                           !isBoolean {
+                            explicitSet.insert(attrName)
+                        }
+                        guard let next = attr.pointee.next else { break }
+                        attr = next
+                    }
+                }
+                if !explicitSet.isEmpty {
+                    explicit[UnsafeMutableRawPointer(node)] = explicitSet
+                }
+            }
+            if let child = node.pointee.children {
+                var children: [xmlNodePtr] = []
+                var cursor: xmlNodePtr? = child
+                while let current = cursor {
+                    children.append(current)
+                    cursor = current.pointee.next
+                }
+                if !children.isEmpty {
+                    for childNode in children.reversed() {
+                        stack.append(childNode)
+                    }
+                }
+            }
+        }
+
+        return explicit
+    }
+
     @inline(__always)
     private static func localName(from tagName: [UInt8]) -> [UInt8]? {
         guard let idx = tagName.lastIndex(of: 0x3A) else { return nil }
@@ -1324,11 +2038,104 @@ enum Libxml2Backend {
     }
 
     @inline(__always)
+    private static func shouldBuildTagNameOverridesForNamespaces(_ input: [UInt8]) -> Bool {
+        guard !input.isEmpty else { return false }
+        var i = 0
+        while i < input.count {
+            if input[i] != 0x3C { // '<'
+                i += 1
+                continue
+            }
+            if i + 1 >= input.count {
+                return false
+            }
+            let next = input[i + 1]
+            if next == 0x21 || next == 0x3F { // ! or ?
+                i += 2
+                while i < input.count && input[i] != 0x3E {
+                    i += 1
+                }
+                i += 1
+                continue
+            }
+            var j = i + 1
+            if next == 0x2F { // '/'
+                j += 1
+            }
+            if j >= input.count || !isNameCharTable[Int(input[j])] {
+                i += 1
+                continue
+            }
+            while j < input.count && isNameCharTable[Int(input[j])] {
+                if input[j] == 0x3A { // ':'
+                    return true
+                }
+                j += 1
+            }
+            i = j
+        }
+        return false
+    }
+
+    @inline(__always)
     private static func shouldBuildAttributeOverrides(
         _ input: [UInt8],
         preserveCase: Bool
     ) -> Bool {
-        return !input.isEmpty
+        guard !input.isEmpty else { return false }
+        if preserveCase {
+            return true
+        }
+        var inTag = false
+        var quote: UInt8? = nil
+        var i = 0
+        while i < input.count {
+            let b = input[i]
+            if !inTag {
+                if b == 0x3C { // '<'
+                    let next = (i + 1 < input.count) ? input[i + 1] : nil
+                    let nextNext = (i + 2 < input.count) ? input[i + 2] : nil
+                    if shouldEscapeTagOpen(next: next, nextNext: nextNext) {
+                        i += 1
+                        continue
+                    }
+                    inTag = true
+                    quote = nil
+                }
+                i += 1
+                continue
+            }
+            if let q = quote {
+                if b == q {
+                    quote = nil
+                }
+                i += 1
+                continue
+            }
+            if b == 0x22 || b == 0x27 { // '"' or '\''
+                quote = b
+                i += 1
+                continue
+            }
+            if b == 0x3E { // '>'
+                inTag = false
+                i += 1
+                continue
+            }
+            if b == 0x2F { // '/'
+                let prev = i > 0 ? input[i - 1] : nil
+                if let prev, isWhitespaceTable[Int(prev)] || prev == 0x22 || prev == 0x27 {
+                    if i + 1 < input.count {
+                        let next = input[i + 1]
+                        if isAsciiLetter(next) {
+                            return true
+                        }
+                    }
+                }
+            }
+            i += 1
+        }
+        return false
     }
 
     @inline(__always)
@@ -1339,6 +2146,12 @@ enum Libxml2Backend {
             guard doc.isLibxml2Backend else { return }
         } else {
             guard context != nil else { return }
+        }
+        if !(parent is Document) && !(parent is Element) {
+            return
+        }
+        if !(parent is Document), parent.libxml2NodePtr == nil {
+            return
         }
         if parent.libxml2Context == nil, let context {
             parent.libxml2Context = context
@@ -1357,6 +2170,16 @@ enum Libxml2Backend {
         let baseUri = parent.baseUri ?? doc?.baseUri ?? context?.baseUri ?? []
 
         var children: [Node] = []
+        if parent is Document, let doc, doc.parsedAsXml,
+           let original = doc.libxml2OriginalInput,
+           let decl = xmlDeclarationFromInput(original, baseUri: baseUri, settings: settings) {
+            decl.treeBuilder = doc.treeBuilder
+            decl.parentNode = parent
+            decl.setSiblingIndex(children.count)
+            decl.libxml2Context = context
+            children.append(decl)
+        }
+
         if parent is Document, let dtd = xmlGetIntSubset(docPtr) {
             let rawName = bytesFromXmlChar(dtd.pointee.name)
             let name = containsUppercaseAscii(rawName) ? settings.normalizeTag(rawName) : rawName
@@ -1458,10 +2281,8 @@ enum Libxml2Backend {
         element.libxml2AttributesHydrated = true
         guard let nodePtr = element.libxml2NodePtr,
               let docPtr = doc?.libxml2DocPtr ?? context?.docPtr else { return }
-        let override = withCacheLock(doc: doc, context: context) {
-            (doc?.libxml2AttributeOverrides ?? context?.attributeOverrides)?[UnsafeMutableRawPointer(nodePtr)]
-        }
-        if let override {
+        if let overrides = doc?.libxml2AttributeOverrides ?? context?.attributeOverrides,
+           let override = overrides[UnsafeMutableRawPointer(nodePtr)] {
             override.ownerElement = element
             element.attributes = override
             return
@@ -1470,61 +2291,67 @@ enum Libxml2Backend {
 
         let attributes = Attributes()
         attributes.ownerElement = element
-        if var attr = nodePtr.pointee.properties {
-            while true {
-                let rawAttrName = qualifiedName(for: attr)
-                let attrName = containsUppercaseAscii(rawAttrName) ? settings.normalizeAttribute(rawAttrName) : rawAttrName
-                let booleanIndex = booleanAttributeIndex(for: attrName[...])
-                var isBoolean = false
-                var value: [UInt8]? = nil
-                if let _ = booleanIndex {
-                    if attr.pointee.children == nil {
-                        isBoolean = true
-                    } else {
-                        if let child = attr.pointee.children,
-                           child.pointee.next == nil,
-                           (child.pointee.type == XML_TEXT_NODE || child.pointee.type == XML_ENTITY_REF_NODE),
-                           let contentPtr = child.pointee.content {
-                            value = bytesFromXmlChar(contentPtr)
-                        } else {
-                            let valuePtr = xmlNodeListGetString(docPtr, attr.pointee.children, 1)
-                            value = bytesFromXmlChar(valuePtr)
-                            if let valuePtr {
-                                xmlFree(valuePtr)
-                            }
-                        }
-                        if let value, equalsIgnoreCaseAscii(attrName, value) {
+        let explicitMap = doc?.libxml2ExplicitBooleanAttributes ?? context?.explicitBooleanAttributes
+        element.withLibxml2DirtySuppressed {
+            if var attr = nodePtr.pointee.properties {
+                while true {
+                    let rawAttrName = qualifiedName(for: attr)
+                    let attrName = containsUppercaseAscii(rawAttrName) ? settings.normalizeAttribute(rawAttrName) : rawAttrName
+                    let booleanIndex = booleanAttributeIndex(for: attrName[...])
+                    let explicitBoolean = explicitMap?[UnsafeMutableRawPointer(nodePtr)]?.contains(attrName) ?? false
+                    var isBoolean = false
+                    var value: [UInt8]? = nil
+                    if let _ = booleanIndex {
+                        if explicitBoolean {
+                            isBoolean = false
+                        } else if attr.pointee.children == nil {
                             isBoolean = true
-                        }
-                    }
-                } else if attr.pointee.children == nil {
-                    isBoolean = true
-                }
-                if isBoolean {
-                    if let booleanAttr = try? BooleanAttribute(key: attrName) {
-                        attributes.put(attribute: booleanAttr)
-                    }
-                } else {
-                    if value == nil {
-                        if let child = attr.pointee.children,
-                           child.pointee.next == nil,
-                           (child.pointee.type == XML_TEXT_NODE || child.pointee.type == XML_ENTITY_REF_NODE),
-                           let contentPtr = child.pointee.content {
-                            value = bytesFromXmlChar(contentPtr)
                         } else {
-                            let valuePtr = xmlNodeListGetString(docPtr, attr.pointee.children, 1)
-                            value = bytesFromXmlChar(valuePtr)
-                            if let valuePtr {
-                                xmlFree(valuePtr)
+                            if let child = attr.pointee.children,
+                               child.pointee.next == nil,
+                               (child.pointee.type == XML_TEXT_NODE || child.pointee.type == XML_ENTITY_REF_NODE),
+                               let contentPtr = child.pointee.content {
+                                value = bytesFromXmlChar(contentPtr)
+                            } else {
+                                let valuePtr = xmlNodeListGetString(docPtr, attr.pointee.children, 1)
+                                value = bytesFromXmlChar(valuePtr)
+                                if let valuePtr {
+                                    xmlFree(valuePtr)
+                                }
+                            }
+                            if let value, equalsIgnoreCaseAscii(attrName, value) {
+                                isBoolean = true
                             }
                         }
+                    } else if attr.pointee.children == nil {
+                        isBoolean = true
                     }
-                    if let value {
-                        try? attributes.put(attrName, value)
+                    if isBoolean {
+                        if let booleanAttr = try? BooleanAttribute(key: attrName) {
+                            attributes.put(attribute: booleanAttr)
+                        }
+                    } else {
+                        if value == nil {
+                            if let child = attr.pointee.children,
+                               child.pointee.next == nil,
+                               (child.pointee.type == XML_TEXT_NODE || child.pointee.type == XML_ENTITY_REF_NODE),
+                               let contentPtr = child.pointee.content {
+                                value = bytesFromXmlChar(contentPtr)
+                            } else {
+                                let valuePtr = xmlNodeListGetString(docPtr, attr.pointee.children, 1)
+                                value = bytesFromXmlChar(valuePtr)
+                                if let valuePtr {
+                                    xmlFree(valuePtr)
+                                }
+                            }
+                        }
+                        if let value {
+                            try? attributes.put(attrName, value)
+                        }
                     }
+                    guard let next = attr.pointee.next else { break }
+                    attr = next
                 }
-                guard let next = attr.pointee.next else { break }
-                attr = next
             }
         }
         element._attributes = attributes
@@ -1608,9 +2435,7 @@ enum Libxml2Backend {
         let type = node.pointee.type
         switch type {
         case XML_ELEMENT_NODE:
-            let overrideName = withCacheLock(doc: doc, context: context) {
-                doc?.libxml2TagNameOverrides?[UnsafeMutableRawPointer(node)]
-            }
+            let overrideName = doc?.libxml2TagNameOverrides?[UnsafeMutableRawPointer(node)]
             let rawName = overrideName ?? qualifiedName(for: node)
             let normalizedName = containsUppercaseAscii(rawName) ? settings.normalizeTag(rawName) : rawName
             let isUnknown = !Tag.isKnownTag(normalizedName)
@@ -1662,14 +2487,14 @@ enum Libxml2Backend {
             let name = bytesFromXmlChar(node.pointee.name)
             let normalizedName = containsUppercaseAscii(name) ? settings.normalizeTag(name) : name
             let declaration = XmlDeclaration(normalizedName, baseUri, false)
-            if let contentPtr = node.pointee.content {
-                let content = String(decoding: bytesFromXmlChar(contentPtr), as: UTF8.self)
-                let base = String(decoding: baseUri, as: UTF8.self)
-                if let tempDoc = try? Parser.xmlParser().parseInput("<" + declaration.name() + " " + content + ">", base),
-                   let el = tempDoc.childNodes.first as? Element {
-                    declaration.getAttributes()?.addAll(incoming: el.getAttributes())
+                if let contentPtr = node.pointee.content {
+                    let content = String(decoding: bytesFromXmlChar(contentPtr), as: UTF8.self)
+                    let base = String(decoding: baseUri, as: UTF8.self)
+                    if let tempDoc = try? Parser.xmlParser(.swiftSoup).parseInput("<" + declaration.name() + " " + content + ">", base),
+                       let el = tempDoc.childNodes.first as? Element {
+                        declaration.getAttributes()?.addAll(incoming: el.getAttributes())
+                    }
                 }
-            }
             declaration.libxml2NodePtr = node
             declaration.libxml2Context = context
             node.pointee._private = Unmanaged.passUnretained(declaration).toOpaque()
@@ -1694,29 +2519,55 @@ enum Libxml2Backend {
     }
 
     @inline(__always)
+    static func findFirstElementPtrByTagName(
+        _ tag: [UInt8],
+        docPtr: xmlDocPtr,
+        settings: ParseSettings
+    ) -> xmlNodePtr? {
+        guard let root = xmlDocGetRootElement(docPtr) else { return nil }
+        var stack: [xmlNodePtr] = [root]
+        while let node = stack.popLast() {
+            if node.pointee.type == XML_ELEMENT_NODE {
+                let rawName = qualifiedName(for: node)
+                let normalizedName = containsUppercaseAscii(rawName) ? settings.normalizeTag(rawName) : rawName
+                if normalizedName == tag {
+                    return node
+                }
+            }
+            if let child = node.pointee.children {
+                var cursor: xmlNodePtr? = child
+                var children: [xmlNodePtr] = []
+                while let current = cursor {
+                    children.append(current)
+                    cursor = current.pointee.next
+                }
+                if !children.isEmpty {
+                    for childNode in children.reversed() {
+                        stack.append(childNode)
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
+    @inline(__always)
     private static func cacheNode(_ node: Node, nodePtr: xmlNodePtr, context: Libxml2DocumentContext?, doc: Document?) {
         if let context {
-            let cacheSnapshot: [UnsafeMutableRawPointer: Node]? = context.withCacheLock {
-                if context.nodeCache == nil {
-                    context.nodeCache = [:]
-                }
-                context.nodeCache?[UnsafeMutableRawPointer(nodePtr)] = node
-                return context.nodeCache
+            if context.nodeCache == nil {
+                context.nodeCache = [:]
             }
+            context.nodeCache?[UnsafeMutableRawPointer(nodePtr)] = node
             if let doc {
-                doc.withLibxml2CacheLock {
-                    doc.libxml2NodeCache = cacheSnapshot
-                }
+                doc.libxml2NodeCache = context.nodeCache
             }
             return
         }
         if let doc {
-            doc.withLibxml2CacheLock {
-                if doc.libxml2NodeCache == nil {
-                    doc.libxml2NodeCache = [:]
-                }
-                doc.libxml2NodeCache?[UnsafeMutableRawPointer(nodePtr)] = node
+            if doc.libxml2NodeCache == nil {
+                doc.libxml2NodeCache = [:]
             }
+            doc.libxml2NodeCache?[UnsafeMutableRawPointer(nodePtr)] = node
         }
     }
 
@@ -1766,6 +2617,545 @@ enum Libxml2Backend {
             }
         }
         return wrapped
+    }
+
+    @inline(__always)
+    static func wrapNodeForSelectionFast(
+        _ node: xmlNodePtr,
+        doc: Document
+    ) -> Node? {
+        let settings = doc.treeBuilder?.settings ?? ParseSettings.htmlDefault
+        let baseUri = doc.baseUri ?? []
+        let parentWrapper: Node
+        if let parentPtr = node.pointee.parent,
+           parentPtr.pointee.type == XML_ELEMENT_NODE {
+            parentWrapper = wrapNodeForSelectionFast(parentPtr, doc: doc) ?? doc
+        } else {
+            parentWrapper = doc
+        }
+        return wrapNodeFromLibxml2(node, doc: doc, parent: parentWrapper, settings: settings, baseUri: baseUri)
+    }
+
+    @inline(__always)
+    private static func traverseSubtree(
+        start: xmlNodePtr,
+        _ visit: (xmlNodePtr) -> Void
+    ) {
+        var stack: [xmlNodePtr] = [start]
+        while let current = stack.popLast() {
+            visit(current)
+            if let child = current.pointee.children {
+                var children: [xmlNodePtr] = []
+                var cursor: xmlNodePtr? = child
+                while let node = cursor {
+                    children.append(node)
+                    cursor = node.pointee.next
+                }
+                if !children.isEmpty {
+                    for node in children.reversed() {
+                        stack.append(node)
+                    }
+                }
+            }
+        }
+    }
+
+    @inline(__always)
+    static func isSelectableNodeFast(
+        _ node: xmlNodePtr,
+        doc: Document
+    ) -> Bool {
+        switch node.pointee.type {
+        case XML_ELEMENT_NODE, XML_COMMENT_NODE, XML_PI_NODE:
+            return true
+        case XML_TEXT_NODE, XML_CDATA_SECTION_NODE, XML_ENTITY_REF_NODE:
+            let content = libxml2NodeContent(node)
+            return !content.isEmpty
+        default:
+            return false
+        }
+    }
+
+    @inline(__always)
+    private static func classAttrHasClass(
+        _ classAttr: [UInt8],
+        _ className: [UInt8]
+    ) -> Bool {
+        let len = classAttr.count
+        let wantLen = className.count
+        if len == 0 || len < wantLen || wantLen == 0 {
+            return false
+        }
+        if len == wantLen {
+            return className.equalsIgnoreCase(string: classAttr)
+        }
+
+        @inline(__always)
+        func equalsIgnoreCaseSlice(_ bytes: [UInt8], _ start: Int, _ length: Int, _ other: [UInt8]) -> Bool {
+            if length != other.count { return false }
+            var i = 0
+            while i < length {
+                let b = bytes[start + i]
+                let o = other[i]
+                let lowerB = (b >= 65 && b <= 90) ? (b &+ 32) : b
+                let lowerO = (o >= 65 && o <= 90) ? (o &+ 32) : o
+                if lowerB != lowerO {
+                    return false
+                }
+                i &+= 1
+            }
+            return true
+        }
+
+        var i = 0
+        var tokenStart = 0
+        var inToken = false
+        while i < len {
+            let b = classAttr[i]
+            if b.isWhitespace {
+                if inToken {
+                    let tokenLen = i - tokenStart
+                    if tokenLen == wantLen && equalsIgnoreCaseSlice(classAttr, tokenStart, tokenLen, className) {
+                        return true
+                    }
+                    inToken = false
+                }
+            } else if !inToken {
+                inToken = true
+                tokenStart = i
+            }
+            i &+= 1
+        }
+        if inToken {
+            let tokenLen = len - tokenStart
+            if tokenLen == wantLen && equalsIgnoreCaseSlice(classAttr, tokenStart, tokenLen, className) {
+                return true
+            }
+        }
+        return false
+    }
+
+    @inline(__always)
+    static func collectElementsByClassName(
+        start: xmlNodePtr?,
+        className: [UInt8],
+        doc: Document
+    ) -> Elements {
+        guard let start else { return Elements() }
+        guard !className.isEmpty else { return Elements() }
+        let output = Elements()
+        output.reserveCapacity(64)
+        let attrName = "class".utf8Array + [0]
+        attrName.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            let attrPtr = base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { $0 }
+            traverseSubtree(start: start) { current in
+                if current.pointee.type == XML_ELEMENT_NODE {
+                    if let value = xmlGetProp(current, attrPtr) {
+                        let classAttr = bytesFromXmlChar(value)
+                        xmlFree(value)
+                        if classAttrHasClass(classAttr, className),
+                           let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                            output.add(element)
+                        }
+                    }
+                }
+            }
+        }
+        return output
+    }
+
+    @inline(__always)
+    static func collectElementsByAttributeName(
+        start: xmlNodePtr?,
+        key: [UInt8],
+        doc: Document
+    ) -> Elements {
+        guard let start else { return Elements() }
+        guard !key.isEmpty else { return Elements() }
+        let output = Elements()
+        output.reserveCapacity(64)
+        let attrName = key + [0]
+        attrName.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            let attrPtr = base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { $0 }
+            traverseSubtree(start: start) { current in
+                if current.pointee.type == XML_ELEMENT_NODE {
+                    if xmlHasProp(current, attrPtr) != nil,
+                       let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                        output.add(element)
+                    }
+                }
+            }
+        }
+        return output
+    }
+
+    @inline(__always)
+    static func collectElementsByAttributeValue(
+        start: xmlNodePtr?,
+        key: [UInt8],
+        value: [UInt8],
+        doc: Document
+    ) -> Elements {
+        guard let start else { return Elements() }
+        guard !key.isEmpty else { return Elements() }
+        let output = Elements()
+        output.reserveCapacity(64)
+        let attrName = key + [0]
+        attrName.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            let attrPtr = base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { $0 }
+            traverseSubtree(start: start) { current in
+                if current.pointee.type == XML_ELEMENT_NODE {
+                    if let valuePtr = xmlGetProp(current, attrPtr) {
+                        let rawValue = bytesFromXmlChar(valuePtr)
+                        xmlFree(valuePtr)
+                        let needsTrim = (rawValue.first?.isWhitespace ?? false) || (rawValue.last?.isWhitespace ?? false)
+                        let candidate = needsTrim ? rawValue.trim() : rawValue
+                        if value.equalsIgnoreCase(string: candidate),
+                           let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                            output.add(element)
+                        }
+                    }
+                }
+            }
+        }
+        return output
+    }
+
+    @inline(__always)
+    static func collectElementsByAttributeValueNot(
+        start: xmlNodePtr?,
+        key: [UInt8],
+        value: [UInt8],
+        doc: Document
+    ) -> Elements {
+        guard let start else { return Elements() }
+        guard !key.isEmpty else { return Elements() }
+        let output = Elements()
+        output.reserveCapacity(64)
+        let attrName = key + [0]
+        attrName.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            let attrPtr = base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { $0 }
+            traverseSubtree(start: start) { current in
+                if current.pointee.type == XML_ELEMENT_NODE {
+                    if let valuePtr = xmlGetProp(current, attrPtr) {
+                        let rawValue = bytesFromXmlChar(valuePtr)
+                        xmlFree(valuePtr)
+                        if !value.equalsIgnoreCase(string: rawValue),
+                           let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                            output.add(element)
+                        }
+                    } else if let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                        output.add(element)
+                    }
+                }
+            }
+        }
+        return output
+    }
+
+    @inline(__always)
+    static func collectElementsByAttributeValueStarting(
+        start: xmlNodePtr?,
+        key: [UInt8],
+        value: [UInt8],
+        valueLower: String,
+        doc: Document
+    ) -> Elements {
+        guard let start else { return Elements() }
+        guard !key.isEmpty else { return Elements() }
+        let output = Elements()
+        output.reserveCapacity(64)
+        let attrName = key + [0]
+        let valueIsAscii = StringUtil.isAscii(value)
+        attrName.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            let attrPtr = base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { $0 }
+            traverseSubtree(start: start) { current in
+                if current.pointee.type == XML_ELEMENT_NODE {
+                    if let valuePtr = xmlGetProp(current, attrPtr) {
+                        let rawValue = bytesFromXmlChar(valuePtr)
+                        xmlFree(valuePtr)
+                        let matches: Bool
+                        if valueIsAscii, StringUtil.isAscii(rawValue) {
+                            matches = StringUtil.hasPrefixLowercaseAscii(rawValue, value)
+                        } else {
+                            matches = String(decoding: rawValue, as: UTF8.self).lowercased().hasPrefix(valueLower)
+                        }
+                        if matches, let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                            output.add(element)
+                        }
+                    }
+                }
+            }
+        }
+        return output
+    }
+
+    @inline(__always)
+    static func collectElementsByAttributeValueEnding(
+        start: xmlNodePtr?,
+        key: [UInt8],
+        value: [UInt8],
+        valueLower: String,
+        doc: Document
+    ) -> Elements {
+        guard let start else { return Elements() }
+        guard !key.isEmpty else { return Elements() }
+        let output = Elements()
+        output.reserveCapacity(64)
+        let attrName = key + [0]
+        let valueIsAscii = StringUtil.isAscii(value)
+        attrName.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            let attrPtr = base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { $0 }
+            traverseSubtree(start: start) { current in
+                if current.pointee.type == XML_ELEMENT_NODE {
+                    if let valuePtr = xmlGetProp(current, attrPtr) {
+                        let rawValue = bytesFromXmlChar(valuePtr)
+                        xmlFree(valuePtr)
+                        let matches: Bool
+                        if valueIsAscii, StringUtil.isAscii(rawValue) {
+                            matches = StringUtil.hasSuffixLowercaseAscii(rawValue, value)
+                        } else {
+                            matches = String(decoding: rawValue, as: UTF8.self).lowercased().hasSuffix(valueLower)
+                        }
+                        if matches, let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                            output.add(element)
+                        }
+                    }
+                }
+            }
+        }
+        return output
+    }
+
+    @inline(__always)
+    static func collectElementsByAttributeValueContaining(
+        start: xmlNodePtr?,
+        key: [UInt8],
+        value: [UInt8],
+        valueLower: String,
+        doc: Document
+    ) -> Elements {
+        guard let start else { return Elements() }
+        guard !key.isEmpty else { return Elements() }
+        let output = Elements()
+        output.reserveCapacity(64)
+        let attrName = key + [0]
+        let valueIsAscii = StringUtil.isAscii(value)
+        attrName.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            let attrPtr = base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { $0 }
+            traverseSubtree(start: start) { current in
+                if current.pointee.type == XML_ELEMENT_NODE {
+                    if let valuePtr = xmlGetProp(current, attrPtr) {
+                        let rawValue = bytesFromXmlChar(valuePtr)
+                        xmlFree(valuePtr)
+                        let matches: Bool
+                        if valueIsAscii, StringUtil.isAscii(rawValue) {
+                            matches = StringUtil.containsLowercaseAscii(rawValue, value)
+                        } else {
+                            matches = String(decoding: rawValue, as: UTF8.self).lowercased().contains(valueLower)
+                        }
+                        if matches, let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                            output.add(element)
+                        }
+                    }
+                }
+            }
+        }
+        return output
+    }
+
+    @inline(__always)
+    static func collectElementsByAttributeNamePrefix(
+        start: xmlNodePtr?,
+        keyPrefix: [UInt8],
+        doc: Document
+    ) -> Elements {
+        guard let start else { return Elements() }
+        guard !keyPrefix.isEmpty else { return Elements() }
+        let output = Elements()
+        output.reserveCapacity(64)
+        traverseSubtree(start: start) { current in
+            if current.pointee.type == XML_ELEMENT_NODE {
+                var attr = current.pointee.properties
+                var found = false
+                while let property = attr {
+                    let name = bytesFromXmlChar(property.pointee.name)
+                    if StringUtil.hasPrefixLowercaseAscii(name, keyPrefix) {
+                        found = true
+                        break
+                    }
+                    attr = property.pointee.next
+                }
+                if found, let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                    output.add(element)
+                }
+            }
+        }
+        return output
+    }
+
+    @inline(__always)
+    static func findFirstElementById(
+        start: xmlNodePtr?,
+        id: [UInt8],
+        doc: Document
+    ) -> Element? {
+        guard let start else { return nil }
+        guard !id.isEmpty else { return nil }
+        var stack: [xmlNodePtr] = [start]
+        while let current = stack.popLast() {
+            if current.pointee.type == XML_ELEMENT_NODE {
+                let match: Element? = "id".utf8CString.withUnsafeBufferPointer { buf in
+                    guard let base = buf.baseAddress else { return nil }
+                    return base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
+                        guard let attr = xmlGetProp(current, ptr) else { return nil }
+                        let value = bytesFromXmlChar(attr)
+                        xmlFree(attr)
+                        if value == id {
+                            return wrapNodeForSelectionFast(current, doc: doc) as? Element
+                        }
+                        return nil
+                    }
+                }
+                if let match {
+                    return match
+                }
+            }
+            if let child = current.pointee.children {
+                var children: [xmlNodePtr] = []
+                var cursor: xmlNodePtr? = child
+                while let node = cursor {
+                    children.append(node)
+                    cursor = node.pointee.next
+                }
+                if !children.isEmpty {
+                    for node in children.reversed() {
+                        stack.append(node)
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
+    @inline(__always)
+    static func collectElementsByTagName(
+        start: xmlNodePtr?,
+        tag: [UInt8],
+        settings: ParseSettings,
+        doc: Document
+    ) -> Elements {
+        guard let start else { return Elements() }
+        guard !tag.isEmpty else { return Elements() }
+        let colonIndex = tag.firstIndex(of: 0x3A)
+        let prefixSlice = colonIndex.map { tag[..<$0] }
+        let localSlice = colonIndex.map { tag[tag.index(after: $0)...] }
+        let tagCString: [UInt8] = tag + [0]
+        let output = Elements()
+        output.reserveCapacity(128)
+        traverseSubtree(start: start) { current in
+            if current.pointee.type == XML_ELEMENT_NODE {
+                let hasPrefix = current.pointee.ns?.pointee.prefix != nil
+                if hasPrefix {
+                    if let prefixSlice, let localSlice, let ns = current.pointee.ns, let prefixPtr = ns.pointee.prefix {
+                        if cStringEqualsLowercase(prefixPtr, prefixSlice),
+                           cStringEqualsLowercase(current.pointee.name, localSlice),
+                           let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                            output.add(element)
+                        }
+                    }
+                } else if colonIndex == nil {
+                    let matches = tagCString.withUnsafeBufferPointer { buf -> Bool in
+                        guard let base = buf.baseAddress else { return false }
+                        return base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
+                            xmlStrcasecmp(current.pointee.name, ptr) == 0
+                        }
+                    }
+                    if matches, let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                        output.add(element)
+                    }
+                } else {
+                    let rawName = qualifiedName(for: current)
+                    let normalizedName = containsUppercaseAscii(rawName) ? settings.normalizeTag(rawName) : rawName
+                    if normalizedName == tag, let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                        output.add(element)
+                    }
+                }
+            }
+        }
+        return output
+    }
+
+    @inline(__always)
+    static func collectElementsByTagNames(
+        start: xmlNodePtr?,
+        tags: [[UInt8]],
+        doc: Document
+    ) -> Elements {
+        guard let start else { return Elements() }
+        guard !tags.isEmpty else { return Elements() }
+        let output = Elements()
+        output.reserveCapacity(128)
+        traverseSubtree(start: start) { current in
+            if current.pointee.type == XML_ELEMENT_NODE {
+                if current.pointee.ns?.pointee.prefix == nil,
+                   cStringEqualsAnyLowercase(current.pointee.name, tags),
+                   let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                    output.add(element)
+                }
+            }
+        }
+        return output
+    }
+
+    @inline(__always)
+    static func collectAllElements(
+        start: xmlNodePtr?,
+        doc: Document,
+        includeSelf: Bool
+    ) -> Elements {
+        guard let start else { return Elements() }
+        let output = Elements()
+        output.reserveCapacity(128)
+        var skipFirst = !includeSelf
+        traverseSubtree(start: start) { current in
+            if skipFirst {
+                skipFirst = false
+                return
+            }
+            if current.pointee.type == XML_ELEMENT_NODE,
+               let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                output.add(element)
+            }
+        }
+        return output
+    }
+
+
+    @inline(__always)
+    static func parentWrapperForSelection(
+        _ node: xmlNodePtr,
+        doc: Document
+    ) -> Node? {
+        guard let parentPtr = node.pointee.parent else { return doc }
+        if parentPtr.pointee.type == XML_DOCUMENT_NODE || parentPtr.pointee.type == XML_HTML_DOCUMENT_NODE {
+            return doc
+        }
+        if let existingPtr = parentPtr.pointee._private {
+            let existing = Unmanaged<Node>.fromOpaque(existingPtr).takeUnretainedValue()
+            if existing.libxml2NodePtr == parentPtr, existing.ownerDocument() === doc {
+                return existing
+            }
+            parentPtr.pointee._private = nil
+        }
+        return wrapNodeForSelection(parentPtr, doc: doc)
     }
 
     private static func resolveParentWrapper(_ node: xmlNodePtr, doc: Document) -> Node? {
@@ -1837,45 +3227,67 @@ enum Libxml2Backend {
         defer { Profiler.end("Libxml2.parseHTML", _p) }
         #endif
 
+        let skipSwiftSoupFallbacks = builder.skipSwiftSoupFallbacks
+        #if PROFILE
+        let pSanitize = Profiler.start("Libxml2.sanitizeHtml")
+        #endif
+        let sanitizedInput = skipSwiftSoupFallbacks ? input : sanitizeHtmlInputForLibxml2(input)
+        #if PROFILE
+        Profiler.end("Libxml2.sanitizeHtml", pSanitize)
+        #endif
+
         var hints: HtmlScanHints
-        if unsafeNoScanEnabled() {
-            hints = HtmlScanHints()
-        } else {
-            var scanHints = HtmlScanHints()
-            var reason: Libxml2FallbackReason? = nil
-            if hasLeadingHtmlComment(input) {
-                reason = .formattingMismatch
-                let fallbackBuilder = HtmlTreeBuilder()
-                let parsed = try fallbackBuilder.parse(input, baseUri, errors, settings)
+        var scanHints = HtmlScanHints()
+        var reason: Libxml2FallbackReason? = nil
+        #if PROFILE
+        let pScan = Profiler.start("Libxml2.scanFallback")
+        #endif
+        let hasVoidEndTag = containsEndTagForHtmlVoidTags(input)
+        let hasCommentDashDashDash = containsHtmlCommentDashDashDash(input)
+        let hasCdata = containsHtmlCdata(input)
+        if hasLeadingHtmlComment(sanitizedInput) {
+            #if PROFILE
+            Profiler.end("Libxml2.scanFallback", pScan)
+            #endif
+            reason = .formattingMismatch
+            let fallbackBuilder = HtmlTreeBuilder()
+            let parsed = try fallbackBuilder.parse(input, baseUri, errors, settings)
 #if canImport(CLibxml2) || canImport(libxml2)
-                parsed.libxml2Preferred = true
-                attachLibxml2Document(parsed)
+            parsed.libxml2Preferred = true
+            attachLibxml2Document(parsed)
 #endif
-                return parsed
-            }
-            let shouldFallback = shouldFallbackToSwiftSoup(
-                input,
+            return parsed
+        }
+        var shouldFallback: Bool
+        if hasVoidEndTag || hasCommentDashDashDash || hasCdata {
+            reason = .formattingMismatch
+            shouldFallback = true
+        } else {
+            shouldFallback = shouldFallbackToSwiftSoup(
+                sanitizedInput,
                 reason: &reason,
                 recordReason: Libxml2FallbackStats.enabled,
                 hints: &scanHints
             )
-            if shouldFallback {
-                if Libxml2FallbackStats.enabled {
-                    let sample = Libxml2FallbackStats.sampleEnabled ? sampleSnippet(input) : nil
-                    Libxml2FallbackStats.shared.recordFallback(reason ?? .unknown, sample: sample)
-                }
-                let fallbackBuilder = HtmlTreeBuilder()
-                let parsed = try fallbackBuilder.parse(input, baseUri, errors, settings)
-#if canImport(CLibxml2) || canImport(libxml2)
-                parsed.libxml2Preferred = true
-                attachLibxml2Document(parsed)
-#endif
-                return parsed
-            }
-            hints = scanHints
         }
-
-        let sanitizedInput = sanitizeHtmlInputForLibxml2(input)
+        #if PROFILE
+        Profiler.end("Libxml2.scanFallback", pScan)
+        #endif
+        if shouldFallback {
+            if Libxml2FallbackStats.enabled {
+                let sample = Libxml2FallbackStats.sampleEnabled ? sampleSnippet(input) : nil
+                Libxml2FallbackStats.shared.recordFallback(reason ?? .unknown, sample: sample)
+            }
+            let fallbackBuilder = HtmlTreeBuilder()
+            let parsed = try fallbackBuilder.parse(input, baseUri, errors, settings)
+#if canImport(CLibxml2) || canImport(libxml2)
+            parsed.libxml2Preferred = true
+            attachLibxml2Document(parsed)
+#endif
+            return parsed
+        }
+        hints = scanHints
+        let explicitBooleanHints = booleanHintsEnabled() ? hints : nil
         let options = Int32(
             HTML_PARSE_RECOVER.rawValue
                 | HTML_PARSE_NOERROR.rawValue
@@ -1905,7 +3317,8 @@ enum Libxml2Backend {
         Profiler.end("Libxml2.htmlReadMemory", pRead)
         #endif
         guard let docPtr else {
-            throw Libxml2BackendError.parseFailed
+            let fallbackBuilder = HtmlTreeBuilder()
+            return try fallbackBuilder.parse(input, baseUri, errors, settings)
         }
         var docPtrToFree: htmlDocPtr? = docPtr
         defer {
@@ -1922,37 +3335,32 @@ enum Libxml2Backend {
 #if canImport(CLibxml2) || canImport(libxml2)
         let context = Libxml2DocumentContext(docPtr: docPtr, settings: settings, baseUri: baseUri)
         context.document = doc
-        doc.parserBackend = .libxml2
+        doc.parserBackend = .libxml2(swiftSoupParityMode: skipSwiftSoupFallbacks ? .libxml2Only : .swiftSoupParity)
         doc.libxml2DocPtr = docPtr
         doc.libxml2BackedDirty = false
         doc.libxml2ChildrenHydrated = false
         doc._childNodes.removeAll(keepingCapacity: true)
         doc.libxml2Preferred = true
         let preserveCase = settings.preservesTagCase() || settings.preservesAttributeCase()
-        if shouldBuildAttributeOverrides(input, preserveCase: preserveCase) {
+        let shouldBuildOverrides = skipSwiftSoupFallbacks
+            || shouldBuildAttributeOverrides(input, preserveCase: preserveCase)
+            || shouldBuildTagNameOverridesForNamespaces(input)
+        if shouldBuildOverrides {
             let overrides = buildStartTagOverrides(
                 input: sanitizedInput,
                 baseUri: baseUri,
                 settings: settings,
                 docPtr: docPtr
             )
-            context.withCacheLock {
-                context.attributeOverrides = overrides.attributes
-                context.tagNameOverrides = overrides.tagNames
-            }
-            doc.withLibxml2CacheLock {
-                doc.libxml2AttributeOverrides = overrides.attributes
-                doc.libxml2TagNameOverrides = overrides.tagNames
-            }
+            context.attributeOverrides = overrides.attributes
+            context.tagNameOverrides = overrides.tagNames
+            doc.libxml2AttributeOverrides = overrides.attributes
+            doc.libxml2TagNameOverrides = overrides.tagNames
         } else {
-            context.withCacheLock {
-                context.attributeOverrides = nil
-                context.tagNameOverrides = nil
-            }
-            doc.withLibxml2CacheLock {
-                doc.libxml2AttributeOverrides = nil
-                doc.libxml2TagNameOverrides = nil
-            }
+            context.attributeOverrides = nil
+            doc.libxml2AttributeOverrides = nil
+            context.tagNameOverrides = nil
+            doc.libxml2TagNameOverrides = nil
         }
         doc.libxml2Context = context
         doc.libxml2OriginalInput = nil
@@ -1992,14 +3400,160 @@ enum Libxml2Backend {
         if sawTable {
             try normalizeTables(in: doc, baseUri: baseUri, builder: builder)
         }
-        try normalizeImplicitParagraphs(in: doc)
+        let hasExplicitParagraph = hasExplicitParagraphStartTag(input)
+        try normalizeImplicitParagraphs(in: doc, allowUnwrap: !hasExplicitParagraph)
+        if booleanHintsEnabled(), var explicitHints = explicitBooleanHints {
+            let explicit = buildExplicitBooleanAttributes(docPtr: docPtr, settings: settings, hints: &explicitHints)
+            if !explicit.isEmpty {
+                context.explicitBooleanAttributes = explicit
+                doc.libxml2ExplicitBooleanAttributes = explicit
+            }
+        }
+        if skipSwiftSoupFallbacks {
+            doc.libxml2BackedDirty = true
+        }
         doc.markQueryIndexesDirty()
-        markLibxml2Hydrated(doc)
+        markLibxml2Hydrated(doc, markAttributes: false)
+        if skipSwiftSoupFallbacks {
+            docPtrToFree = nil
+        }
         if Libxml2FallbackStats.enabled {
             Libxml2FallbackStats.shared.recordLibxmlUsed()
         }
         docPtrToFree = nil
         return doc
+    }
+
+    static func parseHtmlFragmentLibxml2Only(
+        _ fragment: [UInt8],
+        context: Element?,
+        baseUri: [UInt8]
+    ) throws -> [Node]? {
+        guard let context,
+              let doc = context.ownerDocument(),
+              doc.libxml2SkipSwiftSoupFallbacks,
+              let docPtr = doc.libxml2DocPtr else {
+            return nil
+        }
+        let settings = doc.treeBuilder?.settings ?? doc.libxml2Context?.settings ?? ParseSettings.htmlDefault
+        let wrapped = fragmentWrapperPrefix + fragment + fragmentWrapperSuffix
+        let options = Int32(
+            HTML_PARSE_RECOVER.rawValue
+                | HTML_PARSE_NOERROR.rawValue
+                | HTML_PARSE_NOWARNING.rawValue
+                | HTML_PARSE_NONET.rawValue
+                | HTML_PARSE_COMPACT.rawValue
+                | HTML_PARSE_NODEFDTD.rawValue
+        )
+        let baseUriString = baseUri.isEmpty ? nil : String(decoding: baseUri, as: UTF8.self)
+        let encoding = "UTF-8"
+        let fragmentDocPtr: htmlDocPtr? = wrapped.withUnsafeBytes { rawBuffer in
+            guard let baseAddress = rawBuffer.baseAddress else { return nil }
+            let cString = baseAddress.assumingMemoryBound(to: CChar.self)
+            return encoding.withCString { encodingPtr in
+                if let baseUriString {
+                    return baseUriString.withCString { url in
+                        htmlReadMemory(cString, Int32(rawBuffer.count), url, encodingPtr, options)
+                    }
+                }
+                return htmlReadMemory(cString, Int32(rawBuffer.count), nil, encodingPtr, options)
+            }
+        }
+        guard let fragmentDocPtr else { return nil }
+        defer { xmlFreeDoc(fragmentDocPtr) }
+        guard let bodyPtr = findFirstElementPtrByTagName(
+            UTF8Arrays.body,
+            docPtr: fragmentDocPtr,
+            settings: settings
+        ) else {
+            return []
+        }
+        var nodes: [Node] = []
+        var cursor: xmlNodePtr? = bodyPtr.pointee.children
+        while let current = cursor {
+            if libxml2NodeIsRepresented(current),
+               let copied = xmlDocCopyNode(current, docPtr, 1) {
+                if let wrappedNode = wrapNodeFromLibxml2(
+                    copied,
+                    doc: doc,
+                    parent: doc,
+                    settings: settings,
+                    baseUri: baseUri
+                ) {
+                    wrappedNode.parentNode = nil
+                    wrappedNode.setSiblingIndex(0)
+                    nodes.append(wrappedNode)
+                } else {
+                    xmlFreeNode(copied)
+                }
+            }
+            cursor = current.pointee.next
+        }
+        return nodes
+    }
+
+    static func parseXmlFragmentLibxml2Only(
+        _ fragment: [UInt8],
+        baseUri: [UInt8]
+    ) throws -> [Node]? {
+        let settings = ParseSettings.preserveCase
+        let sanitizedInput = sanitizeXmlInputForLibxml2(fragment, settings: settings)
+        let wrapped = xmlFragmentWrapperPrefix + sanitizedInput + xmlFragmentWrapperSuffix
+        let options = Int32(
+            XML_PARSE_RECOVER.rawValue
+                | XML_PARSE_NOERROR.rawValue
+                | XML_PARSE_NOWARNING.rawValue
+                | XML_PARSE_NONET.rawValue
+                | XML_PARSE_COMPACT.rawValue
+        )
+        let baseUriString = baseUri.isEmpty ? nil : String(decoding: baseUri, as: UTF8.self)
+        let encoding = "UTF-8"
+        let fragmentDocPtr: xmlDocPtr? = wrapped.withUnsafeBytes { rawBuffer in
+            guard let baseAddress = rawBuffer.baseAddress else { return nil }
+            let cString = baseAddress.assumingMemoryBound(to: CChar.self)
+            return encoding.withCString { encodingPtr in
+                if let baseUriString {
+                    return baseUriString.withCString { url in
+                        xmlReadMemory(cString, Int32(rawBuffer.count), url, encodingPtr, options)
+                    }
+                }
+                return xmlReadMemory(cString, Int32(rawBuffer.count), nil, encodingPtr, options)
+            }
+        }
+        guard let fragmentDocPtr else { return nil }
+
+        let doc = Document(baseUri)
+        doc.parsedAsXml = true
+        doc.outputSettings().syntax(syntax: OutputSettings.Syntax.xml)
+        let context = Libxml2DocumentContext(docPtr: fragmentDocPtr, settings: settings, baseUri: baseUri)
+        context.document = doc
+        doc.parserBackend = .libxml2(swiftSoupParityMode: .libxml2Only)
+        doc.libxml2DocPtr = fragmentDocPtr
+        doc.libxml2BackedDirty = false
+        doc.libxml2ChildrenHydrated = false
+        doc.libxml2Preferred = true
+        doc.libxml2Context = context
+        doc._childNodes.removeAll(keepingCapacity: true)
+
+        guard let rootPtr = xmlDocGetRootElement(fragmentDocPtr) else { return [] }
+        var nodes: [Node] = []
+        var cursor: xmlNodePtr? = rootPtr.pointee.children
+        while let current = cursor {
+            if libxml2NodeIsRepresented(current),
+               let wrappedNode = wrapNodeFromLibxml2(
+                    current,
+                    doc: doc,
+                    parent: doc,
+                    settings: settings,
+                    baseUri: baseUri
+               ) {
+                wrappedNode.parentNode = nil
+                wrappedNode.setSiblingIndex(0)
+                nodes.append(wrappedNode)
+            }
+            cursor = current.pointee.next
+        }
+        return nodes
     }
 
     static func parseHTMLFragment(
@@ -2031,7 +3585,7 @@ enum Libxml2Backend {
         wrapped.append(contentsOf: wrapperTag)
         wrapped.append(contentsOf: UTF8Arrays.tagEnd)
 
-        let sanitizedWrapped = sanitizeHtmlInputForLibxml2(wrapped)
+        let sanitizedWrapped = builder.skipSwiftSoupFallbacks ? wrapped : sanitizeHtmlInputForLibxml2(wrapped)
         let options = Int32(
             HTML_PARSE_RECOVER.rawValue
                 | HTML_PARSE_NOERROR.rawValue
@@ -2069,18 +3623,29 @@ enum Libxml2Backend {
         doc.treeBuilder = builder
 
         let attributeOverrides: [UnsafeMutableRawPointer: Attributes]?
+        let tagNameOverrides: [UnsafeMutableRawPointer: [UInt8]]?
         let preserveCase = settings.preservesTagCase() || settings.preservesAttributeCase()
-        if shouldBuildAttributeOverrides(wrapped, preserveCase: preserveCase) {
-            attributeOverrides = buildStartTagOverrides(
+        if !builder.skipSwiftSoupFallbacks
+            && (shouldBuildAttributeOverrides(wrapped, preserveCase: preserveCase)
+                || shouldBuildTagNameOverridesForNamespaces(wrapped)) {
+            let overrides = buildStartTagOverrides(
                 input: sanitizedWrapped,
                 baseUri: baseUri,
                 settings: settings,
                 docPtr: docPtr
-            ).attributes
+            )
+            attributeOverrides = overrides.attributes
+            tagNameOverrides = overrides.tagNames
         } else {
             attributeOverrides = nil
+            tagNameOverrides = nil
         }
-        var hints = HtmlScanHints(html: sanitizedWrapped, settings: settings)
+        var hints: HtmlScanHints
+        if builder.skipSwiftSoupFallbacks {
+            hints = HtmlScanHints()
+        } else {
+            hints = HtmlScanHints(html: sanitizedWrapped, settings: settings)
+        }
         var sawBase = false
         var sawTable = false
         var sawNoscript = false
@@ -2102,7 +3667,7 @@ enum Libxml2Backend {
                 sawFrameset: &sawFrameset,
                 bindLibxml2Nodes: false,
                 attributeOverrides: attributeOverrides,
-                tagNameOverrides: nil
+                tagNameOverrides: tagNameOverrides
             )
         }
 
@@ -2115,7 +3680,8 @@ enum Libxml2Backend {
 
     static func materializeLazyDocument(_ doc: Document, state: Libxml2LazyState) {
         guard let docPtr = doc.libxml2DocPtr else { return }
-        let builder = doc.treeBuilder as? Libxml2TreeBuilder ?? Libxml2TreeBuilder()
+        let builder = doc.treeBuilder as? Libxml2TreeBuilder
+            ?? Libxml2TreeBuilder(skipSwiftSoupFallbacks: doc.libxml2SkipSwiftSoupFallbacks)
         builder.errors = state.errors
         builder.settings = state.settings
         builder.tracksSourceRanges = false
@@ -2140,8 +3706,9 @@ enum Libxml2Backend {
         }
 
         do {
+            let skipSwiftSoupFallbacks = doc.libxml2SkipSwiftSoupFallbacks
             var hints: HtmlScanHints
-            if unsafeNoScanEnabled() {
+            if skipSwiftSoupFallbacks {
                 hints = HtmlScanHints()
             } else if state.forceLibxml2 || state.fastScan {
                 hints = HtmlScanHints(html: state.input, settings: state.settings)
@@ -2160,14 +3727,12 @@ enum Libxml2Backend {
                 }
                 hints = scanHints
             }
+            let explicitBooleanHints = booleanHintsEnabled() ? hints : nil
 
             var sawBase = false
             var sawTable = false
             var sawNoscript = false
             var sawFrameset = false
-            let overridesSnapshot = doc.withLibxml2CacheLock {
-                (doc.libxml2AttributeOverrides, doc.libxml2TagNameOverrides)
-            }
             let doc = try buildDocument(
                 doc: doc,
                 docPtr: docPtr,
@@ -2179,28 +3744,39 @@ enum Libxml2Backend {
                 sawTable: &sawTable,
                 sawNoscript: &sawNoscript,
                 sawFrameset: &sawFrameset,
-                attributeOverrides: overridesSnapshot.0,
-                tagNameOverrides: overridesSnapshot.1
+                attributeOverrides: doc.libxml2AttributeOverrides,
+                tagNameOverrides: doc.libxml2TagNameOverrides
             )
-            if sawNoscript {
-                try normalizeNoscriptInHead(in: doc, baseUri: state.baseUri, builder: builder)
-            }
-            try doc.normalise()
-            try normalizeBodyPlacement(in: doc)
-            if sawFrameset {
-                try normalizeFrameset(in: doc)
-            }
-            if sawBase {
-                try applyBaseUriFromFirstBaseTag(in: doc)
-            }
-            if sawTable {
-                try normalizeTables(in: doc, baseUri: state.baseUri, builder: builder)
+            if !skipSwiftSoupFallbacks {
+                if sawNoscript {
+                    try normalizeNoscriptInHead(in: doc, baseUri: state.baseUri, builder: builder)
+                }
+                try doc.normalise()
+                try normalizeBodyPlacement(in: doc)
+                if sawFrameset {
+                    try normalizeFrameset(in: doc)
+                }
+                if sawBase {
+                    try applyBaseUriFromFirstBaseTag(in: doc)
+                }
+                if sawTable {
+                    try normalizeTables(in: doc, baseUri: state.baseUri, builder: builder)
+                }
+                if booleanHintsEnabled(), var explicitHints = explicitBooleanHints {
+                    let explicit = buildExplicitBooleanAttributes(docPtr: docPtr, settings: state.settings, hints: &explicitHints)
+                    if !explicit.isEmpty {
+                        doc.libxml2Context?.explicitBooleanAttributes = explicit
+                        doc.libxml2ExplicitBooleanAttributes = explicit
+                    }
+                }
             }
             if Libxml2FallbackStats.enabled {
                 Libxml2FallbackStats.shared.recordLibxmlUsed()
             }
         } catch {
-            fallbackToSwiftSoup(nil)
+            if !doc.libxml2SkipSwiftSoupFallbacks {
+                fallbackToSwiftSoup(nil)
+            }
         }
     }
 
@@ -2213,6 +3789,12 @@ enum Libxml2Backend {
     ) throws -> Document {
         _ = initialized
 
+        let sanitizedInput = sanitizeXmlInputForLibxml2(input, settings: settings)
+        if !builder.skipSwiftSoupFallbacks,
+           containsEndTagForHtmlVoidTags(sanitizedInput) {
+            let fallbackBuilder = XmlTreeBuilder()
+            return try fallbackBuilder.parse(input, baseUri, errors, settings)
+        }
         let options = Int32(
             XML_PARSE_RECOVER.rawValue
                 | XML_PARSE_NOERROR.rawValue
@@ -2222,7 +3804,7 @@ enum Libxml2Backend {
         )
         let baseUriString = baseUri.isEmpty ? nil : String(decoding: baseUri, as: UTF8.self)
         let encoding = "UTF-8"
-        let docPtr: xmlDocPtr? = input.withUnsafeBytes { rawBuffer in
+        let docPtr: xmlDocPtr? = sanitizedInput.withUnsafeBytes { rawBuffer in
             guard let baseAddress = rawBuffer.baseAddress else { return nil }
             let cString = baseAddress.assumingMemoryBound(to: CChar.self)
             return encoding.withCString { encodingPtr in
@@ -2254,40 +3836,36 @@ enum Libxml2Backend {
 #if canImport(CLibxml2) || canImport(libxml2)
         let context = Libxml2DocumentContext(docPtr: docPtr, settings: settings, baseUri: baseUri)
         context.document = doc
-        doc.parserBackend = .libxml2
+        doc.parserBackend = .libxml2(
+            swiftSoupParityMode: builder.skipSwiftSoupFallbacks ? .libxml2Only : .swiftSoupParity
+        )
         doc.libxml2DocPtr = docPtr
         doc.libxml2BackedDirty = false
         doc.libxml2ChildrenHydrated = false
         doc._childNodes.removeAll(keepingCapacity: true)
         doc.libxml2Preferred = true
         let preserveCase = settings.preservesTagCase() || settings.preservesAttributeCase()
-        if shouldBuildAttributeOverrides(input, preserveCase: preserveCase) {
+        if builder.skipSwiftSoupFallbacks
+            || shouldBuildAttributeOverrides(sanitizedInput, preserveCase: preserveCase)
+            || shouldBuildTagNameOverridesForNamespaces(sanitizedInput) {
             let overrides = buildStartTagOverrides(
-                input: input,
+                input: sanitizedInput,
                 baseUri: baseUri,
                 settings: settings,
                 docPtr: docPtr
             )
-            context.withCacheLock {
-                context.attributeOverrides = overrides.attributes
-                context.tagNameOverrides = overrides.tagNames
-            }
-            doc.withLibxml2CacheLock {
-                doc.libxml2AttributeOverrides = overrides.attributes
-                doc.libxml2TagNameOverrides = overrides.tagNames
-            }
+            context.attributeOverrides = overrides.attributes
+            context.tagNameOverrides = overrides.tagNames
+            doc.libxml2AttributeOverrides = overrides.attributes
+            doc.libxml2TagNameOverrides = overrides.tagNames
         } else {
-            context.withCacheLock {
-                context.attributeOverrides = nil
-                context.tagNameOverrides = nil
-            }
-            doc.withLibxml2CacheLock {
-                doc.libxml2AttributeOverrides = nil
-                doc.libxml2TagNameOverrides = nil
-            }
+            context.attributeOverrides = nil
+            doc.libxml2AttributeOverrides = nil
+            context.tagNameOverrides = nil
+            doc.libxml2TagNameOverrides = nil
         }
         doc.libxml2Context = context
-        doc.libxml2OriginalInput = input
+        doc.libxml2OriginalInput = sanitizedInput
 #endif
         builder.doc = doc
         doc.treeBuilder = builder
@@ -2307,10 +3885,8 @@ enum Libxml2Backend {
         guard let docPtr else { return }
         doc.libxml2DocPtr = docPtr
         doc.libxml2BackedDirty = false
-        doc.withLibxml2CacheLock {
-            doc.libxml2AttributeOverrides = nil
-            doc.libxml2TagNameOverrides = nil
-        }
+        doc.libxml2AttributeOverrides = nil
+        doc.libxml2TagNameOverrides = nil
         doc.libxml2OriginalInput = nil
         doc.libxml2Context = nil
         doc.libxml2Preferred = true
@@ -2383,11 +3959,11 @@ enum Libxml2Backend {
         return doc
     }
 
-    private static func markLibxml2Hydrated(_ root: Node) {
+    private static func markLibxml2Hydrated(_ root: Node, markAttributes: Bool) {
         var stack: [Node] = [root]
         while let node = stack.popLast() {
             node.libxml2ChildrenHydrated = true
-            if node is Element {
+            if markAttributes, node is Element {
                 node.libxml2AttributesHydrated = true
             }
             let children = node._childNodes
@@ -2415,7 +3991,16 @@ enum Libxml2Backend {
         attributeOverrides: [UnsafeMutableRawPointer: Attributes]? = nil,
         tagNameOverrides: [UnsafeMutableRawPointer: [UInt8]]? = nil
     ) throws {
-        let preferHints = booleanHintsEnabled()
+        @inline(__always)
+        func fastAppend(_ child: Node) {
+            // Bulk build fast path: avoid Element.appendChild overhead.
+            child.treeBuilder = builder
+            child.parentNode = parent
+            parent._childNodes.append(child)
+            child.setSiblingIndex(parent._childNodes.count - 1)
+        }
+
+        let preferHints = !builder.skipSwiftSoupFallbacks && booleanHintsEnabled()
         var current = nodePtr
         while let node = current {
             let type = node.pointee.type
@@ -2441,13 +4026,13 @@ enum Libxml2Backend {
                 let shouldSelfClose = isUnknown && occurrenceSelfClose && !hasChildren
                 let tag = try Tag.valueOfNormalized(normalizedName, isSelfClosing: shouldSelfClose)
                 let element: Element
-                if node.pointee.properties != nil {
+                if !bindLibxml2Nodes, node.pointee.properties != nil {
                     let collected = Attributes()
-                if normalizedName == UTF8Arrays.form {
-                    element = FormElement(tag, baseUri, collected, skipChildReserve: builder.isBulkBuilding)
-                } else {
-                    element = Element(tag, baseUri, collected, skipChildReserve: builder.isBulkBuilding)
-                }
+                    if normalizedName == UTF8Arrays.form {
+                        element = FormElement(tag, baseUri, collected, skipChildReserve: builder.isBulkBuilding)
+                    } else {
+                        element = Element(tag, baseUri, collected, skipChildReserve: builder.isBulkBuilding)
+                    }
                     #if PROFILE
                     let pAttrs = Profiler.start("Libxml2.buildAttrs")
                     #endif
@@ -2534,9 +4119,12 @@ enum Libxml2Backend {
 #if canImport(CLibxml2) || canImport(libxml2)
                 // This element will be materialized by the builder; prevent lazy hydration mid-build.
                 element.libxml2ChildrenHydrated = true
-                element.libxml2AttributesHydrated = true
+                if !bindLibxml2Nodes {
+                    element.libxml2AttributesHydrated = true
+                }
 #endif
-                if let overrideAttrs = attributeOverrides?[UnsafeMutableRawPointer(node)] {
+                if !bindLibxml2Nodes,
+                   let overrideAttrs = attributeOverrides?[UnsafeMutableRawPointer(node)] {
                     element.attributes = overrideAttrs
                     overrideAttrs.ownerElement = element
                 }
@@ -2547,8 +4135,12 @@ enum Libxml2Backend {
                     #endif
                 }
                 element.libxml2Context = parent.libxml2Context
-                element.treeBuilder = builder
-                try parent.appendChild(element)
+                if builder.isBulkBuilding {
+                    fastAppend(element)
+                } else {
+                    element.treeBuilder = builder
+                    try parent.appendChild(element)
+                }
                 if element.tag().isFormListed() {
                     var cursor: Node? = parent
                     while let node = cursor {
@@ -2616,8 +4208,12 @@ enum Libxml2Backend {
                     #endif
                 }
                 comment.libxml2Context = parent.libxml2Context
-                comment.treeBuilder = builder
-                try parent.appendChild(comment)
+                if builder.isBulkBuilding {
+                    fastAppend(comment)
+                } else {
+                    comment.treeBuilder = builder
+                    try parent.appendChild(comment)
+                }
             case XML_PI_NODE:
                 let name = bytesFromXmlChar(node.pointee.name)
                 let normalizedName = containsUppercaseAscii(name) ? settings.normalizeTag(name) : name
@@ -2625,7 +4221,7 @@ enum Libxml2Backend {
                 if let contentPtr = node.pointee.content {
                     let content = String(decoding: bytesFromXmlChar(contentPtr), as: UTF8.self)
                     let base = String(decoding: baseUri, as: UTF8.self)
-                    let tempDoc = try Parser.xmlParser().parseInput("<" + declaration.name() + " " + content + ">", base)
+                    let tempDoc = try Parser.xmlParser(.swiftSoup).parseInput("<" + declaration.name() + " " + content + ">", base)
                     if let el = tempDoc.childNodes.first as? Element {
                         declaration.getAttributes()?.addAll(incoming: el.getAttributes())
                     }
@@ -2637,8 +4233,12 @@ enum Libxml2Backend {
                     #endif
                 }
                 declaration.libxml2Context = parent.libxml2Context
-                declaration.treeBuilder = builder
-                try parent.appendChild(declaration)
+                if builder.isBulkBuilding {
+                    fastAppend(declaration)
+                } else {
+                    declaration.treeBuilder = builder
+                    try parent.appendChild(declaration)
+                }
             case XML_DTD_NODE, XML_DOCUMENT_TYPE_NODE:
                 break
             default:
@@ -2677,8 +4277,15 @@ enum Libxml2Backend {
             nodePtr.pointee._private = Unmanaged.passUnretained(node).toOpaque()
         }
 #endif
-        node.treeBuilder = builder
-        try parent.appendChild(node)
+        if builder.isBulkBuilding {
+            node.treeBuilder = builder
+            node.parentNode = parent
+            parent._childNodes.append(node)
+            node.setSiblingIndex(parent._childNodes.count - 1)
+        } else {
+            node.treeBuilder = builder
+            try parent.appendChild(node)
+        }
     }
 
     private static func isScriptOrStyleParent(_ parent: Node) -> Bool {
@@ -2693,6 +4300,31 @@ enum Libxml2Backend {
         let length = Int(xmlStrlen(ptr))
         guard length > 0 else { return [] }
         return Array(UnsafeBufferPointer(start: ptr, count: length))
+    }
+
+    @inline(__always)
+    static func attributeValueFromLibxml2Node(_ node: xmlNodePtr, key: [UInt8]) -> [UInt8]? {
+        guard !key.isEmpty else { return nil }
+        let attrName = key + [0]
+        return attrName.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return nil }
+            let attrPtr = base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { $0 }
+            guard let valuePtr = xmlGetProp(node, attrPtr) else { return nil }
+            let raw = bytesFromXmlChar(valuePtr)
+            xmlFree(valuePtr)
+            return raw
+        }
+    }
+
+    @inline(__always)
+    static func hasAttributeInLibxml2Node(_ node: xmlNodePtr, key: [UInt8]) -> Bool {
+        guard !key.isEmpty else { return false }
+        let attrName = key + [0]
+        return attrName.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return false }
+            let attrPtr = base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { $0 }
+            return xmlHasProp(node, attrPtr) != nil
+        }
     }
 
     @inline(__always)
@@ -2719,6 +4351,63 @@ enum Libxml2Backend {
         full.append(0x3A)
         full.append(contentsOf: localName)
         return full
+    }
+
+    @inline(__always)
+    private static func asciiLower(_ b: UInt8) -> UInt8 {
+        return (b >= 65 && b <= 90) ? (b &+ 32) : b
+    }
+
+    @inline(__always)
+    private static func cStringEqualsLowercase(
+        _ ptr: UnsafePointer<xmlChar>,
+        _ bytes: ArraySlice<UInt8>
+    ) -> Bool {
+        var i = 0
+        while true {
+            let c = ptr[i]
+            if c == 0 {
+                return i == bytes.count
+            }
+            if i >= bytes.count {
+                return false
+            }
+            if asciiLower(UInt8(c)) != bytes[bytes.startIndex + i] {
+                return false
+            }
+            i &+= 1
+        }
+    }
+
+    @inline(__always)
+    private static func cStringEqualsAnyLowercase(
+        _ ptr: UnsafePointer<xmlChar>,
+        _ tags: [[UInt8]]
+    ) -> Bool {
+        for tag in tags {
+            var i = 0
+            var matched = true
+            while true {
+                let c = ptr[i]
+                if c == 0 {
+                    matched = i == tag.count
+                    break
+                }
+                if i >= tag.count {
+                    matched = false
+                    break
+                }
+                if asciiLower(UInt8(c)) != tag[i] {
+                    matched = false
+                    break
+                }
+                i &+= 1
+            }
+            if matched {
+                return true
+            }
+        }
+        return false
     }
 
     @inline(__always)
@@ -3016,11 +4705,10 @@ enum Libxml2Backend {
         }
     }
 
-    private static func normalizeImplicitParagraphs(in doc: Document) throws {
+    private static func normalizeImplicitParagraphs(in doc: Document, allowUnwrap: Bool) throws {
+        guard allowUnwrap else { return }
         guard let body = doc.body() else { return }
-        let overrides = doc.withLibxml2CacheLock {
-            doc.libxml2AttributeOverrides
-        }
+        let overrides = doc.libxml2AttributeOverrides
         var candidates: [Element] = []
         for child in body.children().array() {
             if child.tagNameNormalUTF8() != UTF8Arrays.p {
@@ -3050,6 +4738,103 @@ enum Libxml2Backend {
         for element in candidates {
             _ = try element.unwrap()
         }
+    }
+
+    private static func hasExplicitParagraphStartTag(_ bytes: [UInt8]) -> Bool {
+        guard !bytes.isEmpty else { return false }
+        var found = false
+        let count = bytes.count
+        bytes.withUnsafeBufferPointer { buffer in
+            guard let base = buffer.baseAddress else { return }
+            var i = 0
+            @inline(__always)
+            func advanceToNextTag(from start: Int) -> Int? {
+                let remaining = count - start
+                if remaining <= 0 {
+                    return nil
+                }
+                guard let foundPtr = memchr(base.advanced(by: start), 0x3C, remaining) else {
+                    return nil
+                }
+                return Int(bitPattern: foundPtr) - Int(bitPattern: base)
+            }
+            while i < count {
+                if base[i] != 0x3C { // <
+                    if let next = advanceToNextTag(from: i + 1) {
+                        i = next
+                    } else {
+                        break
+                    }
+                    continue
+                }
+                if i + 1 >= count {
+                    break
+                }
+                let next = base[i + 1]
+                if next == 0x21 { // !
+                    if i + 3 < count && base[i + 2] == 0x2D && base[i + 3] == 0x2D { // <!--
+                        var j = i + 4
+                        while j + 2 < count {
+                            if base[j] == 0x2D && base[j + 1] == 0x2D && base[j + 2] == 0x3E {
+                                i = j + 3
+                                break
+                            }
+                            j += 1
+                        }
+                        if j + 2 >= count {
+                            break
+                        }
+                        continue
+                    }
+                    var j = i + 2
+                    while j < count && base[j] != 0x3E {
+                        j += 1
+                    }
+                    i = min(j + 1, count)
+                    continue
+                }
+                if next == 0x2F { // /
+                    var j = i + 2
+                    while j < count && base[j] != 0x3E {
+                        j += 1
+                    }
+                    i = min(j + 1, count)
+                    continue
+                }
+                if next == 0x3F { // ?
+                    var j = i + 2
+                    while j + 1 < count {
+                        if base[j] == 0x3F && base[j + 1] == 0x3E {
+                            i = j + 2
+                            break
+                        }
+                        j += 1
+                    }
+                    if j + 1 >= count {
+                        break
+                    }
+                    continue
+                }
+                if !isNameCharTable[Int(next)] {
+                    i += 1
+                    continue
+                }
+                let nameStart = i + 1
+                var nameEnd = nameStart
+                while nameEnd < count && isNameCharTable[Int(base[nameEnd])] {
+                    nameEnd += 1
+                }
+                if nameEnd == nameStart + 1 {
+                    let b = base[nameStart]
+                    if b == 0x70 || b == 0x50 { // p/P
+                        found = true
+                        break
+                    }
+                }
+                i = nameEnd
+            }
+        }
+        return found
     }
 
     private static func applyBaseUriFromFirstBaseTag(in doc: Document) throws {
@@ -3126,8 +4911,9 @@ enum Libxml2Backend {
                 }
             }
             hints = ctx.hints
+            let fallback = fallbackReason(from: cReason)
             if recordReason {
-                reason = fallbackReason(from: cReason)
+                reason = fallback
             }
             return shouldFallback
         }
@@ -3610,7 +5396,12 @@ enum Libxml2Backend {
                     sawSelfClosing = true
                     break
                 }
-                let attrStart = j
+                var attrStart = j
+                if base[j] == 0x2F, j + 1 < count, isAsciiLetter(base[j + 1]) {
+                    // Allow leading "/" in attribute names to match SwiftSoup tokenization quirks.
+                    j += 1
+                    attrStart = j
+                }
                 while j < count && !isWhitespace(base[j]) && base[j] != 0x3D && base[j] != 0x3E && base[j] != 0x2F {
                     let b = base[j]
                     if b >= 0x80 {

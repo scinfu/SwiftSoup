@@ -25,3 +25,7 @@ jobs:
       run: swift build -v
     - name: Run tests
       run: swift test -v
+    - name: Run tests (libxml2 backend)
+      run: SWIFTSOUP_TEST_BACKEND=libxml2 swift test -v
+    - name: Run tests (libxml2 skip fallbacks)
+      run: SWIFTSOUP_TEST_BACKEND=libxml2 SWIFTSOUP_TEST_LIBXML2_SKIP_FALLBACKS=1 swift test -v --filter Libxml2SkipFallback

@@ -23,28 +23,35 @@ open class NodeTraversor {
      - parameter root: the root node point to traverse.
      */
     open func traverse(_ root: Node?) throws {
+        root?.ensureLibxml2TreeIfNeeded()
         var node: Node? = root
         var depth: Int = 0
 
-        while (node != nil) {
-            try visitor.head(node!, depth)
-            if node!.hasChildNodes() {
-                node = node!.childNode(0)
+        while let current = node {
+            try visitor.head(current, depth)
+            if current.hasChildNodes() {
+                node = current.childNode(0)
                 depth += 1
-            } else {
-                while !node!.hasNextSibling() && depth > 0 {
-                    let parent = node!.getParentNode()
-                    try visitor.tail(node!, depth)
-                    node = parent
-                    depth -= 1
-                }
-                let nextSib = node!.nextSibling()
-                try visitor.tail(node!, depth)
-                if node === root {
+                continue
+            }
+            var cursor = current
+            while depth > 0 && !cursor.hasNextSibling() {
+                let parent = cursor.getParentNode()
+                try visitor.tail(cursor, depth)
+                guard let parent else {
+                    node = nil
                     break
                 }
-                node = nextSib
+                cursor = parent
+                depth -= 1
             }
+            guard node != nil else { break }
+            let nextSib = cursor.nextSibling()
+            try visitor.tail(cursor, depth)
+            if cursor === root {
+                break
+            }
+            node = nextSib
         }
     }
 }

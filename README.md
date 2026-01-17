@@ -84,20 +84,49 @@ print(try document.title()) // Output: Example
 SwiftSoup ships with two parsing backends:
 
 - `Parser.Backend.swiftSoup` (default): SwiftSoup’s HTML5-compliant parser.
-- `Parser.Backend.libxml2` (opt-in): libxml2-backed parser for faster parsing and mutation.
+- `Parser.Backend.libxml2(swiftSoupParityMode: .swiftSoupParity)` (opt-in, experimental): libxml2-backed parser for faster parsing and mutation.
+
+The libxml2 backend is **experimental**. It tries to mimic SwiftSoup’s default HTML5 behavior, but libxml2 is not a full HTML5 parser, so the results cannot be 1:1. By default (`swiftSoupParityMode: .swiftSoupParity`), SwiftSoup pre-scans inputs and may fall back to the SwiftSoup parser when libxml2 would diverge; even without fallback, small differences can remain. When `swiftSoupParityMode: .libxml2Only`, SwiftSoup skips the pre-scan and never falls back, so divergence can increase.
+
+Known constraints and differences (non-exhaustive):
+- HTML5 error-recovery heuristics are approximated (table handling, head/body placement, formatting element reconstruction, void-tag edge cases).
+- Inputs with namespaces or non-ASCII tag/attribute names, malformed tags/attributes, null bytes, or tricky comment sequences can trigger fallback or parse differently.
+- Raw-text elements and unterminated raw text (for example `script` or `style`) can trigger fallback or produce different trees.
 
 Select the backend explicitly when parsing:
 
 ```swift
-let document = try SwiftSoup.parse(html, backend: .libxml2)
+let document = try SwiftSoup.parse(html, backend: .libxml2(swiftSoupParityMode: .swiftSoupParity))
 ```
 
 Or construct a parser with a backend and mode:
 
 ```swift
-let parser = Parser(mode: .html, backend: .libxml2)
+let parser = Parser(mode: .html, backend: .libxml2(swiftSoupParityMode: .swiftSoupParity))
 let doc = try parser.parseInput(html, "")
 ```
+
+If you prefer a backend-first initializer:
+
+```swift
+let parser = Parser(backend: .libxml2(swiftSoupParityMode: .swiftSoupParity), mode: .html)
+let doc = try parser.parseInput(html, "")
+```
+
+Performance tuning:
+- Pass `swiftSoupParityMode: .libxml2Only` to skip the pre-scan and SwiftSoup fallbacks entirely. This turns the libxml2 backend into a thin SwiftSoup wrapper over libxml2 parsing and tree semantics: it is the fastest mode, but behavior will follow libxml2 much more closely than SwiftSoup/jsoup/BeautifulSoup.
+
+#### What `swiftSoupParityMode: .libxml2Only` skips
+When `swiftSoupParityMode: .libxml2Only`, SwiftSoup **does not** pre-scan inputs to detect HTML5 edge cases and **never** falls back to the SwiftSoup parser. That means:
+- HTML5 tree‑builder quirks (adoption‑agency, foster parenting, implied tags, misnested formatting) are not corrected.
+- Malformed tags/attributes, null bytes, tricky comments, and raw‑text edge cases may parse differently.
+- Namespace and non‑ASCII tag/attribute behavior may differ from the SwiftSoup HTML5 tokenizer.
+- The SwiftSoup DOM is built lazily from libxml2 on demand; operations like `body()`, `html()`, or complex selectors may perform more work the first time they are called.
+- In skip‑fallback mode, pretty‑printed HTML output uses libxml2’s formatting (approximate), not SwiftSoup’s formatter.
+
+Use it only if you accept potentially different trees and output for malformed or edge‑case HTML.
+
+Testing note: libxml2Only is exercised by dedicated smoke/compat tests. The main SwiftSoup behavior test suite targets SwiftSoup’s HTML5 parser and is skipped under libxml2Only.
 
 ### libxml2 dependency notes
 SwiftSoup links against the system `libxml2` on Apple platforms. On Linux, install the development package
@@ -116,6 +145,10 @@ swift run -c release SwiftSoupProfile --fixtures /path/to/fixtures
 ```
 
 Add `--text` to include `Document.text()` in the workload.
+Use `--workload-defaults` to include `text`, `body.html()`, and a repeated selector workload (`article,main,div.content,p,a,span`).
+Use `--workload-libxml2-fast` to include a heavier selector mix (attribute/class/tag queries) and more iterations for libxml2 profiling.
+Use `--workload-libxml2-simple` for a simple‑selector mix that should stay on the libxml2 fast paths.
+
 
 ### In-code profiler
 The `Profiler` type is only compiled when the `PROFILE` flag is set. Build with:

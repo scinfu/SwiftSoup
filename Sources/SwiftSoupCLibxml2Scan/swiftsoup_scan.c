@@ -751,12 +751,6 @@ static int swiftsoup_should_fallback_internal(const uint8_t *bytes, int length,
         }
         uint8_t next = bytes[i + 1];
         if (next == 0x21) { // !
-            if (i + 4 < length &&
-                bytes[i + 2] == 0x2D &&
-                bytes[i + 3] == 0x2D &&
-                bytes[i + 4] == 0x2D) {
-                FAIL(SWIFTSOUP_FALLBACK_COMMENT_DASH_DASH_DASH);
-            }
             if (i + 3 < length && bytes[i + 2] == 0x2D && bytes[i + 3] == 0x2D) {
                 int j = i + 4;
                 while (j + 2 < length) {
@@ -785,10 +779,6 @@ static int swiftsoup_should_fallback_internal(const uint8_t *bytes, int length,
             int nameStart = i + 2;
             int nameEnd = nameStart;
             while (nameEnd < length && isNameCharTable[bytes[nameEnd]]) {
-                uint8_t b = bytes[nameEnd];
-                if (b == 0x3A) {
-                    FAIL(SWIFTSOUP_FALLBACK_NAMESPACED_TAG);
-                }
                 nameEnd++;
             }
             if (nameEnd == nameStart) {
@@ -883,10 +873,6 @@ static int swiftsoup_should_fallback_internal(const uint8_t *bytes, int length,
         int nameStart = i + 1;
         int nameEnd = nameStart;
         while (nameEnd < length && isNameCharTable[bytes[nameEnd]]) {
-            uint8_t b = bytes[nameEnd];
-            if (b == 0x3A) {
-                FAIL(SWIFTSOUP_FALLBACK_NAMESPACED_TAG);
-            }
             nameEnd++;
         }
         if (nameEnd == nameStart) {
@@ -1000,6 +986,12 @@ static int swiftsoup_should_fallback_internal(const uint8_t *bytes, int length,
                 break;
             }
             int attrStart = j;
+            if (bytes[j] == 0x2F && j + 1 < length
+                && ((bytes[j + 1] >= 65 && bytes[j + 1] <= 90) || (bytes[j + 1] >= 97 && bytes[j + 1] <= 122))) {
+                // Allow leading "/" in attribute names to mirror SwiftSoup tokenization quirks.
+                j++;
+                attrStart = j;
+            }
             while (j < length
                    && !isWhitespaceTable[bytes[j]]
                    && bytes[j] != 0x3D

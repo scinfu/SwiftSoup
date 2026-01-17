@@ -54,10 +54,35 @@ let package = Package(
             path: "Tools/SwiftSoupProfile",
             swiftSettings: swiftSoupSwiftSettings),
         .testTarget(
-            name: "SwiftSoupTests", 
+            name: "SwiftSoupTests",
             dependencies: [
                 "SwiftSoup",
                 .product(name: "Atomics", package: "swift-atomics")
-            ])
+            ],
+            path: "Tests/SwiftSoupTests"
+        ),
+        .testTarget(
+            name: "SwiftSoupTestsLibxml2",
+            dependencies: [
+                "SwiftSoup",
+                .product(name: "Atomics", package: "swift-atomics")
+            ],
+            path: "Tests/SwiftSoupTestsLibxml2",
+            swiftSettings: [
+                .define("SWIFTSOUP_TEST_BACKEND_LIBXML2")
+            ]
+        ),
+        .testTarget(
+            name: "SwiftSoupTestsLibxml2Only",
+            dependencies: [
+                "SwiftSoup",
+                .product(name: "Atomics", package: "swift-atomics")
+            ],
+            path: "Tests/SwiftSoupTestsLibxml2Only",
+            swiftSettings: [
+                .define("SWIFTSOUP_TEST_BACKEND_LIBXML2"),
+                .define("SWIFTSOUP_TEST_LIBXML2_ONLY")
+            ]
+        )
     ]
 )

@@ -174,6 +174,10 @@ open class Collector {
 
     private static func seedCandidates(for eval: CombiningEvaluator.And, root: Element) throws -> (Elements, Int?)? {
         let evaluators = eval.evaluators
+        if root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true,
+           evaluators.contains(where: { $0 is StructuralEvaluator }) {
+            return nil
+        }
 
         @inline(__always)
         func shouldSkipIndex(_ index: Int) -> Int? {
