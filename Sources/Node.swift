@@ -139,7 +139,16 @@ open class Node: Equatable, Hashable {
         get {
 #if canImport(CLibxml2) || canImport(libxml2)
             if let doc = ownerDocument(), doc.isLibxml2Backend {
-                Libxml2Backend.hydrateChildrenIfNeeded(self)
+                if doc.libxml2SkipSwiftSoupFallbacks,
+                   libxml2ChildrenHydrated,
+                   _childNodes.isEmpty,
+                   let nodePtr = libxml2NodePtr,
+                   nodePtr.pointee.children != nil {
+                    libxml2ChildrenHydrated = false
+                }
+                if !doc.libxml2TextNodesDirty {
+                    Libxml2Backend.hydrateChildrenIfNeeded(self)
+                }
             } else if libxml2Context != nil {
                 Libxml2Backend.hydrateChildrenIfNeeded(self)
             } else {
@@ -223,6 +232,17 @@ open class Node: Equatable, Hashable {
         }
         self.baseUri = baseUri.trim()
         self._attributes = nil
+    }
+
+    deinit {
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let nodePtr = libxml2NodePtr {
+            let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+            if nodePtr.pointee._private == selfPtr {
+                nodePtr.pointee._private = nil
+            }
+        }
+#endif
     }
     
     /**
@@ -338,6 +358,26 @@ open class Node: Equatable, Hashable {
            !doc.libxml2BackedDirty,
            let nodePtr = element.libxml2NodePtr {
             if Node.hasAbsPrefix(attributeKey) {
+                let needsTrimLiteral = (attributeKey.first?.isWhitespace ?? false)
+                    || (attributeKey.last?.isWhitespace ?? false)
+                let trimmedLiteral = needsTrimLiteral ? attributeKey.trim() : attributeKey
+                if !trimmedLiteral.isEmpty {
+                    let settings = doc.treeBuilder?.settings ?? doc.libxml2Context?.settings ?? ParseSettings.htmlDefault
+                    let normalizedLiteral: [UInt8]
+                    if settings.preservesAttributeCase() || !Attributes.containsAsciiUppercase(trimmedLiteral) {
+                        normalizedLiteral = trimmedLiteral
+                    } else {
+                        normalizedLiteral = trimmedLiteral.lowercased()
+                    }
+                    if let overrides = doc.libxml2AttributeOverrides,
+                       let override = overrides[UnsafeMutableRawPointer(nodePtr)],
+                       override.hasKeyIgnoreCase(key: normalizedLiteral) {
+                        return true
+                    }
+                    if Libxml2Backend.hasAttributeInLibxml2Node(nodePtr, key: normalizedLiteral) {
+                        return true
+                    }
+                }
                 do {
                     let key = ArraySlice(attributeKey.dropFirst(Node.absCount))
                     let abs = try absUrl(key)
@@ -755,7 +795,9 @@ open class Node: Equatable, Hashable {
             return
         }
         guard let doc = ownerDocument(), doc.libxml2DocPtr != nil else { return }
-        doc.libxml2BackedDirty = true
+        if !doc.isLibxml2Backend || doc.libxml2SkipSwiftSoupFallbacks {
+            doc.libxml2BackedDirty = true
+        }
         doc.libxml2SkipFallbackTagCacheClear()
         doc.libxml2SkipFallbackClassCacheClear()
         doc.libxml2SkipFallbackAttrCacheClear()
@@ -810,7 +852,13 @@ open class Node: Equatable, Hashable {
     @inline(__always)
     @usableFromInline
     internal func libxml2CanSyncContent() -> Bool {
-        return libxml2NodePtr != nil && ownerDocument()?.libxml2DocPtr != nil
+        if libxml2NodePtr == nil {
+            return false
+        }
+        if let doc = ownerDocument(), doc.libxml2DocPtr != nil {
+            return true
+        }
+        return libxml2Context?.docPtr != nil
     }
 
     @inline(__always)
@@ -835,6 +883,21 @@ open class Node: Equatable, Hashable {
         for child in childNodes {
             child.libxml2ClearNodePtrRecursive()
         }
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func libxml2InvalidateChildrenCache() {
+        if let doc = ownerDocument(), doc.isLibxml2Backend {
+            if doc.libxml2SkipSwiftSoupFallbacks == false {
+                return
+            }
+        }
+        libxml2ChildrenHydrated = false
+        if !_childNodes.isEmpty {
+            // Preserve _private links so rehydration reuses existing wrapper instances.
+        }
+        _childNodes.removeAll(keepingCapacity: true)
     }
 
 #if canImport(CLibxml2) || canImport(libxml2)
@@ -894,9 +957,10 @@ open class Node: Equatable, Hashable {
         }
         guard doc.libxml2DocPtr != nil else { return nil }
         if let element = self as? Element {
-            guard let nodePtr = element.libxml2CreateNode() else { return nil }
+            guard let docPtr = doc.libxml2DocPtr,
+                  let nodePtr = element.libxml2CreateNode(docPtr: docPtr) else { return nil }
             element.libxml2NodePtr = nodePtr
-            if let attrs = element.attributes {
+            if let attrs = element._attributes ?? element.attributes {
                 for attr in attrs.asList() {
                     let key = attr.getKeyUTF8()
                     let value = attr.getValueUTF8()
@@ -1254,6 +1318,13 @@ open class Node: Equatable, Hashable {
             if let outPtr = out.libxml2NodePtr,
                let found = currentChildren.firstIndex(where: { $0.libxml2NodePtr == outPtr }) {
                 index = found
+            } else if isLibxml2Backend {
+                libxml2ChildrenHydrated = false
+                Libxml2Backend.hydrateChildrenIfNeeded(self)
+                if let outPtr = out.libxml2NodePtr,
+                   let found = childNodes.firstIndex(where: { $0.libxml2NodePtr == outPtr }) {
+                    index = found
+                }
             }
 #endif
         }
@@ -1277,7 +1348,7 @@ open class Node: Equatable, Hashable {
            doc.libxml2DocPtr != nil,
            let outPtr = out.libxml2NodePtr,
            out.ownerDocument() === doc,
-           input.ownerDocument() === doc {
+           (input.ownerDocument() === doc || doc.libxml2SkipSwiftSoupFallbacks) {
             let inputPtr = input.libxml2NodePtr ?? input.libxml2EnsureNode(in: doc)
             if let inputPtr {
                 if input.libxml2NodePtr != nil {
@@ -1325,6 +1396,11 @@ open class Node: Equatable, Hashable {
         if (out is Element) || (input is Element), let element = self as? Element {
             element.markQueryIndexesDirty()
         }
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(), doc.isLibxml2Backend {
+            libxml2InvalidateChildrenCache()
+        }
+#endif
         bumpTextMutationVersion()
     }
     
@@ -1346,6 +1422,13 @@ open class Node: Equatable, Hashable {
             if let outPtr = out.libxml2NodePtr,
                let found = currentChildren.firstIndex(where: { $0.libxml2NodePtr == outPtr }) {
                 index = found
+            } else if isLibxml2Backend {
+                libxml2ChildrenHydrated = false
+                Libxml2Backend.hydrateChildrenIfNeeded(self)
+                if let outPtr = out.libxml2NodePtr,
+                   let found = childNodes.firstIndex(where: { $0.libxml2NodePtr == outPtr }) {
+                    index = found
+                }
             }
 #endif
         }
@@ -1387,6 +1470,11 @@ open class Node: Equatable, Hashable {
         if out is Element, let element = self as? Element {
             element.markQueryIndexesDirty()
         }
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(), doc.isLibxml2Backend {
+            libxml2InvalidateChildrenCache()
+        }
+#endif
         bumpTextMutationVersion()
     }
     
@@ -1408,7 +1496,8 @@ open class Node: Equatable, Hashable {
         for child in children {
             try reparentChild(child)
 #if canImport(CLibxml2) || canImport(libxml2)
-            if canSyncLibxml2, let parentPtr, let doc, child.ownerDocument() === doc {
+            if canSyncLibxml2, let parentPtr, let doc,
+               (child.ownerDocument() === doc || doc.libxml2SkipSwiftSoupFallbacks) {
                 let childPtr = child.libxml2NodePtr ?? child.libxml2EnsureNode(in: doc)
                 if let childPtr {
                     if child.libxml2NodePtr != nil {
@@ -1452,6 +1541,11 @@ open class Node: Equatable, Hashable {
 #else
         markSourceDirty()
 #endif
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(), doc.isLibxml2Backend {
+            libxml2InvalidateChildrenCache()
+        }
+#endif
         bumpTextMutationVersion()
     }
     
@@ -1467,6 +1561,55 @@ open class Node: Equatable, Hashable {
         let doc = ownerDocument()
         let canSyncLibxml2 = parentPtr != nil && doc?.libxml2DocPtr != nil
         let refNodePtr = (index >= 0 && index < childNodes.count) ? childNodes[index].libxml2NodePtr : nil
+        if canSyncLibxml2, let parentPtr, let doc, doc.isLibxml2Backend {
+            var didSyncAll = true
+            for input in children {
+                try reparentChild(input)
+            }
+            childNodes.insert(contentsOf: children, at: index)
+            reindexChildren(index)
+            if doc.libxml2Preferred == true {
+                for input in children {
+                    linkFormControlsIfNeeded(input)
+                }
+            }
+            for input in children {
+                let childPtr = input.libxml2NodePtr ?? input.libxml2EnsureNode(in: doc)
+                if let childPtr {
+                    if input.libxml2NodePtr != nil {
+                        xmlUnlinkNode(childPtr)
+                    }
+                    if let refNodePtr {
+                        xmlAddPrevSibling(refNodePtr, childPtr)
+                    } else {
+                        xmlAddChild(parentPtr, childPtr)
+                    }
+                } else {
+                    didSyncAll = false
+                }
+                if didSyncAll {
+                    input.withLibxml2DirtySuppressed {
+                        input.markSourceDirty()
+                    }
+                } else {
+                    input.markSourceDirty()
+                }
+            }
+            if didSyncAll {
+                withLibxml2DirtySuppressed {
+                    markSourceDirty()
+                }
+            } else {
+                markSourceDirty()
+            }
+#if canImport(CLibxml2) || canImport(libxml2)
+            if let doc = ownerDocument(), doc.isLibxml2Backend {
+                libxml2InvalidateChildrenCache()
+            }
+#endif
+            bumpTextMutationVersion()
+            return
+        }
         var didSyncAll = canSyncLibxml2
         #endif
         for input in children.reversed() {
@@ -1479,7 +1622,8 @@ open class Node: Equatable, Hashable {
             }
 #endif
 #if canImport(CLibxml2) || canImport(libxml2)
-            if canSyncLibxml2, let parentPtr, let doc, input.ownerDocument() === doc {
+            if canSyncLibxml2, let parentPtr, let doc,
+               (input.ownerDocument() === doc || doc.libxml2SkipSwiftSoupFallbacks) {
                 let childPtr = input.libxml2NodePtr ?? input.libxml2EnsureNode(in: doc)
                 if let childPtr {
                     if input.libxml2NodePtr != nil {
@@ -1517,6 +1661,11 @@ open class Node: Equatable, Hashable {
         }
 #else
         markSourceDirty()
+#endif
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(), doc.isLibxml2Backend {
+            libxml2InvalidateChildrenCache()
+        }
 #endif
         bumpTextMutationVersion()
     }
@@ -1771,20 +1920,16 @@ open class Node: Equatable, Hashable {
 #if canImport(CLibxml2) || canImport(libxml2)
         let hasOverrides = (ownerDocument()?.libxml2AttributeOverrides?.isEmpty == false)
         let allowFastSerialize = Libxml2Serialization.enabled
-            || (ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true)
-            || (ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true)
         if allowFastSerialize,
            let nodePtr = libxml2NodePtr,
            let doc = ownerDocument(),
            let docPtr = doc.libxml2DocPtr,
            !doc.libxml2BackedDirty,
+           !doc.libxml2TextNodesDirty,
            out.syntax() == .html,
+           !out.prettyPrint(),
+           !out.outline(),
            !hasOverrides {
-            if out.prettyPrint(),
-               let dumped = Libxml2Serialization.htmlDumpFormat(node: nodePtr, doc: docPtr, prettyPrint: true) {
-                accum.append(dumped)
-                return
-            }
             if let dumped = Libxml2Serialization.htmlDump(node: nodePtr, doc: docPtr) {
                 accum.append(dumped)
                 return
@@ -1806,13 +1951,12 @@ open class Node: Equatable, Hashable {
 #if canImport(CLibxml2) || canImport(libxml2)
         let hasOverrides = (ownerDocument()?.libxml2AttributeOverrides?.isEmpty == false)
         let allowFastSerialize = Libxml2Serialization.enabled
-            || (ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true)
-            || (ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true)
         if allowFastSerialize,
            let nodePtr = libxml2NodePtr,
            let doc = ownerDocument(),
            let docPtr = doc.libxml2DocPtr,
            !doc.libxml2BackedDirty,
+           !doc.libxml2TextNodesDirty,
            out.syntax() == .html,
            !hasOverrides {
             if out.prettyPrint(),

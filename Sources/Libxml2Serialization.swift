@@ -16,7 +16,7 @@ enum Libxml2Serialization {
     static func htmlDump(doc: xmlDocPtr) -> [UInt8]? {
         var mem: UnsafeMutablePointer<xmlChar>? = nil
         var size: Int32 = 0
-        htmlDocDumpMemory(doc, &mem, &size)
+        htmlDocDumpMemoryFormat(doc, &mem, &size, 0)
         guard size >= 0 else { return nil }
         guard let mem else { return [] }
         let count = Int(size)
@@ -38,14 +38,7 @@ enum Libxml2Serialization {
     }
 
     static func htmlDump(node: xmlNodePtr, doc: xmlDocPtr) -> [UInt8]? {
-        guard let buffer = xmlBufferCreate() else { return nil }
-        defer { xmlBufferFree(buffer) }
-        let written = htmlNodeDump(buffer, doc, node)
-        guard written >= 0 else { return nil }
-        guard let content = buffer.pointee.content else { return nil }
-        let size = Int(buffer.pointee.use)
-        guard size > 0 else { return [] }
-        return Array(UnsafeBufferPointer(start: content, count: size))
+        return htmlDumpFormat(node: node, doc: doc, prettyPrint: false)
     }
 
     static func htmlDumpFormat(node: xmlNodePtr, doc: xmlDocPtr, prettyPrint: Bool) -> [UInt8]? {
@@ -73,17 +66,7 @@ enum Libxml2Serialization {
     }
 
     static func htmlDumpChildren(node: xmlNodePtr, doc: xmlDocPtr) -> [UInt8]? {
-        guard let buffer = xmlBufferCreate() else { return nil }
-        defer { xmlBufferFree(buffer) }
-        var child = node.pointee.children
-        while let current = child {
-            _ = htmlNodeDump(buffer, doc, current)
-            child = current.pointee.next
-        }
-        guard let content = buffer.pointee.content else { return nil }
-        let size = Int(buffer.pointee.use)
-        guard size > 0 else { return [] }
-        return Array(UnsafeBufferPointer(start: content, count: size))
+        return htmlDumpChildrenFormat(node: node, doc: doc, prettyPrint: false)
     }
 
     static func htmlDumpChildrenFormat(node: xmlNodePtr, doc: xmlDocPtr, prettyPrint: Bool) -> [UInt8]? {

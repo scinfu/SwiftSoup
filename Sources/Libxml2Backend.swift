@@ -1769,6 +1769,9 @@ enum Libxml2Backend {
     static func textFromLibxml2Document(_ doc: Document, trim: Bool) -> [UInt8]? {
         guard let state = doc.libxml2LazyState else { return nil }
         guard let docPtr = doc.libxml2DocPtr else { return nil }
+        if doc.libxml2TextNodesDirty {
+            return nil
+        }
         return textFromLibxml2DocPtr(docPtr, settings: state.settings, trim: trim)
     }
 
@@ -1780,12 +1783,19 @@ enum Libxml2Backend {
             if doc.libxml2BackedDirty {
                 return nil
             }
+            if doc.libxml2TextNodesDirty {
+                return nil
+            }
         } else {
             guard context != nil else { return nil }
         }
         guard let nodePtr = element.libxml2NodePtr else { return nil }
         let settings = doc?.treeBuilder?.settings ?? context?.settings ?? ParseSettings.htmlDefault
-        return textFromLibxml2NodePtr(nodePtr, settings: settings, trim: trim)
+        let bytes = textFromLibxml2NodePtr(nodePtr, settings: settings, trim: trim)
+        if trim, element.tagNameNormalUTF8() == UTF8Arrays.textarea {
+            return bytes.trim()
+        }
+        return bytes
     }
 
     static func ownTextFromLibxml2Node(_ element: Element) -> [UInt8]? {
@@ -1794,6 +1804,9 @@ enum Libxml2Backend {
         if let doc {
             guard doc.isLibxml2Backend else { return nil }
             if doc.libxml2BackedDirty {
+                return nil
+            }
+            if doc.libxml2TextNodesDirty {
                 return nil
             }
         } else {
@@ -1969,6 +1982,22 @@ enum Libxml2Backend {
         }
 
         return Libxml2StartTagOverrides(attributes: attributes, tagNames: tagNames)
+    }
+
+    @inline(__always)
+    private static func applyTagNameOverridesToLibxml2Doc(_ overrides: [UnsafeMutableRawPointer: [UInt8]]) {
+        guard !overrides.isEmpty else { return }
+        for (rawPtr, nameBytes) in overrides {
+            let nodePtr = rawPtr.assumingMemoryBound(to: xmlNode.self)
+            var cName = nameBytes
+            cName.append(0)
+            cName.withUnsafeBufferPointer { buf in
+                guard let base = buf.baseAddress else { return }
+                base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
+                    xmlNodeSetName(nodePtr, ptr)
+                }
+            }
+        }
     }
 
     private static func buildExplicitBooleanAttributes(
@@ -2160,6 +2189,14 @@ enum Libxml2Backend {
             return
         }
         parent.libxml2ChildrenHydrated = true
+        if !parent._childNodes.isEmpty,
+           doc?.libxml2SkipSwiftSoupFallbacks != true {
+            for node in parent._childNodes {
+                if let nodePtr = node.libxml2NodePtr {
+                    nodePtr.pointee._private = nil
+                }
+            }
+        }
         parent._childNodes.removeAll(keepingCapacity: true)
         guard let docPtr = doc?.libxml2DocPtr ?? context?.docPtr else { return }
 
@@ -2276,6 +2313,10 @@ enum Libxml2Backend {
             element.libxml2Context = context
         }
         if element.libxml2AttributesHydrated {
+            return
+        }
+        if element._attributes != nil {
+            element.libxml2AttributesHydrated = true
             return
         }
         element.libxml2AttributesHydrated = true
@@ -2453,6 +2494,10 @@ enum Libxml2Backend {
             element.libxml2NodePtr = node
             element.libxml2Context = context
             node.pointee._private = Unmanaged.passUnretained(element).toOpaque()
+            let wasSuppressed = element.suppressQueryIndexDirty
+            element.suppressQueryIndexDirty = true
+            element.parentNode = parent
+            element.suppressQueryIndexDirty = wasSuppressed
             element.treeBuilder = doc?.treeBuilder
             cacheNode(element, nodePtr: node, context: context, doc: doc)
             return element
@@ -2471,6 +2516,7 @@ enum Libxml2Backend {
             textNode.libxml2NodePtr = node
             textNode.libxml2Context = context
             node.pointee._private = Unmanaged.passUnretained(textNode).toOpaque()
+            textNode.parentNode = parent
             textNode.treeBuilder = doc?.treeBuilder
             cacheNode(textNode, nodePtr: node, context: context, doc: doc)
             return textNode
@@ -2480,6 +2526,7 @@ enum Libxml2Backend {
             comment.libxml2NodePtr = node
             comment.libxml2Context = context
             node.pointee._private = Unmanaged.passUnretained(comment).toOpaque()
+            comment.parentNode = parent
             comment.treeBuilder = doc?.treeBuilder
             cacheNode(comment, nodePtr: node, context: context, doc: doc)
             return comment
@@ -2498,6 +2545,7 @@ enum Libxml2Backend {
             declaration.libxml2NodePtr = node
             declaration.libxml2Context = context
             node.pointee._private = Unmanaged.passUnretained(declaration).toOpaque()
+            declaration.parentNode = parent
             declaration.treeBuilder = doc?.treeBuilder
             cacheNode(declaration, nodePtr: node, context: context, doc: doc)
             return declaration
@@ -2581,6 +2629,11 @@ enum Libxml2Backend {
         _ node: xmlNodePtr,
         doc: Document
     ) -> Node? {
+        if let cached = doc.libxml2NodeCache?[UnsafeMutableRawPointer(node)],
+           cached.libxml2NodePtr == node,
+           cached.ownerDocument() === doc {
+            return cached
+        }
         guard let parent = resolveParentWrapper(node, doc: doc) else { return nil }
         let settings = doc.treeBuilder?.settings ?? ParseSettings.htmlDefault
         let baseUri = parent.baseUri ?? doc.baseUri ?? []
@@ -2624,6 +2677,11 @@ enum Libxml2Backend {
         _ node: xmlNodePtr,
         doc: Document
     ) -> Node? {
+        if let cached = doc.libxml2NodeCache?[UnsafeMutableRawPointer(node)],
+           cached.libxml2NodePtr == node,
+           cached.ownerDocument() === doc {
+            return cached
+        }
         let settings = doc.treeBuilder?.settings ?? ParseSettings.htmlDefault
         let baseUri = doc.baseUri ?? []
         let parentWrapper: Node
@@ -2745,6 +2803,8 @@ enum Libxml2Backend {
         guard !className.isEmpty else { return Elements() }
         let output = Elements()
         output.reserveCapacity(64)
+        var seen = Set<UnsafeMutableRawPointer>()
+        seen.reserveCapacity(64)
         let attrName = "class".utf8Array + [0]
         attrName.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return }
@@ -2756,7 +2816,11 @@ enum Libxml2Backend {
                         xmlFree(value)
                         if classAttrHasClass(classAttr, className),
                            let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
-                            output.add(element)
+                            let key = UnsafeMutableRawPointer(current)
+                            if !seen.contains(key) {
+                                seen.insert(key)
+                                output.add(element)
+                            }
                         }
                     }
                 }
@@ -2811,10 +2875,15 @@ enum Libxml2Backend {
                     if let valuePtr = xmlGetProp(current, attrPtr) {
                         let rawValue = bytesFromXmlChar(valuePtr)
                         xmlFree(valuePtr)
+                        #if DEBUG
+                        if key == "class".utf8Array && value == "value".utf8Array {
+                        }
+                        #endif
                         let needsTrim = (rawValue.first?.isWhitespace ?? false) || (rawValue.last?.isWhitespace ?? false)
                         let candidate = needsTrim ? rawValue.trim() : rawValue
                         if value.equalsIgnoreCase(string: candidate),
                            let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                            element.setSiblingIndex(libxml2SiblingIndex(current, parent: element.parentNode ?? doc, doc: doc))
                             output.add(element)
                         }
                     }
@@ -3078,14 +3147,40 @@ enum Libxml2Backend {
                             xmlStrcasecmp(current.pointee.name, ptr) == 0
                         }
                     }
-                    if matches, let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
-                        output.add(element)
+                    if matches {
+                        if let opaque = current.pointee._private {
+                            let node = Unmanaged<Node>.fromOpaque(opaque).takeUnretainedValue()
+                            if let element = node as? Element,
+                               element.libxml2NodePtr == current,
+                               element.ownerDocument() === doc {
+                                element.setSiblingIndex(libxml2SiblingIndex(current, parent: element.parentNode ?? doc, doc: doc))
+                                output.add(element)
+                                return
+                            }
+                        }
+                        if let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                            element.setSiblingIndex(libxml2SiblingIndex(current, parent: element.parentNode ?? doc, doc: doc))
+                            output.add(element)
+                        }
                     }
                 } else {
                     let rawName = qualifiedName(for: current)
                     let normalizedName = containsUppercaseAscii(rawName) ? settings.normalizeTag(rawName) : rawName
-                    if normalizedName == tag, let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
-                        output.add(element)
+                    if normalizedName == tag {
+                        if let opaque = current.pointee._private {
+                            let node = Unmanaged<Node>.fromOpaque(opaque).takeUnretainedValue()
+                            if let element = node as? Element,
+                               element.libxml2NodePtr == current,
+                               element.ownerDocument() === doc {
+                                element.setSiblingIndex(libxml2SiblingIndex(current, parent: element.parentNode ?? doc, doc: doc))
+                                output.add(element)
+                                return
+                            }
+                        }
+                        if let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                            element.setSiblingIndex(libxml2SiblingIndex(current, parent: element.parentNode ?? doc, doc: doc))
+                            output.add(element)
+                        }
                     }
                 }
             }
@@ -3108,6 +3203,7 @@ enum Libxml2Backend {
                 if current.pointee.ns?.pointee.prefix == nil,
                    cStringEqualsAnyLowercase(current.pointee.name, tags),
                    let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                    element.setSiblingIndex(libxml2SiblingIndex(current, parent: element.parentNode ?? doc, doc: doc))
                     output.add(element)
                 }
             }
@@ -3132,6 +3228,7 @@ enum Libxml2Backend {
             }
             if current.pointee.type == XML_ELEMENT_NODE,
                let element = wrapNodeForSelectionFast(current, doc: doc) as? Element {
+                element.setSiblingIndex(libxml2SiblingIndex(current, parent: element.parentNode ?? doc, doc: doc))
                 output.add(element)
             }
         }
@@ -3173,11 +3270,25 @@ enum Libxml2Backend {
         return wrapNodeForSelection(parentPtr, doc: doc)
     }
 
-    private static func libxml2SiblingIndex(
+    static func libxml2SiblingIndex(
         _ node: xmlNodePtr,
         parent: Node,
         doc: Document
     ) -> Int {
+        if doc.libxml2SkipSwiftSoupFallbacks,
+           let parentPtr = node.pointee.parent {
+            var count = 0
+            var cursor: xmlNodePtr? = parentPtr.pointee.children
+            while let current = cursor {
+                if current == node {
+                    return count
+                }
+                if libxml2NodeIsRepresented(current) {
+                    count += 1
+                }
+                cursor = current.pointee.next
+            }
+        }
         var count = 0
         var cursor = node.pointee.prev
         while let current = cursor {
@@ -3198,7 +3309,7 @@ enum Libxml2Backend {
             return true
         case XML_TEXT_NODE, XML_CDATA_SECTION_NODE, XML_ENTITY_REF_NODE:
             let content = libxml2NodeContent(node)
-            return !content.isEmpty
+            return !content.isEmpty && !StringUtil.isWhitespace(content)
         case XML_COMMENT_NODE:
             return true
         case XML_PI_NODE:
@@ -3332,6 +3443,8 @@ enum Libxml2Backend {
         builder.tracksErrors = errors.getMaxSize() > 0
 
         let doc = Document(baseUri)
+        doc.sourceBuffer = SourceBuffer(input)
+        doc.setSourceRange(SourceRange(start: 0, end: input.count), complete: true)
 #if canImport(CLibxml2) || canImport(libxml2)
         let context = Libxml2DocumentContext(docPtr: docPtr, settings: settings, baseUri: baseUri)
         context.document = doc
@@ -3342,10 +3455,28 @@ enum Libxml2Backend {
         doc._childNodes.removeAll(keepingCapacity: true)
         doc.libxml2Preferred = true
         let preserveCase = settings.preservesTagCase() || settings.preservesAttributeCase()
-        let shouldBuildOverrides = skipSwiftSoupFallbacks
-            || shouldBuildAttributeOverrides(input, preserveCase: preserveCase)
-            || shouldBuildTagNameOverridesForNamespaces(input)
-        if shouldBuildOverrides {
+        if skipSwiftSoupFallbacks {
+            let needsAttributeOverrides = shouldBuildAttributeOverrides(input, preserveCase: preserveCase)
+            let needsTagNameOverrides = shouldBuildTagNameOverridesForNamespaces(input)
+            if needsAttributeOverrides || needsTagNameOverrides {
+                let overrides = buildStartTagOverrides(
+                    input: sanitizedInput,
+                    baseUri: baseUri,
+                    settings: settings,
+                    docPtr: docPtr
+                )
+                context.attributeOverrides = needsAttributeOverrides ? overrides.attributes : nil
+                doc.libxml2AttributeOverrides = needsAttributeOverrides ? overrides.attributes : nil
+                context.tagNameOverrides = needsTagNameOverrides ? overrides.tagNames : nil
+                doc.libxml2TagNameOverrides = needsTagNameOverrides ? overrides.tagNames : nil
+            } else {
+                context.attributeOverrides = nil
+                doc.libxml2AttributeOverrides = nil
+                context.tagNameOverrides = nil
+                doc.libxml2TagNameOverrides = nil
+            }
+        } else if shouldBuildAttributeOverrides(input, preserveCase: preserveCase)
+                    || shouldBuildTagNameOverridesForNamespaces(input) {
             let overrides = buildStartTagOverrides(
                 input: sanitizedInput,
                 baseUri: baseUri,
@@ -3386,6 +3517,9 @@ enum Libxml2Backend {
             attributeOverrides: context.attributeOverrides,
             tagNameOverrides: context.tagNameOverrides
         )
+        if skipSwiftSoupFallbacks, let overrides = doc.libxml2TagNameOverrides {
+            applyTagNameOverridesToLibxml2Doc(overrides)
+        }
         if sawNoscript {
             try normalizeNoscriptInHead(in: doc, baseUri: baseUri, builder: builder)
         }
@@ -3409,9 +3543,6 @@ enum Libxml2Backend {
                 doc.libxml2ExplicitBooleanAttributes = explicit
             }
         }
-        if skipSwiftSoupFallbacks {
-            doc.libxml2BackedDirty = true
-        }
         doc.markQueryIndexesDirty()
         markLibxml2Hydrated(doc, markAttributes: false)
         if skipSwiftSoupFallbacks {
@@ -3424,14 +3555,16 @@ enum Libxml2Backend {
         return doc
     }
 
-    static func parseHtmlFragmentLibxml2Only(
+    static func parseHtmlFragmentLibxml2(
         _ fragment: [UInt8],
         context: Element?,
-        baseUri: [UInt8]
+        baseUri: [UInt8],
+        swiftSoupParityMode: Parser.SwiftSoupParityMode
     ) throws -> [Node]? {
+        _ = swiftSoupParityMode
         guard let context,
               let doc = context.ownerDocument(),
-              doc.libxml2SkipSwiftSoupFallbacks,
+              case .libxml2 = doc.parserBackend,
               let docPtr = doc.libxml2DocPtr else {
             return nil
         }
@@ -3489,7 +3622,48 @@ enum Libxml2Backend {
             }
             cursor = current.pointee.next
         }
+        normalizeRcdataElements(nodes, doc: doc)
         return nodes
+    }
+
+    private static func normalizeRcdataElements(_ nodes: [Node], doc: Document) {
+        guard doc.libxml2DocPtr != nil else { return }
+        var stack = nodes
+        while let node = stack.popLast() {
+            guard let element = node as? Element else { continue }
+            let tag = element.tagNameNormalUTF8()
+            if tag == UTF8Arrays.title || tag == UTF8Arrays.textarea {
+                let rawHtml: String
+                if let nodePtr = element.libxml2NodePtr,
+                   let docPtr = doc.libxml2DocPtr,
+                   let dumped = Libxml2Serialization.htmlDumpChildren(node: nodePtr, doc: docPtr) {
+                    rawHtml = String(decoding: dumped, as: UTF8.self)
+                } else {
+                    rawHtml = ""
+                }
+                try? element.text(rawHtml)
+                continue
+            }
+            let children = element.childNodes
+            if !children.isEmpty {
+                for child in children.reversed() {
+                    stack.append(child)
+                }
+            }
+        }
+    }
+
+    static func parseHtmlFragmentLibxml2Only(
+        _ fragment: [UInt8],
+        context: Element?,
+        baseUri: [UInt8]
+    ) throws -> [Node]? {
+        return try parseHtmlFragmentLibxml2(
+            fragment,
+            context: context,
+            baseUri: baseUri,
+            swiftSoupParityMode: .libxml2Only
+        )
     }
 
     static func parseXmlFragmentLibxml2Only(
@@ -3625,17 +3799,17 @@ enum Libxml2Backend {
         let attributeOverrides: [UnsafeMutableRawPointer: Attributes]?
         let tagNameOverrides: [UnsafeMutableRawPointer: [UInt8]]?
         let preserveCase = settings.preservesTagCase() || settings.preservesAttributeCase()
-        if !builder.skipSwiftSoupFallbacks
-            && (shouldBuildAttributeOverrides(wrapped, preserveCase: preserveCase)
-                || shouldBuildTagNameOverridesForNamespaces(wrapped)) {
+        let needsAttributeOverrides = shouldBuildAttributeOverrides(wrapped, preserveCase: preserveCase)
+        let needsTagNameOverrides = shouldBuildTagNameOverridesForNamespaces(wrapped)
+        if needsAttributeOverrides || needsTagNameOverrides {
             let overrides = buildStartTagOverrides(
                 input: sanitizedWrapped,
                 baseUri: baseUri,
                 settings: settings,
                 docPtr: docPtr
             )
-            attributeOverrides = overrides.attributes
-            tagNameOverrides = overrides.tagNames
+            attributeOverrides = needsAttributeOverrides ? overrides.attributes : nil
+            tagNameOverrides = needsTagNameOverrides ? overrides.tagNames : nil
         } else {
             attributeOverrides = nil
             tagNameOverrides = nil
@@ -3831,6 +4005,8 @@ enum Libxml2Backend {
         builder.tracksErrors = errors.getMaxSize() > 0
 
         let doc = Document(baseUri)
+        doc.sourceBuffer = SourceBuffer(input)
+        doc.setSourceRange(SourceRange(start: 0, end: input.count), complete: true)
         doc.parsedAsXml = true
         doc.outputSettings().syntax(syntax: OutputSettings.Syntax.xml)
 #if canImport(CLibxml2) || canImport(libxml2)
@@ -3845,9 +4021,28 @@ enum Libxml2Backend {
         doc._childNodes.removeAll(keepingCapacity: true)
         doc.libxml2Preferred = true
         let preserveCase = settings.preservesTagCase() || settings.preservesAttributeCase()
-        if builder.skipSwiftSoupFallbacks
-            || shouldBuildAttributeOverrides(sanitizedInput, preserveCase: preserveCase)
-            || shouldBuildTagNameOverridesForNamespaces(sanitizedInput) {
+        if builder.skipSwiftSoupFallbacks {
+            let needsAttributeOverrides = shouldBuildAttributeOverrides(sanitizedInput, preserveCase: preserveCase)
+            let needsTagNameOverrides = shouldBuildTagNameOverridesForNamespaces(sanitizedInput)
+            if needsAttributeOverrides || needsTagNameOverrides {
+                let overrides = buildStartTagOverrides(
+                    input: sanitizedInput,
+                    baseUri: baseUri,
+                    settings: settings,
+                    docPtr: docPtr
+                )
+                context.attributeOverrides = needsAttributeOverrides ? overrides.attributes : nil
+                doc.libxml2AttributeOverrides = needsAttributeOverrides ? overrides.attributes : nil
+                context.tagNameOverrides = needsTagNameOverrides ? overrides.tagNames : nil
+                doc.libxml2TagNameOverrides = needsTagNameOverrides ? overrides.tagNames : nil
+            } else {
+                context.attributeOverrides = nil
+                doc.libxml2AttributeOverrides = nil
+                context.tagNameOverrides = nil
+                doc.libxml2TagNameOverrides = nil
+            }
+        } else if shouldBuildAttributeOverrides(sanitizedInput, preserveCase: preserveCase)
+                    || shouldBuildTagNameOverridesForNamespaces(sanitizedInput) {
             let overrides = buildStartTagOverrides(
                 input: sanitizedInput,
                 baseUri: baseUri,
@@ -3865,7 +4060,7 @@ enum Libxml2Backend {
             doc.libxml2TagNameOverrides = nil
         }
         doc.libxml2Context = context
-        doc.libxml2OriginalInput = sanitizedInput
+        doc.libxml2OriginalInput = input
 #endif
         builder.doc = doc
         doc.treeBuilder = builder
@@ -4132,6 +4327,7 @@ enum Libxml2Backend {
                     #if canImport(CLibxml2) || canImport(libxml2)
                     element.libxml2NodePtr = node
                     node.pointee._private = Unmanaged.passUnretained(element).toOpaque()
+                    cacheNode(element, nodePtr: node, context: parent.libxml2Context, doc: parent.ownerDocument())
                     #endif
                 }
                 element.libxml2Context = parent.libxml2Context
@@ -4205,6 +4401,7 @@ enum Libxml2Backend {
                     #if canImport(CLibxml2) || canImport(libxml2)
                     comment.libxml2NodePtr = node
                     node.pointee._private = Unmanaged.passUnretained(comment).toOpaque()
+                    cacheNode(comment, nodePtr: node, context: parent.libxml2Context, doc: parent.ownerDocument())
                     #endif
                 }
                 comment.libxml2Context = parent.libxml2Context
@@ -4230,6 +4427,7 @@ enum Libxml2Backend {
                     #if canImport(CLibxml2) || canImport(libxml2)
                     declaration.libxml2NodePtr = node
                     node.pointee._private = Unmanaged.passUnretained(declaration).toOpaque()
+                    cacheNode(declaration, nodePtr: node, context: parent.libxml2Context, doc: parent.ownerDocument())
                     #endif
                 }
                 declaration.libxml2Context = parent.libxml2Context
@@ -4256,13 +4454,16 @@ enum Libxml2Backend {
         nodePtr: xmlNodePtr? = nil
     ) throws {
         let isScriptOrStyle = isScriptOrStyleParent(parent)
-        if isScriptOrStyle, let lastData = parent.childNodes.last as? DataNode {
-            lastData.appendBytes(content)
-            return
-        }
-        if !isScriptOrStyle, let lastText = parent.childNodes.last as? TextNode {
-            lastText.appendBytes(content)
-            return
+        let bindsLibxml2Node = (nodePtr != nil)
+        if !bindsLibxml2Node {
+            if isScriptOrStyle, let lastData = parent.childNodes.last as? DataNode {
+                lastData.appendBytes(content)
+                return
+            }
+            if !isScriptOrStyle, let lastText = parent.childNodes.last as? TextNode {
+                lastText.appendBytes(content)
+                return
+            }
         }
         let node: Node
         if isScriptOrStyle {
@@ -4275,6 +4476,7 @@ enum Libxml2Backend {
         node.libxml2Context = parent.libxml2Context
         if let nodePtr {
             nodePtr.pointee._private = Unmanaged.passUnretained(node).toOpaque()
+            cacheNode(node, nodePtr: nodePtr, context: parent.libxml2Context, doc: parent.ownerDocument())
         }
 #endif
         if builder.isBulkBuilding {
@@ -4305,6 +4507,29 @@ enum Libxml2Backend {
     @inline(__always)
     static func attributeValueFromLibxml2Node(_ node: xmlNodePtr, key: [UInt8]) -> [UInt8]? {
         guard !key.isEmpty else { return nil }
+        if key.contains(0x3A) { // ':'
+            var attr = node.pointee.properties
+            while let current = attr {
+                let rawName = qualifiedName(for: current)
+                if equalsIgnoreCaseAscii(rawName, key) {
+                    if let docPtr = node.pointee.doc {
+                        let valuePtr = xmlNodeListGetString(docPtr, current.pointee.children, 1)
+                        let raw = bytesFromXmlChar(valuePtr)
+                        if let valuePtr {
+                            xmlFree(valuePtr)
+                        }
+                        return raw
+                    }
+                    if let child = current.pointee.children,
+                       let contentPtr = child.pointee.content {
+                        return bytesFromXmlChar(contentPtr)
+                    }
+                    return []
+                }
+                attr = current.pointee.next
+            }
+            return nil
+        }
         let attrName = key + [0]
         return attrName.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return nil }
@@ -4319,6 +4544,17 @@ enum Libxml2Backend {
     @inline(__always)
     static func hasAttributeInLibxml2Node(_ node: xmlNodePtr, key: [UInt8]) -> Bool {
         guard !key.isEmpty else { return false }
+        if key.contains(0x3A) { // ':'
+            var attr = node.pointee.properties
+            while let current = attr {
+                let rawName = qualifiedName(for: current)
+                if equalsIgnoreCaseAscii(rawName, key) {
+                    return true
+                }
+                attr = current.pointee.next
+            }
+            return false
+        }
         let attrName = key + [0]
         return attrName.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return false }
@@ -4578,9 +4814,8 @@ enum Libxml2Backend {
     }
 
     private static func normalizeBodyPlacement(in doc: Document) throws {
-        guard let body = doc.body() else { return }
-        let html = try doc.getElementsByTag(UTF8Arrays.html).first()
-        guard let html else { return }
+        guard let body = findFirstElementByTagName(UTF8Arrays.body, in: doc) else { return }
+        guard let html = findFirstElementByTagName(UTF8Arrays.html, in: doc) else { return }
         var beforeBodyHtml: [Node] = []
         var afterBodyHtml: [Node] = []
         var seenBody = false
@@ -4639,6 +4874,19 @@ enum Libxml2Backend {
                 try body.appendChild(node)
             }
         }
+    }
+
+    @inline(__always)
+    private static func findFirstElementByTagName(_ tag: [UInt8], in node: Node) -> Element? {
+        if node.nodeNameUTF8() == tag {
+            return node as? Element
+        }
+        for child in node.childNodes {
+            if let found = findFirstElementByTagName(tag, in: child) {
+                return found
+            }
+        }
+        return nil
     }
 
     @inline(__always)

@@ -298,27 +298,13 @@ public class Parser {
             )
 #if canImport(CLibxml2) || canImport(libxml2)
         case .libxml2(let mode):
-            if mode == .libxml2Only {
-                if let context {
-                    let tagName = context.tagNameUTF8()
-                    if tagName == UTF8Arrays.title || tagName == UTF8Arrays.textarea || tagName == UTF8Arrays.head {
-                        let treeBuilder = HtmlTreeBuilder()
-                        return try treeBuilder.parseFragment(
-                            fragmentHtml,
-                            context,
-                            baseUri,
-                            ParseErrorList.noTracking(),
-                            treeBuilder.defaultSettings()
-                        )
-                    }
-                }
-                if let parsed = try Libxml2Backend.parseHtmlFragmentLibxml2Only(
-                        fragmentHtml,
-                        context: context,
-                        baseUri: baseUri
-                   ) {
-                    return parsed
-                }
+            if let parsed = try Libxml2Backend.parseHtmlFragmentLibxml2(
+                fragmentHtml,
+                context: context,
+                baseUri: baseUri,
+                swiftSoupParityMode: mode
+            ) {
+                return parsed
             }
             let treeBuilder = HtmlTreeBuilder()
             return try treeBuilder.parseFragment(

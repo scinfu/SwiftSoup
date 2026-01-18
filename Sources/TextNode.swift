@@ -6,6 +6,13 @@
 //
 
 import Foundation
+#if canImport(CLibxml2) || canImport(libxml2)
+#if canImport(CLibxml2)
+@preconcurrency import CLibxml2
+#elseif canImport(libxml2)
+@preconcurrency import libxml2
+#endif
+#endif
 
 /**
  A text node.
@@ -209,8 +216,123 @@ open class TextNode: Node {
 
         let head: String = getWholeText().substring(0, offset)
         let tail: String = getWholeText().substring(offset)
-        text(head)
         let tailNode: TextNode = TextNode(tail.utf8Array, self.getBaseUriUTF8())
+#if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(), doc.isLibxml2Backend {
+            let headBytes = head.utf8Array
+            _textSlice = nil
+            _text = headBytes
+            if let attributes = attributes {
+                do {
+                    try attributes.put(TextNode.TEXT_KEY, headBytes)
+                } catch {}
+            }
+            if doc.libxml2SkipSwiftSoupFallbacks, let nodePtr = libxml2NodePtr {
+                var headBytesForLibxml2 = headBytes
+                headBytesForLibxml2.append(0)
+                headBytesForLibxml2.withUnsafeBufferPointer { buf in
+                    guard let base = buf.baseAddress else { return }
+                    base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
+                        xmlNodeSetContent(nodePtr, ptr)
+                    }
+                }
+                let tailBytes = tail.utf8Array
+                tailBytes.withUnsafeBufferPointer { buf in
+                    guard let base = buf.baseAddress else { return }
+                    let ptr = base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { $0 }
+                    let docPtr = nodePtr.pointee.doc ?? doc.libxml2DocPtr ?? libxml2Context?.docPtr
+                    let tailPtr = docPtr != nil
+                        ? xmlNewDocTextLen(docPtr, ptr, Int32(buf.count))
+                        : xmlNewTextLen(ptr, Int32(buf.count))
+                    if let tailPtr {
+                        var inserted: xmlNodePtr? = xmlAddNextSibling(nodePtr, tailPtr)
+                        if inserted == nil, let parentPtr = nodePtr.pointee.parent {
+                            inserted = xmlAddChild(parentPtr, tailPtr)
+                        }
+                        if inserted != nil {
+                            tailNode.libxml2NodePtr = tailPtr
+                            tailPtr.pointee._private = Unmanaged.passUnretained(tailNode).toOpaque()
+                            tailNode.libxml2Context = doc.libxml2Context ?? libxml2Context
+                        } else {
+                            xmlFreeNode(tailPtr)
+                        }
+                    }
+                }
+            } else {
+                doc.libxml2TextNodesDirty = true
+            }
+            if let parent = parentNode {
+                Libxml2Backend.hydrateChildrenIfNeeded(parent)
+                tailNode.parentNode = parent
+                let insertIndex = siblingIndex + 1
+                parent._childNodes.insert(tailNode, at: insertIndex)
+                parent.reindexChildren(insertIndex)
+            }
+            bumpTextMutationVersion()
+            markSourceDirty()
+            return tailNode
+        }
+#endif
+#if canImport(CLibxml2) || canImport(libxml2)
+        let libxml2Doc = ownerDocument() ?? libxml2Context?.document
+        if let nodePtr = libxml2NodePtr {
+            let headBytes = head.utf8Array
+            _textSlice = nil
+            _text = headBytes
+            if let attributes = attributes {
+                do {
+                    try attributes.put(TextNode.TEXT_KEY, headBytes)
+                } catch {}
+            }
+            var headBytesForLibxml2 = headBytes
+            headBytesForLibxml2.append(0)
+            headBytesForLibxml2.withUnsafeBufferPointer { buf in
+                guard let base = buf.baseAddress else { return }
+                base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
+                    xmlNodeSetContent(nodePtr, ptr)
+                }
+            }
+            let tailBytes = tail.utf8Array
+            tailBytes.withUnsafeBufferPointer { buf in
+                guard let base = buf.baseAddress else { return }
+                let ptr = base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { $0 }
+                let docPtr = nodePtr.pointee.doc ?? libxml2Doc?.libxml2DocPtr ?? libxml2Context?.docPtr
+                let tailPtr = docPtr != nil
+                    ? xmlNewDocTextLen(docPtr, ptr, Int32(buf.count))
+                    : xmlNewTextLen(ptr, Int32(buf.count))
+                if let tailPtr {
+                    var inserted: xmlNodePtr? = xmlAddNextSibling(nodePtr, tailPtr)
+                    if inserted == nil, let parentPtr = nodePtr.pointee.parent {
+                        inserted = xmlAddChild(parentPtr, tailPtr)
+                    }
+                    if inserted != nil {
+                        tailNode.libxml2NodePtr = tailPtr
+                        tailPtr.pointee._private = Unmanaged.passUnretained(tailNode).toOpaque()
+                        tailNode.libxml2Context = libxml2Doc?.libxml2Context ?? libxml2Context
+                    } else {
+                        xmlFreeNode(tailPtr)
+                    }
+                }
+            }
+            if let parent = parentNode {
+                tailNode.parentNode = parent
+                let insertIndex = siblingIndex + 1
+                parent._childNodes.insert(tailNode, at: insertIndex)
+                parent.reindexChildren(insertIndex)
+            }
+            bumpTextMutationVersion()
+            markSourceDirty()
+            return tailNode
+        }
+#endif
+        #if canImport(CLibxml2) || canImport(libxml2)
+        if let doc = ownerDocument(),
+           doc.isLibxml2Backend,
+           libxml2NodePtr == nil {
+            doc.libxml2BackedDirty = true
+        }
+        #endif
+        text(head)
         if (parent() != nil) {
             try parent()?.addChildren(siblingIndex+1, tailNode)
         }

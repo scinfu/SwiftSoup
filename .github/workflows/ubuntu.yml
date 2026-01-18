@@ -25,9 +25,9 @@ jobs:
     - uses: actions/checkout@v4
     - name: Build
       run: swift build -v
-    - name: Run tests
-      run: swift test -v
+    - name: Run tests (SwiftSoup default)
+      run: swift test -v --target SwiftSoupTests
     - name: Run tests (libxml2 backend)
-      run: SWIFTSOUP_TEST_BACKEND=libxml2 swift test -v
-    - name: Run tests (libxml2 skip fallbacks)
-      run: SWIFTSOUP_TEST_BACKEND=libxml2 SWIFTSOUP_TEST_LIBXML2_SKIP_FALLBACKS=1 swift test -v --filter Libxml2SkipFallback
+      run: swift test -v --target SwiftSoupTestsLibxml2
+    - name: Run tests (libxml2 only)
+      run: swift test -v --target SwiftSoupTestsLibxml2Only

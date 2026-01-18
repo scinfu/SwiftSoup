@@ -179,21 +179,21 @@ open class CssSelector {
                 root.storeSelectorResult(query, result)
                 return result
             }
+            if let fast = try fastSelectQuery(query, root, query) {
+                DebugTrace.log("CssSelector.select(query): fast path hit")
+                root.storeSelectorResult(query, fast)
+                return fast
+            }
             if root.ownerDocument()?.isLibxml2Backend == true,
                let libxml2 = try libxml2Select(query, root) {
                 DebugTrace.log("CssSelector.select(query): libxml2 xpath fast path hit")
                 root.storeSelectorResult(query, libxml2)
                 return libxml2
             }
-            if let fast = try fastSelectQuery(query, root, query) {
-                DebugTrace.log("CssSelector.select(query): fast path hit")
-                root.storeSelectorResult(query, fast)
-                return fast
-            }
         }
 #endif
 #if canImport(CLibxml2) || canImport(libxml2)
-        if root.ownerDocument()?.isLibxml2Backend == true,
+        if root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true,
            let libxml2 = try libxml2Select(query, root) {
             DebugTrace.log("CssSelector.select(query): libxml2 xpath fast path hit")
             root.storeSelectorResult(query, libxml2)
@@ -212,7 +212,8 @@ open class CssSelector {
             return fast
         }
 #if canImport(CLibxml2) || canImport(libxml2)
-        if let libxml2 = try libxml2Select(query, root) {
+        if root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true,
+           let libxml2 = try libxml2Select(query, root) {
             DebugTrace.log("CssSelector.select(query): libxml2 xpath fast path hit")
             root.storeSelectorResult(query, libxml2)
             return libxml2
@@ -259,7 +260,7 @@ open class CssSelector {
                 root.storeSelectorResult(query, result)
                 return result
             }
-            if root.ownerDocument()?.isLibxml2Backend == true,
+            if root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true,
                let libxml2 = try libxml2Select(query, root) {
                 root.storeSelectorResult(query, libxml2)
                 return libxml2
@@ -299,7 +300,10 @@ open class CssSelector {
             return fast
         }
 #if canImport(CLibxml2) || canImport(libxml2)
-        if roots.count == 1, let root = roots.first, let libxml2 = try libxml2Select(query, root) {
+        if roots.count == 1,
+           let root = roots.first,
+           root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true,
+           let libxml2 = try libxml2Select(query, root) {
             root.storeSelectorResult(query, libxml2)
             return libxml2
         }
@@ -1547,13 +1551,12 @@ open class CssSelector {
         case .tag(let tagBytes, _):
             result = Libxml2Backend.collectElementsByTagName(start: startNode, tag: tagBytes, settings: settings, doc: doc)
         case .id(let idBytes):
-            if let found = Libxml2Backend.findFirstElementById(start: startNode, id: idBytes, doc: doc) {
-                let output = Elements()
-                output.add(found)
-                result = output
-            } else {
-                result = Elements()
-            }
+            result = Libxml2Backend.collectElementsByAttributeValue(
+                start: startNode,
+                key: "id".utf8Array,
+                value: idBytes,
+                doc: doc
+            )
         case .className(let className):
             result = Libxml2Backend.collectElementsByClassName(start: startNode, className: className, doc: doc)
         case .classes(let firstClass, let otherClasses):
@@ -1673,7 +1676,16 @@ open class CssSelector {
         case .descendant:
             result = nil
         case .all:
-            result = Libxml2Backend.collectAllElements(start: startNode, doc: doc, includeSelf: !(root is Document))
+            result = Libxml2Backend.collectAllElements(start: startNode, doc: doc, includeSelf: true)
+            if root is Document, let current = result {
+                let withRoot = Elements()
+                withRoot.reserveCapacity(current.size() + 1)
+                withRoot.add(root)
+                for el in current.array() {
+                    withRoot.add(el)
+                }
+                result = withRoot
+            }
         case .none:
             result = nil
         }
@@ -1744,6 +1756,7 @@ open class CssSelector {
         guard let nodeset = xpathObj.pointee.nodesetval else {
             return Elements()
         }
+        xmlXPathNodeSetSort(nodeset)
         let count = Int(nodeset.pointee.nodeNr)
         if count <= 0 { return Elements() }
         let output = Elements()
@@ -1767,6 +1780,7 @@ open class CssSelector {
             }
                 guard let node else { continue }
                 guard let element = node as? Element else { continue }
+                element.setSiblingIndex(Libxml2Backend.libxml2SiblingIndex(nodePtr, parent: element.parentNode ?? doc, doc: doc))
                 let id = ObjectIdentifier(element)
                 if seen.contains(id) { continue }
                 seen.insert(id)
@@ -1786,8 +1800,23 @@ open class CssSelector {
             }
                 guard let node else { continue }
                 guard let element = node as? Element else { continue }
+                element.setSiblingIndex(Libxml2Backend.libxml2SiblingIndex(nodePtr, parent: element.parentNode ?? doc, doc: doc))
                 output.add(element)
             }
+        }
+        if doc.libxml2SkipSwiftSoupFallbacks, output.size() > 1 {
+            for i in 0..<output.size() {
+                output.get(i).setSiblingIndex(i)
+            }
+        }
+        if trimmed == "*" && root is Document {
+            let withRoot = Elements()
+            withRoot.reserveCapacity(output.size() + 1)
+            withRoot.add(root)
+            for el in output.array() {
+                withRoot.add(el)
+            }
+            return withRoot
         }
         return output
     }
@@ -2146,7 +2175,7 @@ open class CssSelector {
                 }
                 if i >= bytes.count || bytes[i] != 0x5D { return nil }
                 i += 1
-                let value = String(decoding: valueBytes, as: UTF8.self).lowercased()
+                let value = String(decoding: valueBytes, as: UTF8.self).trim().lowercased()
                 attrs.append(Libxml2AttrSelector(name: name, op: attrOp, value: value))
                 continue
             }
@@ -2345,7 +2374,7 @@ open class CssSelector {
                 predicates.append("@\(name)")
             case .equals:
                 guard let value = attr.value else { return nil }
-                let expr = libxml2LowercaseExpr("@\(name)")
+                let expr = "normalize-space(\(libxml2LowercaseExpr("@\(name)")))"
                 predicates.append("\(expr) = \(libxml2XPathLiteral(value))")
             case .prefix:
                 guard let value = attr.value else { return nil }
