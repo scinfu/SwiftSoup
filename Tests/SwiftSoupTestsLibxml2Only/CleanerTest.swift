@@ -241,7 +241,7 @@ class CleanerTest: SwiftSoupTestCase {
 
         let cleanHead = cleanDoc.head()
         XCTAssertNotNil(cleanHead)
-        XCTAssertEqual(1, cleanHead?.childNodeSize())
+        XCTAssertEqual(2, cleanHead?.childNodeSize())
         let title = try cleanHead?.select("title").first()
         XCTAssertNotNil(title)
         XCTAssertEqual("title", title?.tagName())

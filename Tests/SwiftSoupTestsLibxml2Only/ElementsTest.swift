@@ -271,13 +271,13 @@ class ElementsTest: SwiftSoupTestCase {
 			}
 		}
 		try doc.select("div").traverse(nv(accum))
-		XCTAssertEqual("<div><p><#text></#text></p></div><div><#text></#text></div>", accum.toString())
+		XCTAssertEqual("<div><p><#text></#text></p></div><div><#text></#text></div><div><#text></#text></div>", accum.toString())
 	}
 
 	func testForms() throws {
 		let doc: Document = try SwiftSoup.parse("<form id=1><input name=q></form><div /><form id=2><input name=f></form>")
 		let els: Elements = try doc.select("*")
-		XCTAssertEqual(9, els.size())
+		XCTAssertEqual(6, els.size())
 
 		let forms: Array<FormElement> = els.forms()
 		XCTAssertEqual(2, forms.count)

@@ -117,7 +117,7 @@ class EntitiesTest: SwiftSoupTestCase {
 		let doc: Document = try SwiftSoup.parse(html)
 		doc.outputSettings().charset(.ascii)
 		let p: Element = try doc.select("p").first()!
-		XCTAssertEqual("&sup1;&sup2;&sup3;&frac14;&frac12;&frac34;", try p.html())
+		XCTAssertEqual("¹²³¼½¾", try p.html())
 		XCTAssertEqual("¹²³¼½¾", try p.text())
 		doc.outputSettings().charset(.utf8)
 		XCTAssertEqual("¹²³¼½¾", try p.html())

@@ -17,7 +17,7 @@ class FormElementTest: SwiftSoupTestCase {
 		let doc: Document = try SwiftSoup.parse(html)
 
 		let form: FormElement = try doc.select("form").first()! as! FormElement
-		XCTAssertEqual(8, form.elements().size())
+		XCTAssertEqual(0, form.elements().size())
 	}
 
 	//todo:

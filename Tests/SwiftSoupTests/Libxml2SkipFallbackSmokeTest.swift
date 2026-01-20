@@ -28,7 +28,7 @@ final class Libxml2SkipFallbackSmokeTest: SwiftSoupTestCase {
     func testBackendFlagsSet() throws {
         let doc = try SwiftSoup.parse("<div></div>", backend: .libxml2(swiftSoupParityMode: .libxml2Only))
         XCTAssertTrue(doc.isLibxml2Backend)
-        XCTAssertTrue(doc.libxml2SkipSwiftSoupFallbacks)
+        XCTAssertTrue(doc.libxml2Only)
     }
 #endif
 }

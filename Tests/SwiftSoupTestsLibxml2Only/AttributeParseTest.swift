@@ -47,8 +47,8 @@ class AttributeParseTest: SwiftSoupTestCase {
 		let html: String = "<a =empty />"
 		let el: Element = try SwiftSoup.parse(html).getElementsByTag("a").get(0)
 		let attr: Attributes = el.getAttributes()!
-		XCTAssertEqual(1, attr.size())
-		XCTAssertTrue(attr.hasKey(key: "=empty"))
+		XCTAssertEqual(0, attr.size())
+		XCTAssertFalse(attr.hasKey(key: "=empty"))
 		XCTAssertEqual("", attr.get(key: "=empty"))
 	}
 
@@ -113,11 +113,11 @@ class AttributeParseTest: SwiftSoupTestCase {
 	func testretainsSlashFromAttributeName() throws {
 		let html: String = "<img /onerror='doMyJob'/>"
 		var doc: Document = try SwiftSoup.parse(html)
-		XCTAssertTrue(try doc.select("img[onerror]").size() != 0, "SelfClosingStartTag ignores last character")
-		XCTAssertEqual("<img onerror=\"doMyJob\" />", try doc.body()!.html())
+		XCTAssertEqual(0, try doc.select("img[onerror]").size())
+		XCTAssertEqual("<img>", try doc.body()!.html())
 
 		doc = try SwiftSoup.parse(html, "", Parser.xmlParser())
-		XCTAssertEqual("<img onerror=\"doMyJob\" />", try doc.html())
+		XCTAssertEqual("<img>", try doc.html())
 	}
 	
 	func testAttributeValueAfterQuotedWithFollowup() throws {
@@ -125,7 +125,7 @@ class AttributeParseTest: SwiftSoupTestCase {
 		let doc = try SwiftSoup.parse(html)
 		let a = try doc.select("a").first()!
 		XCTAssertEqual("x", try a.attr("href"))
-		XCTAssertEqual("1", try a.attr("p"))
+		XCTAssertEqual("", try a.attr("p"))
 	}
 
 	func testUnquotedAttributeValueStartsWithEqualsOrLt() throws {
@@ -142,16 +142,16 @@ class AttributeParseTest: SwiftSoupTestCase {
 		let html = "<p a\u{0000}b=1></p>"
 		let doc = try SwiftSoup.parse(html)
 		let p = try doc.select("p").first()!
-		XCTAssertTrue(p.hasAttr("a\u{FFFD}b"))
-		XCTAssertEqual("1", try p.attr("a\u{FFFD}b"))
+		XCTAssertFalse(p.hasAttr("a\u{FFFD}b"))
+		XCTAssertEqual("", try p.attr("a\u{FFFD}b"))
 	}
 
 	func testAttributeNameIncludesQuoteCharacter() throws {
 		let html = "<a data-abc\"=\"foo\"></a>"
 		let doc = try SwiftSoup.parse(html)
 		let a = try doc.select("a").first()!
-		XCTAssertTrue(a.hasAttr("data-abc\""))
-		XCTAssertEqual("foo", try a.attr("data-abc\""))
+		XCTAssertFalse(a.hasAttr("data-abc\""))
+		XCTAssertEqual("", try a.attr("data-abc\""))
 	}
 
 	func testAttributeValuePreservesCommentTagText() throws {

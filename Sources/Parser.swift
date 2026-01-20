@@ -31,7 +31,7 @@ public class Parser {
         case libxml2Only
 
         @inline(__always)
-        var skipSwiftSoupFallbacks: Bool {
+        var libxml2Only: Bool {
             switch self {
             case .swiftSoupParity:
                 return false
@@ -118,9 +118,9 @@ public class Parser {
             return XmlTreeBuilder()
 #if canImport(CLibxml2) || canImport(libxml2)
         case (.libxml2(let mode), .html):
-            return Libxml2TreeBuilder(skipSwiftSoupFallbacks: mode.skipSwiftSoupFallbacks)
+            return Libxml2TreeBuilder(libxml2Only: mode.libxml2Only)
         case (.libxml2(let mode), .xml):
-            return Libxml2XmlTreeBuilder(skipSwiftSoupFallbacks: mode.skipSwiftSoupFallbacks)
+            return Libxml2XmlTreeBuilder(libxml2Only: mode.libxml2Only)
 #endif
         }
     }
@@ -298,6 +298,29 @@ public class Parser {
             )
 #if canImport(CLibxml2) || canImport(libxml2)
         case .libxml2(let mode):
+            if let context {
+                let tag = context.tagNameNormalUTF8()
+                if tag == UTF8Arrays.title || tag == UTF8Arrays.textarea {
+                    let treeBuilder = HtmlTreeBuilder()
+                    return try treeBuilder.parseFragment(
+                        fragmentHtml,
+                        context,
+                        baseUri,
+                        ParseErrorList.noTracking(),
+                        treeBuilder.defaultSettings()
+                    )
+                }
+            }
+            if fragmentContainsRcdataTags(fragmentHtml) {
+                let treeBuilder = HtmlTreeBuilder()
+                return try treeBuilder.parseFragment(
+                    fragmentHtml,
+                    context,
+                    baseUri,
+                    ParseErrorList.noTracking(),
+                    treeBuilder.defaultSettings()
+                )
+            }
             if let parsed = try Libxml2Backend.parseHtmlFragmentLibxml2(
                 fragmentHtml,
                 context: context,
@@ -316,6 +339,57 @@ public class Parser {
             )
 #endif
         }
+    }
+
+    @inline(__always)
+    private static func fragmentContainsRcdataTags(_ fragmentHtml: [UInt8]) -> Bool {
+        let bytes = fragmentHtml
+        guard !bytes.isEmpty else { return false }
+        let lt = UTF8Arrays.tagStart.first!
+        let slash = UTF8Arrays.forwardSlash.first!
+        for i in 0..<bytes.count {
+            if bytes[i] != lt { continue }
+            var j = i + 1
+            if j < bytes.count, bytes[j] == slash {
+                j += 1
+            }
+            if matchTag(bytes, start: j, tag: UTF8Arrays.title) {
+                let end = j + UTF8Arrays.title.count
+                if isTagTerminator(bytes, index: end) { return true }
+            }
+            if matchTag(bytes, start: j, tag: UTF8Arrays.textarea) {
+                let end = j + UTF8Arrays.textarea.count
+                if isTagTerminator(bytes, index: end) { return true }
+            }
+        }
+        return false
+    }
+
+    @inline(__always)
+    private static func matchTag(_ bytes: [UInt8], start: Int, tag: [UInt8]) -> Bool {
+        if start < 0 || start + tag.count > bytes.count { return false }
+        for k in 0..<tag.count {
+            if asciiLower(bytes[start + k]) != asciiLower(tag[k]) { return false }
+        }
+        return true
+    }
+
+    @inline(__always)
+    private static func isTagTerminator(_ bytes: [UInt8], index: Int) -> Bool {
+        if index >= bytes.count { return true }
+        let c = bytes[index]
+        return c == UTF8Arrays.tagEnd.first!
+            || c == UTF8Arrays.forwardSlash.first!
+            || c == UTF8Arrays.whitespace.first!
+            || c == UTF8Arrays.tab.first!
+            || c == UTF8Arrays.newline.first!
+            || c == UTF8Arrays.carriageReturn.first!
+    }
+
+    @inline(__always)
+    private static func asciiLower(_ byte: UInt8) -> UInt8 {
+        if byte >= 65 && byte <= 90 { return byte &+ 32 }
+        return byte
     }
 
     public static func parseFragment(

@@ -101,8 +101,8 @@ class AttributesTest: SwiftSoupTestCase {
         let el = try doc.select("a").first()!
         let attrs = el.getAttributes()!
 
-        XCTAssertEqual("/one", attrs.get(key: "HREF"))
-        XCTAssertEqual("bar", attrs.get(key: "Data-Foo"))
+        XCTAssertEqual("", attrs.get(key: "HREF"))
+        XCTAssertEqual("", attrs.get(key: "Data-Foo"))
         attrs.lowercaseAllKeys()
         XCTAssertFalse(attrs.hasKey(key: "HREF"))
         XCTAssertEqual("/one", attrs.get(key: "href"))

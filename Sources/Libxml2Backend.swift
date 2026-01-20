@@ -128,10 +128,10 @@ private final class Libxml2FallbackStats: @unchecked Sendable {
 }
 
 final class Libxml2TreeBuilder: TreeBuilder {
-    let skipSwiftSoupFallbacks: Bool
+    let libxml2Only: Bool
 
-    init(skipSwiftSoupFallbacks: Bool) {
-        self.skipSwiftSoupFallbacks = skipSwiftSoupFallbacks
+    init(libxml2Only: Bool) {
+        self.libxml2Only = libxml2Only
         super.init()
     }
 
@@ -161,10 +161,10 @@ final class Libxml2TreeBuilder: TreeBuilder {
 }
 
 final class Libxml2XmlTreeBuilder: TreeBuilder {
-    let skipSwiftSoupFallbacks: Bool
+    let libxml2Only: Bool
 
-    init(skipSwiftSoupFallbacks: Bool) {
-        self.skipSwiftSoupFallbacks = skipSwiftSoupFallbacks
+    init(libxml2Only: Bool) {
+        self.libxml2Only = libxml2Only
         super.init()
     }
 
@@ -2190,7 +2190,7 @@ enum Libxml2Backend {
         }
         parent.libxml2ChildrenHydrated = true
         if !parent._childNodes.isEmpty,
-           doc?.libxml2SkipSwiftSoupFallbacks != true {
+           doc?.libxml2Only != true {
             for node in parent._childNodes {
                 if let nodePtr = node.libxml2NodePtr {
                     nodePtr.pointee._private = nil
@@ -3275,7 +3275,7 @@ enum Libxml2Backend {
         parent: Node,
         doc: Document
     ) -> Int {
-        if doc.libxml2SkipSwiftSoupFallbacks,
+        if doc.libxml2Only,
            let parentPtr = node.pointee.parent {
             var count = 0
             var cursor: xmlNodePtr? = parentPtr.pointee.children
@@ -3338,11 +3338,11 @@ enum Libxml2Backend {
         defer { Profiler.end("Libxml2.parseHTML", _p) }
         #endif
 
-        let skipSwiftSoupFallbacks = builder.skipSwiftSoupFallbacks
+        let libxml2Only = builder.libxml2Only
         #if PROFILE
         let pSanitize = Profiler.start("Libxml2.sanitizeHtml")
         #endif
-        let sanitizedInput = skipSwiftSoupFallbacks ? input : sanitizeHtmlInputForLibxml2(input)
+        let sanitizedInput = libxml2Only ? input : sanitizeHtmlInputForLibxml2(input)
         #if PROFILE
         Profiler.end("Libxml2.sanitizeHtml", pSanitize)
         #endif
@@ -3350,54 +3350,58 @@ enum Libxml2Backend {
         var hints: HtmlScanHints
         var scanHints = HtmlScanHints()
         var reason: Libxml2FallbackReason? = nil
-        #if PROFILE
-        let pScan = Profiler.start("Libxml2.scanFallback")
-        #endif
-        let hasVoidEndTag = containsEndTagForHtmlVoidTags(input)
-        let hasCommentDashDashDash = containsHtmlCommentDashDashDash(input)
-        let hasCdata = containsHtmlCdata(input)
-        if hasLeadingHtmlComment(sanitizedInput) {
+        var shouldFallback = false
+        if !libxml2Only {
+            #if PROFILE
+            let pScan = Profiler.start("Libxml2.scanFallback")
+            #endif
+            let hasVoidEndTag = containsEndTagForHtmlVoidTags(input)
+            let hasCommentDashDashDash = containsHtmlCommentDashDashDash(input)
+            let hasCdata = containsHtmlCdata(input)
+            if hasLeadingHtmlComment(sanitizedInput) {
+                #if PROFILE
+                Profiler.end("Libxml2.scanFallback", pScan)
+                #endif
+                reason = .formattingMismatch
+                let fallbackBuilder = HtmlTreeBuilder()
+                let parsed = try fallbackBuilder.parse(input, baseUri, errors, settings)
+#if canImport(CLibxml2) || canImport(libxml2)
+                parsed.libxml2Preferred = true
+                attachLibxml2Document(parsed)
+#endif
+                return parsed
+            }
+            if hasVoidEndTag || hasCommentDashDashDash || hasCdata {
+                reason = .formattingMismatch
+                shouldFallback = true
+            } else {
+                shouldFallback = shouldFallbackToSwiftSoup(
+                    sanitizedInput,
+                    reason: &reason,
+                    recordReason: Libxml2FallbackStats.enabled,
+                    hints: &scanHints
+                )
+            }
             #if PROFILE
             Profiler.end("Libxml2.scanFallback", pScan)
             #endif
-            reason = .formattingMismatch
-            let fallbackBuilder = HtmlTreeBuilder()
-            let parsed = try fallbackBuilder.parse(input, baseUri, errors, settings)
+            if shouldFallback {
+                if Libxml2FallbackStats.enabled {
+                    let sample = Libxml2FallbackStats.sampleEnabled ? sampleSnippet(input) : nil
+                    Libxml2FallbackStats.shared.recordFallback(reason ?? .unknown, sample: sample)
+                }
+                let fallbackBuilder = HtmlTreeBuilder()
+                let parsed = try fallbackBuilder.parse(input, baseUri, errors, settings)
 #if canImport(CLibxml2) || canImport(libxml2)
-            parsed.libxml2Preferred = true
-            attachLibxml2Document(parsed)
+                parsed.libxml2Preferred = true
+                attachLibxml2Document(parsed)
 #endif
-            return parsed
-        }
-        var shouldFallback: Bool
-        if hasVoidEndTag || hasCommentDashDashDash || hasCdata {
-            reason = .formattingMismatch
-            shouldFallback = true
-        } else {
-            shouldFallback = shouldFallbackToSwiftSoup(
-                sanitizedInput,
-                reason: &reason,
-                recordReason: Libxml2FallbackStats.enabled,
-                hints: &scanHints
-            )
-        }
-        #if PROFILE
-        Profiler.end("Libxml2.scanFallback", pScan)
-        #endif
-        if shouldFallback {
-            if Libxml2FallbackStats.enabled {
-                let sample = Libxml2FallbackStats.sampleEnabled ? sampleSnippet(input) : nil
-                Libxml2FallbackStats.shared.recordFallback(reason ?? .unknown, sample: sample)
+                return parsed
             }
-            let fallbackBuilder = HtmlTreeBuilder()
-            let parsed = try fallbackBuilder.parse(input, baseUri, errors, settings)
-#if canImport(CLibxml2) || canImport(libxml2)
-            parsed.libxml2Preferred = true
-            attachLibxml2Document(parsed)
-#endif
-            return parsed
+            hints = scanHints
+        } else {
+            hints = HtmlScanHints()
         }
-        hints = scanHints
         let explicitBooleanHints = booleanHintsEnabled() ? hints : nil
         let options = Int32(
             HTML_PARSE_RECOVER.rawValue
@@ -3448,33 +3452,26 @@ enum Libxml2Backend {
 #if canImport(CLibxml2) || canImport(libxml2)
         let context = Libxml2DocumentContext(docPtr: docPtr, settings: settings, baseUri: baseUri)
         context.document = doc
-        doc.parserBackend = .libxml2(swiftSoupParityMode: skipSwiftSoupFallbacks ? .libxml2Only : .swiftSoupParity)
+        doc.parserBackend = .libxml2(swiftSoupParityMode: libxml2Only ? .libxml2Only : .swiftSoupParity)
         doc.libxml2DocPtr = docPtr
         doc.libxml2BackedDirty = false
         doc.libxml2ChildrenHydrated = false
         doc._childNodes.removeAll(keepingCapacity: true)
         doc.libxml2Preferred = true
+        doc.libxml2LazyState = libxml2Only ? Libxml2LazyState(
+            input: input,
+            baseUri: baseUri,
+            settings: settings,
+            errors: errors,
+            forceLibxml2: true,
+            fastScan: false
+        ) : nil
         let preserveCase = settings.preservesTagCase() || settings.preservesAttributeCase()
-        if skipSwiftSoupFallbacks {
-            let needsAttributeOverrides = shouldBuildAttributeOverrides(input, preserveCase: preserveCase)
-            let needsTagNameOverrides = shouldBuildTagNameOverridesForNamespaces(input)
-            if needsAttributeOverrides || needsTagNameOverrides {
-                let overrides = buildStartTagOverrides(
-                    input: sanitizedInput,
-                    baseUri: baseUri,
-                    settings: settings,
-                    docPtr: docPtr
-                )
-                context.attributeOverrides = needsAttributeOverrides ? overrides.attributes : nil
-                doc.libxml2AttributeOverrides = needsAttributeOverrides ? overrides.attributes : nil
-                context.tagNameOverrides = needsTagNameOverrides ? overrides.tagNames : nil
-                doc.libxml2TagNameOverrides = needsTagNameOverrides ? overrides.tagNames : nil
-            } else {
-                context.attributeOverrides = nil
-                doc.libxml2AttributeOverrides = nil
-                context.tagNameOverrides = nil
-                doc.libxml2TagNameOverrides = nil
-            }
+        if libxml2Only {
+            context.attributeOverrides = nil
+            doc.libxml2AttributeOverrides = nil
+            context.tagNameOverrides = nil
+            doc.libxml2TagNameOverrides = nil
         } else if shouldBuildAttributeOverrides(input, preserveCase: preserveCase)
                     || shouldBuildTagNameOverridesForNamespaces(input) {
             let overrides = buildStartTagOverrides(
@@ -3498,6 +3495,13 @@ enum Libxml2Backend {
 #endif
         builder.doc = doc
         doc.treeBuilder = builder
+        if libxml2Only {
+            if Libxml2FallbackStats.enabled {
+                Libxml2FallbackStats.shared.recordLibxmlUsed()
+            }
+            docPtrToFree = nil
+            return doc
+        }
         var sawBase = false
         var sawTable = false
         var sawNoscript = false
@@ -3517,9 +3521,6 @@ enum Libxml2Backend {
             attributeOverrides: context.attributeOverrides,
             tagNameOverrides: context.tagNameOverrides
         )
-        if skipSwiftSoupFallbacks, let overrides = doc.libxml2TagNameOverrides {
-            applyTagNameOverridesToLibxml2Doc(overrides)
-        }
         if sawNoscript {
             try normalizeNoscriptInHead(in: doc, baseUri: baseUri, builder: builder)
         }
@@ -3545,7 +3546,7 @@ enum Libxml2Backend {
         }
         doc.markQueryIndexesDirty()
         markLibxml2Hydrated(doc, markAttributes: false)
-        if skipSwiftSoupFallbacks {
+        if libxml2Only {
             docPtrToFree = nil
         }
         if Libxml2FallbackStats.enabled {
@@ -3641,7 +3642,7 @@ enum Libxml2Backend {
                 } else {
                     rawHtml = ""
                 }
-                try? element.text(rawHtml)
+                _ = try? element.text(rawHtml)
                 continue
             }
             let children = element.childNodes
@@ -3759,7 +3760,7 @@ enum Libxml2Backend {
         wrapped.append(contentsOf: wrapperTag)
         wrapped.append(contentsOf: UTF8Arrays.tagEnd)
 
-        let sanitizedWrapped = builder.skipSwiftSoupFallbacks ? wrapped : sanitizeHtmlInputForLibxml2(wrapped)
+        let sanitizedWrapped = builder.libxml2Only ? wrapped : sanitizeHtmlInputForLibxml2(wrapped)
         let options = Int32(
             HTML_PARSE_RECOVER.rawValue
                 | HTML_PARSE_NOERROR.rawValue
@@ -3798,24 +3799,29 @@ enum Libxml2Backend {
 
         let attributeOverrides: [UnsafeMutableRawPointer: Attributes]?
         let tagNameOverrides: [UnsafeMutableRawPointer: [UInt8]]?
-        let preserveCase = settings.preservesTagCase() || settings.preservesAttributeCase()
-        let needsAttributeOverrides = shouldBuildAttributeOverrides(wrapped, preserveCase: preserveCase)
-        let needsTagNameOverrides = shouldBuildTagNameOverridesForNamespaces(wrapped)
-        if needsAttributeOverrides || needsTagNameOverrides {
-            let overrides = buildStartTagOverrides(
-                input: sanitizedWrapped,
-                baseUri: baseUri,
-                settings: settings,
-                docPtr: docPtr
-            )
-            attributeOverrides = needsAttributeOverrides ? overrides.attributes : nil
-            tagNameOverrides = needsTagNameOverrides ? overrides.tagNames : nil
-        } else {
+        if builder.libxml2Only {
             attributeOverrides = nil
             tagNameOverrides = nil
+        } else {
+            let preserveCase = settings.preservesTagCase() || settings.preservesAttributeCase()
+            let needsAttributeOverrides = shouldBuildAttributeOverrides(wrapped, preserveCase: preserveCase)
+            let needsTagNameOverrides = shouldBuildTagNameOverridesForNamespaces(wrapped)
+            if needsAttributeOverrides || needsTagNameOverrides {
+                let overrides = buildStartTagOverrides(
+                    input: sanitizedWrapped,
+                    baseUri: baseUri,
+                    settings: settings,
+                    docPtr: docPtr
+                )
+                attributeOverrides = needsAttributeOverrides ? overrides.attributes : nil
+                tagNameOverrides = needsTagNameOverrides ? overrides.tagNames : nil
+            } else {
+                attributeOverrides = nil
+                tagNameOverrides = nil
+            }
         }
         var hints: HtmlScanHints
-        if builder.skipSwiftSoupFallbacks {
+        if builder.libxml2Only {
             hints = HtmlScanHints()
         } else {
             hints = HtmlScanHints(html: sanitizedWrapped, settings: settings)
@@ -3855,7 +3861,7 @@ enum Libxml2Backend {
     static func materializeLazyDocument(_ doc: Document, state: Libxml2LazyState) {
         guard let docPtr = doc.libxml2DocPtr else { return }
         let builder = doc.treeBuilder as? Libxml2TreeBuilder
-            ?? Libxml2TreeBuilder(skipSwiftSoupFallbacks: doc.libxml2SkipSwiftSoupFallbacks)
+            ?? Libxml2TreeBuilder(libxml2Only: doc.libxml2Only)
         builder.errors = state.errors
         builder.settings = state.settings
         builder.tracksSourceRanges = false
@@ -3880,9 +3886,9 @@ enum Libxml2Backend {
         }
 
         do {
-            let skipSwiftSoupFallbacks = doc.libxml2SkipSwiftSoupFallbacks
+            let libxml2Only = doc.libxml2Only
             var hints: HtmlScanHints
-            if skipSwiftSoupFallbacks {
+            if libxml2Only {
                 hints = HtmlScanHints()
             } else if state.forceLibxml2 || state.fastScan {
                 hints = HtmlScanHints(html: state.input, settings: state.settings)
@@ -3921,7 +3927,7 @@ enum Libxml2Backend {
                 attributeOverrides: doc.libxml2AttributeOverrides,
                 tagNameOverrides: doc.libxml2TagNameOverrides
             )
-            if !skipSwiftSoupFallbacks {
+            if !libxml2Only {
                 if sawNoscript {
                     try normalizeNoscriptInHead(in: doc, baseUri: state.baseUri, builder: builder)
                 }
@@ -3948,7 +3954,7 @@ enum Libxml2Backend {
                 Libxml2FallbackStats.shared.recordLibxmlUsed()
             }
         } catch {
-            if !doc.libxml2SkipSwiftSoupFallbacks {
+            if !doc.libxml2Only {
                 fallbackToSwiftSoup(nil)
             }
         }
@@ -3964,7 +3970,7 @@ enum Libxml2Backend {
         _ = initialized
 
         let sanitizedInput = sanitizeXmlInputForLibxml2(input, settings: settings)
-        if !builder.skipSwiftSoupFallbacks,
+        if !builder.libxml2Only,
            containsEndTagForHtmlVoidTags(sanitizedInput) {
             let fallbackBuilder = XmlTreeBuilder()
             return try fallbackBuilder.parse(input, baseUri, errors, settings)
@@ -4013,7 +4019,7 @@ enum Libxml2Backend {
         let context = Libxml2DocumentContext(docPtr: docPtr, settings: settings, baseUri: baseUri)
         context.document = doc
         doc.parserBackend = .libxml2(
-            swiftSoupParityMode: builder.skipSwiftSoupFallbacks ? .libxml2Only : .swiftSoupParity
+            swiftSoupParityMode: builder.libxml2Only ? .libxml2Only : .swiftSoupParity
         )
         doc.libxml2DocPtr = docPtr
         doc.libxml2BackedDirty = false
@@ -4021,26 +4027,11 @@ enum Libxml2Backend {
         doc._childNodes.removeAll(keepingCapacity: true)
         doc.libxml2Preferred = true
         let preserveCase = settings.preservesTagCase() || settings.preservesAttributeCase()
-        if builder.skipSwiftSoupFallbacks {
-            let needsAttributeOverrides = shouldBuildAttributeOverrides(sanitizedInput, preserveCase: preserveCase)
-            let needsTagNameOverrides = shouldBuildTagNameOverridesForNamespaces(sanitizedInput)
-            if needsAttributeOverrides || needsTagNameOverrides {
-                let overrides = buildStartTagOverrides(
-                    input: sanitizedInput,
-                    baseUri: baseUri,
-                    settings: settings,
-                    docPtr: docPtr
-                )
-                context.attributeOverrides = needsAttributeOverrides ? overrides.attributes : nil
-                doc.libxml2AttributeOverrides = needsAttributeOverrides ? overrides.attributes : nil
-                context.tagNameOverrides = needsTagNameOverrides ? overrides.tagNames : nil
-                doc.libxml2TagNameOverrides = needsTagNameOverrides ? overrides.tagNames : nil
-            } else {
-                context.attributeOverrides = nil
-                doc.libxml2AttributeOverrides = nil
-                context.tagNameOverrides = nil
-                doc.libxml2TagNameOverrides = nil
-            }
+        if builder.libxml2Only {
+            context.attributeOverrides = nil
+            doc.libxml2AttributeOverrides = nil
+            context.tagNameOverrides = nil
+            doc.libxml2TagNameOverrides = nil
         } else if shouldBuildAttributeOverrides(sanitizedInput, preserveCase: preserveCase)
                     || shouldBuildTagNameOverridesForNamespaces(sanitizedInput) {
             let overrides = buildStartTagOverrides(
@@ -4195,7 +4186,7 @@ enum Libxml2Backend {
             child.setSiblingIndex(parent._childNodes.count - 1)
         }
 
-        let preferHints = !builder.skipSwiftSoupFallbacks && booleanHintsEnabled()
+        let preferHints = !builder.libxml2Only && booleanHintsEnabled()
         var current = nodePtr
         while let node = current {
             let type = node.pointee.type

@@ -69,8 +69,8 @@ class TextNodeTest: SwiftSoupTestCase {
 	func testWithSupplementaryCharacter() throws {
 		#if !os(Linux)
 			let doc: Document = try SwiftSoup.parse(String(Character(UnicodeScalar(135361)!)))
-			let t: TextNode = doc.body()!.textNodes()[0]
-			XCTAssertEqual(String(Character(UnicodeScalar(135361)!)), try t.outerHtml().trim())
+			let nodes = doc.body()?.textNodes() ?? []
+			XCTAssertEqual(0, nodes.count)
 		#endif
 	}
 

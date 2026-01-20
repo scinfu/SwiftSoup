@@ -113,6 +113,21 @@ open class TextNode: Node {
         return self
     }
 
+#if canImport(CLibxml2) || canImport(libxml2)
+    @inline(__always)
+    private func libxml2EnsureAttached() {
+        guard let doc = ownerDocument(), doc.libxml2DocPtr != nil else { return }
+        if libxml2NodePtr == nil {
+            _ = libxml2EnsureNode(in: doc)
+        }
+        guard let nodePtr = libxml2NodePtr, nodePtr.pointee.parent == nil else { return }
+        guard let parent = parentNode else { return }
+        if let parentPtr = parent.libxml2NodePtr ?? parent.libxml2EnsureNode(in: doc) {
+            xmlAddChild(parentPtr, nodePtr)
+        }
+    }
+#endif
+
     /**
      Get the (unencoded) text of this text node, including any newlines and spaces present in the original.
      - returns: text
@@ -227,40 +242,7 @@ open class TextNode: Node {
                     try attributes.put(TextNode.TEXT_KEY, headBytes)
                 } catch {}
             }
-            if doc.libxml2SkipSwiftSoupFallbacks, let nodePtr = libxml2NodePtr {
-                var headBytesForLibxml2 = headBytes
-                headBytesForLibxml2.append(0)
-                headBytesForLibxml2.withUnsafeBufferPointer { buf in
-                    guard let base = buf.baseAddress else { return }
-                    base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
-                        xmlNodeSetContent(nodePtr, ptr)
-                    }
-                }
-                let tailBytes = tail.utf8Array
-                tailBytes.withUnsafeBufferPointer { buf in
-                    guard let base = buf.baseAddress else { return }
-                    let ptr = base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { $0 }
-                    let docPtr = nodePtr.pointee.doc ?? doc.libxml2DocPtr ?? libxml2Context?.docPtr
-                    let tailPtr = docPtr != nil
-                        ? xmlNewDocTextLen(docPtr, ptr, Int32(buf.count))
-                        : xmlNewTextLen(ptr, Int32(buf.count))
-                    if let tailPtr {
-                        var inserted: xmlNodePtr? = xmlAddNextSibling(nodePtr, tailPtr)
-                        if inserted == nil, let parentPtr = nodePtr.pointee.parent {
-                            inserted = xmlAddChild(parentPtr, tailPtr)
-                        }
-                        if inserted != nil {
-                            tailNode.libxml2NodePtr = tailPtr
-                            tailPtr.pointee._private = Unmanaged.passUnretained(tailNode).toOpaque()
-                            tailNode.libxml2Context = doc.libxml2Context ?? libxml2Context
-                        } else {
-                            xmlFreeNode(tailPtr)
-                        }
-                    }
-                }
-            } else {
-                doc.libxml2TextNodesDirty = true
-            }
+            doc.libxml2TextNodesDirty = true
             if let parent = parentNode {
                 Libxml2Backend.hydrateChildrenIfNeeded(parent)
                 tailNode.parentNode = parent
@@ -441,11 +423,37 @@ open class TextNode: Node {
     }
 
     open override func attr(_ attributeKey: [UInt8], _ attributeValue: [UInt8]) throws -> Node {
+        if attributeKey == TextNode.TEXT_KEY {
+#if canImport(CLibxml2) || canImport(libxml2)
+            libxml2EnsureAttached()
+#endif
+            _ = text(String(decoding: attributeValue, as: UTF8.self))
+#if canImport(CLibxml2) || canImport(libxml2)
+            if let doc = ownerDocument(), doc.libxml2Only {
+                doc.libxml2BackedDirty = true
+                doc.libxml2TextNodesDirty = true
+            }
+#endif
+            return self
+        }
         ensureAttributes()
         return try super.attr(attributeKey, attributeValue)
     }
     
     open override func attr(_ attributeKey: String, _ attributeValue: String) throws -> Node {
+        if attributeKey == "text" {
+#if canImport(CLibxml2) || canImport(libxml2)
+            libxml2EnsureAttached()
+#endif
+            _ = text(attributeValue)
+#if canImport(CLibxml2) || canImport(libxml2)
+            if let doc = ownerDocument(), doc.libxml2Only {
+                doc.libxml2BackedDirty = true
+                doc.libxml2TextNodesDirty = true
+            }
+#endif
+            return self
+        }
         ensureAttributes()
         return try super.attr(attributeKey, attributeValue)
     }

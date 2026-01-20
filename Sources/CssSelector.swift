@@ -170,7 +170,7 @@ open class CssSelector {
             DebugTrace.log("CssSelector.select(query): selector cache hit")
             return cached
         }
-        let skipFallbackFastPath = root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true
+        let skipFallbackFastPath = root.ownerDocument()?.libxml2Only == true
 #if canImport(CLibxml2) || canImport(libxml2)
         if skipFallbackFastPath {
             if let tagBytes = simpleTagQueryBytes(query) {
@@ -193,7 +193,7 @@ open class CssSelector {
         }
 #endif
 #if canImport(CLibxml2) || canImport(libxml2)
-        if root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true,
+        if root.ownerDocument()?.libxml2Only == true,
            let libxml2 = try libxml2Select(query, root) {
             DebugTrace.log("CssSelector.select(query): libxml2 xpath fast path hit")
             root.storeSelectorResult(query, libxml2)
@@ -212,7 +212,7 @@ open class CssSelector {
             return fast
         }
 #if canImport(CLibxml2) || canImport(libxml2)
-        if root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true,
+        if root.ownerDocument()?.libxml2Only == true,
            let libxml2 = try libxml2Select(query, root) {
             DebugTrace.log("CssSelector.select(query): libxml2 xpath fast path hit")
             root.storeSelectorResult(query, libxml2)
@@ -252,7 +252,7 @@ open class CssSelector {
                 return cached
             }
         }
-        let skipFallbackFastPath = roots.count == 1 && roots.first?.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true
+        let skipFallbackFastPath = roots.count == 1 && roots.first?.ownerDocument()?.libxml2Only == true
 #if canImport(CLibxml2) || canImport(libxml2)
         if skipFallbackFastPath, let root = roots.first {
             if let tagBytes = simpleTagQueryBytes(query) {
@@ -260,7 +260,7 @@ open class CssSelector {
                 root.storeSelectorResult(query, result)
                 return result
             }
-            if root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true,
+            if root.ownerDocument()?.libxml2Only == true,
                let libxml2 = try libxml2Select(query, root) {
                 root.storeSelectorResult(query, libxml2)
                 return libxml2
@@ -302,7 +302,7 @@ open class CssSelector {
 #if canImport(CLibxml2) || canImport(libxml2)
         if roots.count == 1,
            let root = roots.first,
-           root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true,
+           root.ownerDocument()?.libxml2Only == true,
            let libxml2 = try libxml2Select(query, root) {
             root.storeSelectorResult(query, libxml2)
             return libxml2
@@ -409,7 +409,7 @@ open class CssSelector {
                 }
 #if canImport(CLibxml2) || canImport(libxml2)
                 if let doc = root.ownerDocument(),
-                   doc.libxml2SkipSwiftSoupFallbacks,
+                   doc.libxml2Only,
                    !doc.libxml2BackedDirty,
                    let docPtr = doc.libxml2DocPtr {
                     var tags: [[UInt8]] = []
@@ -525,14 +525,14 @@ open class CssSelector {
                 return output
             case .attr(let attrBytes):
                 if let doc = root.ownerDocument(),
-                   doc.libxml2SkipSwiftSoupFallbacks,
+                   doc.libxml2Only,
                    doc.libxml2AttributeOverrides?.isEmpty == false {
                     return nil
                 }
                 return root.getElementsByAttributeNormalized(attrBytes)
             case .tagAttr(let tagBytes, let tagId, let attrBytes):
                 if let doc = root.ownerDocument(),
-                   doc.libxml2SkipSwiftSoupFallbacks,
+                   doc.libxml2Only,
                    doc.libxml2AttributeOverrides?.isEmpty == false {
                     return nil
                 }
@@ -546,14 +546,14 @@ open class CssSelector {
                 return output
             case .attrValue(let keyBytes, let valueBytes, let key, let value):
                 if let doc = root.ownerDocument(),
-                   doc.libxml2SkipSwiftSoupFallbacks,
+                   doc.libxml2Only,
                    doc.libxml2AttributeOverrides?.isEmpty == false {
                     return nil
                 }
                 return try root.getElementsByAttributeValueNormalized(keyBytes, valueBytes, key, value)
             case .tagAttrValue(let tagBytes, let tagId, let keyBytes, let valueBytes, let key, let value):
                 if let doc = root.ownerDocument(),
-                   doc.libxml2SkipSwiftSoupFallbacks,
+                   doc.libxml2Only,
                    doc.libxml2AttributeOverrides?.isEmpty == false {
                     return nil
                 }
@@ -1372,7 +1372,7 @@ open class CssSelector {
     /// Fast‑path for AND chains: pick an indexed candidate set, then filter by the full evaluator list.
     /// This preserves document order while avoiding a full traversal in common selector shapes.
     private static func fastSelectAnd(_ evaluator: CombiningEvaluator.And, _ root: Element) throws -> Elements? {
-        if root.ownerDocument()?.libxml2SkipSwiftSoupFallbacks == true,
+        if root.ownerDocument()?.libxml2Only == true,
            evaluator.evaluators.contains(where: { $0 is StructuralEvaluator }) {
             return nil
         }
@@ -1717,11 +1717,11 @@ open class CssSelector {
         guard let doc = root.ownerDocument() else { return nil }
         let xpathAllowed = libxml2XPathEnabled || doc.isLibxml2Backend || doc.libxml2Preferred
         guard xpathAllowed else { return nil }
-        if doc.libxml2LazyState != nil, !doc.libxml2SkipSwiftSoupFallbacks { return nil }
+        if doc.libxml2LazyState != nil, !doc.libxml2Only { return nil }
         guard let docPtr = doc.libxml2DocPtr, !doc.libxml2BackedDirty else { return nil }
         let trimmed = query.trim()
         if libxml2XPathBypassForOverrides(trimmed, doc) { return nil }
-        if doc.libxml2SkipSwiftSoupFallbacks {
+        if doc.libxml2Only {
             let plan = cachedFastQueryPlan(trimmed)
             if let simple = libxml2SelectSimple(plan, root, doc) {
                 return simple
@@ -1762,7 +1762,7 @@ open class CssSelector {
         let output = Elements()
         output.reserveCapacity(count)
         let nodeTab = nodeset.pointee.nodeTab
-        let preferFastWrap = doc.libxml2SkipSwiftSoupFallbacks
+        let preferFastWrap = doc.libxml2Only
         let shouldDedup = !preferFastWrap
         if shouldDedup {
             var seen = Set<ObjectIdentifier>()
@@ -1804,7 +1804,7 @@ open class CssSelector {
                 output.add(element)
             }
         }
-        if doc.libxml2SkipSwiftSoupFallbacks, output.size() > 1 {
+        if doc.libxml2Only, output.size() > 1 {
             for i in 0..<output.size() {
                 output.get(i).setSiblingIndex(i)
             }

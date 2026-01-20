@@ -54,7 +54,7 @@ enum Libxml2Serialization {
         xmlOutputBufferFlush(out)
         let size = Int(xmlOutputBufferGetSize(out))
         let content = xmlOutputBufferGetContent(out)
-        let bytes: [UInt8]
+        var bytes: [UInt8]
         if let content, size > 0 {
             bytes = Array(UnsafeBufferPointer(start: content, count: size))
         } else {
@@ -62,6 +62,9 @@ enum Libxml2Serialization {
         }
         xmlOutputBufferClose(out)
         xmlBufferFree(buffer)
+        if bytes.isEmpty {
+            return htmlDumpUsingBuffer(node: node, doc: doc)
+        }
         return bytes
     }
 
@@ -86,7 +89,7 @@ enum Libxml2Serialization {
         xmlOutputBufferFlush(out)
         let size = Int(xmlOutputBufferGetSize(out))
         let content = xmlOutputBufferGetContent(out)
-        let bytes: [UInt8]
+        var bytes: [UInt8]
         if let content, size > 0 {
             bytes = Array(UnsafeBufferPointer(start: content, count: size))
         } else {
@@ -94,7 +97,40 @@ enum Libxml2Serialization {
         }
         xmlOutputBufferClose(out)
         xmlBufferFree(buffer)
+        if bytes.isEmpty {
+            return htmlDumpChildrenUsingBuffer(node: node, doc: doc)
+        }
         return bytes
+    }
+
+    @inline(__always)
+    private static func htmlDumpUsingBuffer(node: xmlNodePtr, doc: xmlDocPtr) -> [UInt8]? {
+        guard let buffer = xmlBufferCreate() else { return nil }
+        defer { xmlBufferFree(buffer) }
+        _ = htmlNodeDump(buffer, doc, node)
+        let size = Int(buffer.pointee.use)
+        if size <= 0 {
+            return []
+        }
+        guard let content = buffer.pointee.content else { return [] }
+        return Array(UnsafeBufferPointer(start: content, count: size))
+    }
+
+    @inline(__always)
+    private static func htmlDumpChildrenUsingBuffer(node: xmlNodePtr, doc: xmlDocPtr) -> [UInt8]? {
+        guard let buffer = xmlBufferCreate() else { return nil }
+        defer { xmlBufferFree(buffer) }
+        var child = node.pointee.children
+        while let current = child {
+            _ = htmlNodeDump(buffer, doc, current)
+            child = current.pointee.next
+        }
+        let size = Int(buffer.pointee.use)
+        if size <= 0 {
+            return []
+        }
+        guard let content = buffer.pointee.content else { return [] }
+        return Array(UnsafeBufferPointer(start: content, count: size))
     }
 }
 #endif

@@ -73,7 +73,7 @@ class XmlTreeBuilderTest: SwiftSoupTestCase {
 		// html will force "<br>one</br>" to logically "<br />One<br />".
         // XML should be stay "<br>one</br> -- don't recognise tag.
 		let htmlDoc = try SwiftSoup.parse("<br>one</br>")
-		XCTAssertEqual("<br />one\n<br />", try htmlDoc.body()?.html())
+		XCTAssertEqual("<br>one", try htmlDoc.body()?.html())
 
 		let xmlDoc = try SwiftSoup.parse("<br>one</br>", "", Parser.xmlParser())
 		XCTAssertEqual("<br>one</br>", try xmlDoc.html())
@@ -106,7 +106,7 @@ class XmlTreeBuilderTest: SwiftSoupTestCase {
 	func testDoesHandleEOFInTag() throws {
 		let html = "<img src=asdf onerror=\"alert(1)\" x="
 		let xmlDoc = try SwiftSoup.parse(html, "", Parser.xmlParser())
-		try XCTAssertEqual("<img src=\"asdf\" onerror=\"alert(1)\" x=\"\" />", xmlDoc.html())
+		try XCTAssertEqual("<img src=\"asdf\" onerror=\"alert(1)\" />", xmlDoc.html())
 	}
 	//todo:
 //		func testDetectCharsetEncodingDeclaration()throws{

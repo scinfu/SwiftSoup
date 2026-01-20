@@ -2,7 +2,9 @@ import Foundation
 
 public enum UTF8Arrays {
     public static let whitespace = " ".utf8Array
+    public static let tab = "\t".utf8Array
     public static let newline = "\n".utf8Array
+    public static let carriageReturn = "\r".utf8Array
     public static let bang = "!".utf8Array
     public static let equalSign = "=".utf8Array
     public static let ampersand = "&".utf8Array

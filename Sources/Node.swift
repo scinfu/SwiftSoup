@@ -139,7 +139,7 @@ open class Node: Equatable, Hashable {
         get {
 #if canImport(CLibxml2) || canImport(libxml2)
             if let doc = ownerDocument(), doc.isLibxml2Backend {
-                if doc.libxml2SkipSwiftSoupFallbacks,
+                if doc.libxml2Only,
                    libxml2ChildrenHydrated,
                    _childNodes.isEmpty,
                    let nodePtr = libxml2NodePtr,
@@ -354,7 +354,7 @@ open class Node: Equatable, Hashable {
 #if canImport(CLibxml2) || canImport(libxml2)
         if let element = self as? Element,
            let doc = ownerDocument(),
-           doc.libxml2SkipSwiftSoupFallbacks,
+           doc.libxml2Only,
            !doc.libxml2BackedDirty,
            let nodePtr = element.libxml2NodePtr {
             if Node.hasAbsPrefix(attributeKey) {
@@ -551,7 +551,7 @@ open class Node: Equatable, Hashable {
         if index >= 0,
            !libxml2ChildrenHydrated,
            let doc = ownerDocument(),
-           (doc.libxml2SkipSwiftSoupFallbacks),
+           (doc.libxml2Only),
            !doc.libxml2BackedDirty,
            let nodePtr = libxml2NodePtr {
             var cursor = nodePtr.pointee.children
@@ -581,7 +581,7 @@ open class Node: Equatable, Hashable {
 #if canImport(CLibxml2) || canImport(libxml2)
         if !libxml2ChildrenHydrated,
            let doc = ownerDocument(),
-           (doc.libxml2SkipSwiftSoupFallbacks),
+           (doc.libxml2Only),
            !doc.libxml2BackedDirty,
            let nodePtr = libxml2NodePtr {
             var nodes: [Node] = []
@@ -617,7 +617,7 @@ open class Node: Equatable, Hashable {
 #if canImport(CLibxml2) || canImport(libxml2)
         if !libxml2ChildrenHydrated,
            let doc = ownerDocument(),
-           (doc.libxml2SkipSwiftSoupFallbacks),
+           (doc.libxml2Only),
            !doc.libxml2BackedDirty,
            let nodePtr = libxml2NodePtr {
             var count = 0
@@ -639,7 +639,7 @@ open class Node: Equatable, Hashable {
 #if canImport(CLibxml2) || canImport(libxml2)
         if !libxml2ChildrenHydrated,
            let doc = ownerDocument(),
-           (doc.libxml2SkipSwiftSoupFallbacks),
+           (doc.libxml2Only),
            !doc.libxml2BackedDirty,
            let nodePtr = libxml2NodePtr {
             var cursor = nodePtr.pointee.children
@@ -669,7 +669,7 @@ open class Node: Equatable, Hashable {
 #if canImport(CLibxml2) || canImport(libxml2)
         if parentNode == nil,
            let doc = ownerDocument(),
-           (doc.libxml2SkipSwiftSoupFallbacks),
+           (doc.libxml2Only),
            let nodePtr = libxml2NodePtr,
            !doc.libxml2BackedDirty,
            let parent = Libxml2Backend.parentWrapperForSelection(nodePtr, doc: doc) {
@@ -795,7 +795,7 @@ open class Node: Equatable, Hashable {
             return
         }
         guard let doc = ownerDocument(), doc.libxml2DocPtr != nil else { return }
-        if !doc.isLibxml2Backend || doc.libxml2SkipSwiftSoupFallbacks {
+        if !doc.isLibxml2Backend || doc.libxml2Only {
             doc.libxml2BackedDirty = true
         }
         doc.libxml2SkipFallbackTagCacheClear()
@@ -889,7 +889,10 @@ open class Node: Equatable, Hashable {
     @usableFromInline
     internal func libxml2InvalidateChildrenCache() {
         if let doc = ownerDocument(), doc.isLibxml2Backend {
-            if doc.libxml2SkipSwiftSoupFallbacks == false {
+            if doc.libxml2Only == false {
+                return
+            }
+            if doc.libxml2TextNodesDirty {
                 return
             }
         }
@@ -1348,7 +1351,7 @@ open class Node: Equatable, Hashable {
            doc.libxml2DocPtr != nil,
            let outPtr = out.libxml2NodePtr,
            out.ownerDocument() === doc,
-           (input.ownerDocument() === doc || doc.libxml2SkipSwiftSoupFallbacks) {
+           (input.ownerDocument() === doc || doc.libxml2Only) {
             let inputPtr = input.libxml2NodePtr ?? input.libxml2EnsureNode(in: doc)
             if let inputPtr {
                 if input.libxml2NodePtr != nil {
@@ -1497,7 +1500,7 @@ open class Node: Equatable, Hashable {
             try reparentChild(child)
 #if canImport(CLibxml2) || canImport(libxml2)
             if canSyncLibxml2, let parentPtr, let doc,
-               (child.ownerDocument() === doc || doc.libxml2SkipSwiftSoupFallbacks) {
+               (child.ownerDocument() === doc || doc.libxml2Only) {
                 let childPtr = child.libxml2NodePtr ?? child.libxml2EnsureNode(in: doc)
                 if let childPtr {
                     if child.libxml2NodePtr != nil {
@@ -1623,7 +1626,7 @@ open class Node: Equatable, Hashable {
 #endif
 #if canImport(CLibxml2) || canImport(libxml2)
             if canSyncLibxml2, let parentPtr, let doc,
-               (input.ownerDocument() === doc || doc.libxml2SkipSwiftSoupFallbacks) {
+               (input.ownerDocument() === doc || doc.libxml2Only) {
                 let childPtr = input.libxml2NodePtr ?? input.libxml2EnsureNode(in: doc)
                 if let childPtr {
                     if input.libxml2NodePtr != nil {
@@ -1696,7 +1699,7 @@ open class Node: Equatable, Hashable {
     open func siblingNodes() -> Array<Node> {
 #if canImport(CLibxml2) || canImport(libxml2)
         if let doc = ownerDocument(),
-           (doc.libxml2SkipSwiftSoupFallbacks),
+           (doc.libxml2Only),
            !doc.libxml2BackedDirty,
            !libxml2ChildrenHydrated,
            let nodePtr = libxml2NodePtr,
@@ -1716,7 +1719,7 @@ open class Node: Equatable, Hashable {
         if (parentNode == nil) {
 #if canImport(CLibxml2) || canImport(libxml2)
             if let doc = ownerDocument(),
-               (doc.libxml2SkipSwiftSoupFallbacks),
+               (doc.libxml2Only),
                !doc.libxml2BackedDirty,
                let nodePtr = libxml2NodePtr,
                let parentPtr = nodePtr.pointee.parent {
@@ -1756,7 +1759,7 @@ open class Node: Equatable, Hashable {
     open func nextSibling() -> Node? {
 #if canImport(CLibxml2) || canImport(libxml2)
         if let doc = ownerDocument(),
-           (doc.libxml2SkipSwiftSoupFallbacks),
+           (doc.libxml2Only),
            !doc.libxml2BackedDirty,
            !libxml2ChildrenHydrated,
            let nodePtr = libxml2NodePtr {
@@ -1773,7 +1776,7 @@ open class Node: Equatable, Hashable {
         guard let parent = parentNode else {
 #if canImport(CLibxml2) || canImport(libxml2)
             if let doc = ownerDocument(),
-               (doc.libxml2SkipSwiftSoupFallbacks),
+               (doc.libxml2Only),
                !doc.libxml2BackedDirty,
                let nodePtr = libxml2NodePtr {
                 var cursor = nodePtr.pointee.next
@@ -1799,7 +1802,7 @@ open class Node: Equatable, Hashable {
     open func hasNextSibling() -> Bool {
 #if canImport(CLibxml2) || canImport(libxml2)
         if let doc = ownerDocument(),
-           (doc.libxml2SkipSwiftSoupFallbacks),
+           (doc.libxml2Only),
            !doc.libxml2BackedDirty,
            !libxml2ChildrenHydrated,
            let nodePtr = libxml2NodePtr {
@@ -1816,7 +1819,7 @@ open class Node: Equatable, Hashable {
         guard let parent = parentNode else {
 #if canImport(CLibxml2) || canImport(libxml2)
             if let doc = ownerDocument(),
-               (doc.libxml2SkipSwiftSoupFallbacks),
+               (doc.libxml2Only),
                !doc.libxml2BackedDirty,
                let nodePtr = libxml2NodePtr {
                 var cursor = nodePtr.pointee.next
@@ -1844,7 +1847,7 @@ open class Node: Equatable, Hashable {
     open func previousSibling() -> Node? {
 #if canImport(CLibxml2) || canImport(libxml2)
         if let doc = ownerDocument(),
-           (doc.libxml2SkipSwiftSoupFallbacks),
+           (doc.libxml2Only),
            !doc.libxml2BackedDirty,
            !libxml2ChildrenHydrated,
            let nodePtr = libxml2NodePtr {
@@ -1861,7 +1864,7 @@ open class Node: Equatable, Hashable {
         if parentNode == nil {
 #if canImport(CLibxml2) || canImport(libxml2)
             if let doc = ownerDocument(),
-               (doc.libxml2SkipSwiftSoupFallbacks),
+               (doc.libxml2Only),
                !doc.libxml2BackedDirty,
                let nodePtr = libxml2NodePtr {
                 var cursor = nodePtr.pointee.prev

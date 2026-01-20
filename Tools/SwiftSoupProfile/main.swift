@@ -28,6 +28,7 @@ struct Options {
     var selectIterations: Int
     var backend: Parser.Backend
     var skipFallbacks: Bool
+    var prettyPrint: Bool?
     var applyDefaultWorkload: Bool
     var applyLibxml2FastWorkload: Bool
     var applyLibxml2SimpleWorkload: Bool
@@ -43,6 +44,7 @@ func parseOptions() -> Options {
     var selectIterations = 1
     var backend: Parser.Backend = .swiftSoup
     var skipFallbacks = false
+    var prettyPrint: Bool? = nil
     var applyDefaultWorkload = false
     var applyLibxml2FastWorkload = false
     var applyLibxml2SimpleWorkload = false
@@ -80,6 +82,14 @@ func parseOptions() -> Options {
             if case .libxml2 = backend {
                 backend = .libxml2(swiftSoupParityMode: .libxml2Only)
             }
+            i += 1
+            continue
+        } else if arg == "--pretty-print" {
+            prettyPrint = true
+            i += 1
+            continue
+        } else if arg == "--no-pretty-print" {
+            prettyPrint = false
             i += 1
             continue
         } else if arg == "--select", i + 1 < args.count {
@@ -175,6 +185,7 @@ func parseOptions() -> Options {
         selectIterations: selectIterations,
         backend: backend,
         skipFallbacks: skipFallbacks,
+        prettyPrint: prettyPrint,
         applyDefaultWorkload: applyDefaultWorkload,
         applyLibxml2FastWorkload: applyLibxml2FastWorkload,
         applyLibxml2SimpleWorkload: applyLibxml2SimpleWorkload
@@ -237,6 +248,9 @@ for url in files {
             totalBytes += data.count
             let parseStart = Date()
             let doc = try SwiftSoup.parse(data, "", backend: options.backend)
+            if let prettyPrint = options.prettyPrint {
+                doc.outputSettings().prettyPrint(pretty: prettyPrint)
+            }
             totalParseTime += Date().timeIntervalSince(parseStart)
             if options.includeText {
                 let textStart = Date()
