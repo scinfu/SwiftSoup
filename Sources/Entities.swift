@@ -372,14 +372,19 @@ public final class Entities: Sendable {
         #endif
         let escapeMode = out.escapeMode()
         let encoder = out.encoder()
-        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .ascii || encoder == .utf16
+        let encoderIsAscii = encoder == .ascii
+        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16
         let count = string.count
         if !stripLeadingWhite,
-           encoderKnownToBeAbleToEncode,
+           (encoderKnownToBeAbleToEncode || encoderIsAscii),
            count > 0 {
             var needsEscape = false
             var sawWhitespace = false
             for b in string {
+                if encoderIsAscii && b >= asciiUpperLimitByte {
+                    needsEscape = true
+                    break
+                }
                 if normaliseWhite && b.isWhitespace {
                     sawWhitespace = true
                     break
@@ -480,7 +485,10 @@ public final class Entities: Sendable {
                 } else {
                     let len = utf8CharLength(for: b)
                     let end = i + len <= count ? i + len : count
-                    let charBytes = string[i..<end]
+                    let startIndex = string.startIndex
+                    let sliceStart = string.index(startIndex, offsetBy: i)
+                    let sliceEnd = string.index(startIndex, offsetBy: end)
+                    let charBytes = string[sliceStart..<sliceEnd]
                     if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
                         // UTF-8 encoding of "\u{A0}"
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
@@ -511,14 +519,19 @@ public final class Entities: Sendable {
         #endif
         let escapeMode = out.escapeMode()
         let encoder = out.encoder()
-        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .ascii || encoder == .utf16
+        let encoderIsAscii = encoder == .ascii
+        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16
         let count = string.count
         if !stripLeadingWhite,
-           encoderKnownToBeAbleToEncode,
+           (encoderKnownToBeAbleToEncode || encoderIsAscii),
            count > 0 {
             var needsEscape = false
             var sawWhitespace = false
             for b in string {
+                if encoderIsAscii && b >= asciiUpperLimitByte {
+                    needsEscape = true
+                    break
+                }
                 if normaliseWhite && b.isWhitespace {
                     sawWhitespace = true
                     break
