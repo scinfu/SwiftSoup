@@ -47,6 +47,7 @@ enum Workload: String {
     case manabiTextLarge
     case attributeLookup
     case selectorTagLookup
+    case selectorCacheHeavy
     case manabiSelectLarge
     case elementsAttributeLookup
     case fixturesOuterHtml
@@ -172,6 +173,16 @@ case .selectorParse:
         "div  >  p   ",
         "div > span[data-x]"
     ]
+    for _ in 0..<options.repeatCount {
+        var idx = 0
+        for _ in 0..<options.iterations {
+            _ = try doc.select(selectors[idx])
+            idx = (idx &+ 1) % selectors.count
+        }
+    }
+case .selectorCacheHeavy:
+    let doc = try SwiftSoup.parseBodyFragment("<div id='root'><span data-x='1'></span></div>")
+    let selectors = (0..<512).map { "div[data-x='\($0)'] span" }
     for _ in 0..<options.repeatCount {
         var idx = 0
         for _ in 0..<options.iterations {

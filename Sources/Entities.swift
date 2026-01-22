@@ -480,10 +480,7 @@ public final class Entities: Sendable {
                 } else {
                     let len = utf8CharLength(for: b)
                     let end = i + len <= count ? i + len : count
-                    let startIndex = string.startIndex
-                    let sliceStart = string.index(startIndex, offsetBy: i)
-                    let sliceEnd = string.index(startIndex, offsetBy: end)
-                    let charBytes = string[sliceStart..<sliceEnd]
+                    let charBytes = string[i..<end]
                     if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
                         // UTF-8 encoding of "\u{A0}"
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
