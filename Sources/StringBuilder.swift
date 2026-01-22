@@ -108,6 +108,11 @@ open class StringBuilder {
     open func append(_ chr: Character) {
         append(String(chr))
     }
+
+    @inline(__always)
+    open func appendNewline() {
+        write(TokeniserStateVars.newLineByte)
+    }
     
     @inline(__always)
     open func appendCodePoints(_ chr: [Character]) {

@@ -1043,7 +1043,7 @@ open class Node: Equatable, Hashable {
     
     @inline(__always)
     public func indent(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
-        accum.append(UnicodeScalar.BackslashN)
+        accum.appendNewline()
         accum.appendSpaces(depth * Int(out.indentAmount()))
     }
     

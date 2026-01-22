@@ -51,7 +51,7 @@ open class Elements: NSCopying {
 	*/
 	open func attr(_ attributeKey: String) throws -> String {
 		for element in this {
-			if (element.hasAttr(attributeKey)) {
+			if element.hasAttr(attributeKey) {
 				return try element.attr(attributeKey)
 			}
 		}
@@ -65,7 +65,7 @@ open class Elements: NSCopying {
 	*/
 	open func hasAttr(_ attributeKey: String) -> Bool {
 		for element in this {
-			if element.hasAttr(attributeKey) {return true}
+			if element.hasAttr(attributeKey) { return true }
 		}
 		return false
 	}
@@ -91,7 +91,7 @@ open class Elements: NSCopying {
 	*/
 	@discardableResult
 	open func removeAttr(_ attributeKey: String) throws -> Elements {
-		for  element in this {
+		for element in this {
 			try element.removeAttr(attributeKey)
 		}
 		return self

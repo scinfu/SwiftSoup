@@ -46,6 +46,12 @@ enum Workload: String {
     case manabiOuterHtmlLarge
     case manabiTextLarge
     case attributeLookup
+    case selectorTagLookup
+    case manabiSelectLarge
+    case elementsAttributeLookup
+    case fixturesOuterHtml
+    case fixturesText
+    case fixturesSelect
 }
 
 func parseOptions() -> Options {
@@ -352,6 +358,105 @@ case .attributeLookup:
             _ = link.hasAttr("href")
             _ = link.hasAttr("data-x")
             _ = try link.attr("data-x")
+        }
+    }
+case .selectorTagLookup:
+    let html = """
+    <div><p>One</p><span>Two</span><div>Three</div></div>
+    """
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    guard let body = doc.body() else { break }
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try body.select("div")
+            _ = try body.select("p")
+            _ = try body.select("span")
+        }
+    }
+case .manabiSelectLarge:
+    let chunk = """
+    <div class='entry'><ruby>漢字<rt>かんじ</rt></ruby>と<ruby data-manabi-generated='true'>仮名<rt>かな</rt></ruby>を学ぶ</div>
+    <p class='line'>彼は「テスト」を受けた。</p>
+    <span data-manabi-considered-inline='true'>サンプル</span>
+    """
+    let html = String(repeating: chunk, count: 200)
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    guard let body = doc.body() else { break }
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try body.select("ruby")
+            _ = try body.select("rt")
+            _ = try body.select("span")
+            _ = try body.select("div")
+        }
+    }
+case .elementsAttributeLookup:
+    let html = """
+    <div>
+      <a id="link-id" class="link primary" href="https://example.com" title="Example" data-x="y">Link</a>
+      <a class="secondary" href="/rel">Rel</a>
+    </div>
+    """
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    guard let body = doc.body() else { break }
+    let links = try body.getElementsByTag("a")
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try links.attr("href")
+            _ = links.hasAttr("class")
+            _ = links.hasAttr("data-x")
+        }
+    }
+case .fixturesOuterHtml:
+    for _ in 0..<options.repeatCount {
+        for url in files {
+            withAutoreleasepool {
+                do {
+                    let data = try Data(contentsOf: url)
+                    totalBytes += data.count
+                    let doc = try SwiftSoup.parse(data, "")
+                    _ = try doc.body()?.outerHtml()
+                    parsedCount += 1
+                } catch {
+                    writeStderr("Error parsing \(url.path): \(error)\n")
+                }
+            }
+        }
+    }
+case .fixturesText:
+    for _ in 0..<options.repeatCount {
+        for url in files {
+            withAutoreleasepool {
+                do {
+                    let data = try Data(contentsOf: url)
+                    totalBytes += data.count
+                    let doc = try SwiftSoup.parse(data, "")
+                    _ = try doc.body()?.text()
+                    parsedCount += 1
+                } catch {
+                    writeStderr("Error parsing \(url.path): \(error)\n")
+                }
+            }
+        }
+    }
+case .fixturesSelect:
+    for _ in 0..<options.repeatCount {
+        for url in files {
+            withAutoreleasepool {
+                do {
+                    let data = try Data(contentsOf: url)
+                    totalBytes += data.count
+                    let doc = try SwiftSoup.parse(data, "")
+                    if let body = doc.body() {
+                        _ = try body.select("p")
+                        _ = try body.select("a")
+                        _ = try body.select("img")
+                    }
+                    parsedCount += 1
+                } catch {
+                    writeStderr("Error parsing \(url.path): \(error)\n")
+                }
+            }
         }
     }
 }
