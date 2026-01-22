@@ -62,11 +62,14 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
     public let multiByteSet: [ArraySlice<UInt8>]
     public let multiByteByteLookupsCount: Int
     public let singleByteMask: (UInt64, UInt64, UInt64, UInt64) // Precomputed set for single-byte lookups
+    public let singleByteList: [UInt8]
+    public let singleByteCount: Int
     public let isSingleByteOnly: Bool
     public let tagIdMaskLo: UInt64
     public let tagIdMaskHi: UInt64
     private let precomputedHash: Int
     private let root: TrieNode
+    private let singleByteTable: [Bool]
     
     public init(_ strings: [String]) {
         self.init(strings.map { $0.utf8Array })
@@ -96,12 +99,16 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
         self.root = trieRoot.makeImmutable()
         
         var byteMask: (UInt64, UInt64, UInt64, UInt64) = (0, 0, 0, 0)
+        var singleBytes: [UInt8] = []
         var tagIdMaskLo: UInt64 = 0
         var tagIdMaskHi: UInt64 = 0
         for char in multiByteChars {
             if char.count == 1 {
                 let byte = char[0]
                 setBit(in: &byteMask, forByte: byte)
+                if !singleBytes.contains(byte) {
+                    singleBytes.append(byte)
+                }
                 if byte >= TokeniserStateVars.asciiUpperLimitByte {
                     singleByteOnly = false
                 }
@@ -122,7 +129,14 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
                 multiByteByteLookups[i] = mask
             }
         }
+        var table = [Bool](repeating: false, count: 256)
+        for b in 0..<256 {
+            table[b] = testBit(byteMask, UInt8(b))
+        }
+        self.singleByteTable = table
         self.singleByteMask = byteMask
+        self.singleByteList = singleBytes
+        self.singleByteCount = singleBytes.count
         self.isSingleByteOnly = singleByteOnly
         self.tagIdMaskLo = tagIdMaskLo
         self.tagIdMaskHi = tagIdMaskHi
@@ -178,6 +192,9 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
     
     @inline(__always)
     public func contains(_ slice: ArraySlice<UInt8>) -> Bool {
+        if slice.count == 1 {
+            return contains(slice[slice.startIndex])
+        }
         var index = 0
         for byte in slice {
             if index >= multiByteByteLookupsCount || !testBit(multiByteByteLookups[index], byte) {
@@ -197,20 +214,7 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
     
     @inline(__always)
     public func contains(_ byte: UInt8) -> Bool {
-        let idx = Int(byte >> 6)
-        let shift = byte & 63
-        
-        // Pick which 64-bit in the tuple:
-        let val: UInt64
-        switch idx {
-        case 0: val = singleByteMask.0
-        case 1: val = singleByteMask.1
-        case 2: val = singleByteMask.2
-        default: val = singleByteMask.3
-        }
-        
-        // If the corresponding bit is set, membership is true
-        return (val & (1 << shift)) != 0
+        return singleByteTable[Int(byte)]
     }
 
     @inline(__always)

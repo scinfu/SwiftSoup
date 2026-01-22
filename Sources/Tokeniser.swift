@@ -1298,7 +1298,7 @@ final class Tokeniser {
         #endif
         let builder: StringBuilder = StringBuilder()
         while (!reader.isEmpty()) {
-            builder.append(reader.consumeTo(UnicodeScalar.Ampersand))
+            builder.append(reader.consumeToAnyOfOne(TokeniserStateVars.ampersandByte))
             if reader.matches(UnicodeScalar.Ampersand) {
                 reader.consume()
                 if let c = try consumeCharacterReference(nil, inAttribute) {

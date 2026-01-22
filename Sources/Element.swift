@@ -898,6 +898,17 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByTag(_ tagName: String) throws -> Elements {
+        switch tagName {
+        case "ruby": return try getElementsByTagNormalized(UTF8Arrays.ruby)
+        case "rt": return try getElementsByTagNormalized(UTF8Arrays.rt)
+        case "rb": return try getElementsByTagNormalized(UTF8Arrays.rb)
+        case "rp": return try getElementsByTagNormalized(UTF8Arrays.rp)
+        case "p": return try getElementsByTagNormalized(UTF8Arrays.p)
+        case "span": return try getElementsByTagNormalized(UTF8Arrays.span)
+        case "div": return try getElementsByTagNormalized(UTF8Arrays.div)
+        case "body": return try getElementsByTagNormalized(UTF8Arrays.body)
+        default: break
+        }
         return try getElementsByTag(tagName.utf8Array)
     }
     
@@ -1555,6 +1566,9 @@ open class Element: Node {
                 accum.trimTrailingWhitespace()
             }
             return String(decoding: accum.buffer, as: UTF8.self)
+        }
+        if childNodes.count == 1, let textNode = childNodes.first as? TextNode {
+            return String(decoding: textNode.wholeTextSlice(), as: UTF8.self)
         }
         let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         collectTextFastRaw(accum)
@@ -2325,7 +2339,11 @@ open class Element: Node {
     public func html() throws -> String {
         let accum: StringBuilder = StringBuilder()
         try html2(accum)
-        return getOutputSettings().prettyPrint() ? accum.toString().trim() : accum.toString()
+        let out = getOutputSettings()
+        if out.prettyPrint() {
+            return String(decoding: accum.buffer.trim(), as: UTF8.self)
+        }
+        return String(decoding: accum.buffer, as: UTF8.self)
     }
     
     /**

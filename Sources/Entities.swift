@@ -374,6 +374,29 @@ public final class Entities: Sendable {
         let encoder = out.encoder()
         let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .ascii || encoder == .utf16
         let count = string.count
+        if !stripLeadingWhite,
+           encoderKnownToBeAbleToEncode,
+           count > 0 {
+            var needsEscape = false
+            var sawWhitespace = false
+            for b in string {
+                if normaliseWhite && b.isWhitespace {
+                    sawWhitespace = true
+                    break
+                }
+                if b == TokeniserStateVars.ampersandByte ||
+                    b == TokeniserStateVars.lessThanByte ||
+                    b == TokeniserStateVars.greaterThanByte ||
+                    (inAttribute && b == TokeniserStateVars.quoteByte) {
+                    needsEscape = true
+                    break
+                }
+            }
+            if !needsEscape && (!normaliseWhite || !sawWhitespace) {
+                accum.append(string)
+                return
+            }
+        }
         string.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return }
             var i = 0
@@ -465,6 +488,29 @@ public final class Entities: Sendable {
         let encoder = out.encoder()
         let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .ascii || encoder == .utf16
         let count = string.count
+        if !stripLeadingWhite,
+           encoderKnownToBeAbleToEncode,
+           count > 0 {
+            var needsEscape = false
+            var sawWhitespace = false
+            for b in string {
+                if normaliseWhite && b.isWhitespace {
+                    sawWhitespace = true
+                    break
+                }
+                if b == TokeniserStateVars.ampersandByte ||
+                    b == TokeniserStateVars.lessThanByte ||
+                    b == TokeniserStateVars.greaterThanByte ||
+                    (inAttribute && b == TokeniserStateVars.quoteByte) {
+                    needsEscape = true
+                    break
+                }
+            }
+            if !needsEscape && (!normaliseWhite || !sawWhitespace) {
+                accum.append(string)
+                return
+            }
+        }
         string.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return }
             var i = 0

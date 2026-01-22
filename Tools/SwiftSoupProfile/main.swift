@@ -22,12 +22,36 @@ func withAutoreleasepool(_ body: () throws -> Void) rethrows {
 struct Options {
     var fixturesPath: String
     var includeText: Bool
+    var repeatCount: Int
+    var workload: Workload
+    var iterations: Int
+}
+
+enum Workload: String {
+    case fixtures
+    case trimHeavy
+    case selectorParse
+    case attributeParse
+    case parsingStringsSingleByte
+    case parsingStringsTable
+    case entitiesHeavy
+    case consumeToAnySingleByte
+    case manabiInjectionParse
+    case manabiInjectionTraverse
+    case manabiTagLookup
+    case manabiSelect
+    case manabiOuterHtml
+    case textRawSingle
+    case textRawTraverse
 }
 
 func parseOptions() -> Options {
     let args = ProcessInfo.processInfo.arguments
     var fixturesPath = ProcessInfo.processInfo.environment["READABILITY_FIXTURES"]
     var includeText = false
+    var repeatCount = 1
+    var workload: Workload = .fixtures
+    var iterations = 200_000
 
     var i = 1
     while i < args.count {
@@ -38,6 +62,18 @@ func parseOptions() -> Options {
             continue
         } else if arg == "--text" {
             includeText = true
+        } else if arg == "--repeat", i + 1 < args.count {
+            repeatCount = max(1, Int(args[i + 1]) ?? 1)
+            i += 2
+            continue
+        } else if arg == "--workload", i + 1 < args.count {
+            workload = Workload(rawValue: args[i + 1]) ?? .fixtures
+            i += 2
+            continue
+        } else if arg == "--iterations", i + 1 < args.count {
+            iterations = max(1, Int(args[i + 1]) ?? iterations)
+            i += 2
+            continue
         }
         i += 1
     }
@@ -46,7 +82,13 @@ func parseOptions() -> Options {
         fixturesPath = "/Users/alex/Code/lake-of-fire/swift-readability/Tests/SwiftReadabilityTests/Fixtures"
     }
 
-    return Options(fixturesPath: fixturesPath!, includeText: includeText)
+    return Options(
+        fixturesPath: fixturesPath!,
+        includeText: includeText,
+        repeatCount: repeatCount,
+        workload: workload,
+        iterations: iterations
+    )
 }
 
 func findSourceHTMLFiles(fixturesPath: String) -> [URL] {
@@ -72,7 +114,7 @@ func findSourceHTMLFiles(fixturesPath: String) -> [URL] {
 let options = parseOptions()
 let files = findSourceHTMLFiles(fixturesPath: options.fixturesPath)
 
-if files.isEmpty {
+if options.workload == .fixtures, files.isEmpty {
     writeStderr("No source.html files found under: \(options.fixturesPath)\n")
     exit(1)
 }
@@ -83,18 +125,187 @@ let start = Date()
 var totalBytes = 0
 var parsedCount = 0
 
-for url in files {
-    withAutoreleasepool {
-        do {
-            let data = try Data(contentsOf: url)
-            totalBytes += data.count
-            let doc = try SwiftSoup.parse(data, "")
-            if options.includeText {
-                _ = try doc.text()
+switch options.workload {
+case .fixtures:
+    for _ in 0..<options.repeatCount {
+        for url in files {
+            withAutoreleasepool {
+                do {
+                    let data = try Data(contentsOf: url)
+                    totalBytes += data.count
+                    let doc = try SwiftSoup.parse(data, "")
+                    if options.includeText {
+                        _ = try doc.text()
+                    }
+                    parsedCount += 1
+                } catch {
+                    writeStderr("Error parsing \(url.path): \(error)\n")
+                }
             }
-            parsedCount += 1
-        } catch {
-            writeStderr("Error parsing \(url.path): \(error)\n")
+        }
+    }
+case .trimHeavy:
+    let sample = " \t\n  The quick brown fox jumps over the lazy dog  \n\t "
+    let pool = Array(repeating: sample, count: 32)
+    for _ in 0..<options.repeatCount {
+        var idx = 0
+        for _ in 0..<options.iterations {
+            _ = pool[idx].trim()
+            idx = (idx &+ 1) % pool.count
+        }
+    }
+case .selectorParse:
+    let doc = try SwiftSoup.parse("<div id='root'><p class='a b'>Hello</p><span data-x='1'></span></div>")
+    let selectors = [
+        "div > p.a",
+        "div > p.a.b",
+        "div#root span[data-x='1']",
+        "div  >  p   ",
+        "div > span[data-x]"
+    ]
+    for _ in 0..<options.repeatCount {
+        var idx = 0
+        for _ in 0..<options.iterations {
+            _ = try doc.select(selectors[idx])
+            idx = (idx &+ 1) % selectors.count
+        }
+    }
+case .attributeParse:
+    let html = "<div id='root' data-a='1' data-b='2' class='a b c' title='hello world' aria-label='x'></div>"
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            let doc = try SwiftSoup.parse(html)
+            _ = try doc.select("div").first()?.getAttributes()
+        }
+    }
+case .parsingStringsSingleByte:
+    let parsingStrings = ParsingStrings([" ", ">", "€"])
+    let one = [UInt8](arrayLiteral: 32)
+    let slice = one[one.startIndex..<one.endIndex]
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = parsingStrings.contains(slice)
+        }
+    }
+case .parsingStringsTable:
+    let parsingStrings = ParsingStrings([" ", ">", "€"])
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = parsingStrings.contains(32)
+        }
+    }
+case .entitiesHeavy:
+    let entityChunk = "&amp;&lt;&gt;&quot;&#39;"
+    let payload = String(repeating: entityChunk, count: 2000)
+    let html = "<div>\(payload)</div>"
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try SwiftSoup.parseBodyFragment(html)
+        }
+    }
+case .consumeToAnySingleByte:
+    let chars = ParsingStrings(["&", "<", ">"])
+    let input = String(repeating: "a", count: 1024) + "&"
+    let reader = CharacterReader(input)
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            reader.pos = reader.input.startIndex
+            _ = reader.consumeToAny(chars) as ArraySlice<UInt8>
+        }
+    }
+case .manabiInjectionParse:
+    let html = """
+    <div class='entry'><ruby>漢字<rt>かんじ</rt></ruby>と<ruby data-manabi-generated='true'>仮名<rt>かな</rt></ruby>を学ぶ</div>
+    <p class='line'>彼は「テスト」を受けた。</p>
+    <span data-manabi-considered-inline='true'>サンプル</span>
+    """
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try SwiftSoup.parseBodyFragment(html)
+        }
+    }
+case .manabiInjectionTraverse:
+    let html = """
+    <div class='entry'><ruby>漢字<rt>かんじ</rt></ruby>と<ruby data-manabi-generated='true'>仮名<rt>かな</rt></ruby>を学ぶ</div>
+    <p class='line'>彼は「テスト」を受けた。</p>
+    <span data-manabi-considered-inline='true'>サンプル</span>
+    """
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            let doc = try SwiftSoup.parseBodyFragment(html)
+            guard let body = doc.body() else { continue }
+            let ruby = try body.getElementsByTag("ruby")
+            _ = ruby.size()
+            _ = try body.text(trimAndNormaliseWhitespace: false)
+            _ = try body.outerHtml()
+        }
+    }
+case .manabiTagLookup:
+    let html = """
+    <div class='entry'><ruby>漢字<rt>かんじ</rt></ruby>と<ruby data-manabi-generated='true'>仮名<rt>かな</rt></ruby>を学ぶ</div>
+    <p class='line'>彼は「テスト」を受けた。</p>
+    <span data-manabi-considered-inline='true'>サンプル</span>
+    """
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    guard let body = doc.body() else { break }
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try body.getElementsByTag("ruby")
+            _ = try body.getElementsByTag("rt")
+            _ = try body.getElementsByTag("rb")
+            _ = try body.getElementsByTag("rp")
+            _ = try body.getElementsByTag("span")
+            _ = try body.getElementsByTag("div")
+        }
+    }
+case .manabiSelect:
+    let html = """
+    <manabi-container>
+      <manabi-sentence>漢字<manabi-surface>漢字</manabi-surface></manabi-sentence>
+      <manabi-sentence>仮名<manabi-surface>仮名</manabi-surface></manabi-sentence>
+    </manabi-container>
+    """
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    guard let body = doc.body() else { break }
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try body.select("manabi-surface")
+            _ = try body.select("manabi-sentence")
+            _ = try body.select("manabi-container")
+        }
+    }
+case .manabiOuterHtml:
+    let html = """
+    <div class='entry'><ruby>漢字<rt>かんじ</rt></ruby>と<ruby data-manabi-generated='true'>仮名<rt>かな</rt></ruby>を学ぶ</div>
+    <p class='line'>彼は「テスト」を受けた。</p>
+    <span data-manabi-considered-inline='true'>サンプル</span>
+    """
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    guard let body = doc.body() else { break }
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try body.outerHtml()
+        }
+    }
+case .textRawSingle:
+    let html = "単純なテキストだけ"
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    guard let body = doc.body() else { break }
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try body.text(trimAndNormaliseWhitespace: false)
+        }
+    }
+case .textRawTraverse:
+    let html = """
+    <div>単純なテキストだけ</div>
+    <p>複数ノードのテキスト<span>断片</span>を含む</p>
+    """
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    guard let body = doc.body() else { break }
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try body.text(trimAndNormaliseWhitespace: false)
         }
     }
 }
@@ -102,5 +313,9 @@ for url in files {
 let total = Date().timeIntervalSince(start)
 let mb = Double(totalBytes) / (1024.0 * 1024.0)
 
-print("Parsed \(parsedCount) files, \(String(format: "%.2f", mb)) MB in \(String(format: "%.2f", total)) s")
+if options.workload == .fixtures {
+    print("Parsed \(parsedCount) files, \(String(format: "%.2f", mb)) MB in \(String(format: "%.2f", total)) s")
+} else {
+    print("Workload \(options.workload.rawValue) completed in \(String(format: "%.2f", total)) s")
+}
 print(Profiler.report(top: 40))
