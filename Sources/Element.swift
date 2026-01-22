@@ -271,6 +271,9 @@ open class Element: Node {
 
     @inline(__always)
     open override func attr(_ attributeKey: String) throws -> String {
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            return try String(decoding: attr(lookup), as: UTF8.self)
+        }
         return try String(decoding: attr(attributeKey.utf8Array), as: UTF8.self)
     }
     
@@ -298,6 +301,10 @@ open class Element: Node {
     @inline(__always)
     open override func attr(_ attributeKey: String, _ attributeValue: String) throws -> Element {
         _ = ensureAttributes()
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            try super.attr(lookup, attributeValue.utf8Array)
+            return self
+        }
         try super.attr(attributeKey.utf8Array, attributeValue.utf8Array)
         return self
     }
@@ -335,6 +342,11 @@ open class Element: Node {
     @inline(__always)
     open func attr(_ attributeKey: String, _ attributeValue: Bool) throws -> Element {
         _ = ensureAttributes()
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            try attributes?.put(lookup, attributeValue)
+            markSourceDirty()
+            return self
+        }
         try attributes?.put(attributeKey.utf8Array, attributeValue)
         markSourceDirty()
         return self
@@ -898,7 +910,17 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByTag(_ tagName: String) throws -> Elements {
-        return try getElementsByTag(tagName.utf8Array)
+        if let lookup = UTF8Arrays.tagLookup[tagName] {
+            return try getElementsByTagNormalized(lookup)
+        }
+        let tagBytes = tagName.utf8Array
+        if Attributes.containsAsciiUppercase(tagBytes) {
+            let lowered = tagName.lowercased()
+            if let lookup = UTF8Arrays.tagLookup[lowered] {
+                return try getElementsByTagNormalized(lookup)
+            }
+        }
+        return try getElementsByTag(tagBytes)
     }
     
     /**
@@ -1555,6 +1577,9 @@ open class Element: Node {
                 accum.trimTrailingWhitespace()
             }
             return String(decoding: accum.buffer, as: UTF8.self)
+        }
+        if childNodes.count == 1, let textNode = childNodes.first as? TextNode {
+            return String(decoding: textNode.wholeTextSlice(), as: UTF8.self)
         }
         let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         collectTextFastRaw(accum)
@@ -2323,9 +2348,13 @@ open class Element: Node {
      */
     @inline(__always)
     public func html() throws -> String {
-        let accum: StringBuilder = StringBuilder()
+        let accum: StringBuilder = StringBuilder(estimatedOuterHtmlCapacity())
         try html2(accum)
-        return getOutputSettings().prettyPrint() ? accum.toString().trim() : accum.toString()
+        let out = getOutputSettings()
+        if out.prettyPrint() {
+            return String(decoding: accum.buffer.trim(), as: UTF8.self)
+        }
+        return String(decoding: accum.buffer, as: UTF8.self)
     }
     
     /**
@@ -2337,7 +2366,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func htmlUTF8() throws -> [UInt8] {
-        let accum: StringBuilder = StringBuilder()
+        let accum: StringBuilder = StringBuilder(estimatedOuterHtmlCapacity())
         try html2(accum)
         return Array(getOutputSettings().prettyPrint() ? accum.buffer.trim() : accum.buffer)
     }

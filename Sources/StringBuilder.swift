@@ -108,6 +108,11 @@ open class StringBuilder {
     open func append(_ chr: Character) {
         append(String(chr))
     }
+
+    @inline(__always)
+    open func appendNewline() {
+        write(TokeniserStateVars.newLineByte)
+    }
     
     @inline(__always)
     open func appendCodePoints(_ chr: [Character]) {
@@ -117,6 +122,27 @@ open class StringBuilder {
     @inline(__always)
     open func appendCodePoint(_ ch: Int) {
         appendCodePoint(UnicodeScalar(ch)!)
+    }
+
+    @inline(__always)
+    open func appendSpaces(_ count: Int) {
+        if count <= 0 { return }
+        let newSize = size + count
+        if internalBuffer.count < newSize {
+            internalBuffer.reserveCapacity(newSize)
+        }
+        if size < internalBuffer.count {
+            internalBuffer.withUnsafeMutableBufferPointer { dst in
+                guard let base = dst.baseAddress else { return }
+                base.advanced(by: size).initialize(repeating: TokeniserStateVars.spaceByte, count: count)
+            }
+            size = newSize
+            return
+        }
+        for _ in 0..<count {
+            internalBuffer.append(TokeniserStateVars.spaceByte)
+        }
+        size = newSize
     }
     
     @inline(__always)

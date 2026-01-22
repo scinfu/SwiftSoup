@@ -372,8 +372,36 @@ public final class Entities: Sendable {
         #endif
         let escapeMode = out.escapeMode()
         let encoder = out.encoder()
-        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .ascii || encoder == .utf16
+        let encoderIsAscii = encoder == .ascii
+        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16
         let count = string.count
+        if !stripLeadingWhite,
+           (encoderKnownToBeAbleToEncode || encoderIsAscii),
+           count > 0 {
+            var needsEscape = false
+            var sawWhitespace = false
+            for b in string {
+                if encoderIsAscii && b >= asciiUpperLimitByte {
+                    needsEscape = true
+                    break
+                }
+                if normaliseWhite && b.isWhitespace {
+                    sawWhitespace = true
+                    break
+                }
+                if b == TokeniserStateVars.ampersandByte ||
+                    b == TokeniserStateVars.lessThanByte ||
+                    b == TokeniserStateVars.greaterThanByte ||
+                    (inAttribute && b == TokeniserStateVars.quoteByte) {
+                    needsEscape = true
+                    break
+                }
+            }
+            if !needsEscape && (!normaliseWhite || !sawWhitespace) {
+                accum.append(string)
+                return
+            }
+        }
         string.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return }
             var i = 0
@@ -397,6 +425,34 @@ public final class Entities: Sendable {
                 lastWasWhite = false
                 reachedNonWhite = true
                 if b < asciiUpperLimitByte {
+                    if b != TokeniserStateVars.ampersandByte &&
+                        b != TokeniserStateVars.lessThanByte &&
+                        b != TokeniserStateVars.greaterThanByte &&
+                        (!inAttribute || b != TokeniserStateVars.quoteByte) {
+                        var j = i + 1
+                        while j < count {
+                            let nb = base[j]
+                            if nb >= asciiUpperLimitByte {
+                                break
+                            }
+                            if normaliseWhite && nb.isWhitespace {
+                                break
+                            }
+                            if nb == TokeniserStateVars.ampersandByte ||
+                                nb == TokeniserStateVars.lessThanByte ||
+                                nb == TokeniserStateVars.greaterThanByte ||
+                                (inAttribute && nb == TokeniserStateVars.quoteByte) {
+                                break
+                            }
+                            j += 1
+                        }
+                        if j > i {
+                            let slice = string[i..<j]
+                            accum.append(slice)
+                            i = j
+                            continue
+                        }
+                    }
                     switch b {
                     case TokeniserStateVars.ampersandByte:
                         accum.append(ampEntityUTF8)
@@ -463,8 +519,36 @@ public final class Entities: Sendable {
         #endif
         let escapeMode = out.escapeMode()
         let encoder = out.encoder()
-        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .ascii || encoder == .utf16
+        let encoderIsAscii = encoder == .ascii
+        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16
         let count = string.count
+        if !stripLeadingWhite,
+           (encoderKnownToBeAbleToEncode || encoderIsAscii),
+           count > 0 {
+            var needsEscape = false
+            var sawWhitespace = false
+            for b in string {
+                if encoderIsAscii && b >= asciiUpperLimitByte {
+                    needsEscape = true
+                    break
+                }
+                if normaliseWhite && b.isWhitespace {
+                    sawWhitespace = true
+                    break
+                }
+                if b == TokeniserStateVars.ampersandByte ||
+                    b == TokeniserStateVars.lessThanByte ||
+                    b == TokeniserStateVars.greaterThanByte ||
+                    (inAttribute && b == TokeniserStateVars.quoteByte) {
+                    needsEscape = true
+                    break
+                }
+            }
+            if !needsEscape && (!normaliseWhite || !sawWhitespace) {
+                accum.append(string)
+                return
+            }
+        }
         string.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return }
             var i = 0
@@ -488,6 +572,37 @@ public final class Entities: Sendable {
                 lastWasWhite = false
                 reachedNonWhite = true
                 if b < asciiUpperLimitByte {
+                    if b != TokeniserStateVars.ampersandByte &&
+                        b != TokeniserStateVars.lessThanByte &&
+                        b != TokeniserStateVars.greaterThanByte &&
+                        (!inAttribute || b != TokeniserStateVars.quoteByte) {
+                        var j = i + 1
+                        while j < count {
+                            let nb = base[j]
+                            if nb >= asciiUpperLimitByte {
+                                break
+                            }
+                            if normaliseWhite && nb.isWhitespace {
+                                break
+                            }
+                            if nb == TokeniserStateVars.ampersandByte ||
+                                nb == TokeniserStateVars.lessThanByte ||
+                                nb == TokeniserStateVars.greaterThanByte ||
+                                (inAttribute && nb == TokeniserStateVars.quoteByte) {
+                                break
+                            }
+                            j += 1
+                        }
+                        if j > i {
+                            let sliceStart = string.startIndex
+                            let sliceEnd = string.index(sliceStart, offsetBy: j)
+                            let sliceStartIndex = string.index(sliceStart, offsetBy: i)
+                            let slice = string[sliceStartIndex..<sliceEnd]
+                            accum.append(slice)
+                            i = j
+                            continue
+                        }
+                    }
                     switch b {
                     case TokeniserStateVars.ampersandByte:
                         accum.append(ampEntityUTF8)

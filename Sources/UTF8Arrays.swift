@@ -92,6 +92,9 @@ public enum UTF8Arrays {
     public static let input = "input".utf8Array
     public static let type = "type".utf8Array
     public static let hidden = "hidden".utf8Array
+    public static let id = "id".utf8Array
+    public static let src = "src".utf8Array
+    public static let alt = "alt".utf8Array
     public static let caption = "caption".utf8Array
     public static let hr = "hr".utf8Array
     public static let abbr = "abbr".utf8Array
@@ -133,6 +136,136 @@ public enum UTF8Arrays {
     public static let blobColon = "blob:".utf8Array
     public static let absPrefix = "abs:".utf8Array
     public static let true_ = "true".utf8Array
+
+    public static let tagLookup: [String: [UInt8]] = {
+        let entries: [(String, [UInt8])] = [
+            ("html", html),
+            ("head", head),
+            ("meta", meta),
+            ("body", body),
+            ("cite", cite),
+            ("a", a),
+            ("p", p),
+            ("div", div),
+            ("li", li),
+            ("span", span),
+            ("img", img),
+            ("dd", dd),
+            ("dt", dt),
+            ("dl", dl),
+            ("ol", ol),
+            ("ul", ul),
+            ("pre", pre),
+            ("listing", listing),
+            ("address", address),
+            ("article", article),
+            ("aside", aside),
+            ("blockquote", blockquote),
+            ("center", center),
+            ("dir", dir),
+            ("fieldset", fieldset),
+            ("figcaption", figcaption),
+            ("figure", figure),
+            ("footer", footer),
+            ("header", header),
+            ("hgroup", hgroup),
+            ("menu", menu),
+            ("nav", nav),
+            ("section", section),
+            ("summary", summary),
+            ("h1", h1),
+            ("h2", h2),
+            ("h3", h3),
+            ("h4", h4),
+            ("h5", h5),
+            ("h6", h6),
+            ("applet", applet),
+            ("marquee", marquee),
+            ("object", object),
+            ("ruby", ruby),
+            ("rb", rb),
+            ("rp", rp),
+            ("rt", rt),
+            ("rtc", rtc),
+            ("table", table),
+            ("tbody", tbody),
+            ("th", th),
+            ("tr", tr),
+            ("td", td),
+            ("thead", thead),
+            ("tfoot", tfoot),
+            ("optgroup", optgroup),
+            ("select", select),
+            ("form", form),
+            ("plaintext", plaintext),
+            ("button", button),
+            ("input", input),
+            ("caption", caption),
+            ("hr", hr),
+            ("abbr", abbr),
+            ("svg", svg),
+            ("isindex", isindex),
+            ("label", label),
+            ("xmp", xmp),
+            ("textarea", textarea),
+            ("iframe", iframe),
+            ("noembed", noembed),
+            ("noframes", noframes),
+            ("noscript", noscript),
+            ("embed", embed),
+            ("option", option),
+            ("math", math),
+            ("data", data),
+            ("strong", strong),
+            ("sarcasm", sarcasm),
+            ("i", i),
+            ("nobr", nobr),
+            ("col", col),
+            ("colgroup", colgroup),
+            ("em", em),
+            ("small", small),
+            ("frame", frame),
+            ("sub", sub),
+            ("sup", sup),
+            ("base", base),
+            ("time", time),
+            ("meter", meter),
+            ("b", b),
+            ("style", style),
+            ("title", title),
+            ("script", script),
+            ("br", br),
+            ("frameset", frameset)
+        ]
+        var map: [String: [UInt8]] = [:]
+        map.reserveCapacity(entries.count)
+        for (key, value) in entries {
+            map[key] = value
+        }
+        return map
+    }()
+
+    public static let attributeLookup: [String: [UInt8]] = {
+        let entries: [(String, [UInt8])] = [
+            ("class", class_),
+            ("id", id),
+            ("href", href),
+            ("src", src),
+            ("alt", alt),
+            ("title", title),
+            ("style", style),
+            ("name", name),
+            ("value", value),
+            ("type", type),
+            ("action", action)
+        ]
+        var map: [String: [UInt8]] = [:]
+        map.reserveCapacity(entries.count)
+        for (key, value) in entries {
+            map[key] = value
+        }
+        return map
+    }()
 }
 
 public enum UTF8ArraySlices {

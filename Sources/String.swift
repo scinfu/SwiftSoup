@@ -379,9 +379,45 @@ extension String {
         // implemented, perhaps because it always creates a new string.
         // Avoid actually calling it if it's not needed.
         guard !isEmpty else { return self }
+        return trimAsciiWhitespaceFast()
+    }
+
+    @inline(__always)
+    private func trimAsciiWhitespaceFast() -> String {
+        guard !isEmpty else { return self }
         let (firstChar, lastChar) = (first!, last!)
         if firstChar.isWhitespace || lastChar.isWhitespace || firstChar == "\n" || lastChar == "\n" {
-            return trimmingCharacters(in: .whitespacesAndNewlines)
+            let utf8View = self.utf8
+            var start = utf8View.startIndex
+            var end = utf8View.endIndex
+
+            while start < end {
+                let byte = utf8View[start]
+                if byte >= 128 {
+                    return trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                if !byte.isWhitespace {
+                    break
+                }
+                start = utf8View.index(after: start)
+            }
+
+            while start < end {
+                let prev = utf8View.index(before: end)
+                let byte = utf8View[prev]
+                if byte >= 128 {
+                    return trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                if !byte.isWhitespace {
+                    break
+                }
+                end = prev
+            }
+
+            if start == utf8View.startIndex && end == utf8View.endIndex {
+                return self
+            }
+            return String(decoding: utf8View[start..<end], as: UTF8.self)
         }
         return self
     }

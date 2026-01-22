@@ -416,6 +416,9 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func get(key: String) -> String {
+        if let lookup = UTF8Arrays.attributeLookup[key] {
+            return String(decoding: get(key: lookup), as: UTF8.self)
+        }
         return String(decoding: get(key: key.utf8Array), as: UTF8.self)
     }
     
@@ -440,6 +443,9 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func getIgnoreCase(key: String) throws -> String {
+        if let lookup = UTF8Arrays.attributeLookup[key] {
+            return try String(decoding: getIgnoreCase(key: lookup), as: UTF8.self)
+        }
         return try String(decoding: getIgnoreCase(key: key.utf8Array), as: UTF8.self)
     }
     
@@ -505,6 +511,9 @@ open class Attributes: NSCopying {
     
     @inline(__always)
     open func put(_ key: String, _ value: String) throws {
+        if let lookup = UTF8Arrays.attributeLookup[key] {
+            return try put(lookup, value.utf8Array)
+        }
         return try put(key.utf8Array, value.utf8Array)
     }
     
@@ -540,6 +549,10 @@ open class Attributes: NSCopying {
     @inline(__always)
     open func remove(key: String) throws {
         ensureMaterialized()
+        if let lookup = UTF8Arrays.attributeLookup[key] {
+            try remove(key: lookup)
+            return
+        }
         try remove(key: key.utf8Array)
     }
     
@@ -725,6 +738,9 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func hasKey(key: String) -> Bool {
+        if let lookup = UTF8Arrays.attributeLookup[key] {
+            return hasKey(key: lookup)
+        }
         return hasKey(key: key.utf8Array)
     }
     
@@ -744,6 +760,9 @@ open class Attributes: NSCopying {
      */
     @inline(__always)
     open func hasKeyIgnoreCase(key: String) -> Bool {
+        if let lookup = UTF8Arrays.attributeLookup[key] {
+            return hasKeyIgnoreCase(key: lookup)
+        }
         return hasKeyIgnoreCase(key: key.utf8Array)
     }
 

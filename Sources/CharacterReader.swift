@@ -293,6 +293,18 @@ public final class CharacterReader {
     public func consumeToAny(_ chars: ParsingStrings) -> ArraySlice<UInt8> {
         let start = pos
         if chars.isSingleByteOnly {
+            switch chars.singleByteCount {
+            case 1:
+                return consumeToAnyOfOne(chars.singleByteList[0])
+            case 2:
+                return consumeToAnyOfTwo(chars.singleByteList[0], chars.singleByteList[1])
+            case 3:
+                return consumeToAnyOfThree(chars.singleByteList[0], chars.singleByteList[1], chars.singleByteList[2])
+            case 4:
+                return consumeToAnyOfFour(chars.singleByteList[0], chars.singleByteList[1], chars.singleByteList[2], chars.singleByteList[3])
+            default:
+                break
+            }
             while pos < end {
                 let byte = input[pos]
                 if testBit(chars.singleByteMask, byte) {

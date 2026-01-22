@@ -230,6 +230,11 @@ open class Node: Equatable, Hashable {
     
     @discardableResult
     open func attr(_ attributeKey: String, _ attributeValue: String) throws -> Node {
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            try ensureAttributesForWrite().put(lookup, attributeValue.utf8Array)
+            markSourceDirty()
+            return self
+        }
         try ensureAttributesForWrite().put(attributeKey, attributeValue)
         markSourceDirty()
         return self
@@ -241,6 +246,9 @@ open class Node: Equatable, Hashable {
      - returns: true if the attribute exists, false if not.
      */
     open func hasAttr(_ attributeKey: String) -> Bool {
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            return hasAttr(lookup)
+        }
         return hasAttr(attributeKey.utf8Array)
     }
     
@@ -283,6 +291,9 @@ open class Node: Equatable, Hashable {
     
     @discardableResult
     open func removeAttr(_ attributeKey: String) throws -> Node {
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            return try removeAttr(lookup)
+        }
         return try removeAttr(attributeKey.utf8Array)
     }
     
@@ -905,7 +916,7 @@ open class Node: Equatable, Hashable {
      */
     @inline(__always)
     open func outerHtml() throws -> String {
-        let accum: StringBuilder = StringBuilder(128)
+        let accum: StringBuilder = StringBuilder(estimatedOuterHtmlCapacity())
         try outerHtml(accum)
         return accum.toString()
     }
@@ -918,7 +929,7 @@ open class Node: Equatable, Hashable {
     @inline(__always)
     @usableFromInline
     internal func outerHtmlUTF8Internal() throws -> [UInt8] {
-        let accum = StringBuilder(128)
+        let accum = StringBuilder(estimatedOuterHtmlCapacity())
         try outerHtmlFast(accum, 0, getOutputSettings(), allowRawSource: true)
         return Array(accum.buffer)
     }
@@ -926,9 +937,22 @@ open class Node: Equatable, Hashable {
     @inline(__always)
     @usableFromInline
     internal func outerHtmlUTF8Internal(_ out: OutputSettings, allowRawSource: Bool) throws -> [UInt8] {
-        let accum = StringBuilder(128)
+        let accum = StringBuilder(estimatedOuterHtmlCapacity())
         try outerHtmlFast(accum, 0, out, allowRawSource: allowRawSource)
         return Array(accum.buffer)
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func estimatedOuterHtmlCapacity() -> Int {
+        guard let range = sourceRange, range.isValid else {
+            return 1024
+        }
+        let length = range.end - range.start
+        if length <= 0 {
+            return 1024
+        }
+        return min(max(1024, length), 1_048_576)
     }
     
     // if this node has no document (or parent), retrieve the default output settings
@@ -1019,7 +1043,8 @@ open class Node: Equatable, Hashable {
     
     @inline(__always)
     public func indent(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
-        accum.append(UnicodeScalar.BackslashN).append(StringUtil.padding(depth * Int(out.indentAmount())))
+        accum.appendNewline()
+        accum.appendSpaces(depth * Int(out.indentAmount()))
     }
     
     /**
