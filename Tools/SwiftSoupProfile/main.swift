@@ -43,6 +43,9 @@ enum Workload: String {
     case manabiOuterHtml
     case textRawSingle
     case textRawTraverse
+    case manabiOuterHtmlLarge
+    case manabiTextLarge
+    case attributeLookup
 }
 
 func parseOptions() -> Options {
@@ -306,6 +309,49 @@ case .textRawTraverse:
     for _ in 0..<options.repeatCount {
         for _ in 0..<options.iterations {
             _ = try body.text(trimAndNormaliseWhitespace: false)
+        }
+    }
+case .manabiOuterHtmlLarge:
+    let chunk = """
+    <div class='entry'><ruby>漢字<rt>かんじ</rt></ruby>と<ruby data-manabi-generated='true'>仮名<rt>かな</rt></ruby>を学ぶ</div>
+    <p class='line'>彼は「テスト」を受けた。</p>
+    <span data-manabi-considered-inline='true'>サンプル</span>
+    """
+    let html = String(repeating: chunk, count: 200)
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    guard let body = doc.body() else { break }
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try body.outerHtml()
+        }
+    }
+case .manabiTextLarge:
+    let chunk = """
+    <div class='entry'>単純なテキストだけ<ruby>漢字<rt>かんじ</rt></ruby></div>
+    <p class='line'>複数ノードのテキスト<span>断片</span>を含む</p>
+    """
+    let html = String(repeating: chunk, count: 200)
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    guard let body = doc.body() else { break }
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try body.text(trimAndNormaliseWhitespace: false)
+        }
+    }
+case .attributeLookup:
+    let html = """
+    <a id="link-id" class="link primary" href="https://example.com" title="Example" data-x="y">Link</a>
+    """
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    guard let body = doc.body(), let link = try body.select("a").first() else { break }
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try link.attr("href")
+            _ = try link.attr("id")
+            _ = try link.attr("class")
+            _ = link.hasAttr("href")
+            _ = link.hasAttr("data-x")
+            _ = try link.attr("data-x")
         }
     }
 }

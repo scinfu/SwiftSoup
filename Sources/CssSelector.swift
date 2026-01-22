@@ -522,6 +522,13 @@ open class CssSelector {
         if trimmed.isEmpty {
             return nil
         }
+        if let lookup = UTF8Arrays.tagLookup[trimmed] {
+            return lookup
+        }
+        let lowercased = trimmed.lowercased()
+        if lowercased != trimmed, let lookup = UTF8Arrays.tagLookup[lowercased] {
+            return lookup
+        }
         var bytes: [UInt8] = []
         bytes.reserveCapacity(trimmed.utf8.count)
         for b in trimmed.utf8 {

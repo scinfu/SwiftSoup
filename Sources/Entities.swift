@@ -420,6 +420,34 @@ public final class Entities: Sendable {
                 lastWasWhite = false
                 reachedNonWhite = true
                 if b < asciiUpperLimitByte {
+                    if b != TokeniserStateVars.ampersandByte &&
+                        b != TokeniserStateVars.lessThanByte &&
+                        b != TokeniserStateVars.greaterThanByte &&
+                        (!inAttribute || b != TokeniserStateVars.quoteByte) {
+                        var j = i + 1
+                        while j < count {
+                            let nb = base[j]
+                            if nb >= asciiUpperLimitByte {
+                                break
+                            }
+                            if normaliseWhite && nb.isWhitespace {
+                                break
+                            }
+                            if nb == TokeniserStateVars.ampersandByte ||
+                                nb == TokeniserStateVars.lessThanByte ||
+                                nb == TokeniserStateVars.greaterThanByte ||
+                                (inAttribute && nb == TokeniserStateVars.quoteByte) {
+                                break
+                            }
+                            j += 1
+                        }
+                        if j > i {
+                            let slice = string[i..<j]
+                            accum.append(slice)
+                            i = j
+                            continue
+                        }
+                    }
                     switch b {
                     case TokeniserStateVars.ampersandByte:
                         accum.append(ampEntityUTF8)
@@ -534,6 +562,37 @@ public final class Entities: Sendable {
                 lastWasWhite = false
                 reachedNonWhite = true
                 if b < asciiUpperLimitByte {
+                    if b != TokeniserStateVars.ampersandByte &&
+                        b != TokeniserStateVars.lessThanByte &&
+                        b != TokeniserStateVars.greaterThanByte &&
+                        (!inAttribute || b != TokeniserStateVars.quoteByte) {
+                        var j = i + 1
+                        while j < count {
+                            let nb = base[j]
+                            if nb >= asciiUpperLimitByte {
+                                break
+                            }
+                            if normaliseWhite && nb.isWhitespace {
+                                break
+                            }
+                            if nb == TokeniserStateVars.ampersandByte ||
+                                nb == TokeniserStateVars.lessThanByte ||
+                                nb == TokeniserStateVars.greaterThanByte ||
+                                (inAttribute && nb == TokeniserStateVars.quoteByte) {
+                                break
+                            }
+                            j += 1
+                        }
+                        if j > i {
+                            let sliceStart = string.startIndex
+                            let sliceEnd = string.index(sliceStart, offsetBy: j)
+                            let sliceStartIndex = string.index(sliceStart, offsetBy: i)
+                            let slice = string[sliceStartIndex..<sliceEnd]
+                            accum.append(slice)
+                            i = j
+                            continue
+                        }
+                    }
                     switch b {
                     case TokeniserStateVars.ampersandByte:
                         accum.append(ampEntityUTF8)

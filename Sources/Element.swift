@@ -271,6 +271,9 @@ open class Element: Node {
 
     @inline(__always)
     open override func attr(_ attributeKey: String) throws -> String {
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            return try String(decoding: attr(lookup), as: UTF8.self)
+        }
         return try String(decoding: attr(attributeKey.utf8Array), as: UTF8.self)
     }
     
@@ -298,6 +301,10 @@ open class Element: Node {
     @inline(__always)
     open override func attr(_ attributeKey: String, _ attributeValue: String) throws -> Element {
         _ = ensureAttributes()
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            try super.attr(lookup, attributeValue.utf8Array)
+            return self
+        }
         try super.attr(attributeKey.utf8Array, attributeValue.utf8Array)
         return self
     }
@@ -335,6 +342,11 @@ open class Element: Node {
     @inline(__always)
     open func attr(_ attributeKey: String, _ attributeValue: Bool) throws -> Element {
         _ = ensureAttributes()
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            try attributes?.put(lookup, attributeValue)
+            markSourceDirty()
+            return self
+        }
         try attributes?.put(attributeKey.utf8Array, attributeValue)
         markSourceDirty()
         return self
@@ -898,18 +910,17 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByTag(_ tagName: String) throws -> Elements {
-        switch tagName {
-        case "ruby": return try getElementsByTagNormalized(UTF8Arrays.ruby)
-        case "rt": return try getElementsByTagNormalized(UTF8Arrays.rt)
-        case "rb": return try getElementsByTagNormalized(UTF8Arrays.rb)
-        case "rp": return try getElementsByTagNormalized(UTF8Arrays.rp)
-        case "p": return try getElementsByTagNormalized(UTF8Arrays.p)
-        case "span": return try getElementsByTagNormalized(UTF8Arrays.span)
-        case "div": return try getElementsByTagNormalized(UTF8Arrays.div)
-        case "body": return try getElementsByTagNormalized(UTF8Arrays.body)
-        default: break
+        if let lookup = UTF8Arrays.tagLookup[tagName] {
+            return try getElementsByTagNormalized(lookup)
         }
-        return try getElementsByTag(tagName.utf8Array)
+        let tagBytes = tagName.utf8Array
+        if Attributes.containsAsciiUppercase(tagBytes) {
+            let lowered = tagName.lowercased()
+            if let lookup = UTF8Arrays.tagLookup[lowered] {
+                return try getElementsByTagNormalized(lookup)
+            }
+        }
+        return try getElementsByTag(tagBytes)
     }
     
     /**
@@ -2337,7 +2348,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func html() throws -> String {
-        let accum: StringBuilder = StringBuilder()
+        let accum: StringBuilder = StringBuilder(estimatedOuterHtmlCapacity())
         try html2(accum)
         let out = getOutputSettings()
         if out.prettyPrint() {
@@ -2355,7 +2366,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func htmlUTF8() throws -> [UInt8] {
-        let accum: StringBuilder = StringBuilder()
+        let accum: StringBuilder = StringBuilder(estimatedOuterHtmlCapacity())
         try html2(accum)
         return Array(getOutputSettings().prettyPrint() ? accum.buffer.trim() : accum.buffer)
     }
