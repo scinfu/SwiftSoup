@@ -8,7 +8,7 @@
 import XCTest
 @testable import SwiftSoup
 
-class TextNodeTest: SwiftSoupTestCase {
+class TextNodeTest: XCTestCase {
 
 	func testBlank() {
 		let one = TextNode("", "")

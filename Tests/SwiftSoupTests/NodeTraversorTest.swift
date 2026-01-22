@@ -1,7 +1,7 @@
 import XCTest
 @testable import SwiftSoup
 
-class NodeTraversorTest: SwiftSoupTestCase {
+class NodeTraversorTest: XCTestCase {
     func testTraverseOrder() {
         class TestVisitor: NodeVisitor {
             var heads: [Node] = []

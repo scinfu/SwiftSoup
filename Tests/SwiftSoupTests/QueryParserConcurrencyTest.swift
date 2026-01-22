@@ -3,7 +3,7 @@ import XCTest
 
 @testable import SwiftSoup
 
-final class QueryParserConcurrencyTest: SwiftSoupTestCase {
+final class QueryParserConcurrencyTest: XCTestCase {
     func testQueryParserCacheThreadSafety() {
         let queries = [
             "div > a[href]",

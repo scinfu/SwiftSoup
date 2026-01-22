@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 import SwiftSoup
 
-final class AmpersandProfileTest: SwiftSoupTestCase {
+final class AmpersandProfileTest: XCTestCase {
     func testAmpersandProfile() throws {
         guard ProcessInfo.processInfo.environment["SWIFTSOUP_AMPERSAND_PROFILE"] == "1" else {
             return

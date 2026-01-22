@@ -7,7 +7,7 @@
 
 import XCTest
 @testable import SwiftSoup
-class AttributeTest: SwiftSoupTestCase {
+class AttributeTest: XCTestCase {
     func testHtml() throws {
         let attr = try Attribute(key: "key", value: "value &")
         XCTAssertEqual("key=\"value &amp;\"", attr.html())

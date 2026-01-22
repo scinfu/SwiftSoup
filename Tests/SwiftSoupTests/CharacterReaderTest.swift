@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class CharacterReaderTest: SwiftSoupTestCase {
+class CharacterReaderTest: XCTestCase {
     func testConsume() {
         let r = CharacterReader("one")
         XCTAssertEqual(0, r.getPos())

@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class NodeTest: SwiftSoupTestCase {
+class NodeTest: XCTestCase {
 
 	func testHandlesBaseUri() {
 		do {

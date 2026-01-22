@@ -19,7 +19,6 @@ enum CrashTrace {
         signal(SIGSEGV, handler)
         signal(SIGBUS, handler)
         signal(SIGABRT, handler)
-        signal(SIGTRAP, handler)
         #endif
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 import SwiftSoup
 
-final class AttributeValueProfileTest: SwiftSoupTestCase {
+final class AttributeValueProfileTest: XCTestCase {
     func testAttributeValueProfile() throws {
         guard ProcessInfo.processInfo.environment["SWIFTSOUP_ATTRIBUTE_PROFILE"] == "1" else {
             return

@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 import SwiftSoup
 
-final class EntityNamedProfileTest: SwiftSoupTestCase {
+final class EntityNamedProfileTest: XCTestCase {
     func testEntityNamedProfile() throws {
         guard ProcessInfo.processInfo.environment["SWIFTSOUP_ENTITY_PROFILE"] == "1" else {
             return

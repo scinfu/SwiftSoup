@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class FormElementTest: SwiftSoupTestCase {
+class FormElementTest: XCTestCase {
 
 	func testHasAssociatedControls() throws {
 		//"button", "fieldset", "input", "keygen", "object", "output", "select", "textarea"

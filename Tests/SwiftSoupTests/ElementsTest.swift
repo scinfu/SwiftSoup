@@ -9,7 +9,7 @@ Tests for ElementList.
 */
 import XCTest
 import SwiftSoup
-class ElementsTest: SwiftSoupTestCase {
+class ElementsTest: XCTestCase {
 
 	func testFilter() throws {
 		let h: String = "<p>Excl</p><div class=headline><p>Hello</p><p>There</p></div><div class=headline><h1>Headline</h1></div>"

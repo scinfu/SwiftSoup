@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class StringUtilTest: SwiftSoupTestCase {
+class StringUtilTest: XCTestCase {
 
 //	func testSite()
 //	{

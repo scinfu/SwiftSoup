@@ -19,10 +19,6 @@ import Foundation
 		return try Parser.parse(html, baseUri)
 	}
 
-    public func parse(_ html: String, _ baseUri: String, backend: Parser.Backend) throws -> Document {
-        return try Parser.parse(html, baseUri, backend: backend)
-    }
-
 	/**
 	 Parse Data into a Document. The parser will make a sensible, balanced document tree out of any HTML.
 	 
@@ -33,10 +29,6 @@ import Foundation
 	*/
     public func parse(_ data: Data, _ baseUri: String) throws -> Document {
         return try Parser.parse(data, baseUri)
-    }
-
-    public func parse(_ data: Data, _ baseUri: String, backend: Parser.Backend) throws -> Document {
-        return try Parser.parse(data, baseUri, backend: backend)
     }
 
 	/**
@@ -79,10 +71,6 @@ import Foundation
 		return try Parser.parse(html, "")
 	}
 
-    public func parse(_ html: String, backend: Parser.Backend) throws -> Document {
-        return try Parser.parse(html, "", backend: backend)
-    }
-
     /**
 	 Parse Data into a Document. As no base URI is specified, absolute URL detection relies on the HTML including a
 	 `<base href>` tag.
@@ -94,10 +82,6 @@ import Foundation
 	public func parse(_ data: Data) throws -> Document {
 		return try Parser.parse(data, "")
 	}
-
-    public func parse(_ data: Data, backend: Parser.Backend) throws -> Document {
-        return try Parser.parse(data, "", backend: backend)
-    }
 
 
 

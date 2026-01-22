@@ -1,7 +1,7 @@
 import XCTest
 import SwiftSoup
 
-final class BenchmarkProfileTest: SwiftSoupTestCase {
+final class BenchmarkProfileTest: XCTestCase {
     private func envInt(_ key: String, _ defaultValue: Int) -> Int {
         if let value = ProcessInfo.processInfo.environment[key], let parsed = Int(value) {
             return parsed

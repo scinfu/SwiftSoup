@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class ParseSettingsTest: SwiftSoupTestCase {
+class ParseSettingsTest: XCTestCase {
 
     func testCaseSupport() {
         let bothOn = ParseSettings(true, true)

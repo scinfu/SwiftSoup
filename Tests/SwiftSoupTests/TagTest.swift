@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class TagTest: SwiftSoupTestCase {
+class TagTest: XCTestCase {
 
     func testIsCaseSensitive() throws {
         let p1: Tag = try Tag.valueOf("P")

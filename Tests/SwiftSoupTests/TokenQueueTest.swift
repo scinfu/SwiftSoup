@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class TokenQueueTest: SwiftSoupTestCase {
+class TokenQueueTest: XCTestCase {
 
     func testChompBalanced() {
         let tq = TokenQueue(":contains(one (two) three) four")

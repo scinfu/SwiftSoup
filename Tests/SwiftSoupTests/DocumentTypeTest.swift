@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class DocumentTypeTest: SwiftSoupTestCase {
+class DocumentTypeTest: XCTestCase {
 
 	func testConstructorValidationOkWithBlankName() {
 		let fail: DocumentType? = DocumentType("", "", "", "")

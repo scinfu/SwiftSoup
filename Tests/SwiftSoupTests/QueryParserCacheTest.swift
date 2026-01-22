@@ -9,7 +9,7 @@
 import XCTest
 import SwiftSoup
 
-class QueryParserCacheTest: SwiftSoupTestCase {
+class QueryParserCacheTest: XCTestCase {
     
     override func setUp() {
         // Reset the limit since some tests may change it.

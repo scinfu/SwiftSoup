@@ -8,7 +8,7 @@
 import XCTest
 @testable import SwiftSoup
 
-class CleanerTest: SwiftSoupTestCase {
+class CleanerTest: XCTestCase {
 
     func testHandlesCustomProtocols() throws {
         let html = "<img src='cid:12345' /> <img src='data:gzzt' />"

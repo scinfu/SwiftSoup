@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class AttributesTest: SwiftSoupTestCase {
+class AttributesTest: XCTestCase {
 
     func testHtml() {
 		let a: Attributes = Attributes()

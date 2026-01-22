@@ -11,7 +11,7 @@ Tests for the Parser
 import XCTest
 import SwiftSoup
 
-class HtmlParserTest: SwiftSoupTestCase {
+class HtmlParserTest: XCTestCase {
 
 	func testParsesSimpleDocument() throws {
 		let html: String = "<html><head><title>First!</title></head><body><p>First post! <img src=\"foo.png\" /></p></body></html>"

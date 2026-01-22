@@ -8,7 +8,7 @@
 import XCTest
 @testable import SwiftSoup
 
-class ElementTest: SwiftSoupTestCase {
+class ElementTest: XCTestCase {
 	private let reference = "<div id=div1><p>Hello</p><p>Another <b>element</b></p><div id=div2><img src=foo.png></div></div>"
 
 	func testGetElementsByTagName() {

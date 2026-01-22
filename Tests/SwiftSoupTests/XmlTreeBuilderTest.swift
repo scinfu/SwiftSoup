@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class XmlTreeBuilderTest: SwiftSoupTestCase {
+class XmlTreeBuilderTest: XCTestCase {
 
 	func testSimpleXmlParse() throws {
 		let xml = "<doc id=2 href='/bar'>Foo <br /><link>One</link><link>Two</link></doc>"

@@ -8,12 +8,13 @@
 import XCTest
 import SwiftSoup
 
-class CssTest: SwiftSoupTestCase {
+class CssTest: XCTestCase {
 	var html: Document!
 	private var htmlString: String!
 
-	override func setUpWithError() throws {
-		try super.setUpWithError()
+	override func setUp() {
+		super.setUp()
+
 		let sb: StringBuilder = StringBuilder(string: "<html><head></head><body>")
 
 		sb.append("<div id='pseudo'>")

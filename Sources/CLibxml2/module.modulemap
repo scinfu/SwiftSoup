@@ -1,9 +1,0 @@
-module CLibxml2 [system] {
-    header "libxml/HTMLparser.h"
-    header "libxml/HTMLtree.h"
-    header "libxml/parser.h"
-    header "libxml/tree.h"
-    header "libxml/xmlstring.h"
-    export *
-    link "xml2"
-}

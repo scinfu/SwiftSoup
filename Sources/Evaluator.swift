@@ -94,25 +94,7 @@ open class Evaluator: @unchecked Sendable {
                     return elTagId == tagId
                 }
             }
-            let elName = element.tagNameNormalUTF8()
-            if elName == tagNameNormal {
-                return true
-            }
-            if tagNameNormal.contains(0x3A) {
-                var alt = tagNameNormal
-                for i in alt.indices where alt[i] == 0x3A {
-                    alt[i] = 0x7C
-                }
-                return elName == alt
-            }
-            if tagNameNormal.contains(0x7C) {
-                var alt = tagNameNormal
-                for i in alt.indices where alt[i] == 0x7C {
-                    alt[i] = 0x3A
-                }
-                return elName == alt
-            }
-            return false
+            return element.tagNameNormalUTF8() == tagNameNormal
         }
 
         open override func toString() -> String {

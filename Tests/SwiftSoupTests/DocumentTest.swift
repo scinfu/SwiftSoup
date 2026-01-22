@@ -8,7 +8,7 @@
 import XCTest
 @testable import SwiftSoup
 
-class DocumentTest: SwiftSoupTestCase {
+class DocumentTest: XCTestCase {
 
 	private static let charsetUtf8 = String.Encoding.utf8
 	private static let charsetIso8859 = String.Encoding.iso2022JP //"ISO-8859-1"

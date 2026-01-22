@@ -14,6 +14,3 @@ Resources/benchmarks/colossal.html
 Resources/benchmarks/mega.html
 Resources/benchmarks/omega.html
 Resources/benchmarks/titan.html
-
-# Local vendor checkouts
-vendor/

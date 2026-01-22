@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 import SwiftSoup
 
-final class TokenizerProfileTest: SwiftSoupTestCase {
+final class TokenizerProfileTest: XCTestCase {
     func testTokenizerProfile() throws {
         guard ProcessInfo.processInfo.environment["SWIFTSOUP_PROFILE"] == "1" else {
             return

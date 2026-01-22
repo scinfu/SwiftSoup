@@ -6,7 +6,7 @@
 import XCTest
 import SwiftSoup
 
-final class PerformanceTest: SwiftSoupTestCase {
+final class PerformanceTest: XCTestCase {
 
     private func buildManyElements(count: Int) -> String {
         var html = "<div id=wrap>"

@@ -11,7 +11,7 @@ Test suite for attribute parser.
 import XCTest
 import SwiftSoup
 
-class AttributeParseTest: SwiftSoupTestCase {
+class AttributeParseTest: XCTestCase {
 	func testparsesRoughAttributeString() throws {
 		let html: String = "<a id=\"123\" class=\"baz = 'bar'\" style = 'border: 2px'qux zim foo = 12 mux=18 />"
 		// should be: <id=123>, <class=baz = 'bar'>, <qux=>, <zim=>, <foo=12>, <mux.=18>

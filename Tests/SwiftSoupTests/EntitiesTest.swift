@@ -9,7 +9,7 @@ import Foundation
 import XCTest
 import SwiftSoup
 
-class EntitiesTest: SwiftSoupTestCase {
+class EntitiesTest: XCTestCase {
 
 	func testEscape() throws {
 		let text = "Hello &<> Å å π 新 there ¾ © »"

@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 import SwiftSoup
 
-final class AttributeStormProfileTest: SwiftSoupTestCase {
+final class AttributeStormProfileTest: XCTestCase {
     func testAttributeStormProfile() throws {
         guard ProcessInfo.processInfo.environment["SWIFTSOUP_ATTRIBUTE_STORM_PROFILE"] == "1" else {
             return

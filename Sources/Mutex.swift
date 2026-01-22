@@ -12,7 +12,6 @@ import WinSDK
 
 /// Provides a (fast) mutex intended for short code paths. Consider `NSLock` for
 /// expensive code paths.
-@usableFromInline
 final class Mutex: NSLocking, @unchecked Sendable {
 #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
     private let unfairLock: UnsafeMutablePointer<os_unfair_lock> = {
@@ -26,17 +25,14 @@ final class Mutex: NSLocking, @unchecked Sendable {
         unfairLock.deallocate()
     }
 
-    @usableFromInline
     func lock() {
         os_unfair_lock_lock(unfairLock)
     }
 
-    @usableFromInline
     func tryLock() -> Bool {
         return os_unfair_lock_trylock(unfairLock)
     }
 
-    @usableFromInline
     func unlock() {
         os_unfair_lock_unlock(unfairLock)
     }
@@ -52,12 +48,10 @@ final class Mutex: NSLocking, @unchecked Sendable {
         DeleteCriticalSection(&mutex)
     }
 
-    @usableFromInline
     func lock() {
         EnterCriticalSection(&mutex)
     }
 
-    @usableFromInline
     func unlock() {
         LeaveCriticalSection(&mutex)
     }
@@ -73,12 +67,10 @@ final class Mutex: NSLocking, @unchecked Sendable {
         pthread_mutex_destroy(&mutex)
     }
 
-    @usableFromInline
     func lock() {
         pthread_mutex_lock(&mutex)
     }
 
-    @usableFromInline
     func unlock() {
         pthread_mutex_unlock(&mutex)
     }
@@ -94,12 +86,10 @@ final class Mutex: NSLocking, @unchecked Sendable {
         pthread_mutex_destroy(&mutex)
     }
 
-    @usableFromInline
     func lock() {
         pthread_mutex_lock(&mutex)
     }
 
-    @usableFromInline
     func unlock() {
         pthread_mutex_unlock(&mutex)
     }

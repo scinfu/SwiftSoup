@@ -25,9 +25,5 @@ jobs:
     - uses: actions/checkout@v4
     - name: Build
       run: swift build -v
-    - name: Run tests (SwiftSoup default)
-      run: swift test -v --target SwiftSoupTests
-    - name: Run tests (libxml2 backend)
-      run: swift test -v --target SwiftSoupTestsLibxml2
-    - name: Run tests (libxml2 only)
-      run: swift test -v --target SwiftSoupTestsLibxml2Only
+    - name: Run tests
+      run: swift test -v

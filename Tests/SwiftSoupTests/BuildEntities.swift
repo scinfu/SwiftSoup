@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class BuildEntitiesTests: SwiftSoupTestCase {
+class BuildEntitiesTests: XCTestCase {
     
     func testEscapeEntities() {
         XCTAssertEqual(Entities.escape("foo<\u{A0}>bar"), "foo&lt;&nbsp;&gt;bar")

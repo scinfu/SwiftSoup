@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class SelectorTest: SwiftSoupTestCase {
+class SelectorTest: XCTestCase {
 
 	func testByTag() throws {
 		// should be case insensitive

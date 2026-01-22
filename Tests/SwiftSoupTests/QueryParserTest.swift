@@ -8,7 +8,7 @@
 import XCTest
 import SwiftSoup
 
-class QueryParserTest: SwiftSoupTestCase {
+class QueryParserTest: XCTestCase {
 
 	func testOrGetsCorrectPrecedence() throws {
 		// tests that a selector "a b, c d, e f" evals to (a AND b) OR (c AND d) OR (e AND f)"

@@ -7,14 +7,6 @@
 
 import Foundation
 
-#if canImport(CLibxml2) || canImport(libxml2)
-#if canImport(CLibxml2)
-@preconcurrency import CLibxml2
-#elseif canImport(libxml2)
-@preconcurrency import libxml2
-#endif
-#endif
-
 fileprivate let childNodesDiffAlgorithmThreshold: Int = 10
 
 @usableFromInline
@@ -30,31 +22,10 @@ internal final class Weak<T: AnyObject> {
 
 open class Node: Equatable, Hashable {
     var baseUri: [UInt8]?
-    @usableFromInline
-    internal var _attributes: Attributes?
-
-#if canImport(CLibxml2) || canImport(libxml2)
-    @usableFromInline
-    internal var libxml2NodePtr: xmlNodePtr? = nil
-    @usableFromInline
-    internal var libxml2DirtySuppressionCount: Int = 0
-    @usableFromInline
-    internal var libxml2ChildrenHydrated: Bool = false
-    @usableFromInline
-    internal var libxml2AttributesHydrated: Bool = false
-    @usableFromInline
-    internal var libxml2Context: Libxml2DocumentContext? = nil
-#endif
+    var attributes: Attributes?
 
     @inline(__always)
     internal func ensureAttributesForWrite() -> Attributes {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let element = self as? Element,
-           let doc = ownerDocument(),
-           doc.isLibxml2Backend {
-            Libxml2Backend.hydrateAttributesIfNeeded(element)
-        }
-#endif
         if let attributes {
             return attributes
         }
@@ -102,68 +73,7 @@ open class Node: Equatable, Hashable {
     weak var treeBuilder: TreeBuilder?
     
     @usableFromInline
-    internal var _childNodes: [Node]
-
-    @inline(__always)
-    @usableFromInline
-    internal var attributes: Attributes? {
-        get {
-#if canImport(CLibxml2) || canImport(libxml2)
-            if let doc = ownerDocument(), doc.isLibxml2Backend {
-                if let element = self as? Element {
-                    Libxml2Backend.hydrateAttributesIfNeeded(element)
-                }
-            } else if libxml2Context != nil {
-                if let element = self as? Element {
-                    Libxml2Backend.hydrateAttributesIfNeeded(element)
-                }
-            } else {
-                ensureLibxml2TreeIfNeeded()
-            }
-#endif
-            return _attributes
-        }
-        set {
-            _attributes = newValue
-#if canImport(CLibxml2) || canImport(libxml2)
-            if newValue != nil {
-                libxml2AttributesHydrated = true
-            }
-#endif
-        }
-    }
-
-    @inline(__always)
-    @usableFromInline
-    internal var childNodes: [Node] {
-        get {
-#if canImport(CLibxml2) || canImport(libxml2)
-            if let doc = ownerDocument(), doc.isLibxml2Backend {
-                if doc.libxml2Only,
-                   libxml2ChildrenHydrated,
-                   _childNodes.isEmpty,
-                   let nodePtr = libxml2NodePtr,
-                   nodePtr.pointee.children != nil {
-                    libxml2ChildrenHydrated = false
-                }
-                if !doc.libxml2TextNodesDirty {
-                    Libxml2Backend.hydrateChildrenIfNeeded(self)
-                }
-            } else if libxml2Context != nil {
-                Libxml2Backend.hydrateChildrenIfNeeded(self)
-            } else {
-                ensureLibxml2TreeIfNeeded()
-            }
-#endif
-            return _childNodes
-        }
-        set {
-            _childNodes = newValue
-#if canImport(CLibxml2) || canImport(libxml2)
-            libxml2ChildrenHydrated = true
-#endif
-        }
-    }
+    var childNodes: [Node]
     
     /**
      Get the list index of this node in its node sibling list. I.e. if this is the first node
@@ -201,12 +111,12 @@ open class Node: Equatable, Hashable {
         _ attributes: Attributes,
         skipChildReserve: Bool = false
     ) {
-        self._childNodes = []
+        self.childNodes = []
         if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
         self.baseUri = baseUri.trim()
-        self._attributes = attributes
+        self.attributes = attributes
     }
 
     public init(
@@ -214,35 +124,24 @@ open class Node: Equatable, Hashable {
         attributes: Attributes?,
         skipChildReserve: Bool = false
     ) {
-        _childNodes = []
+        childNodes = []
         if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
         self.baseUri = baseUri.trim()
-        self._attributes = attributes
+        self.attributes = attributes
     }
     
     public init(
         _ baseUri: [UInt8],
         skipChildReserve: Bool = false
     ) {
-        _childNodes = []
+        childNodes = []
         if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
         self.baseUri = baseUri.trim()
-        self._attributes = nil
-    }
-
-    deinit {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let nodePtr = libxml2NodePtr {
-            let selfPtr = Unmanaged.passUnretained(self).toOpaque()
-            if nodePtr.pointee._private == selfPtr {
-                nodePtr.pointee._private = nil
-            }
-        }
-#endif
+        self.attributes = nil
     }
     
     /**
@@ -251,12 +150,12 @@ open class Node: Equatable, Hashable {
     public init(
         skipChildReserve: Bool = false
     ) {
-        self._childNodes = []
+        self.childNodes = []
         if !skipChildReserve && self is Element || self is DocumentType {
             childNodes.reserveCapacity(32)
         }
         
-        self._attributes = nil
+        self.attributes = nil
         self.baseUri = nil
     }
     
@@ -351,77 +250,6 @@ open class Node: Equatable, Hashable {
      - returns: true if the attribute exists, false if not.
      */
     open func hasAttr(_ attributeKey: [UInt8]) -> Bool {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let element = self as? Element,
-           let doc = ownerDocument(),
-           doc.libxml2Only,
-           !doc.libxml2BackedDirty,
-           let nodePtr = element.libxml2NodePtr {
-            if Node.hasAbsPrefix(attributeKey) {
-                let needsTrimLiteral = (attributeKey.first?.isWhitespace ?? false)
-                    || (attributeKey.last?.isWhitespace ?? false)
-                let trimmedLiteral = needsTrimLiteral ? attributeKey.trim() : attributeKey
-                if !trimmedLiteral.isEmpty {
-                    let settings = doc.treeBuilder?.settings ?? doc.libxml2Context?.settings ?? ParseSettings.htmlDefault
-                    let normalizedLiteral: [UInt8]
-                    if settings.preservesAttributeCase() || !Attributes.containsAsciiUppercase(trimmedLiteral) {
-                        normalizedLiteral = trimmedLiteral
-                    } else {
-                        normalizedLiteral = trimmedLiteral.lowercased()
-                    }
-                    if let overrides = doc.libxml2AttributeOverrides,
-                       let override = overrides[UnsafeMutableRawPointer(nodePtr)],
-                       override.hasKeyIgnoreCase(key: normalizedLiteral) {
-                        return true
-                    }
-                    if Libxml2Backend.hasAttributeInLibxml2Node(nodePtr, key: normalizedLiteral) {
-                        return true
-                    }
-                }
-                do {
-                    let key = ArraySlice(attributeKey.dropFirst(Node.absCount))
-                    let abs = try absUrl(key)
-                    let settings = doc.treeBuilder?.settings ?? doc.libxml2Context?.settings ?? ParseSettings.htmlDefault
-                    let normalizedKey: [UInt8]
-                    if settings.preservesAttributeCase() || !Attributes.containsAsciiUppercase(key) {
-                        normalizedKey = Array(key)
-                    } else {
-                        normalizedKey = Array(key).lowercased()
-                    }
-                    if let overrides = doc.libxml2AttributeOverrides,
-                       let override = overrides[UnsafeMutableRawPointer(nodePtr)],
-                       override.hasKeyIgnoreCase(key: normalizedKey),
-                       !abs.isEmpty {
-                        return true
-                    }
-                    if Libxml2Backend.hasAttributeInLibxml2Node(nodePtr, key: normalizedKey),
-                       !abs.isEmpty {
-                        return true
-                    }
-                } catch {
-                    return false
-                }
-                return false
-            }
-            let needsTrim = (attributeKey.first?.isWhitespace ?? false)
-                || (attributeKey.last?.isWhitespace ?? false)
-            let trimmedKey = needsTrim ? attributeKey.trim() : attributeKey
-            if trimmedKey.isEmpty { return false }
-            let settings = doc.treeBuilder?.settings ?? doc.libxml2Context?.settings ?? ParseSettings.htmlDefault
-            let normalizedKey: [UInt8]
-            if settings.preservesAttributeCase() || !Attributes.containsAsciiUppercase(trimmedKey) {
-                normalizedKey = trimmedKey
-            } else {
-                normalizedKey = trimmedKey.lowercased()
-            }
-            if let overrides = doc.libxml2AttributeOverrides,
-               let override = overrides[UnsafeMutableRawPointer(nodePtr)],
-               override.hasKeyIgnoreCase(key: normalizedKey) {
-                return true
-            }
-            return Libxml2Backend.hasAttributeInLibxml2Node(nodePtr, key: normalizedKey)
-        }
-#endif
         guard let attributes = attributes else {
             return false
         }
@@ -467,11 +295,6 @@ open class Node: Equatable, Hashable {
     }
     
     open func getBaseUriUTF8() -> [UInt8] {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let doc = ownerDocument(), !doc.isLibxml2Backend {
-            ensureLibxml2TreeIfNeeded()
-        }
-#endif
         return baseUri ?? []
     }
     
@@ -547,27 +370,6 @@ open class Node: Equatable, Hashable {
      */
     @inline(__always)
     open func childNode(_ index: Int) -> Node {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if index >= 0,
-           !libxml2ChildrenHydrated,
-           let doc = ownerDocument(),
-           (doc.libxml2Only),
-           !doc.libxml2BackedDirty,
-           let nodePtr = libxml2NodePtr {
-            var cursor = nodePtr.pointee.children
-            var currentIndex = 0
-            while let current = cursor {
-                if let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) {
-                    if currentIndex == index {
-                        return wrapped
-                    }
-                    currentIndex += 1
-                }
-                cursor = current.pointee.next
-            }
-            preconditionFailure("Index out of range")
-        }
-#endif
         return childNodes[index]
     }
     
@@ -578,23 +380,6 @@ open class Node: Equatable, Hashable {
      */
     @inline(__always)
     open func getChildNodes() -> Array<Node> {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if !libxml2ChildrenHydrated,
-           let doc = ownerDocument(),
-           (doc.libxml2Only),
-           !doc.libxml2BackedDirty,
-           let nodePtr = libxml2NodePtr {
-            var nodes: [Node] = []
-            var cursor = nodePtr.pointee.children
-            while let current = cursor {
-                if let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) {
-                    nodes.append(wrapped)
-                }
-                cursor = current.pointee.next
-            }
-            return nodes
-        }
-#endif
         return childNodes
     }
     
@@ -614,44 +399,11 @@ open class Node: Equatable, Hashable {
      */
     @inline(__always)
     public func childNodeSize() -> Int {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if !libxml2ChildrenHydrated,
-           let doc = ownerDocument(),
-           (doc.libxml2Only),
-           !doc.libxml2BackedDirty,
-           let nodePtr = libxml2NodePtr {
-            var count = 0
-            var cursor = nodePtr.pointee.children
-            while let current = cursor {
-                if Libxml2Backend.isSelectableNodeFast(current, doc: doc) {
-                    count += 1
-                }
-                cursor = current.pointee.next
-            }
-            return count
-        }
-#endif
         return childNodes.count
     }
     
     @inline(__always)
     public func hasChildNodes() -> Bool {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if !libxml2ChildrenHydrated,
-           let doc = ownerDocument(),
-           (doc.libxml2Only),
-           !doc.libxml2BackedDirty,
-           let nodePtr = libxml2NodePtr {
-            var cursor = nodePtr.pointee.children
-            while let current = cursor {
-                if Libxml2Backend.isSelectableNodeFast(current, doc: doc) {
-                    return true
-                }
-                cursor = current.pointee.next
-            }
-            return false
-        }
-#endif
         return !childNodes.isEmpty
     }
     
@@ -666,23 +418,6 @@ open class Node: Equatable, Hashable {
      */
     @inline(__always)
     open func parent() -> Node? {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if parentNode == nil,
-           let doc = ownerDocument(),
-           (doc.libxml2Only),
-           let nodePtr = libxml2NodePtr,
-           !doc.libxml2BackedDirty,
-           let parent = Libxml2Backend.parentWrapperForSelection(nodePtr, doc: doc) {
-            if let element = self as? Element {
-                let wasSuppressed = element.suppressQueryIndexDirty
-                element.suppressQueryIndexDirty = true
-                parentNode = parent
-                element.suppressQueryIndexDirty = wasSuppressed
-            } else {
-                parentNode = parent
-            }
-        }
-#endif
         return parentNode
     }
     
@@ -701,28 +436,13 @@ open class Node: Equatable, Hashable {
      */
     @inline(__always)
     open func ownerDocument() -> Document? {
-        if let this = self as? Document {
+        if let this =  self as? Document {
             return this
+        } else if (parentNode == nil) {
+            return nil
+        } else {
+            return parentNode!.ownerDocument()
         }
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let doc = libxml2Context?.document {
-            return doc
-        }
-#endif
-        var current = parentNode
-        var seen = Set<ObjectIdentifier>()
-        while let node = current {
-            if let doc = node as? Document {
-                return doc
-            }
-            let id = ObjectIdentifier(node)
-            if seen.contains(id) {
-                return nil
-            }
-            seen.insert(id)
-            current = node.parentNode
-        }
-        return nil
     }
 
     /// A token that changes when text content in this node's tree mutates.
@@ -764,9 +484,6 @@ open class Node: Equatable, Hashable {
     @inline(__always)
     @usableFromInline
     internal func markSourceDirty(force: Bool = false) {
-#if canImport(CLibxml2) || canImport(libxml2)
-        markLibxml2Dirty()
-#endif
         if sourceRangeDirty {
             return
         }
@@ -776,289 +493,6 @@ open class Node: Equatable, Hashable {
         sourceRangeDirty = true
         parentNode?.markSourceDirty(force: force)
     }
-
-#if canImport(CLibxml2) || canImport(libxml2)
-    @inline(__always)
-    @usableFromInline
-    internal func ensureLibxml2TreeIfNeeded() {
-        guard let doc = ownerDocument(), doc.libxml2LazyState != nil else { return }
-        doc.ensureLibxml2TreeIfNeeded()
-    }
-
-    @inline(__always)
-    @usableFromInline
-    internal func markLibxml2Dirty() {
-        if treeBuilder?.isBulkBuilding == true {
-            return
-        }
-        if libxml2DirtySuppressionCount > 0 {
-            return
-        }
-        guard let doc = ownerDocument(), doc.libxml2DocPtr != nil else { return }
-        if !doc.isLibxml2Backend || doc.libxml2Only {
-            doc.libxml2BackedDirty = true
-        }
-        doc.libxml2SkipFallbackTagCacheClear()
-        doc.libxml2SkipFallbackClassCacheClear()
-        doc.libxml2SkipFallbackAttrCacheClear()
-        doc.libxml2SkipFallbackAttrValueCacheClear()
-        doc.libxml2ExplicitBooleanAttributes = nil
-        doc.libxml2Context?.explicitBooleanAttributes = nil
-    }
-
-    @inline(__always)
-    private func linkFormControlsIfNeeded(_ node: Node) {
-        guard let doc = ownerDocument(), doc.libxml2Preferred else { return }
-        if let form = node as? FormElement {
-            addFormControls(from: form, to: form)
-            return
-        }
-        var cursor: Node? = self
-        var form: FormElement? = nil
-        while let current = cursor {
-            if let found = current as? FormElement {
-                form = found
-                break
-            }
-            cursor = current.parentNode
-        }
-        guard let form else { return }
-        addFormControls(from: node, to: form)
-    }
-
-    private func addFormControls(from node: Node, to form: FormElement) {
-        if let element = node as? Element, element.tag().isFormListed() {
-            let existing = form.elements().array()
-            if !existing.contains(element) {
-                _ = form.addElement(element)
-            }
-        }
-        let children = node.childNodes
-        if !children.isEmpty {
-            for child in children {
-                addFormControls(from: child, to: form)
-            }
-        }
-    }
-
-    @inline(__always)
-    @usableFromInline
-    internal func withLibxml2DirtySuppressed<T>(_ body: () throws -> T) rethrows -> T {
-        libxml2DirtySuppressionCount += 1
-        defer { libxml2DirtySuppressionCount -= 1 }
-        return try body()
-    }
-
-    @inline(__always)
-    @usableFromInline
-    internal func libxml2CanSyncContent() -> Bool {
-        if libxml2NodePtr == nil {
-            return false
-        }
-        if let doc = ownerDocument(), doc.libxml2DocPtr != nil {
-            return true
-        }
-        return libxml2Context?.docPtr != nil
-    }
-
-    @inline(__always)
-    @usableFromInline
-    internal func libxml2SetNodeContent(_ bytes: [UInt8]) {
-        guard let nodePtr = libxml2NodePtr else { return }
-        guard ownerDocument()?.libxml2DocPtr != nil else { return }
-        var content = bytes
-        content.append(0)
-        content.withUnsafeBufferPointer { buf in
-            guard let base = buf.baseAddress else { return }
-            base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
-                xmlNodeSetContent(nodePtr, ptr)
-            }
-        }
-    }
-
-    @inline(__always)
-    @usableFromInline
-    internal func libxml2ClearNodePtrRecursive() {
-        libxml2NodePtr = nil
-        for child in childNodes {
-            child.libxml2ClearNodePtrRecursive()
-        }
-    }
-
-    @inline(__always)
-    @usableFromInline
-    internal func libxml2InvalidateChildrenCache() {
-        if let doc = ownerDocument(), doc.isLibxml2Backend {
-            if doc.libxml2Only == false {
-                return
-            }
-            if doc.libxml2TextNodesDirty {
-                return
-            }
-        }
-        libxml2ChildrenHydrated = false
-        if !_childNodes.isEmpty {
-            // Preserve _private links so rehydration reuses existing wrapper instances.
-        }
-        _childNodes.removeAll(keepingCapacity: true)
-    }
-
-#if canImport(CLibxml2) || canImport(libxml2)
-    @inline(__always)
-    @usableFromInline
-    internal func removeLibxml2OverridesRecursive(in doc: Document) {
-        if let nodePtr = libxml2NodePtr {
-            let key = UnsafeMutableRawPointer(nodePtr)
-            doc.libxml2AttributeOverrides?[key] = nil
-            doc.libxml2TagNameOverrides?[key] = nil
-            doc.libxml2Context?.attributeOverrides?[key] = nil
-            doc.libxml2Context?.tagNameOverrides?[key] = nil
-        }
-        for child in childNodes {
-            child.removeLibxml2OverridesRecursive(in: doc)
-        }
-    }
-#endif
-
-    @inline(__always)
-    @discardableResult
-    @usableFromInline
-    internal func libxml2DetachAndFreeIfPossible() -> Bool {
-        guard let nodePtr = libxml2NodePtr else { return false }
-        guard let doc = ownerDocument(), doc.libxml2DocPtr != nil else { return false }
-        libxml2HydrateAttributesRecursively()
-        removeLibxml2OverridesRecursive(in: doc)
-        xmlUnlinkNode(nodePtr)
-        xmlFreeNode(nodePtr)
-        libxml2ClearNodePtrRecursive()
-        return true
-    }
-
-    @inline(__always)
-    @usableFromInline
-    internal func libxml2HydrateAttributesRecursively() {
-        var stack: [Node] = [self]
-        while let node = stack.popLast() {
-            if let element = node as? Element {
-                Libxml2Backend.hydrateAttributesIfNeeded(element)
-            }
-            Libxml2Backend.hydrateChildrenIfNeeded(node)
-            let children = node.childNodes
-            if !children.isEmpty {
-                for child in children.reversed() {
-                    stack.append(child)
-                }
-            }
-        }
-    }
-
-    @inline(__always)
-    @usableFromInline
-    internal func libxml2EnsureNode(in doc: Document) -> xmlNodePtr? {
-        if let existing = libxml2NodePtr {
-            return existing
-        }
-        guard doc.libxml2DocPtr != nil else { return nil }
-        if let element = self as? Element {
-            guard let docPtr = doc.libxml2DocPtr,
-                  let nodePtr = element.libxml2CreateNode(docPtr: docPtr) else { return nil }
-            element.libxml2NodePtr = nodePtr
-            if let attrs = element._attributes ?? element.attributes {
-                for attr in attrs.asList() {
-                    let key = attr.getKeyUTF8()
-                    let value = attr.getValueUTF8()
-                    let isBoolean = attr.isBooleanAttribute()
-                    element.libxml2SyncAttribute(key: key, value: value, isBoolean: isBoolean)
-                }
-            }
-            for child in element.childNodes {
-                if let childPtr = child.libxml2EnsureNode(in: doc) {
-                    xmlAddChild(nodePtr, childPtr)
-                }
-            }
-            return nodePtr
-        }
-        if let text = self as? TextNode {
-            let bytes = text.getWholeTextUTF8()
-            return bytes.withUnsafeBufferPointer { buf in
-                guard let base = buf.baseAddress else { return nil }
-                return base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
-                    let nodePtr = xmlNewTextLen(ptr, Int32(buf.count))
-                    text.libxml2NodePtr = nodePtr
-                    if let nodePtr {
-                        nodePtr.pointee._private = Unmanaged.passUnretained(text).toOpaque()
-                    }
-                    return nodePtr
-                }
-            }
-        }
-        if let data = self as? DataNode {
-            let bytes = data.getWholeDataUTF8()
-            return bytes.withUnsafeBufferPointer { buf in
-                guard let base = buf.baseAddress else { return nil }
-                return base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
-                    let nodePtr = xmlNewTextLen(ptr, Int32(buf.count))
-                    data.libxml2NodePtr = nodePtr
-                    if let nodePtr {
-                        nodePtr.pointee._private = Unmanaged.passUnretained(data).toOpaque()
-                    }
-                    return nodePtr
-                }
-            }
-        }
-        if let comment = self as? Comment {
-            var bytes = comment.getDataUTF8()
-            bytes.append(0)
-            return bytes.withUnsafeBufferPointer { buf in
-                guard let base = buf.baseAddress else { return nil }
-                return base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
-                    let nodePtr = xmlNewComment(ptr)
-                    comment.libxml2NodePtr = nodePtr
-                    if let nodePtr {
-                        nodePtr.pointee._private = Unmanaged.passUnretained(comment).toOpaque()
-                    }
-                    return nodePtr
-                }
-            }
-        }
-        if let decl = self as? XmlDeclaration {
-            var nameBytes = decl.name().utf8Array
-            nameBytes.append(0)
-            let nodePtr: xmlNodePtr? = nameBytes.withUnsafeBufferPointer { buf in
-                guard let base = buf.baseAddress else { return nil }
-                return base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
-                    xmlNewPI(ptr, nil)
-                }
-            }
-            if let nodePtr, let attrs = decl.attributes {
-                decl.libxml2NodePtr = nodePtr
-                nodePtr.pointee._private = Unmanaged.passUnretained(decl).toOpaque()
-                let attribs = attrs.asList()
-                if !attribs.isEmpty {
-                    var pairs: [String] = []
-                    pairs.reserveCapacity(attribs.count)
-                    for attr in attribs {
-                        let key = String(decoding: attr.getKeyUTF8(), as: UTF8.self)
-                        let value = String(decoding: attr.getValueUTF8(), as: UTF8.self)
-                        pairs.append("\(key)=\"\(value)\"")
-                    }
-                    let joined = pairs.joined(separator: " ")
-                    var content = joined.utf8Array
-                    content.append(0)
-                    content.withUnsafeBufferPointer { buf in
-                        guard let base = buf.baseAddress else { return }
-                        base.withMemoryRebound(to: xmlChar.self, capacity: buf.count) { ptr in
-                            xmlNodeSetContent(nodePtr, ptr)
-                        }
-                    }
-                }
-            }
-            return nodePtr
-        }
-        // DocumentType is backed by xmlDtd (xmlDtdPtr), not xmlNodePtr. Skip for now.
-        return nil
-    }
-#endif
 
     @inline(__always)
     @usableFromInline
@@ -1298,186 +732,39 @@ open class Node: Equatable, Hashable {
         self.parentNode = parentNode
     }
     
+    @inlinable
     public func replaceChild(_ out: Node, _ input: Node) throws {
         try Validate.isTrue(val: out.parentNode === self)
         try Validate.notNull(obj: input)
         if (input.parentNode != nil) {
             try input.parentNode?.removeChild(input)
         }
-
-        #if canImport(CLibxml2) || canImport(libxml2)
-        let isLibxml2Backend = ownerDocument()?.isLibxml2Backend == true
-        if isLibxml2Backend,
-           !libxml2ChildrenHydrated {
-            Libxml2Backend.hydrateChildrenIfNeeded(self)
-        }
-        #else
-        let isLibxml2Backend = false
-        #endif
-        var index: Int = out.siblingIndex
-        let currentChildren = childNodes
-        if index < 0 || index >= currentChildren.count || currentChildren[index] !== out {
-#if canImport(CLibxml2) || canImport(libxml2)
-            if let outPtr = out.libxml2NodePtr,
-               let found = currentChildren.firstIndex(where: { $0.libxml2NodePtr == outPtr }) {
-                index = found
-            } else if isLibxml2Backend {
-                libxml2ChildrenHydrated = false
-                Libxml2Backend.hydrateChildrenIfNeeded(self)
-                if let outPtr = out.libxml2NodePtr,
-                   let found = childNodes.firstIndex(where: { $0.libxml2NodePtr == outPtr }) {
-                    index = found
-                }
-            }
-#endif
-        }
-        if index < 0 || index >= currentChildren.count {
-            if isLibxml2Backend {
-                out.parentNode = nil
-                markSourceDirty()
-                out.markSourceDirty()
-                input.markSourceDirty()
-                if (out is Element) || (input is Element), let element = self as? Element {
-                    element.markQueryIndexesDirty()
-                }
-                bumpTextMutationVersion()
-                return
-            }
-            try Validate.isTrue(val: false)
-        }
-#if canImport(CLibxml2) || canImport(libxml2)
-        var didSyncLibxml2 = false
-        if let doc = ownerDocument(),
-           doc.libxml2DocPtr != nil,
-           let outPtr = out.libxml2NodePtr,
-           out.ownerDocument() === doc,
-           (input.ownerDocument() === doc || doc.libxml2Only) {
-            let inputPtr = input.libxml2NodePtr ?? input.libxml2EnsureNode(in: doc)
-            if let inputPtr {
-                if input.libxml2NodePtr != nil {
-                    xmlUnlinkNode(inputPtr)
-                }
-                let replaced = xmlReplaceNode(outPtr, inputPtr)
-                didSyncLibxml2 = true
-                out.removeLibxml2OverridesRecursive(in: doc)
-                if let replaced {
-                    replaced.pointee._private = nil
-                    // Avoid freeing text/data nodes here; libxml2 can trap on free in some replace cases.
-                    if !(out is TextNode) && !(out is DataNode) {
-                        xmlFreeNode(replaced)
-                    }
-                }
-                out.libxml2ClearNodePtrRecursive()
-            }
-        }
-#endif
+        
+        let index: Int = out.siblingIndex
         childNodes[index] = input
         input.parentNode = self
         input.setSiblingIndex(index)
         out.parentNode = nil
-#if canImport(CLibxml2) || canImport(libxml2)
-        if didSyncLibxml2 {
-            withLibxml2DirtySuppressed {
-                out.withLibxml2DirtySuppressed {
-                    input.withLibxml2DirtySuppressed {
-                        markSourceDirty()
-                        out.markSourceDirty()
-                        input.markSourceDirty()
-                    }
-                }
-            }
-        } else {
-            markSourceDirty()
-            out.markSourceDirty()
-            input.markSourceDirty()
-        }
-#else
         markSourceDirty()
         out.markSourceDirty()
         input.markSourceDirty()
-#endif
         if (out is Element) || (input is Element), let element = self as? Element {
             element.markQueryIndexesDirty()
         }
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let doc = ownerDocument(), doc.isLibxml2Backend {
-            libxml2InvalidateChildrenCache()
-        }
-#endif
         bumpTextMutationVersion()
     }
     
+    @inlinable
     public func removeChild(_ out: Node) throws {
         try Validate.isTrue(val: out.parentNode === self)
-        #if canImport(CLibxml2) || canImport(libxml2)
-        let isLibxml2Backend = ownerDocument()?.isLibxml2Backend == true
-        if isLibxml2Backend,
-           !libxml2ChildrenHydrated {
-            Libxml2Backend.hydrateChildrenIfNeeded(self)
-        }
-        #else
-        let isLibxml2Backend = false
-        #endif
-        var index: Int = out.siblingIndex
-        let currentChildren = childNodes
-        if index < 0 || index >= currentChildren.count || currentChildren[index] !== out {
-#if canImport(CLibxml2) || canImport(libxml2)
-            if let outPtr = out.libxml2NodePtr,
-               let found = currentChildren.firstIndex(where: { $0.libxml2NodePtr == outPtr }) {
-                index = found
-            } else if isLibxml2Backend {
-                libxml2ChildrenHydrated = false
-                Libxml2Backend.hydrateChildrenIfNeeded(self)
-                if let outPtr = out.libxml2NodePtr,
-                   let found = childNodes.firstIndex(where: { $0.libxml2NodePtr == outPtr }) {
-                    index = found
-                }
-            }
-#endif
-        }
-        if index < 0 || index >= currentChildren.count {
-            if isLibxml2Backend {
-                out.parentNode = nil
-                markSourceDirty()
-                if out is Element, let element = self as? Element {
-                    element.markQueryIndexesDirty()
-                }
-                bumpTextMutationVersion()
-                return
-            }
-            try Validate.isTrue(val: false)
-        }
-#if canImport(CLibxml2) || canImport(libxml2)
-        var didSyncLibxml2 = false
-        if let _ = ownerDocument()?.libxml2DocPtr,
-           libxml2NodePtr != nil,
-           out.ownerDocument() === ownerDocument(),
-           out.libxml2DetachAndFreeIfPossible() {
-            didSyncLibxml2 = true
-        }
-#endif
+        let index: Int = out.siblingIndex
         childNodes.remove(at: index)
         reindexChildren(index)
         out.parentNode = nil
-#if canImport(CLibxml2) || canImport(libxml2)
-        if didSyncLibxml2 {
-            withLibxml2DirtySuppressed {
-                markSourceDirty()
-            }
-        } else {
-            markSourceDirty()
-        }
-#else
         markSourceDirty()
-#endif
         if out is Element, let element = self as? Element {
             element.markQueryIndexesDirty()
         }
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let doc = ownerDocument(), doc.isLibxml2Backend {
-            libxml2InvalidateChildrenCache()
-        }
-#endif
         bumpTextMutationVersion()
     }
     
@@ -1490,65 +777,13 @@ open class Node: Equatable, Hashable {
     @inline(__always)
     public func addChildren(_ children: [Node]) throws {
         //most used. short circuit addChildren(int), which hits reindex children and array copy
-        #if canImport(CLibxml2) || canImport(libxml2)
-        let parentPtr = libxml2NodePtr
-        let doc = ownerDocument()
-        let canSyncLibxml2 = parentPtr != nil && doc?.libxml2DocPtr != nil
-        var didSyncAll = canSyncLibxml2
-        #endif
         for child in children {
             try reparentChild(child)
-#if canImport(CLibxml2) || canImport(libxml2)
-            if canSyncLibxml2, let parentPtr, let doc,
-               (child.ownerDocument() === doc || doc.libxml2Only) {
-                let childPtr = child.libxml2NodePtr ?? child.libxml2EnsureNode(in: doc)
-                if let childPtr {
-                    if child.libxml2NodePtr != nil {
-                        xmlUnlinkNode(childPtr)
-                    }
-                    xmlAddChild(parentPtr, childPtr)
-                } else {
-                    didSyncAll = false
-                }
-            } else {
-                didSyncAll = false
-            }
-#endif
             childNodes.append(child)
             child.setSiblingIndex(childNodes.count - 1)
-#if canImport(CLibxml2) || canImport(libxml2)
-            if doc?.libxml2Preferred == true {
-                linkFormControlsIfNeeded(child)
-            }
-#endif
-#if canImport(CLibxml2) || canImport(libxml2)
-            if didSyncAll {
-                child.withLibxml2DirtySuppressed {
-                    child.markSourceDirty()
-                }
-            } else {
-                child.markSourceDirty()
-            }
-#else
             child.markSourceDirty()
-#endif
         }
-#if canImport(CLibxml2) || canImport(libxml2)
-        if didSyncAll {
-            withLibxml2DirtySuppressed {
-                markSourceDirty()
-            }
-        } else {
-            markSourceDirty()
-        }
-#else
         markSourceDirty()
-#endif
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let doc = ownerDocument(), doc.isLibxml2Backend {
-            libxml2InvalidateChildrenCache()
-        }
-#endif
         bumpTextMutationVersion()
     }
     
@@ -1559,117 +794,13 @@ open class Node: Equatable, Hashable {
     
     @inline(__always)
     public func addChildren(_ index: Int, _ children: [Node]) throws {
-        #if canImport(CLibxml2) || canImport(libxml2)
-        let parentPtr = libxml2NodePtr
-        let doc = ownerDocument()
-        let canSyncLibxml2 = parentPtr != nil && doc?.libxml2DocPtr != nil
-        let refNodePtr = (index >= 0 && index < childNodes.count) ? childNodes[index].libxml2NodePtr : nil
-        if canSyncLibxml2, let parentPtr, let doc, doc.isLibxml2Backend {
-            var didSyncAll = true
-            for input in children {
-                try reparentChild(input)
-            }
-            childNodes.insert(contentsOf: children, at: index)
-            reindexChildren(index)
-            if doc.libxml2Preferred == true {
-                for input in children {
-                    linkFormControlsIfNeeded(input)
-                }
-            }
-            for input in children {
-                let childPtr = input.libxml2NodePtr ?? input.libxml2EnsureNode(in: doc)
-                if let childPtr {
-                    if input.libxml2NodePtr != nil {
-                        xmlUnlinkNode(childPtr)
-                    }
-                    if let refNodePtr {
-                        xmlAddPrevSibling(refNodePtr, childPtr)
-                    } else {
-                        xmlAddChild(parentPtr, childPtr)
-                    }
-                } else {
-                    didSyncAll = false
-                }
-                if didSyncAll {
-                    input.withLibxml2DirtySuppressed {
-                        input.markSourceDirty()
-                    }
-                } else {
-                    input.markSourceDirty()
-                }
-            }
-            if didSyncAll {
-                withLibxml2DirtySuppressed {
-                    markSourceDirty()
-                }
-            } else {
-                markSourceDirty()
-            }
-#if canImport(CLibxml2) || canImport(libxml2)
-            if let doc = ownerDocument(), doc.isLibxml2Backend {
-                libxml2InvalidateChildrenCache()
-            }
-#endif
-            bumpTextMutationVersion()
-            return
-        }
-        var didSyncAll = canSyncLibxml2
-        #endif
         for input in children.reversed() {
             try reparentChild(input)
             childNodes.insert(input, at: index)
             reindexChildren(index)
-#if canImport(CLibxml2) || canImport(libxml2)
-            if doc?.libxml2Preferred == true {
-                linkFormControlsIfNeeded(input)
-            }
-#endif
-#if canImport(CLibxml2) || canImport(libxml2)
-            if canSyncLibxml2, let parentPtr, let doc,
-               (input.ownerDocument() === doc || doc.libxml2Only) {
-                let childPtr = input.libxml2NodePtr ?? input.libxml2EnsureNode(in: doc)
-                if let childPtr {
-                    if input.libxml2NodePtr != nil {
-                        xmlUnlinkNode(childPtr)
-                    }
-                    if let refNodePtr {
-                        xmlAddPrevSibling(refNodePtr, childPtr)
-                    } else {
-                        xmlAddChild(parentPtr, childPtr)
-                    }
-                } else {
-                    didSyncAll = false
-                }
-            } else {
-                didSyncAll = false
-            }
-            if didSyncAll {
-                input.withLibxml2DirtySuppressed {
-                    input.markSourceDirty()
-                }
-            } else {
-                input.markSourceDirty()
-            }
-#else
             input.markSourceDirty()
-#endif
         }
-#if canImport(CLibxml2) || canImport(libxml2)
-        if didSyncAll {
-            withLibxml2DirtySuppressed {
-                markSourceDirty()
-            }
-        } else {
-            markSourceDirty()
-        }
-#else
         markSourceDirty()
-#endif
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let doc = ownerDocument(), doc.isLibxml2Backend {
-            libxml2InvalidateChildrenCache()
-        }
-#endif
         bumpTextMutationVersion()
     }
     
@@ -1683,10 +814,7 @@ open class Node: Equatable, Hashable {
     
     @usableFromInline
     internal func reindexChildren(_ start: Int) {
-        guard start >= 0 else { return }
-        let nodes = childNodes
-        guard start < nodes.count else { return }
-        for (index, node) in nodes[start...].enumerated() {
+        for (index, node) in childNodes[start...].enumerated() {
             node.setSiblingIndex(start + index)
         }
     }
@@ -1697,51 +825,11 @@ open class Node: Equatable, Hashable {
      - returns: node siblings. If the node has no parent, returns an empty list.
      */
     open func siblingNodes() -> Array<Node> {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let doc = ownerDocument(),
-           (doc.libxml2Only),
-           !doc.libxml2BackedDirty,
-           !libxml2ChildrenHydrated,
-           let nodePtr = libxml2NodePtr,
-           let parentPtr = nodePtr.pointee.parent {
-            var siblings: [Node] = []
-            var cursor: xmlNodePtr? = parentPtr.pointee.children
-            while let current = cursor {
-                if current != nodePtr,
-                   let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) {
-                    siblings.append(wrapped)
-                }
-                cursor = current.pointee.next
-            }
-            return siblings
-        }
-#endif
         if (parentNode == nil) {
-#if canImport(CLibxml2) || canImport(libxml2)
-            if let doc = ownerDocument(),
-               (doc.libxml2Only),
-               !doc.libxml2BackedDirty,
-               let nodePtr = libxml2NodePtr,
-               let parentPtr = nodePtr.pointee.parent {
-                var siblings: [Node] = []
-                var cursor: xmlNodePtr? = parentPtr.pointee.children
-                while let current = cursor {
-                    if current != nodePtr,
-                       let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) {
-                        siblings.append(wrapped)
-                    }
-                    cursor = current.pointee.next
-                }
-                return siblings
-            }
-#endif
             return Array<Node>()
         }
         
         let nodes: Array<Node> = parentNode!.childNodes
-        guard nodes.count > 1 else {
-            return Array<Node>()
-        }
         var siblings: Array<Node> = Array<Node>()
         siblings.reserveCapacity(nodes.count - 1)
         for node in nodes where node !== self {
@@ -1757,37 +845,7 @@ open class Node: Equatable, Hashable {
      */
     @inline(__always)
     open func nextSibling() -> Node? {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let doc = ownerDocument(),
-           (doc.libxml2Only),
-           !doc.libxml2BackedDirty,
-           !libxml2ChildrenHydrated,
-           let nodePtr = libxml2NodePtr {
-            var cursor = nodePtr.pointee.next
-            while let current = cursor {
-                if let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) {
-                    return wrapped
-                }
-                cursor = current.pointee.next
-            }
-            return nil
-        }
-#endif
         guard let parent = parentNode else {
-#if canImport(CLibxml2) || canImport(libxml2)
-            if let doc = ownerDocument(),
-               (doc.libxml2Only),
-               !doc.libxml2BackedDirty,
-               let nodePtr = libxml2NodePtr {
-                var cursor = nodePtr.pointee.next
-                while let current = cursor {
-                    if let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) {
-                        return wrapped
-                    }
-                    cursor = current.pointee.next
-                }
-            }
-#endif
             return nil
         }
         let nextIndex = siblingIndex + 1
@@ -1800,43 +858,10 @@ open class Node: Equatable, Hashable {
     
     @inline(__always)
     open func hasNextSibling() -> Bool {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let doc = ownerDocument(),
-           (doc.libxml2Only),
-           !doc.libxml2BackedDirty,
-           !libxml2ChildrenHydrated,
-           let nodePtr = libxml2NodePtr {
-            var cursor = nodePtr.pointee.next
-            while let current = cursor {
-                if Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) != nil {
-                    return true
-                }
-                cursor = current.pointee.next
-            }
-            return false
-        }
-#endif
         guard let parent = parentNode else {
-#if canImport(CLibxml2) || canImport(libxml2)
-            if let doc = ownerDocument(),
-               (doc.libxml2Only),
-               !doc.libxml2BackedDirty,
-               let nodePtr = libxml2NodePtr {
-                var cursor = nodePtr.pointee.next
-                while let current = cursor {
-                    if Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) != nil {
-                        return true
-                    }
-                    cursor = current.pointee.next
-                }
-            }
-#endif
             return false
         }
-        let nextIndex = siblingIndex + 1
-        let count = parent.childNodes.count
-        if nextIndex < 0 { return false }
-        return nextIndex < count
+        return parent.childNodes.count > siblingIndex + 1
     }
     
     /**
@@ -1845,47 +870,15 @@ open class Node: Equatable, Hashable {
      */
     @inline(__always)
     open func previousSibling() -> Node? {
-#if canImport(CLibxml2) || canImport(libxml2)
-        if let doc = ownerDocument(),
-           (doc.libxml2Only),
-           !doc.libxml2BackedDirty,
-           !libxml2ChildrenHydrated,
-           let nodePtr = libxml2NodePtr {
-            var cursor = nodePtr.pointee.prev
-            while let current = cursor {
-                if let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) {
-                    return wrapped
-                }
-                cursor = current.pointee.prev
-            }
-            return nil
-        }
-#endif
-        if parentNode == nil {
-#if canImport(CLibxml2) || canImport(libxml2)
-            if let doc = ownerDocument(),
-               (doc.libxml2Only),
-               !doc.libxml2BackedDirty,
-               let nodePtr = libxml2NodePtr {
-                var cursor = nodePtr.pointee.prev
-                while let current = cursor {
-                    if let wrapped = Libxml2Backend.wrapNodeForSelectionFast(current, doc: doc) {
-                        return wrapped
-                    }
-                    cursor = current.pointee.prev
-                }
-            }
-#endif
+        if (parentNode == nil) {
             return nil // root
         }
-        let prevIndex = siblingIndex - 1
-        if prevIndex >= 0, let parent = parentNode {
-            let siblings = parent.childNodes
-            if prevIndex < siblings.count {
-                return siblings[prevIndex]
-            }
+        
+        if siblingIndex > 0 {
+            return parentNode?.childNodes[siblingIndex - 1]
+        } else {
+            return nil
         }
-        return nil
     }
     
     @inline(__always)
@@ -1919,58 +912,20 @@ open class Node: Equatable, Hashable {
     
     @inline(__always)
     public func outerHtml(_ accum: StringBuilder) throws {
-        let out = getOutputSettings()
-#if canImport(CLibxml2) || canImport(libxml2)
-        let hasOverrides = (ownerDocument()?.libxml2AttributeOverrides?.isEmpty == false)
-        let allowFastSerialize = Libxml2Serialization.enabled
-        if allowFastSerialize,
-           let nodePtr = libxml2NodePtr,
-           let doc = ownerDocument(),
-           let docPtr = doc.libxml2DocPtr,
-           !doc.libxml2BackedDirty,
-           !doc.libxml2TextNodesDirty,
-           out.syntax() == .html,
-           !out.prettyPrint(),
-           !out.outline(),
-           !hasOverrides {
-            if let dumped = Libxml2Serialization.htmlDump(node: nodePtr, doc: docPtr) {
-                accum.append(dumped)
-                return
-            }
-        }
-#endif
-        try outerHtmlFast(accum, 0, out, allowRawSource: true)
+        try outerHtmlFast(accum, 0, getOutputSettings(), allowRawSource: true)
     }
 
     @inline(__always)
     @usableFromInline
     internal func outerHtmlUTF8Internal() throws -> [UInt8] {
-        return try outerHtmlUTF8Internal(getOutputSettings(), allowRawSource: true)
+        let accum = StringBuilder(128)
+        try outerHtmlFast(accum, 0, getOutputSettings(), allowRawSource: true)
+        return Array(accum.buffer)
     }
 
     @inline(__always)
     @usableFromInline
     internal func outerHtmlUTF8Internal(_ out: OutputSettings, allowRawSource: Bool) throws -> [UInt8] {
-#if canImport(CLibxml2) || canImport(libxml2)
-        let hasOverrides = (ownerDocument()?.libxml2AttributeOverrides?.isEmpty == false)
-        let allowFastSerialize = Libxml2Serialization.enabled
-        if allowFastSerialize,
-           let nodePtr = libxml2NodePtr,
-           let doc = ownerDocument(),
-           let docPtr = doc.libxml2DocPtr,
-           !doc.libxml2BackedDirty,
-           !doc.libxml2TextNodesDirty,
-           out.syntax() == .html,
-           !hasOverrides {
-            if out.prettyPrint(),
-               let dumped = Libxml2Serialization.htmlDumpFormat(node: nodePtr, doc: docPtr, prettyPrint: true) {
-                return dumped
-            }
-            if let dumped = Libxml2Serialization.htmlDump(node: nodePtr, doc: docPtr) {
-                return dumped
-            }
-        }
-#endif
         let accum = StringBuilder(128)
         try outerHtmlFast(accum, 0, out, allowRawSource: allowRawSource)
         return Array(accum.buffer)
