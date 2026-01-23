@@ -849,6 +849,12 @@ open class Node: Equatable, Hashable {
         
         return siblings
     }
+
+    @inline(__always)
+    internal func hasSiblingNodes() -> Bool {
+        guard let parent = parentNode else { return false }
+        return parent.childNodes.count > 1
+    }
     
     /**
      Get this node's next sibling.

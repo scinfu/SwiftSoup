@@ -6,6 +6,11 @@
 //
 
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 /**
  A text node.
@@ -218,14 +223,54 @@ open class TextNode: Node {
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) throws {
 		if (out.prettyPrint() &&
 			((siblingIndex == 0 && (parentNode as? Element) != nil &&  (parentNode as! Element).tag().formatAsBlock() && !isBlank()) ||
-                (out.outline() && !siblingNodes().isEmpty && !isBlank()) )) {
+                (out.outline() && hasSiblingNodes() && !isBlank()) )) {
             indent(accum, depth, out)
 		}
 
-        let par: Element? = parent() as? Element
-        let normaliseWhite = out.prettyPrint() && par != nil && !Element.preserveWhitespace(par!)
+        if !out.prettyPrint() {
+            let slice = wholeTextSlice()
+            if !slice.isEmpty {
+                let encoder = out.encoder()
+                if encoder == .ascii {
+                    for b in slice {
+                        if b >= Entities.asciiUpperLimitByte {
+                            Entities.escape(accum, slice, out, false, false, false)
+                            return
+                        }
+                    }
+                }
+                let hasSpecial = slice.withUnsafeBufferPointer { buf -> Bool in
+                    guard let base = buf.baseAddress else { return false }
+                    let count = buf.count
+                    if memchr(base, Int32(TokeniserStateVars.ampersandByte), count) != nil { return true }
+                    if memchr(base, Int32(TokeniserStateVars.lessThanByte), count) != nil { return true }
+                    if memchr(base, Int32(TokeniserStateVars.greaterThanByte), count) != nil { return true }
+                    if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), count) {
+                        let lead = nbspLead.assumingMemoryBound(to: UInt8.self)
+                        let idx = base.distance(to: lead)
+                        if idx + 1 < count, base[idx + 1] == StringUtil.utf8NBSPTrail {
+                            return true
+                        }
+                    }
+                    return false
+                }
+                if !hasSpecial {
+                    accum.append(slice)
+                    return
+                }
+            }
+            Entities.escape(accum, slice, out, false, false, false)
+            return
+        }
+        let normaliseWhite: Bool
+        if let par = parentNode as? Element,
+           !Element.preserveWhitespace(par) {
+            normaliseWhite = true
+        } else {
+            normaliseWhite = false
+        }
 
-        Entities.escape(accum, getWholeTextUTF8(), out, false, normaliseWhite, false)
+        Entities.escape(accum, wholeTextSlice(), out, false, normaliseWhite, false)
     }
 
     @inline(__always)

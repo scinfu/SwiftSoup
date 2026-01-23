@@ -44,6 +44,10 @@ enum Workload: String {
     case textRawSingle
     case textRawTraverse
     case manabiOuterHtmlLarge
+    case manabiOuterHtmlLargeNoPretty
+    case manabiScriptStyleOuterHtmlNoPretty
+    case manabiReaderCandidateLines
+    case manabiReaderCandidateLinesLarge
     case manabiTextLarge
     case attributeLookup
     case selectorTagLookup
@@ -51,6 +55,8 @@ enum Workload: String {
     case manabiSelectLarge
     case elementsAttributeLookup
     case fixturesOuterHtml
+    case fixturesOuterHtmlNoPretty
+    case fixturesOuterHtmlNoPrettyNoSourceRanges
     case fixturesText
     case fixturesSelect
 }
@@ -342,6 +348,90 @@ case .manabiOuterHtmlLarge:
             _ = try body.outerHtml()
         }
     }
+case .manabiOuterHtmlLargeNoPretty:
+    let chunk = """
+    <div class='entry'><ruby>漢字<rt>かんじ</rt></ruby>と<ruby data-manabi-generated='true'>仮名<rt>かな</rt></ruby>を学ぶ</div>
+    <p class='line'>彼は「テスト」を受けた。</p>
+    <span data-manabi-considered-inline='true'>サンプル</span>
+    """
+    let html = String(repeating: chunk, count: 200)
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    doc.outputSettings().prettyPrint(pretty: false)
+    guard let body = doc.body() else { break }
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try body.outerHtml()
+        }
+    }
+case .manabiScriptStyleOuterHtmlNoPretty:
+    let chunk = """
+    <script>var a=1<2&&b='&';function t(x){return x+1;}</script>
+    <style>body{font-family:'a';}p::before{content:'<';}</style>
+    <!-- comment -->
+    <div>text &amp; more</div>
+    """
+    let html = String(repeating: chunk, count: 200)
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    doc.outputSettings().prettyPrint(pretty: false)
+    guard let body = doc.body() else { break }
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try body.outerHtml()
+        }
+    }
+case .manabiReaderCandidateLines:
+    let chunk = """
+    <div class="line"><span>日本語</span>の<ruby>勉強<rt>べんきょう</rt></ruby>をする。</div>
+    <p class="line">彼は<strong>学校</strong>へ行った。</p>
+    <div class="line"><a href="#">リンク</a>と<span>テキスト</span>が混在。</div>
+    """
+    let html = String(repeating: chunk, count: 200)
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    doc.outputSettings().prettyPrint(pretty: false)
+    guard let body = doc.body() else { break }
+    let lines = try body.select("div.line, p.line")
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            for line in lines {
+                let candidateHTML = line.getChildNodes().compactMap { node in
+                    if let textNode = node as? TextNode {
+                        return textNode.getWholeText()
+                    } else if let element = node as? Element {
+                        return try? element.outerHtml()
+                    }
+                    return try? node.outerHtml()
+                }.joined()
+                _ = candidateHTML
+            }
+        }
+    }
+case .manabiReaderCandidateLinesLarge:
+    let chunk = """
+    <div class="line"><span>日本語</span>の<ruby>勉強<rt>べんきょう</rt></ruby>をする。<em>強調</em>や<code>code</code>も含む。</div>
+    <p class="line">彼は<strong>学校</strong>へ行った。<span data-x="1">テスト</span>を受けた。</p>
+    <div class="line"><a href="#">リンク</a>と<span>テキスト</span>が混在。<ruby>漢字<rt>かんじ</rt></ruby>多め。</div>
+    <div class="line"><span>長い</span>文章で<sup>上</sup><sub>下</sub>や<span class="a b">class</span>を含む。</div>
+    """
+    let html = String(repeating: chunk, count: 150)
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    doc.outputSettings().prettyPrint(pretty: false)
+    guard let body = doc.body() else { break }
+    let lines = try body.select("div.line, p.line")
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            for line in lines {
+                let candidateHTML = line.getChildNodes().compactMap { node in
+                    if let textNode = node as? TextNode {
+                        return textNode.getWholeText()
+                    } else if let element = node as? Element {
+                        return try? element.outerHtml()
+                    }
+                    return try? node.outerHtml()
+                }.joined()
+                _ = candidateHTML
+            }
+        }
+    }
 case .manabiTextLarge:
     let chunk = """
     <div class='entry'>単純なテキストだけ<ruby>漢字<rt>かんじ</rt></ruby></div>
@@ -426,6 +516,42 @@ case .fixturesOuterHtml:
                     let data = try Data(contentsOf: url)
                     totalBytes += data.count
                     let doc = try SwiftSoup.parse(data, "")
+                    _ = try doc.body()?.outerHtml()
+                    parsedCount += 1
+                } catch {
+                    writeStderr("Error parsing \(url.path): \(error)\n")
+                }
+            }
+        }
+    }
+case .fixturesOuterHtmlNoPretty:
+    for _ in 0..<options.repeatCount {
+        for url in files {
+            withAutoreleasepool {
+                do {
+                    let data = try Data(contentsOf: url)
+                    totalBytes += data.count
+                    let doc = try SwiftSoup.parse(data, "")
+                    doc.outputSettings().prettyPrint(pretty: false)
+                    _ = try doc.body()?.outerHtml()
+                    parsedCount += 1
+                } catch {
+                    writeStderr("Error parsing \(url.path): \(error)\n")
+                }
+            }
+        }
+    }
+case .fixturesOuterHtmlNoPrettyNoSourceRanges:
+    for _ in 0..<options.repeatCount {
+        for url in files {
+            withAutoreleasepool {
+                do {
+                    let data = try Data(contentsOf: url)
+                    totalBytes += data.count
+                    let parser = Parser.htmlParser()
+                    parser.settings(ParseSettings(false, false, false))
+                    let doc = try parser.parseInput([UInt8](data), "")
+                    doc.outputSettings().prettyPrint(pretty: false)
                     _ = try doc.body()?.outerHtml()
                     parsedCount += 1
                 } catch {

@@ -207,6 +207,10 @@ open class StringBuilder {
     @discardableResult
     @inline(__always)
     open func append(_ value: ArraySlice<UInt8>) -> StringBuilder {
+        if value.count == 1, let byte = value.first {
+            write(byte)
+            return self
+        }
         write(contentsOf: value)
         return self
     }
@@ -214,6 +218,10 @@ open class StringBuilder {
     @discardableResult
     @inline(__always)
     open func append(_ value: [UInt8]) -> StringBuilder {
+        if value.count == 1 {
+            write(value[0])
+            return self
+        }
         write(contentsOf: value)
         return self
     }

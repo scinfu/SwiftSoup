@@ -380,6 +380,58 @@ public final class Entities: Sendable {
         let encoderIsAscii = encoder == .ascii
         let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16 || encoder == .unicode
         let count = string.count
+        if count == 1, !stripLeadingWhite, !normaliseWhite {
+            let b = string[0]
+            if !(encoderIsAscii && b >= asciiUpperLimitByte) &&
+                b != TokeniserStateVars.ampersandByte &&
+                !(b == TokeniserStateVars.lessThanByte && (!inAttribute || escapeMode == .xhtml)) &&
+                !(b == TokeniserStateVars.greaterThanByte && !inAttribute) &&
+                !(b == TokeniserStateVars.quoteByte && inAttribute) {
+                accum.append(b)
+                return
+            }
+        }
+        if !stripLeadingWhite,
+           normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           count > 0 {
+            let needsEscape = string.withUnsafeBufferPointer { buf -> Bool in
+                guard let base = buf.baseAddress else { return false }
+                let len = buf.count
+                if memchr(base, Int32(TokeniserStateVars.spaceByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.tabByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.newLineByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.formFeedByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.carriageReturnByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.verticalTabByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
+                    return true
+                }
+                if inAttribute {
+                    if escapeMode == .xhtml,
+                       memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                        return true
+                    }
+                    if memchr(base, Int32(TokeniserStateVars.quoteByte), len) != nil {
+                        return true
+                    }
+                    return false
+                }
+                if memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.greaterThanByte), len) != nil {
+                    return true
+                }
+                return false
+            }
+            if !needsEscape {
+                accum.append(string)
+                return
+            }
+        }
         if !stripLeadingWhite,
            !normaliseWhite,
            encoderKnownToBeAbleToEncode,
@@ -485,8 +537,7 @@ public final class Entities: Sendable {
                             j += 1
                         }
                         if j > i {
-                            let slice = string[i..<j]
-                            accum.append(slice)
+                            accum.write(contentsOf: base.advanced(by: i), count: j - i)
                             i = j
                             continue
                         }
@@ -523,23 +574,28 @@ public final class Entities: Sendable {
                 } else {
                     let len = utf8CharLength(for: b)
                     let end = i + len <= count ? i + len : count
-                    let startIndex = string.startIndex
-                    let sliceStart = string.index(startIndex, offsetBy: i)
-                    let sliceEnd = string.index(startIndex, offsetBy: end)
-                    let charBytes = string[sliceStart..<sliceEnd]
                     if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
                         // UTF-8 encoding of "\u{A0}"
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
-                    } else if canEncode(bytes: charBytes, encoder: encoder) {
-                        accum.append(charBytes)
+                    } else if encoderKnownToBeAbleToEncode {
+                        accum.write(contentsOf: base.advanced(by: i), count: len)
                     } else {
-                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
+                        let startIndex = string.startIndex
+                        let sliceStart = string.index(startIndex, offsetBy: i)
+                        let sliceEnd = string.index(startIndex, offsetBy: end)
+                        let charBytes = string[sliceStart..<sliceEnd]
+                        if canEncode(bytes: charBytes, encoder: encoder) {
+                            accum.append(charBytes)
+                        } else {
+                            appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
+                        }
                     }
                     i += len
                 }
             }
         }
     }
+
 
     @usableFromInline
     @inline(__always)
@@ -560,6 +616,57 @@ public final class Entities: Sendable {
         let encoderIsAscii = encoder == .ascii
         let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16 || encoder == .unicode
         let count = string.count
+        if count == 1, !stripLeadingWhite, !normaliseWhite, let b = string.first {
+            if !(encoderIsAscii && b >= asciiUpperLimitByte) &&
+                b != TokeniserStateVars.ampersandByte &&
+                !(b == TokeniserStateVars.lessThanByte && (!inAttribute || escapeMode == .xhtml)) &&
+                !(b == TokeniserStateVars.greaterThanByte && !inAttribute) &&
+                !(b == TokeniserStateVars.quoteByte && inAttribute) {
+                accum.append(b)
+                return
+            }
+        }
+        if !stripLeadingWhite,
+           normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           count > 0 {
+            let needsEscape = string.withUnsafeBufferPointer { buf -> Bool in
+                guard let base = buf.baseAddress else { return false }
+                let len = buf.count
+                if memchr(base, Int32(TokeniserStateVars.spaceByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.tabByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.newLineByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.formFeedByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.carriageReturnByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.verticalTabByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
+                    return true
+                }
+                if inAttribute {
+                    if escapeMode == .xhtml,
+                       memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                        return true
+                    }
+                    if memchr(base, Int32(TokeniserStateVars.quoteByte), len) != nil {
+                        return true
+                    }
+                    return false
+                }
+                if memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.greaterThanByte), len) != nil {
+                    return true
+                }
+                return false
+            }
+            if !needsEscape {
+                accum.append(string)
+                return
+            }
+        }
         if !stripLeadingWhite,
            !normaliseWhite,
            encoderKnownToBeAbleToEncode,
@@ -665,11 +772,7 @@ public final class Entities: Sendable {
                             j += 1
                         }
                         if j > i {
-                            let sliceStart = string.startIndex
-                            let sliceEnd = string.index(sliceStart, offsetBy: j)
-                            let sliceStartIndex = string.index(sliceStart, offsetBy: i)
-                            let slice = string[sliceStartIndex..<sliceEnd]
-                            accum.append(slice)
+                            accum.write(contentsOf: base.advanced(by: i), count: j - i)
                             i = j
                             continue
                         }
@@ -706,16 +809,20 @@ public final class Entities: Sendable {
                 } else {
                     let len = utf8CharLength(for: b)
                     let end = i + len <= count ? i + len : count
-                    let startIndex = string.startIndex
-                    let sliceStart = string.index(startIndex, offsetBy: i)
-                    let sliceEnd = string.index(startIndex, offsetBy: end)
-                    let charBytes = string[sliceStart..<sliceEnd]
                     if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
-                    } else if canEncode(bytes: charBytes, encoder: encoder) {
-                        accum.append(charBytes)
+                    } else if encoderKnownToBeAbleToEncode {
+                        accum.write(contentsOf: base.advanced(by: i), count: len)
                     } else {
-                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
+                        let startIndex = string.startIndex
+                        let sliceStart = string.index(startIndex, offsetBy: i)
+                        let sliceEnd = string.index(startIndex, offsetBy: end)
+                        let charBytes = string[sliceStart..<sliceEnd]
+                        if canEncode(bytes: charBytes, encoder: encoder) {
+                            accum.append(charBytes)
+                        } else {
+                            appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
+                        }
                     }
                     i = end
                 }
