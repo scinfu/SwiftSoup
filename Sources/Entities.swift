@@ -6,6 +6,11 @@
 //
 
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 /**
  HTML entities, and escape routines.
@@ -373,8 +378,41 @@ public final class Entities: Sendable {
         let escapeMode = out.escapeMode()
         let encoder = out.encoder()
         let encoderIsAscii = encoder == .ascii
-        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16
+        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16 || encoder == .unicode
         let count = string.count
+        if !stripLeadingWhite,
+           !normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           count > 0 {
+            let needsEscape = string.withUnsafeBufferPointer { buf -> Bool in
+                guard let base = buf.baseAddress else { return false }
+                let len = buf.count
+                if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
+                    return true
+                }
+                if inAttribute {
+                    if escapeMode == .xhtml,
+                       memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                        return true
+                    }
+                    if memchr(base, Int32(TokeniserStateVars.quoteByte), len) != nil {
+                        return true
+                    }
+                    return false
+                }
+                if memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.greaterThanByte), len) != nil {
+                    return true
+                }
+                return false
+            }
+            if !needsEscape {
+                accum.append(string)
+                return
+            }
+        }
         if !stripLeadingWhite,
            (encoderKnownToBeAbleToEncode || encoderIsAscii),
            count > 0 {
@@ -520,8 +558,41 @@ public final class Entities: Sendable {
         let escapeMode = out.escapeMode()
         let encoder = out.encoder()
         let encoderIsAscii = encoder == .ascii
-        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16
+        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16 || encoder == .unicode
         let count = string.count
+        if !stripLeadingWhite,
+           !normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           count > 0 {
+            let needsEscape = string.withUnsafeBufferPointer { buf -> Bool in
+                guard let base = buf.baseAddress else { return false }
+                let len = buf.count
+                if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
+                    return true
+                }
+                if inAttribute {
+                    if escapeMode == .xhtml,
+                       memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                        return true
+                    }
+                    if memchr(base, Int32(TokeniserStateVars.quoteByte), len) != nil {
+                        return true
+                    }
+                    return false
+                }
+                if memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.greaterThanByte), len) != nil {
+                    return true
+                }
+                return false
+            }
+            if !needsEscape {
+                accum.append(string)
+                return
+            }
+        }
         if !stripLeadingWhite,
            (encoderKnownToBeAbleToEncode || encoderIsAscii),
            count > 0 {

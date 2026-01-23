@@ -80,7 +80,6 @@ open class CssSelector {
     private final class SelectorCache: @unchecked Sendable {
         var items: [String: Evaluator] = [:]
         var order: [String] = []
-        var cursor: Int = 0
         let lock = NSLock()
     }
     private static let selectorCache = SelectorCache()
@@ -88,7 +87,6 @@ open class CssSelector {
     private final class FastQueryCache: @unchecked Sendable {
         var items: [String: FastQueryPlan] = [:]
         var order: [String] = []
-        var cursor: Int = 0
         let lock = NSLock()
     }
     private static let fastQueryCache = FastQueryCache()
@@ -259,14 +257,15 @@ open class CssSelector {
         selectorCache.lock.lock()
         if selectorCache.items[key] == nil {
             selectorCache.items[key] = parsed
-            if selectorCache.order.count < selectorCacheCapacity {
-                selectorCache.order.append(key)
-            } else if selectorCacheCapacity > 0 {
-                let index = selectorCache.cursor
-                let removedKey = selectorCache.order[index]
-                selectorCache.items.removeValue(forKey: removedKey)
-                selectorCache.order[index] = key
-                selectorCache.cursor = (index &+ 1) % selectorCacheCapacity
+            selectorCache.order.append(key)
+            if selectorCache.order.count > selectorCacheCapacity {
+                let overflow = selectorCache.order.count - selectorCacheCapacity
+                if overflow > 0 {
+                    for _ in 0..<overflow {
+                        let removedKey = selectorCache.order.removeFirst()
+                        selectorCache.items.removeValue(forKey: removedKey)
+                    }
+                }
             }
         }
         selectorCache.lock.unlock()
@@ -563,14 +562,15 @@ open class CssSelector {
         fastQueryCache.lock.lock()
         if fastQueryCache.items[trimmed] == nil {
             fastQueryCache.items[trimmed] = plan
-            if fastQueryCache.order.count < fastQueryCacheCapacity {
-                fastQueryCache.order.append(trimmed)
-            } else if fastQueryCacheCapacity > 0 {
-                let index = fastQueryCache.cursor
-                let removedKey = fastQueryCache.order[index]
-                fastQueryCache.items.removeValue(forKey: removedKey)
-                fastQueryCache.order[index] = trimmed
-                fastQueryCache.cursor = (index &+ 1) % fastQueryCacheCapacity
+            fastQueryCache.order.append(trimmed)
+            if fastQueryCache.order.count > fastQueryCacheCapacity {
+                let overflow = fastQueryCache.order.count - fastQueryCacheCapacity
+                if overflow > 0 {
+                    for _ in 0..<overflow {
+                        let removedKey = fastQueryCache.order.removeFirst()
+                        fastQueryCache.items.removeValue(forKey: removedKey)
+                    }
+                }
             }
         }
         fastQueryCache.lock.unlock()
