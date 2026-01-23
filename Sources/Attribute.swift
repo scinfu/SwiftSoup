@@ -127,7 +127,7 @@ open class Attribute {
         accum.append(getKeyUTF8())
         if (!shouldCollapseAttribute(out: out)) {
             accum.append(UTF8Arrays.attributeEqualsQuoteMark)
-            Entities.escape(accum, getValueUTF8(), out, true, false, false)
+            Attribute.appendAttributeValue(accum, out, getValueUTF8())
             accum.append(UTF8Arrays.quoteMark)
         }
     }
@@ -157,6 +157,90 @@ open class Attribute {
     public func isDataAttribute() -> Bool {
         let bytes = getKeyUTF8()
         return bytes.starts(with: Attributes.dataPrefix) && bytes.count > Attributes.dataPrefix.count
+    }
+
+    @usableFromInline
+    @inline(__always)
+    static func appendAttributeValue(_ accum: StringBuilder, _ out: OutputSettings, _ value: [UInt8]) {
+        if value.isEmpty {
+            return
+        }
+        let escapeMode = out.escapeMode()
+        let encoder = out.encoder()
+        let encoderIsAscii = encoder == .ascii
+        var needsEscape = false
+        value.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            let len = buf.count
+            var i = 0
+            while i < len {
+                let b = base[i]
+                if encoderIsAscii && b >= Entities.asciiUpperLimitByte {
+                    needsEscape = true
+                    return
+                }
+                if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.quoteByte {
+                    needsEscape = true
+                    return
+                }
+                if escapeMode == .xhtml && b == TokeniserStateVars.lessThanByte {
+                    needsEscape = true
+                    return
+                }
+                if b == StringUtil.utf8NBSPLead, i + 1 < len, base[i + 1] == StringUtil.utf8NBSPTrail {
+                    needsEscape = true
+                    return
+                }
+                i += 1
+            }
+        }
+        if !needsEscape {
+            accum.append(value)
+            return
+        }
+        Entities.escape(accum, value, out, true, false, false)
+    }
+
+    @usableFromInline
+    @inline(__always)
+    static func appendAttributeValue(_ accum: StringBuilder, _ out: OutputSettings, _ value: ArraySlice<UInt8>) {
+        if value.isEmpty {
+            return
+        }
+        let escapeMode = out.escapeMode()
+        let encoder = out.encoder()
+        let encoderIsAscii = encoder == .ascii
+        var needsEscape = false
+        value.withUnsafeBufferPointer { buf in
+            guard let base = buf.baseAddress else { return }
+            let len = buf.count
+            var i = 0
+            while i < len {
+                let b = base[i]
+                if encoderIsAscii && b >= Entities.asciiUpperLimitByte {
+                    needsEscape = true
+                    return
+                }
+                if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.quoteByte {
+                    needsEscape = true
+                    return
+                }
+                if escapeMode == .xhtml && b == TokeniserStateVars.lessThanByte {
+                    needsEscape = true
+                    return
+                }
+                if b == StringUtil.utf8NBSPLead, i + 1 < len, base[i + 1] == StringUtil.utf8NBSPTrail {
+                    needsEscape = true
+                    return
+                }
+                i += 1
+            }
+        }
+        if !needsEscape {
+            accum.append(value)
+            return
+        }
+        Entities.escape(accum, value, out, true, false, false)
     }
     
     /**

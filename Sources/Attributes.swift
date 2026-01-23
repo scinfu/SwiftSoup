@@ -1114,9 +1114,9 @@ open class Attributes: NSCopying {
         if !shouldCollapse {
             accum.append(UTF8Arrays.attributeEqualsQuoteMark)
             if let valueBytes {
-                Entities.escape(accum, valueBytes, out, true, false, false)
+                Attribute.appendAttributeValue(accum, out, valueBytes)
             } else if let valueSlice {
-                Entities.escape(accum, valueSlice, out, true, false, false)
+                Attribute.appendAttributeValue(accum, out, valueSlice)
             }
             accum.append(UTF8Arrays.quoteMark)
         }

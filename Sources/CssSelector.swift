@@ -525,12 +525,9 @@ open class CssSelector {
         if let lookup = UTF8Arrays.tagLookup[trimmed] {
             return lookup
         }
-        let lowercased = trimmed.lowercased()
-        if lowercased != trimmed, let lookup = UTF8Arrays.tagLookup[lowercased] {
-            return lookup
-        }
         var bytes: [UInt8] = []
         bytes.reserveCapacity(trimmed.utf8.count)
+        var sawNonAscii = false
         for b in trimmed.utf8 {
             switch b {
             case TokeniserStateVars.upperAByte...TokeniserStateVars.upperZByte:
@@ -541,8 +538,19 @@ open class CssSelector {
                  TokeniserStateVars.underscoreByte:
                 bytes.append(b)
             default:
+                if b >= TokeniserStateVars.asciiUpperLimitByte {
+                    sawNonAscii = true
+                    break
+                }
                 return nil
             }
+        }
+        if sawNonAscii {
+            let lowercased = trimmed.lowercased()
+            if lowercased != trimmed, let lookup = UTF8Arrays.tagLookup[lowercased] {
+                return lookup
+            }
+            return nil
         }
         return bytes.isEmpty ? nil : bytes
     }

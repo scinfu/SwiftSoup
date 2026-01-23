@@ -50,12 +50,18 @@ open class Elements: NSCopying {
 	 - seealso: ``hasAttr(_:)``
 	*/
 	open func attr(_ attributeKey: String) throws -> String {
-		for element in this {
-			if element.hasAttr(attributeKey) {
-				return try element.attr(attributeKey)
-			}
-		}
-		return ""
+        let keyBytes: [UInt8]
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            keyBytes = lookup
+        } else {
+            keyBytes = attributeKey.utf8Array
+        }
+        for element in this {
+            if element.hasAttr(keyBytes) {
+                return String(decoding: try element.attr(keyBytes), as: UTF8.self)
+            }
+        }
+        return ""
 	}
 
 	/**
@@ -64,10 +70,16 @@ open class Elements: NSCopying {
 	 - returns: true if any of the elements have the attribute; false if none do.
 	*/
 	open func hasAttr(_ attributeKey: String) -> Bool {
-		for element in this {
-			if element.hasAttr(attributeKey) { return true }
-		}
-		return false
+        let keyBytes: [UInt8]
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            keyBytes = lookup
+        } else {
+            keyBytes = attributeKey.utf8Array
+        }
+        for element in this {
+            if element.hasAttr(keyBytes) { return true }
+        }
+        return false
 	}
 
 	/**
@@ -78,10 +90,17 @@ open class Elements: NSCopying {
 	*/
 	@discardableResult
 	open func attr(_ attributeKey: String, _ attributeValue: String)throws->Elements {
-		for element in this {
-			try element.attr(attributeKey, attributeValue)
-		}
-		return self
+        let keyBytes: [UInt8]
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            keyBytes = lookup
+        } else {
+            keyBytes = attributeKey.utf8Array
+        }
+        let valueBytes = attributeValue.utf8Array
+        for element in this {
+            try element.attr(keyBytes, valueBytes)
+        }
+        return self
 	}
 
 	/**
@@ -91,10 +110,16 @@ open class Elements: NSCopying {
 	*/
 	@discardableResult
 	open func removeAttr(_ attributeKey: String) throws -> Elements {
-		for element in this {
-			try element.removeAttr(attributeKey)
-		}
-		return self
+        let keyBytes: [UInt8]
+        if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
+            keyBytes = lookup
+        } else {
+            keyBytes = attributeKey.utf8Array
+        }
+        for element in this {
+            try element.removeAttr(keyBytes)
+        }
+        return self
 	}
 
 	/**
