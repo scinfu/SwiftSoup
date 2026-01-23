@@ -24,6 +24,9 @@ struct Options {
     var includeText: Bool
     var repeatCount: Int
     var workload: Workload
+    var workloadA: Workload?
+    var workloadB: Workload?
+    var abMode: Bool
     var iterations: Int
 }
 
@@ -48,6 +51,7 @@ enum Workload: String {
     case manabiScriptStyleOuterHtmlNoPretty
     case manabiReaderCandidateLines
     case manabiReaderCandidateLinesLarge
+    case manabiReaderPipeline
     case manabiTextLarge
     case attributeLookup
     case selectorTagLookup
@@ -57,6 +61,7 @@ enum Workload: String {
     case fixturesOuterHtml
     case fixturesOuterHtmlNoPretty
     case fixturesOuterHtmlNoPrettyNoSourceRanges
+    case fixturesInnerHtmlNoPretty
     case fixturesText
     case fixturesSelect
 }
@@ -67,6 +72,9 @@ func parseOptions() -> Options {
     var includeText = false
     var repeatCount = 1
     var workload: Workload = .fixtures
+    var workloadA: Workload? = nil
+    var workloadB: Workload? = nil
+    var abMode = false
     var iterations = 200_000
 
     var i = 1
@@ -78,8 +86,18 @@ func parseOptions() -> Options {
             continue
         } else if arg == "--text" {
             includeText = true
+        } else if arg == "--ab" {
+            abMode = true
         } else if arg == "--repeat", i + 1 < args.count {
             repeatCount = max(1, Int(args[i + 1]) ?? 1)
+            i += 2
+            continue
+        } else if arg == "--workload-a", i + 1 < args.count {
+            workloadA = Workload(rawValue: args[i + 1])
+            i += 2
+            continue
+        } else if arg == "--workload-b", i + 1 < args.count {
+            workloadB = Workload(rawValue: args[i + 1])
             i += 2
             continue
         } else if arg == "--workload", i + 1 < args.count {
@@ -94,6 +112,16 @@ func parseOptions() -> Options {
         i += 1
     }
 
+    if workloadA != nil || workloadB != nil {
+        abMode = true
+        if workloadA == nil {
+            workloadA = workload
+        }
+        if workloadB == nil {
+            workloadB = workload
+        }
+    }
+
     if fixturesPath == nil || fixturesPath!.isEmpty {
         fixturesPath = "/Users/alex/Code/lake-of-fire/swift-readability/Tests/SwiftReadabilityTests/Fixtures"
     }
@@ -103,6 +131,9 @@ func parseOptions() -> Options {
         includeText: includeText,
         repeatCount: repeatCount,
         workload: workload,
+        workloadA: workloadA,
+        workloadB: workloadB,
+        abMode: abMode,
         iterations: iterations
     )
 }
@@ -127,21 +158,36 @@ func findSourceHTMLFiles(fixturesPath: String) -> [URL] {
     return files.sorted { $0.path < $1.path }
 }
 
-let options = parseOptions()
-let files = findSourceHTMLFiles(fixturesPath: options.fixturesPath)
-
-if options.workload == .fixtures, files.isEmpty {
-    writeStderr("No source.html files found under: \(options.fixturesPath)\n")
-    exit(1)
+struct RunResult {
+    let workload: Workload
+    let duration: Double
+    let totalBytes: Int
+    let parsedCount: Int
 }
 
-Profiler.reset()
+@inline(__always)
+func workloadNeedsFixtures(_ workload: Workload) -> Bool {
+    switch workload {
+    case .fixtures,
+         .fixturesOuterHtml,
+         .fixturesOuterHtmlNoPretty,
+         .fixturesOuterHtmlNoPrettyNoSourceRanges,
+         .fixturesInnerHtmlNoPretty,
+         .fixturesText,
+         .fixturesSelect:
+        return true
+    default:
+        return false
+    }
+}
 
-let start = Date()
-var totalBytes = 0
-var parsedCount = 0
+func runWorkload(_ workload: Workload, _ options: Options, _ files: [URL]) throws -> RunResult {
+    Profiler.reset()
+    let start = Date()
+    var totalBytes = 0
+    var parsedCount = 0
 
-switch options.workload {
+    switch workload {
 case .fixtures:
     for _ in 0..<options.repeatCount {
         for url in files {
@@ -432,6 +478,37 @@ case .manabiReaderCandidateLinesLarge:
             }
         }
     }
+case .manabiReaderPipeline:
+    let chunk = """
+    <div class="line"><span>日本語</span>の<ruby>勉強<rt>べんきょう</rt></ruby>をする。<em>強調</em>や<code>code</code>も含む。</div>
+    <p class="line">彼は<strong>学校</strong>へ行った。<span data-x="1">テスト</span>を受けた。</p>
+    <div class="line"><a href="#">リンク</a>と<span>テキスト</span>が混在。<ruby>漢字<rt>かんじ</rt></ruby>多め。</div>
+    """
+    let html = String(repeating: chunk, count: 150)
+    let doc = try SwiftSoup.parseBodyFragment(html)
+    doc.outputSettings().prettyPrint(pretty: false)
+    guard let body = doc.body() else { break }
+    let lines = try body.select("div.line, p.line")
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            for line in lines {
+                let candidateHTML = line.getChildNodes().compactMap { node in
+                    if let textNode = node as? TextNode {
+                        return textNode.getWholeText()
+                    } else if let element = node as? Element {
+                        return try? element.outerHtml()
+                    }
+                    return try? node.outerHtml()
+                }.joined()
+                let fragment = try SwiftSoup.parseBodyFragment(candidateHTML)
+                if let fragmentBody = fragment.body() {
+                    _ = try fragmentBody.text(trimAndNormaliseWhitespace: false)
+                    _ = try fragmentBody.select("ruby, a, span")
+                    _ = try fragmentBody.outerHtml()
+                }
+            }
+        }
+    }
 case .manabiTextLarge:
     let chunk = """
     <div class='entry'>単純なテキストだけ<ruby>漢字<rt>かんじ</rt></ruby></div>
@@ -560,6 +637,23 @@ case .fixturesOuterHtmlNoPrettyNoSourceRanges:
             }
         }
     }
+case .fixturesInnerHtmlNoPretty:
+    for _ in 0..<options.repeatCount {
+        for url in files {
+            withAutoreleasepool {
+                do {
+                    let data = try Data(contentsOf: url)
+                    totalBytes += data.count
+                    let doc = try SwiftSoup.parse(data, "")
+                    doc.outputSettings().prettyPrint(pretty: false)
+                    _ = try doc.body()?.html()
+                    parsedCount += 1
+                } catch {
+                    writeStderr("Error parsing \(url.path): \(error)\n")
+                }
+            }
+        }
+    }
 case .fixturesText:
     for _ in 0..<options.repeatCount {
         for url in files {
@@ -598,12 +692,55 @@ case .fixturesSelect:
     }
 }
 
-let total = Date().timeIntervalSince(start)
-let mb = Double(totalBytes) / (1024.0 * 1024.0)
+    let total = Date().timeIntervalSince(start)
+    return RunResult(workload: workload, duration: total, totalBytes: totalBytes, parsedCount: parsedCount)
+}
 
-if options.workload == .fixtures {
-    print("Parsed \(parsedCount) files, \(String(format: "%.2f", mb)) MB in \(String(format: "%.2f", total)) s")
+@inline(__always)
+func printResult(_ result: RunResult, label: String? = nil) {
+    let prefix = label.map { "\($0) " } ?? ""
+    if result.workload == .fixtures {
+        let mb = Double(result.totalBytes) / (1024.0 * 1024.0)
+        print("\(prefix)Parsed \(result.parsedCount) files, \(String(format: "%.2f", mb)) MB in \(String(format: "%.2f", result.duration)) s")
+    } else {
+        print("\(prefix)Workload \(result.workload.rawValue) completed in \(String(format: "%.2f", result.duration)) s")
+    }
+}
+
+let options = parseOptions()
+let files = findSourceHTMLFiles(fixturesPath: options.fixturesPath)
+
+let workloadsToCheck: [Workload] = options.abMode
+    ? [options.workloadA ?? options.workload, options.workloadB ?? options.workload]
+    : [options.workload]
+
+if workloadsToCheck.contains(where: workloadNeedsFixtures), files.isEmpty {
+    writeStderr("No source.html files found under: \(options.fixturesPath)\n")
+    exit(1)
+}
+
+if options.abMode {
+    let workloadA = options.workloadA ?? options.workload
+    let workloadB = options.workloadB ?? options.workload
+    do {
+        let resultA = try runWorkload(workloadA, options, files)
+        let resultB = try runWorkload(workloadB, options, files)
+        printResult(resultA, label: "A:")
+        printResult(resultB, label: "B:")
+        let delta = resultB.duration - resultA.duration
+        let pct = resultA.duration > 0 ? (delta / resultA.duration) * 100.0 : 0
+        print("Δ: \(String(format: "%.2f", delta)) s (\(String(format: "%.1f", pct))%)")
+    } catch {
+        writeStderr("Error running workloads: \(error)\n")
+        exit(1)
+    }
 } else {
-    print("Workload \(options.workload.rawValue) completed in \(String(format: "%.2f", total)) s")
+    do {
+        let result = try runWorkload(options.workload, options, files)
+        printResult(result)
+    } catch {
+        writeStderr("Error running workload: \(error)\n")
+        exit(1)
+    }
 }
 print(Profiler.report(top: 40))
