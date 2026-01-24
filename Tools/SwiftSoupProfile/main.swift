@@ -60,7 +60,6 @@ enum Workload: String {
     case manabiSelectLarge
     case elementsAttributeLookup
     case fixturesOuterHtml
-    case fixturesOuterHtmlNoPretty
     case fixturesOuterHtmlNoPrettyNoSourceRanges
     case fixturesInnerHtmlNoPretty
     case fixturesText
@@ -171,8 +170,7 @@ func workloadNeedsFixtures(_ workload: Workload) -> Bool {
     switch workload {
     case .fixtures,
          .fixturesOuterHtml,
-         .fixturesOuterHtmlNoPretty,
-         .fixturesOuterHtmlNoPrettyNoSourceRanges,
+        .fixturesOuterHtmlNoPrettyNoSourceRanges,
          .fixturesInnerHtmlNoPretty,
          .fixturesText,
          .fixturesSelect:
@@ -606,23 +604,6 @@ case .fixturesOuterHtml:
                     let data = try Data(contentsOf: url)
                     totalBytes += data.count
                     let doc = try SwiftSoup.parse(data, "")
-                    _ = try doc.body()?.outerHtml()
-                    parsedCount += 1
-                } catch {
-                    writeStderr("Error parsing \(url.path): \(error)\n")
-                }
-            }
-        }
-    }
-case .fixturesOuterHtmlNoPretty:
-    for _ in 0..<options.repeatCount {
-        for url in files {
-            withAutoreleasepool {
-                do {
-                    let data = try Data(contentsOf: url)
-                    totalBytes += data.count
-                    let doc = try SwiftSoup.parse(data, "")
-                    doc.outputSettings().prettyPrint(pretty: false)
                     _ = try doc.body()?.outerHtml()
                     parsedCount += 1
                 } catch {
