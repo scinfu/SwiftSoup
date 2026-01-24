@@ -52,6 +52,7 @@ enum Workload: String {
     case manabiReaderCandidateLines
     case manabiReaderCandidateLinesLarge
     case manabiReaderPipeline
+    case manabiReaderParseOnly
     case manabiTextLarge
     case attributeLookup
     case selectorTagLookup
@@ -507,6 +508,18 @@ case .manabiReaderPipeline:
                     _ = try fragmentBody.outerHtml()
                 }
             }
+        }
+    }
+case .manabiReaderParseOnly:
+    let chunk = """
+    <div class="line"><span>日本語</span>の<ruby>勉強<rt>べんきょう</rt></ruby>をする。<em>強調</em>や<code>code</code>も含む。</div>
+    <p class="line">彼は<strong>学校</strong>へ行った。<span data-x="1">テスト</span>を受けた。</p>
+    <div class="line"><a href="#">リンク</a>と<span>テキスト</span>が混在。<ruby>漢字<rt>かんじ</rt></ruby>多め。</div>
+    """
+    let html = String(repeating: chunk, count: 150)
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try SwiftSoup.parseBodyFragment(html)
         }
     }
 case .manabiTextLarge:
