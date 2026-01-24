@@ -112,6 +112,7 @@ public enum UTF8Arrays {
     public static let math = "math".utf8Array
     public static let data = "data".utf8Array
     public static let strong = "strong".utf8Array
+    public static let code = "code".utf8Array
     public static let sarcasm = "sarcasm".utf8Array // Huh
     public static let name = "name".utf8Array
     public static let i = "i".utf8Array
@@ -295,6 +296,7 @@ public enum UTF8ArraySlices {
     public static let abbr = UTF8Arrays.abbr[...]
     public static let data = UTF8Arrays.data[...]
     public static let strong = UTF8Arrays.strong[...]
+    public static let code = UTF8Arrays.code[...]
     public static let sub = UTF8Arrays.sub[...]
     public static let sup = UTF8Arrays.sup[...]
     public static let b = UTF8Arrays.b[...]

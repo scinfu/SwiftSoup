@@ -173,6 +173,10 @@ open class Token {
             case ruby
             case rp
             case rt
+            case rb
+            case sub
+            case sup
+            case code
 
         }
 
@@ -203,6 +207,7 @@ open class Token {
                 TagIdEntry(bytes: UTF8Arrays.dl, id: .dl),
                 TagIdEntry(bytes: UTF8Arrays.ol, id: .ol),
                 TagIdEntry(bytes: UTF8Arrays.ul, id: .ul),
+                TagIdEntry(bytes: UTF8Arrays.rb, id: .rb),
                 TagIdEntry(bytes: UTF8Arrays.rp, id: .rp),
                 TagIdEntry(bytes: UTF8Arrays.rt, id: .rt),
                 TagIdEntry(bytes: UTF8Arrays.h1, id: .h1),
@@ -218,6 +223,8 @@ open class Token {
                 TagIdEntry(bytes: UTF8Arrays.img, id: .img),
                 TagIdEntry(bytes: UTF8Arrays.col, id: .col),
                 TagIdEntry(bytes: UTF8Arrays.pre, id: .pre),
+                TagIdEntry(bytes: UTF8Arrays.sub, id: .sub),
+                TagIdEntry(bytes: UTF8Arrays.sup, id: .sup),
                 TagIdEntry(bytes: UTF8Arrays.nav, id: .nav),
                 TagIdEntry(bytes: UTF8Arrays.dir, id: .dir)
             ]
@@ -228,6 +235,7 @@ open class Token {
                 TagIdEntry(bytes: UTF8Arrays.head, id: .head),
                 TagIdEntry(bytes: UTF8Arrays.form, id: .form),
                 TagIdEntry(bytes: UTF8Arrays.meta, id: .meta),
+                TagIdEntry(bytes: UTF8Arrays.code, id: .code),
                 TagIdEntry(bytes: UTF8Arrays.base, id: .base),
                 TagIdEntry(bytes: UTF8Arrays.menu, id: .menu),
                 TagIdEntry(bytes: UTF8Arrays.ruby, id: .ruby)
@@ -778,7 +786,7 @@ open class Token {
         }
 
         private static let tagIdNameLookup: [[UInt8]?] = {
-            var lookup = [[UInt8]?](repeating: nil, count: Int(TagId.rt.rawValue) + 1)
+            var lookup = [[UInt8]?](repeating: nil, count: Int(TagId.code.rawValue) + 1)
             lookup[Int(TagId.a.rawValue)] = UTF8Arrays.a
             lookup[Int(TagId.span.rawValue)] = UTF8Arrays.span
             lookup[Int(TagId.p.rawValue)] = UTF8Arrays.p
@@ -860,6 +868,10 @@ open class Token {
             lookup[Int(TagId.ruby.rawValue)] = UTF8Arrays.ruby
             lookup[Int(TagId.rp.rawValue)] = UTF8Arrays.rp
             lookup[Int(TagId.rt.rawValue)] = UTF8Arrays.rt
+            lookup[Int(TagId.rb.rawValue)] = UTF8Arrays.rb
+            lookup[Int(TagId.sub.rawValue)] = UTF8Arrays.sub
+            lookup[Int(TagId.sup.rawValue)] = UTF8Arrays.sup
+            lookup[Int(TagId.code.rawValue)] = UTF8Arrays.code
             return lookup
         }()
 
