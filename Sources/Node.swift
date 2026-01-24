@@ -922,7 +922,8 @@ open class Node: Equatable, Hashable {
      */
     @inline(__always)
     open func outerHtml() throws -> String {
-        let accum: StringBuilder = StringBuilder(estimatedOuterHtmlCapacity())
+        let accum = StringBuilder.acquire(estimatedOuterHtmlCapacity())
+        defer { StringBuilder.release(accum) }
         try outerHtml(accum)
         return accum.toString()
     }
@@ -935,7 +936,8 @@ open class Node: Equatable, Hashable {
     @inline(__always)
     @usableFromInline
     internal func outerHtmlUTF8Internal() throws -> [UInt8] {
-        let accum = StringBuilder(estimatedOuterHtmlCapacity())
+        let accum = StringBuilder.acquire(estimatedOuterHtmlCapacity())
+        defer { StringBuilder.release(accum) }
         try outerHtmlFast(accum, 0, getOutputSettings(), allowRawSource: true)
         return Array(accum.buffer)
     }
@@ -943,7 +945,8 @@ open class Node: Equatable, Hashable {
     @inline(__always)
     @usableFromInline
     internal func outerHtmlUTF8Internal(_ out: OutputSettings, allowRawSource: Bool) throws -> [UInt8] {
-        let accum = StringBuilder(estimatedOuterHtmlCapacity())
+        let accum = StringBuilder.acquire(estimatedOuterHtmlCapacity())
+        defer { StringBuilder.release(accum) }
         try outerHtmlFast(accum, 0, out, allowRawSource: allowRawSource)
         return Array(accum.buffer)
     }

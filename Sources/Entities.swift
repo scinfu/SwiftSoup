@@ -35,6 +35,26 @@ public final class Entities: Sendable {
     private static let ltEntityUTF8 = "&lt;".utf8Array
     private static let gtEntityUTF8 = "&gt;".utf8Array
     private static let quotEntityUTF8 = "&quot;".utf8Array
+    private static let escapeTableHtml: [UInt8] = {
+        var table = [UInt8](repeating: 0, count: 256)
+        table[Int(TokeniserStateVars.ampersandByte)] = 1
+        table[Int(TokeniserStateVars.lessThanByte)] = 2
+        table[Int(TokeniserStateVars.greaterThanByte)] = 3
+        return table
+    }()
+    private static let escapeTableAttrHtml: [UInt8] = {
+        var table = [UInt8](repeating: 0, count: 256)
+        table[Int(TokeniserStateVars.ampersandByte)] = 1
+        table[Int(TokeniserStateVars.quoteByte)] = 4
+        return table
+    }()
+    private static let escapeTableAttrXhtml: [UInt8] = {
+        var table = [UInt8](repeating: 0, count: 256)
+        table[Int(TokeniserStateVars.ampersandByte)] = 1
+        table[Int(TokeniserStateVars.quoteByte)] = 4
+        table[Int(TokeniserStateVars.lessThanByte)] = 2
+        return table
+    }()
     
     private static let spaceString: [UInt8] = [TokeniserStateVars.spaceByte]
     @usableFromInline
@@ -347,7 +367,8 @@ public final class Entities: Sendable {
     }
     
     public static func escape(_ string: String, _ out: OutputSettings) -> String {
-        let accum = StringBuilder()
+        let accum = StringBuilder.acquire()
+        defer { StringBuilder.release(accum) }
         escape(accum, string.utf8Array, out, false, false, false)
         return accum.toString()
     }
@@ -358,6 +379,61 @@ public final class Entities: Sendable {
         else if byte < utf8Lead3Min { return 2 }
         else if byte < utf8Lead4Min { return 3 }
         else { return 4 }
+    }
+
+    @inline(__always)
+    private static func escapeFastAscii(
+        _ accum: StringBuilder,
+        _ base: UnsafePointer<UInt8>,
+        _ count: Int,
+        _ escapeMode: EscapeMode,
+        _ inAttribute: Bool
+    ) {
+        let table = inAttribute
+            ? (escapeMode == .xhtml ? escapeTableAttrXhtml : escapeTableAttrHtml)
+            : escapeTableHtml
+        var i = 0
+        while i < count {
+            let b = base[i]
+            if b < asciiUpperLimitByte {
+                let escape = table[Int(b)]
+                if escape == 0 {
+                    var j = i &+ 1
+                    while j < count {
+                        let nb = base[j]
+                        if nb >= asciiUpperLimitByte || table[Int(nb)] != 0 {
+                            break
+                        }
+                        j &+= 1
+                    }
+                    accum.write(contentsOf: base.advanced(by: i), count: j &- i)
+                    i = j
+                    continue
+                }
+                switch escape {
+                case 1:
+                    accum.append(ampEntityUTF8)
+                case 2:
+                    accum.append(ltEntityUTF8)
+                case 3:
+                    accum.append(gtEntityUTF8)
+                case 4:
+                    accum.append(quotEntityUTF8)
+                default:
+                    accum.append(b)
+                }
+                i &+= 1
+                continue
+            }
+            let len = utf8CharLength(for: b)
+            let end = min(i &+ len, count)
+            if end &- i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i &+ 1] == StringUtil.utf8NBSPTrail {
+                accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
+            } else {
+                accum.write(contentsOf: base.advanced(by: i), count: end &- i)
+            }
+            i = end
+        }
     }
 
     // this method is ugly, and does a lot. but other breakups cause rescanning and stringbuilder generations
@@ -491,6 +567,17 @@ public final class Entities: Sendable {
                 accum.append(string)
                 return
             }
+        }
+        if !stripLeadingWhite,
+           !normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           !encoderIsAscii,
+           count > 0 {
+            string.withUnsafeBufferPointer { buf in
+                guard let base = buf.baseAddress else { return }
+                escapeFastAscii(accum, base, count, escapeMode, inAttribute)
+            }
+            return
         }
         string.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return }
@@ -726,6 +813,17 @@ public final class Entities: Sendable {
                 accum.append(string)
                 return
             }
+        }
+        if !stripLeadingWhite,
+           !normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           !encoderIsAscii,
+           count > 0 {
+            string.withUnsafeBufferPointer { buf in
+                guard let base = buf.baseAddress else { return }
+                escapeFastAscii(accum, base, count, escapeMode, inAttribute)
+            }
+            return
         }
         string.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return }

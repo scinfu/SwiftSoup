@@ -2348,7 +2348,8 @@ open class Element: Node {
      */
     @inline(__always)
     public func html() throws -> String {
-        let accum: StringBuilder = StringBuilder(estimatedOuterHtmlCapacity())
+        let accum = StringBuilder.acquire(estimatedOuterHtmlCapacity())
+        defer { StringBuilder.release(accum) }
         try html2(accum)
         let out = getOutputSettings()
         if out.prettyPrint() {
@@ -2366,7 +2367,8 @@ open class Element: Node {
      */
     @inline(__always)
     public func htmlUTF8() throws -> [UInt8] {
-        let accum: StringBuilder = StringBuilder(estimatedOuterHtmlCapacity())
+        let accum = StringBuilder.acquire(estimatedOuterHtmlCapacity())
+        defer { StringBuilder.release(accum) }
         try html2(accum)
         return Array(getOutputSettings().prettyPrint() ? accum.buffer.trim() : accum.buffer)
     }

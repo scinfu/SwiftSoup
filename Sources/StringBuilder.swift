@@ -9,6 +9,10 @@ open class StringBuilder {
     
     /// Number of bytes currently used in buffer
     private var size: Int = 0
+    private static let poolLock = Mutex()
+    @usableFromInline
+    nonisolated(unsafe) static var pool: [StringBuilder] = []
+    private static let poolLimit: Int = 16
     @usableFromInline
     static let useFastWrite: Bool = true
     @usableFromInline
@@ -52,6 +56,37 @@ open class StringBuilder {
     public init(_ capacity: Int) {
         internalBuffer = []
         internalBuffer.reserveCapacity(capacity)
+    }
+
+    @usableFromInline
+    @inline(__always)
+    static func acquire(_ capacity: Int = 0) -> StringBuilder {
+        poolLock.lock()
+        if let builder = pool.popLast() {
+            poolLock.unlock()
+            builder.clear()
+            if capacity > builder.internalBuffer.capacity {
+                builder.internalBuffer.reserveCapacity(capacity)
+            }
+            return builder
+        }
+        poolLock.unlock()
+        return StringBuilder(capacity)
+    }
+
+    @usableFromInline
+    @inline(__always)
+    static func release(_ builder: StringBuilder) {
+        builder.clear()
+        if builder.internalBuffer.capacity > 1_048_576 {
+            builder.internalBuffer = []
+            builder.internalBuffer.reserveCapacity(1024)
+        }
+        poolLock.lock()
+        if pool.count < poolLimit {
+            pool.append(builder)
+        }
+        poolLock.unlock()
     }
     
     /**
