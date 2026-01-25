@@ -171,18 +171,27 @@ public class Parser {
 	 - returns: Document, with empty head, and HTML parsed into body
 	*/
 	public static func parseBodyFragment(_ bodyHtml: String, _ baseUri: String) throws -> Document {
-		let doc: Document = Document.createShell(baseUri)
-		if let body: Element = doc.body() {
+        let doc: Document = Document.createShell(baseUri)
+        if let body: Element = doc.body() {
             let nodeList: Array<Node> = try parseFragment(bodyHtml, body, baseUri.utf8Array)
 			//var nodes: [Node] = nodeList.toArray(Node[nodeList.size()]) // the node list gets modified when re-parented
-            if nodeList.count > 0 {
-                for i in 1..<nodeList.count {
-                    try nodeList[i].remove()
+            if body.childNodes.isEmpty {
+                body.childNodes.reserveCapacity(nodeList.count)
+                var i = 0
+                for node in nodeList {
+                    node.parentNode = body
+                    node.treeBuilder = body.treeBuilder
+                    node.setSiblingIndex(i)
+                    body.childNodes.append(node)
+                    i &+= 1
+                }
+                body.markSourceDirty()
+                body.bumpTextMutationVersion()
+            } else {
+                for node: Node in nodeList {
+                    try body.appendChild(node)
                 }
             }
-			for node: Node in nodeList {
-				try body.appendChild(node)
-			}
 		}
 		return doc
 	}
