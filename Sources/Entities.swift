@@ -6,6 +6,11 @@
 //
 
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 /**
  HTML entities, and escape routines.
@@ -30,6 +35,26 @@ public final class Entities: Sendable {
     private static let ltEntityUTF8 = "&lt;".utf8Array
     private static let gtEntityUTF8 = "&gt;".utf8Array
     private static let quotEntityUTF8 = "&quot;".utf8Array
+    private static let escapeTableHtml: [UInt8] = {
+        var table = [UInt8](repeating: 0, count: 256)
+        table[Int(TokeniserStateVars.ampersandByte)] = 1
+        table[Int(TokeniserStateVars.lessThanByte)] = 2
+        table[Int(TokeniserStateVars.greaterThanByte)] = 3
+        return table
+    }()
+    private static let escapeTableAttrHtml: [UInt8] = {
+        var table = [UInt8](repeating: 0, count: 256)
+        table[Int(TokeniserStateVars.ampersandByte)] = 1
+        table[Int(TokeniserStateVars.quoteByte)] = 4
+        return table
+    }()
+    private static let escapeTableAttrXhtml: [UInt8] = {
+        var table = [UInt8](repeating: 0, count: 256)
+        table[Int(TokeniserStateVars.ampersandByte)] = 1
+        table[Int(TokeniserStateVars.quoteByte)] = 4
+        table[Int(TokeniserStateVars.lessThanByte)] = 2
+        return table
+    }()
     
     private static let spaceString: [UInt8] = [TokeniserStateVars.spaceByte]
     @usableFromInline
@@ -342,7 +367,8 @@ public final class Entities: Sendable {
     }
     
     public static func escape(_ string: String, _ out: OutputSettings) -> String {
-        let accum = StringBuilder()
+        let accum = StringBuilder.acquire()
+        defer { StringBuilder.release(accum) }
         escape(accum, string.utf8Array, out, false, false, false)
         return accum.toString()
     }
@@ -353,6 +379,61 @@ public final class Entities: Sendable {
         else if byte < utf8Lead3Min { return 2 }
         else if byte < utf8Lead4Min { return 3 }
         else { return 4 }
+    }
+
+    @inline(__always)
+    private static func escapeFastAscii(
+        _ accum: StringBuilder,
+        _ base: UnsafePointer<UInt8>,
+        _ count: Int,
+        _ escapeMode: EscapeMode,
+        _ inAttribute: Bool
+    ) {
+        let table = inAttribute
+            ? (escapeMode == .xhtml ? escapeTableAttrXhtml : escapeTableAttrHtml)
+            : escapeTableHtml
+        var i = 0
+        while i < count {
+            let b = base[i]
+            if b < asciiUpperLimitByte {
+                let escape = table[Int(b)]
+                if escape == 0 {
+                    var j = i &+ 1
+                    while j < count {
+                        let nb = base[j]
+                        if nb >= asciiUpperLimitByte || table[Int(nb)] != 0 {
+                            break
+                        }
+                        j &+= 1
+                    }
+                    accum.write(contentsOf: base.advanced(by: i), count: j &- i)
+                    i = j
+                    continue
+                }
+                switch escape {
+                case 1:
+                    accum.append(ampEntityUTF8)
+                case 2:
+                    accum.append(ltEntityUTF8)
+                case 3:
+                    accum.append(gtEntityUTF8)
+                case 4:
+                    accum.append(quotEntityUTF8)
+                default:
+                    accum.append(b)
+                }
+                i &+= 1
+                continue
+            }
+            let len = utf8CharLength(for: b)
+            let end = min(i &+ len, count)
+            if end &- i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i &+ 1] == StringUtil.utf8NBSPTrail {
+                accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
+            } else {
+                accum.write(contentsOf: base.advanced(by: i), count: end &- i)
+            }
+            i = end
+        }
     }
 
     // this method is ugly, and does a lot. but other breakups cause rescanning and stringbuilder generations
@@ -373,8 +454,93 @@ public final class Entities: Sendable {
         let escapeMode = out.escapeMode()
         let encoder = out.encoder()
         let encoderIsAscii = encoder == .ascii
-        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16
+        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16 || encoder == .unicode
         let count = string.count
+        if count == 1, !stripLeadingWhite, !normaliseWhite {
+            let b = string[0]
+            if !(encoderIsAscii && b >= asciiUpperLimitByte) &&
+                b != TokeniserStateVars.ampersandByte &&
+                !(b == TokeniserStateVars.lessThanByte && (!inAttribute || escapeMode == .xhtml)) &&
+                !(b == TokeniserStateVars.greaterThanByte && !inAttribute) &&
+                !(b == TokeniserStateVars.quoteByte && inAttribute) {
+                accum.append(b)
+                return
+            }
+        }
+        if !stripLeadingWhite,
+           normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           count > 0 {
+            let needsEscape = string.withUnsafeBufferPointer { buf -> Bool in
+                guard let base = buf.baseAddress else { return false }
+                let len = buf.count
+                if memchr(base, Int32(TokeniserStateVars.spaceByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.tabByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.newLineByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.formFeedByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.carriageReturnByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.verticalTabByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
+                    return true
+                }
+                if inAttribute {
+                    if escapeMode == .xhtml,
+                       memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                        return true
+                    }
+                    if memchr(base, Int32(TokeniserStateVars.quoteByte), len) != nil {
+                        return true
+                    }
+                    return false
+                }
+                if memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.greaterThanByte), len) != nil {
+                    return true
+                }
+                return false
+            }
+            if !needsEscape {
+                accum.append(string)
+                return
+            }
+        }
+        if !stripLeadingWhite,
+           !normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           count > 0 {
+            let needsEscape = string.withUnsafeBufferPointer { buf -> Bool in
+                guard let base = buf.baseAddress else { return false }
+                let len = buf.count
+                if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
+                    return true
+                }
+                if inAttribute {
+                    if escapeMode == .xhtml,
+                       memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                        return true
+                    }
+                    if memchr(base, Int32(TokeniserStateVars.quoteByte), len) != nil {
+                        return true
+                    }
+                    return false
+                }
+                if memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.greaterThanByte), len) != nil {
+                    return true
+                }
+                return false
+            }
+            if !needsEscape {
+                accum.append(string)
+                return
+            }
+        }
         if !stripLeadingWhite,
            (encoderKnownToBeAbleToEncode || encoderIsAscii),
            count > 0 {
@@ -401,6 +567,17 @@ public final class Entities: Sendable {
                 accum.append(string)
                 return
             }
+        }
+        if !stripLeadingWhite,
+           !normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           !encoderIsAscii,
+           count > 0 {
+            string.withUnsafeBufferPointer { buf in
+                guard let base = buf.baseAddress else { return }
+                escapeFastAscii(accum, base, count, escapeMode, inAttribute)
+            }
+            return
         }
         string.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return }
@@ -447,8 +624,7 @@ public final class Entities: Sendable {
                             j += 1
                         }
                         if j > i {
-                            let slice = string[i..<j]
-                            accum.append(slice)
+                            accum.write(contentsOf: base.advanced(by: i), count: j - i)
                             i = j
                             continue
                         }
@@ -485,23 +661,28 @@ public final class Entities: Sendable {
                 } else {
                     let len = utf8CharLength(for: b)
                     let end = i + len <= count ? i + len : count
-                    let startIndex = string.startIndex
-                    let sliceStart = string.index(startIndex, offsetBy: i)
-                    let sliceEnd = string.index(startIndex, offsetBy: end)
-                    let charBytes = string[sliceStart..<sliceEnd]
                     if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
                         // UTF-8 encoding of "\u{A0}"
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
-                    } else if canEncode(bytes: charBytes, encoder: encoder) {
-                        accum.append(charBytes)
+                    } else if encoderKnownToBeAbleToEncode {
+                        accum.write(contentsOf: base.advanced(by: i), count: len)
                     } else {
-                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
+                        let startIndex = string.startIndex
+                        let sliceStart = string.index(startIndex, offsetBy: i)
+                        let sliceEnd = string.index(startIndex, offsetBy: end)
+                        let charBytes = string[sliceStart..<sliceEnd]
+                        if canEncode(bytes: charBytes, encoder: encoder) {
+                            accum.append(charBytes)
+                        } else {
+                            appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
+                        }
                     }
                     i += len
                 }
             }
         }
     }
+
 
     @usableFromInline
     @inline(__always)
@@ -520,8 +701,92 @@ public final class Entities: Sendable {
         let escapeMode = out.escapeMode()
         let encoder = out.encoder()
         let encoderIsAscii = encoder == .ascii
-        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16
+        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16 || encoder == .unicode
         let count = string.count
+        if count == 1, !stripLeadingWhite, !normaliseWhite, let b = string.first {
+            if !(encoderIsAscii && b >= asciiUpperLimitByte) &&
+                b != TokeniserStateVars.ampersandByte &&
+                !(b == TokeniserStateVars.lessThanByte && (!inAttribute || escapeMode == .xhtml)) &&
+                !(b == TokeniserStateVars.greaterThanByte && !inAttribute) &&
+                !(b == TokeniserStateVars.quoteByte && inAttribute) {
+                accum.append(b)
+                return
+            }
+        }
+        if !stripLeadingWhite,
+           normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           count > 0 {
+            let needsEscape = string.withUnsafeBufferPointer { buf -> Bool in
+                guard let base = buf.baseAddress else { return false }
+                let len = buf.count
+                if memchr(base, Int32(TokeniserStateVars.spaceByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.tabByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.newLineByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.formFeedByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.carriageReturnByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.verticalTabByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
+                    return true
+                }
+                if inAttribute {
+                    if escapeMode == .xhtml,
+                       memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                        return true
+                    }
+                    if memchr(base, Int32(TokeniserStateVars.quoteByte), len) != nil {
+                        return true
+                    }
+                    return false
+                }
+                if memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.greaterThanByte), len) != nil {
+                    return true
+                }
+                return false
+            }
+            if !needsEscape {
+                accum.append(string)
+                return
+            }
+        }
+        if !stripLeadingWhite,
+           !normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           count > 0 {
+            let needsEscape = string.withUnsafeBufferPointer { buf -> Bool in
+                guard let base = buf.baseAddress else { return false }
+                let len = buf.count
+                if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
+                    return true
+                }
+                if inAttribute {
+                    if escapeMode == .xhtml,
+                       memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                        return true
+                    }
+                    if memchr(base, Int32(TokeniserStateVars.quoteByte), len) != nil {
+                        return true
+                    }
+                    return false
+                }
+                if memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.greaterThanByte), len) != nil {
+                    return true
+                }
+                return false
+            }
+            if !needsEscape {
+                accum.append(string)
+                return
+            }
+        }
         if !stripLeadingWhite,
            (encoderKnownToBeAbleToEncode || encoderIsAscii),
            count > 0 {
@@ -548,6 +813,17 @@ public final class Entities: Sendable {
                 accum.append(string)
                 return
             }
+        }
+        if !stripLeadingWhite,
+           !normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           !encoderIsAscii,
+           count > 0 {
+            string.withUnsafeBufferPointer { buf in
+                guard let base = buf.baseAddress else { return }
+                escapeFastAscii(accum, base, count, escapeMode, inAttribute)
+            }
+            return
         }
         string.withUnsafeBufferPointer { buf in
             guard let base = buf.baseAddress else { return }
@@ -594,11 +870,7 @@ public final class Entities: Sendable {
                             j += 1
                         }
                         if j > i {
-                            let sliceStart = string.startIndex
-                            let sliceEnd = string.index(sliceStart, offsetBy: j)
-                            let sliceStartIndex = string.index(sliceStart, offsetBy: i)
-                            let slice = string[sliceStartIndex..<sliceEnd]
-                            accum.append(slice)
+                            accum.write(contentsOf: base.advanced(by: i), count: j - i)
                             i = j
                             continue
                         }
@@ -635,16 +907,20 @@ public final class Entities: Sendable {
                 } else {
                     let len = utf8CharLength(for: b)
                     let end = i + len <= count ? i + len : count
-                    let startIndex = string.startIndex
-                    let sliceStart = string.index(startIndex, offsetBy: i)
-                    let sliceEnd = string.index(startIndex, offsetBy: end)
-                    let charBytes = string[sliceStart..<sliceEnd]
                     if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
-                    } else if canEncode(bytes: charBytes, encoder: encoder) {
-                        accum.append(charBytes)
+                    } else if encoderKnownToBeAbleToEncode {
+                        accum.write(contentsOf: base.advanced(by: i), count: len)
                     } else {
-                        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
+                        let startIndex = string.startIndex
+                        let sliceStart = string.index(startIndex, offsetBy: i)
+                        let sliceEnd = string.index(startIndex, offsetBy: end)
+                        let charBytes = string[sliceStart..<sliceEnd]
+                        if canEncode(bytes: charBytes, encoder: encoder) {
+                            accum.append(charBytes)
+                        } else {
+                            appendEncoded(accum: accum, escapeMode: escapeMode, bytes: charBytes)
+                        }
                     }
                     i = end
                 }

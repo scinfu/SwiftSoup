@@ -103,6 +103,10 @@ open class Tag: Hashable, @unchecked Sendable {
     private static let tagRuby = knownTags[UTF8Arrays.ruby]!
     private static let tagRp = knownTags[UTF8Arrays.rp]!
     private static let tagRt = knownTags[UTF8Arrays.rt]!
+    private static let tagRb = knownTags[UTF8Arrays.rb]!
+    private static let tagSub = knownTags[UTF8Arrays.sub]!
+    private static let tagSup = knownTags[UTF8Arrays.sup]!
+    private static let tagCode = knownTags[UTF8Arrays.code]!
 
     
     #if DEBUG
@@ -227,7 +231,7 @@ open class Tag: Hashable, @unchecked Sendable {
     }
 
     private static let tagIdLookup: [Tag?] = {
-        var lookup = [Tag?](repeating: nil, count: Int(Token.Tag.TagId.rt.rawValue) + 1)
+        var lookup = [Tag?](repeating: nil, count: Int(Token.Tag.TagId.code.rawValue) + 1)
         lookup[Int(Token.Tag.TagId.a.rawValue)] = tagA
         lookup[Int(Token.Tag.TagId.span.rawValue)] = tagSpan
         lookup[Int(Token.Tag.TagId.p.rawValue)] = tagP
@@ -309,6 +313,10 @@ open class Tag: Hashable, @unchecked Sendable {
         lookup[Int(Token.Tag.TagId.ruby.rawValue)] = tagRuby
         lookup[Int(Token.Tag.TagId.rp.rawValue)] = tagRp
         lookup[Int(Token.Tag.TagId.rt.rawValue)] = tagRt
+        lookup[Int(Token.Tag.TagId.rb.rawValue)] = tagRb
+        lookup[Int(Token.Tag.TagId.sub.rawValue)] = tagSub
+        lookup[Int(Token.Tag.TagId.sup.rawValue)] = tagSup
+        lookup[Int(Token.Tag.TagId.code.rawValue)] = tagCode
         return lookup
     }()
 
@@ -559,7 +567,7 @@ open class Tag: Hashable, @unchecked Sendable {
     ].map { $0.utf8Array }
     private static let inlineTags: [[UInt8]] = [
         "object", "base", "font", "tt", "i", "b", "u", "big", "small", "em", "strong", "dfn", "code", "samp", "kbd",
-        "var", "cite", "abbr", "time", "acronym", "mark", "ruby", "rt", "rp", "a", "img", "br", "wbr", "map", "q",
+        "var", "cite", "abbr", "time", "acronym", "mark", "ruby", "rt", "rp", "rb", "a", "img", "br", "wbr", "map", "q",
         "sub", "sup", "bdo", "iframe", "embed", "span", "input", "select", "textarea", "label", "button", "optgroup",
         "option", "legend", "datalist", "keygen", "output", "progress", "meter", "area", "param", "source", "track",
         "summary", "command", "device", "area", "basefont", "bgsound", "menuitem", "param", "source", "track",

@@ -9,6 +9,10 @@ open class StringBuilder {
     
     /// Number of bytes currently used in buffer
     private var size: Int = 0
+    private static let poolLock = Mutex()
+    @usableFromInline
+    nonisolated(unsafe) static var pool: [StringBuilder] = []
+    private static let poolLimit: Int = 16
     @usableFromInline
     static let useFastWrite: Bool = true
     @usableFromInline
@@ -52,6 +56,37 @@ open class StringBuilder {
     public init(_ capacity: Int) {
         internalBuffer = []
         internalBuffer.reserveCapacity(capacity)
+    }
+
+    @usableFromInline
+    @inline(__always)
+    static func acquire(_ capacity: Int = 0) -> StringBuilder {
+        poolLock.lock()
+        if let builder = pool.popLast() {
+            poolLock.unlock()
+            builder.clear()
+            if capacity > builder.internalBuffer.capacity {
+                builder.internalBuffer.reserveCapacity(capacity)
+            }
+            return builder
+        }
+        poolLock.unlock()
+        return StringBuilder(capacity)
+    }
+
+    @usableFromInline
+    @inline(__always)
+    static func release(_ builder: StringBuilder) {
+        builder.clear()
+        if builder.internalBuffer.capacity > 1_048_576 {
+            builder.internalBuffer = []
+            builder.internalBuffer.reserveCapacity(1024)
+        }
+        poolLock.lock()
+        if pool.count < poolLimit {
+            pool.append(builder)
+        }
+        poolLock.unlock()
     }
     
     /**
@@ -131,7 +166,7 @@ open class StringBuilder {
         if internalBuffer.count < newSize {
             internalBuffer.reserveCapacity(newSize)
         }
-        if size < internalBuffer.count {
+        if newSize <= internalBuffer.count {
             internalBuffer.withUnsafeMutableBufferPointer { dst in
                 guard let base = dst.baseAddress else { return }
                 base.advanced(by: size).initialize(repeating: TokeniserStateVars.spaceByte, count: count)
@@ -139,8 +174,18 @@ open class StringBuilder {
             size = newSize
             return
         }
-        for _ in 0..<count {
-            internalBuffer.append(TokeniserStateVars.spaceByte)
+        if size < internalBuffer.count {
+            let fillCount = internalBuffer.count - size
+            if fillCount > 0 {
+                internalBuffer.withUnsafeMutableBufferPointer { dst in
+                    guard let base = dst.baseAddress else { return }
+                    base.advanced(by: size).initialize(repeating: TokeniserStateVars.spaceByte, count: fillCount)
+                }
+            }
+        }
+        let appendCount = newSize - internalBuffer.count
+        if appendCount > 0 {
+            internalBuffer.append(contentsOf: repeatElement(TokeniserStateVars.spaceByte, count: appendCount))
         }
         size = newSize
     }
@@ -207,6 +252,10 @@ open class StringBuilder {
     @discardableResult
     @inline(__always)
     open func append(_ value: ArraySlice<UInt8>) -> StringBuilder {
+        if value.count == 1, let byte = value.first {
+            write(byte)
+            return self
+        }
         write(contentsOf: value)
         return self
     }
@@ -214,6 +263,10 @@ open class StringBuilder {
     @discardableResult
     @inline(__always)
     open func append(_ value: [UInt8]) -> StringBuilder {
+        if value.count == 1 {
+            write(value[0])
+            return self
+        }
         write(contentsOf: value)
         return self
     }

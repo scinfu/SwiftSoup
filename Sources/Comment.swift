@@ -60,7 +60,7 @@ public class Comment: Node {
         }
         accum
             .append("<!--")
-            .append(getData())
+            .append(getDataUTF8())
             .append("-->")
     }
 

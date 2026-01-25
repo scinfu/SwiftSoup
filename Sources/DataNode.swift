@@ -69,6 +69,17 @@ open class DataNode: Node {
     }
 
     @usableFromInline
+    internal func wholeDataSlice() -> ArraySlice<UInt8> {
+        if let slice = rawDataSlice {
+            return slice
+        }
+        guard let attributes = attributes else {
+            return []
+        }
+        return attributes.get(key: DataNode.DATA_KEY)[...]
+    }
+
+    @usableFromInline
     internal func appendSlice(_ slice: ArraySlice<UInt8>) {
         var data = getWholeDataUTF8()
         data.append(contentsOf: slice)
@@ -123,7 +134,7 @@ open class DataNode: Node {
 
     @inline(__always)
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings)throws {
-        accum.append(getWholeData()) // data is not escaped in return from data nodes, so " in script, style is plain
+        accum.append(wholeDataSlice()) // data is not escaped in return from data nodes, so " in script, style is plain
     }
 
     @inline(__always)

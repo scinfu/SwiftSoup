@@ -59,6 +59,11 @@ class HtmlTreeBuilder: TreeBuilder {
     private var fosterInserts: Bool = false // if next inserts should be fostered
     private var fragmentParsing: Bool = false // if parsing a fragment of html
 
+    private var stackTrackingDirty: Bool = false
+    private var stackUnknownTagIdCount: Int = 0
+    private var stackTagIdP: [Int] = []
+    private var stackTagIdButton: [Int] = []
+
     
     public override init() {
         super.init()
@@ -73,6 +78,11 @@ class HtmlTreeBuilder: TreeBuilder {
         _state = HtmlTreeBuilderState.Initial
         baseUriSetFromDoc = false
         return try super.parse(input, baseUri, errors, settings)
+    }
+
+    override func initialiseParse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
+        super.initialiseParse(input, baseUri, errors, settings)
+        resetStackTracking()
     }
 
     
@@ -109,7 +119,7 @@ class HtmlTreeBuilder: TreeBuilder {
             root?.treeBuilder = self
             try Validate.notNull(obj: root)
             try doc.appendChild(root!)
-            stack.append(root!)
+            push(root!)
             resetInsertionMode()
             
             // setup form element to nearest form on context (up ancestor chain). ensures form controls are associated
@@ -268,7 +278,7 @@ class HtmlTreeBuilder: TreeBuilder {
         let isSelfClosing = startTag.isSelfClosing()
         if isSelfClosing {
             let el: Element = try insertEmpty(startTag)
-            stack.append(el)
+            push(el)
             tokeniser.transition(TokeniserState.Data) // handles <script />, otherwise needs breakout steps from script data
             try tokeniser.emit(emptyEnd.reset().name(el.tagNameUTF8()))  // ensure we get out of whatever state we are in. emitted for yielded processing
             return el
@@ -332,7 +342,7 @@ class HtmlTreeBuilder: TreeBuilder {
         defer { Profiler.end("HtmlTreeBuilder.insert.element", _p) }
         #endif
         try insertNode(el)
-        stack.append(el)
+        push(el)
     }
     
     @discardableResult
@@ -403,7 +413,7 @@ class HtmlTreeBuilder: TreeBuilder {
         registerPendingAttributes(el)
         try insertNode(el)
         if (onStack) {
-            stack.append(el)
+            push(el)
         }
         return el
     }
@@ -595,6 +605,7 @@ class HtmlTreeBuilder: TreeBuilder {
     @discardableResult
     func pop() -> Element {
         let element = stack.removeLast()
+        updateStackTrackingOnPop(element)
         if tracksSourceRanges,
            let endTag = currentToken as? Token.EndTag,
            let endRange = endTag.sourceRange,
@@ -608,6 +619,67 @@ class HtmlTreeBuilder: TreeBuilder {
     @inlinable
     func push(_ element: Element) {
         stack.append(element)
+        updateStackTrackingOnPush(element)
+    }
+
+    @inline(__always)
+    private func resetStackTracking() {
+        stackTrackingDirty = false
+        stackUnknownTagIdCount = 0
+        stackTagIdP.removeAll(keepingCapacity: true)
+        stackTagIdButton.removeAll(keepingCapacity: true)
+        if stack.isEmpty {
+            return
+        }
+        for (index, element) in stack.enumerated() {
+            updateStackTrackingOnPush(element, index: index, allowDirty: false)
+        }
+    }
+
+    @inline(__always)
+    private func rebuildStackTrackingIfNeeded() {
+        if stackTrackingDirty {
+            resetStackTracking()
+        }
+    }
+
+    @inline(__always)
+    private func updateStackTrackingOnPush(_ element: Element) {
+        updateStackTrackingOnPush(element, index: stack.count - 1, allowDirty: true)
+    }
+
+    @inline(__always)
+    private func updateStackTrackingOnPush(_ element: Element, index: Int, allowDirty: Bool) {
+        if allowDirty && stackTrackingDirty {
+            return
+        }
+        let tagId = element._tag.tagId
+        if tagId == .none {
+            stackUnknownTagIdCount &+= 1
+            return
+        }
+        if tagId == .p {
+            stackTagIdP.append(index)
+        } else if tagId == .button {
+            stackTagIdButton.append(index)
+        }
+    }
+
+    @inline(__always)
+    private func updateStackTrackingOnPop(_ element: Element) {
+        if stackTrackingDirty {
+            return
+        }
+        let tagId = element._tag.tagId
+        if tagId == .none {
+            stackUnknownTagIdCount &-= 1
+            return
+        }
+        if tagId == .p {
+            _ = stackTagIdP.popLast()
+        } else if tagId == .button {
+            _ = stackTagIdButton.popLast()
+        }
     }
     
     @inlinable
@@ -716,6 +788,7 @@ class HtmlTreeBuilder: TreeBuilder {
     func removeFromStack(_ el: Element) -> Bool {
         if let index = lastIndexOfStackElement(el) {
             stack.remove(at: index)
+            stackTrackingDirty = true
             return true
         }
         return false
@@ -731,6 +804,7 @@ class HtmlTreeBuilder: TreeBuilder {
                 stack[index].setSourceRangeEnd(endRange.end)
             }
             stack.removeSubrange(index..<stack.count)
+            stackTrackingDirty = true
         }
     }
 
@@ -738,6 +812,7 @@ class HtmlTreeBuilder: TreeBuilder {
     func popStackToClose(_ elName: ParsingStrings) {
         if let index = lastIndexOfStackName(in: elName) {
             stack.removeSubrange(index..<stack.count)
+            stackTrackingDirty = true
         }
     }
     
@@ -748,12 +823,14 @@ class HtmlTreeBuilder: TreeBuilder {
     func popStackToClose(_ elNames: [[UInt8]]) {
         if let index = lastIndexOfStackName(in: elNames) {
             stack.removeSubrange(index..<stack.count)
+            stackTrackingDirty = true
         }
     }
     
     func popStackToClose(_ elNames: Set<[UInt8]>) {
         if let index = lastIndexOfStackName(in: elNames) {
             stack.removeSubrange(index..<stack.count)
+            stackTrackingDirty = true
         }
     }
     
@@ -764,6 +841,7 @@ class HtmlTreeBuilder: TreeBuilder {
                 break
             } else {
                 stack.remove(at: pos)
+                stackTrackingDirty = true
             }
         }
     }
@@ -800,10 +878,12 @@ class HtmlTreeBuilder: TreeBuilder {
         
         guard let index else {
             stack.removeAll()
+            stackTrackingDirty = true
             return
         }
         
         stack.removeSubrange(stack.index(after: index) ..< stack.endIndex)
+        stackTrackingDirty = true
     }
     
     private func clearStackToContext(_ nodeNames: [UInt8]...) {
@@ -825,10 +905,12 @@ class HtmlTreeBuilder: TreeBuilder {
         
         guard let index else {
             stack.removeAll()
+            stackTrackingDirty = true
             return
         }
         
         stack.removeSubrange(stack.index(after: index) ..< stack.endIndex)
+        stackTrackingDirty = true
     }
     
     func aboveOnStack(_ el: Element) -> Element? {
@@ -854,10 +936,12 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         
         stack.insert(input, at: stack.index(after: index))
+        stackTrackingDirty = true
     }
     
     func replaceOnStack(_ out: Element, _ input: Element)throws {
         try stack = replaceInQueue(stack, out, input)
+        stackTrackingDirty = true
     }
     
     private func replaceInQueue(_ queue: Array<Element>, _ out: Element, _ input: Element)throws->Array<Element> {
@@ -1061,12 +1145,30 @@ class HtmlTreeBuilder: TreeBuilder {
 
     
     func inButtonScope(_ targetName: [UInt8]) throws -> Bool {
+        if targetName == UTF8Arrays.p {
+            return try inButtonScopePFast()
+        }
         return try inScope(targetName, TagSets.button)
     }
 
     
     func inButtonScope(_ targetName: String) throws -> Bool {
         return try inButtonScope(targetName.utf8Array)
+    }
+
+    @inline(__always)
+    private func inButtonScopePFast() throws -> Bool {
+        rebuildStackTrackingIfNeeded()
+        if stackUnknownTagIdCount == 0 {
+            guard let lastP = stackTagIdP.last else {
+                return false
+            }
+            if let lastButton = stackTagIdButton.last {
+                return lastP > lastButton
+            }
+            return true
+        }
+        return try inScope(UTF8Arrays.p, TagSets.button)
     }
     
     func inTableScope(_ targetName: [UInt8]) throws -> Bool {

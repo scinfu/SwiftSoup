@@ -60,9 +60,23 @@ open class Document: Element {
     
     static public func createShell(_ baseUri: [UInt8]) -> Document {
         let doc: Document = Document(baseUri)
-        let html: Element = try! doc.appendElement("html")
-        try! html.appendElement("head")
-        try! html.appendElement("body")
+        let htmlTag = Tag.valueOfTagId(.html) ?? (try! Tag.valueOf(UTF8Arrays.html))
+        let headTag = Tag.valueOfTagId(.head) ?? (try! Tag.valueOf(UTF8Arrays.head))
+        let bodyTag = Tag.valueOfTagId(.body) ?? (try! Tag.valueOf(UTF8Arrays.body))
+
+        let html = Element(htmlTag, baseUri, skipChildReserve: true)
+        let head = Element(headTag, baseUri, skipChildReserve: true)
+        let body = Element(bodyTag, baseUri, skipChildReserve: true)
+
+        html.childNodes = [head, body]
+        head.parentNode = html
+        head.setSiblingIndex(0)
+        body.parentNode = html
+        body.setSiblingIndex(1)
+
+        doc.childNodes = [html]
+        html.parentNode = doc
+        html.setSiblingIndex(0)
         
         return doc
     }
