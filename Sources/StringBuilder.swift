@@ -166,7 +166,7 @@ open class StringBuilder {
         if internalBuffer.count < newSize {
             internalBuffer.reserveCapacity(newSize)
         }
-        if size < internalBuffer.count {
+        if newSize <= internalBuffer.count {
             internalBuffer.withUnsafeMutableBufferPointer { dst in
                 guard let base = dst.baseAddress else { return }
                 base.advanced(by: size).initialize(repeating: TokeniserStateVars.spaceByte, count: count)
@@ -174,8 +174,18 @@ open class StringBuilder {
             size = newSize
             return
         }
-        for _ in 0..<count {
-            internalBuffer.append(TokeniserStateVars.spaceByte)
+        if size < internalBuffer.count {
+            let fillCount = internalBuffer.count - size
+            if fillCount > 0 {
+                internalBuffer.withUnsafeMutableBufferPointer { dst in
+                    guard let base = dst.baseAddress else { return }
+                    base.advanced(by: size).initialize(repeating: TokeniserStateVars.spaceByte, count: fillCount)
+                }
+            }
+        }
+        let appendCount = newSize - internalBuffer.count
+        if appendCount > 0 {
+            internalBuffer.append(contentsOf: repeatElement(TokeniserStateVars.spaceByte, count: appendCount))
         }
         size = newSize
     }
