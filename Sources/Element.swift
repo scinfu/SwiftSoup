@@ -86,7 +86,7 @@ open class Element: Node {
 
     /// Small LRU cache for selector results on this root, invalidated on mutations.
     @usableFromInline
-    internal static let selectorResultCacheCapacity: Int = 32
+    internal static let selectorResultCacheCapacity: Int = 256
     @usableFromInline
     internal var selectorResultCache: [String: Elements]? = nil
     @usableFromInline

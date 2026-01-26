@@ -441,10 +441,11 @@ open class CssSelector {
                     }
                     return output
                 }
-                if leftCount <= 4 {
+                let candidateCount = candidates.size()
+                if leftCount <= 8 || candidateCount <= 16 {
                     let leftArray = leftElements.array()
                     let output = Elements()
-                    output.reserveCapacity(candidates.size())
+                    output.reserveCapacity(candidateCount)
                     for el in candidates.array() {
                         var parent = el.parent()
                         var matched = false
@@ -463,12 +464,12 @@ open class CssSelector {
                     return output
                 }
                 var leftIds = Set<ObjectIdentifier>()
-                leftIds.reserveCapacity(leftElements.size())
+                leftIds.reserveCapacity(leftCount)
                 for el in leftElements.array() {
                     leftIds.insert(ObjectIdentifier(el))
                 }
                 let output = Elements()
-                output.reserveCapacity(candidates.size())
+                output.reserveCapacity(candidateCount)
                 for el in candidates.array() {
                     var parent = el.parent()
                     var matched = false

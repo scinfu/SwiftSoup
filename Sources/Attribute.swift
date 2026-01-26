@@ -21,33 +21,11 @@ open class Attribute {
     var key: [UInt8]
     @usableFromInline
     var value: [UInt8]
-    @usableFromInline
-    var keySlice: ArraySlice<UInt8>? = nil
-    @usableFromInline
-    var valueSlice: ArraySlice<UInt8>? = nil
     
     public init(key: [UInt8], value: [UInt8]) throws {
         try Validate.notEmpty(string: key)
         self.key = key.trim()
         self.value = value
-    }
-
-    @usableFromInline
-    init(keySlice: ArraySlice<UInt8>, valueSlice: ArraySlice<UInt8>) throws {
-        let trimmedKey = keySlice.trim()
-        try Validate.notEmpty(string: trimmedKey)
-        self.key = []
-        self.value = []
-        self.keySlice = trimmedKey
-        self.valueSlice = valueSlice
-    }
-
-    @usableFromInline
-    init(key: [UInt8], valueSlice: ArraySlice<UInt8>) throws {
-        try Validate.notEmpty(string: key)
-        self.key = key.trim()
-        self.value = []
-        self.valueSlice = valueSlice
     }
     
     public convenience init(key: String, value: String) throws {
@@ -65,7 +43,7 @@ open class Attribute {
     
     @inline(__always)
     open func getKeyUTF8() -> [UInt8] {
-        return ensureKeyMaterialized()
+        return key
     }
     
     /**
@@ -75,7 +53,6 @@ open class Attribute {
     @inline(__always)
     open func setKey(key: [UInt8]) throws {
         try Validate.notEmpty(string: key)
-        self.keySlice = nil
         self.key = key.trim()
     }
     
@@ -95,7 +72,7 @@ open class Attribute {
     
     @inline(__always)
     open func getValueUTF8() -> [UInt8] {
-        return ensureValueMaterialized()
+        return value
     }
     
     /**
@@ -105,8 +82,7 @@ open class Attribute {
     @discardableResult
     @inline(__always)
     open func setValue(value: [UInt8]) -> [UInt8] {
-        let old = ensureValueMaterialized()
-        self.valueSlice = nil
+        let old = self.value
         self.value = value
         return old
     }
@@ -201,47 +177,6 @@ open class Attribute {
         Entities.escape(accum, value, out, true, false, false)
     }
 
-    @usableFromInline
-    @inline(__always)
-    static func appendAttributeValue(_ accum: StringBuilder, _ out: OutputSettings, _ value: ArraySlice<UInt8>) {
-        if value.isEmpty {
-            return
-        }
-        let escapeMode = out.escapeMode()
-        let encoder = out.encoder()
-        let encoderIsAscii = encoder == .ascii
-        var needsEscape = false
-        value.withUnsafeBufferPointer { buf in
-            guard let base = buf.baseAddress else { return }
-            let len = buf.count
-            var i = 0
-            while i < len {
-                let b = base[i]
-                if encoderIsAscii && b >= Entities.asciiUpperLimitByte {
-                    needsEscape = true
-                    return
-                }
-                if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.quoteByte {
-                    needsEscape = true
-                    return
-                }
-                if escapeMode == .xhtml && b == TokeniserStateVars.lessThanByte {
-                    needsEscape = true
-                    return
-                }
-                if b == StringUtil.utf8NBSPLead, i + 1 < len, base[i + 1] == StringUtil.utf8NBSPTrail {
-                    needsEscape = true
-                    return
-                }
-                i += 1
-            }
-        }
-        if !needsEscape {
-            accum.append(value)
-            return
-        }
-        Entities.escape(accum, value, out, true, false, false)
-    }
     
     /**
      Collapsible if it's a boolean attribute and value is empty or same as name
@@ -282,27 +217,6 @@ open class Attribute {
         return try! Attribute(key: [], value: [])
     }
 
-    @inline(__always)
-    @usableFromInline
-    internal func ensureKeyMaterialized() -> [UInt8] {
-        if let slice = keySlice {
-            let materialized = Array(slice)
-            keySlice = nil
-            key = materialized
-        }
-        return key
-    }
-
-    @inline(__always)
-    @usableFromInline
-    internal func ensureValueMaterialized() -> [UInt8] {
-        if let slice = valueSlice {
-            let materialized = Array(slice)
-            valueSlice = nil
-            value = materialized
-        }
-        return value
-    }
 }
 
 extension Attribute: Equatable {
