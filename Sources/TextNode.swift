@@ -239,7 +239,7 @@ open class TextNode: Node {
                 if encoder == .ascii {
                     for b in slice {
                         if b >= Entities.asciiUpperLimitByte {
-                            Entities.escape(accum, slice.toArraySlice(), out, false, false, false)
+                            Entities.escape(accum, slice, out, false, false, false)
                             return
                         }
                     }
@@ -264,7 +264,7 @@ open class TextNode: Node {
                     return
                 }
             }
-            Entities.escape(accum, slice.toArraySlice(), out, false, false, false)
+            Entities.escape(accum, slice, out, false, false, false)
             return
         }
         let normaliseWhite: Bool
@@ -275,7 +275,7 @@ open class TextNode: Node {
             normaliseWhite = false
         }
 
-        Entities.escape(accum, wholeTextSlice().toArraySlice(), out, false, normaliseWhite, false)
+        Entities.escape(accum, wholeTextSlice(), out, false, normaliseWhite, false)
     }
 
     @inline(__always)

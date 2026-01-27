@@ -940,6 +940,222 @@ public final class Entities: Sendable {
             }
         }
     }
+
+    @usableFromInline
+    @inline(__always)
+    static func escape(
+        _ accum: StringBuilder,
+        _ string: ByteSlice,
+        _ out: OutputSettings,
+        _ inAttribute: Bool,
+        _ normaliseWhite: Bool,
+        _ stripLeadingWhite: Bool
+    ) {
+        #if PROFILE
+        let _p = Profiler.start("Entities.escape")
+        defer { Profiler.end("Entities.escape", _p) }
+        #endif
+        let escapeMode = out.escapeMode()
+        let encoder = out.encoder()
+        let encoderIsAscii = encoder == .ascii
+        let encoderKnownToBeAbleToEncode = encoder == .utf8 || encoder == .utf16 || encoder == .unicode
+        let count = string.count
+        if count == 1, !stripLeadingWhite, !normaliseWhite {
+            let b = string[0]
+            if !(encoderIsAscii && b >= asciiUpperLimitByte) &&
+                b != TokeniserStateVars.ampersandByte &&
+                !(b == TokeniserStateVars.lessThanByte && (!inAttribute || escapeMode == .xhtml)) &&
+                !(b == TokeniserStateVars.greaterThanByte && !inAttribute) &&
+                !(b == TokeniserStateVars.quoteByte && inAttribute) {
+                accum.append(b)
+                return
+            }
+        }
+        if count > 0,
+           !stripLeadingWhite,
+           normaliseWhite,
+           encoderKnownToBeAbleToEncode {
+            let needsEscape = string.withUnsafeBytes { buf -> Bool in
+                guard let base = buf.baseAddress else { return false }
+                let len = buf.count
+                if memchr(base, Int32(TokeniserStateVars.spaceByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.tabByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.newLineByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.formFeedByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.carriageReturnByte), len) != nil ||
+                    memchr(base, Int32(TokeniserStateVars.verticalTabByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
+                    return true
+                }
+                if inAttribute {
+                    if escapeMode == .xhtml,
+                       memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                        return true
+                    }
+                    if memchr(base, Int32(TokeniserStateVars.quoteByte), len) != nil {
+                        return true
+                    }
+                    return false
+                }
+                if memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.greaterThanByte), len) != nil {
+                    return true
+                }
+                return false
+            }
+            if !needsEscape {
+                accum.append(string)
+                return
+            }
+        }
+        if count > 0,
+           !stripLeadingWhite,
+           !normaliseWhite,
+           encoderKnownToBeAbleToEncode {
+            let needsEscape = string.withUnsafeBytes { buf -> Bool in
+                guard let base = buf.baseAddress else { return false }
+                let len = buf.count
+                if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
+                    return true
+                }
+                if inAttribute {
+                    if escapeMode == .xhtml,
+                       memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                        return true
+                    }
+                    if memchr(base, Int32(TokeniserStateVars.quoteByte), len) != nil {
+                        return true
+                    }
+                    return false
+                }
+                if memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
+                    return true
+                }
+                if memchr(base, Int32(TokeniserStateVars.greaterThanByte), len) != nil {
+                    return true
+                }
+                return false
+            }
+            if !needsEscape {
+                accum.append(string)
+                return
+            }
+        }
+        if !stripLeadingWhite,
+           !normaliseWhite,
+           encoderKnownToBeAbleToEncode,
+           !encoderIsAscii,
+           count > 0 {
+            string.withUnsafeBytes { buf in
+                guard let base = buf.baseAddress else { return }
+                escapeFastAscii(accum, base, count, escapeMode, inAttribute)
+            }
+            return
+        }
+        string.withUnsafeBytes { buf in
+            guard let base = buf.baseAddress else { return }
+            var i = 0
+            var lastWasWhite = false
+            var reachedNonWhite = false
+            while i < count {
+                let b = base[i]
+                if normaliseWhite && b.isWhitespace {
+                    var j = i
+                    while j < count && base[j].isWhitespace {
+                        j += 1
+                    }
+                    if (!reachedNonWhite && stripLeadingWhite) || lastWasWhite {
+                        i = j
+                        continue
+                    }
+                    accum.append(TokeniserStateVars.spaceByte)
+                    lastWasWhite = true
+                    i = j
+                    continue
+                }
+                lastWasWhite = false
+                reachedNonWhite = true
+                if b < asciiUpperLimitByte {
+                    if b != TokeniserStateVars.ampersandByte &&
+                        b != TokeniserStateVars.lessThanByte &&
+                        b != TokeniserStateVars.greaterThanByte &&
+                        (!inAttribute || b != TokeniserStateVars.quoteByte) {
+                        var j = i + 1
+                        while j < count {
+                            let nb = base[j]
+                            if nb >= asciiUpperLimitByte {
+                                break
+                            }
+                            if normaliseWhite && nb.isWhitespace {
+                                break
+                            }
+                            if nb == TokeniserStateVars.ampersandByte ||
+                                nb == TokeniserStateVars.lessThanByte ||
+                                nb == TokeniserStateVars.greaterThanByte ||
+                                (inAttribute && nb == TokeniserStateVars.quoteByte) {
+                                break
+                            }
+                            j += 1
+                        }
+                        if j > i {
+                            accum.write(contentsOf: base.advanced(by: i), count: j - i)
+                            i = j
+                            continue
+                        }
+                    }
+                    switch b {
+                    case TokeniserStateVars.ampersandByte:
+                        accum.append(ampEntityUTF8)
+                    case TokeniserStateVars.lessThanByte:
+                        if !inAttribute || escapeMode == .xhtml {
+                            accum.append(ltEntityUTF8)
+                        } else {
+                            accum.append(b)
+                        }
+                    case TokeniserStateVars.greaterThanByte:
+                        if !inAttribute {
+                            accum.append(gtEntityUTF8)
+                        } else {
+                            accum.append(b)
+                        }
+                    case TokeniserStateVars.quoteByte:
+                        if inAttribute {
+                            accum.append(quotEntityUTF8)
+                        } else {
+                            accum.append(b)
+                        }
+                    default:
+                        if encoderKnownToBeAbleToEncode || canEncode(byte: b, encoder: encoder) {
+                            accum.append(b)
+                        } else {
+                            appendEncoded(accum: accum, escapeMode: escapeMode, bytes: [b])
+                        }
+                    }
+                    i += 1
+                } else {
+                    let len = utf8CharLength(for: b)
+                    let end = i + len <= count ? i + len : count
+                    if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
+                        accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
+                    } else if encoderKnownToBeAbleToEncode {
+                        accum.write(contentsOf: base.advanced(by: i), count: len)
+                    } else {
+                        let slice = ByteSlice(storage: string.storage, start: string.start + i, end: string.start + end)
+                        if canEncode(bytes: slice, encoder: encoder) {
+                            accum.append(slice)
+                        } else {
+                            appendEncoded(accum: accum, escapeMode: escapeMode, bytes: slice)
+                        }
+                    }
+                    i += len
+                }
+            }
+        }
+    }
     
     @inlinable
     internal static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: ArraySlice<UInt8>) {
@@ -960,6 +1176,11 @@ public final class Entities: Sendable {
             appendHex(Int(scalar.value), accum)
             accum.append(UTF8Arrays.semicolon[0])
         }
+    }
+
+    @inline(__always)
+    internal static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: ByteSlice) {
+        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: bytes.toArraySlice())
     }
 
     internal static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: [UInt8]) {
@@ -1074,6 +1295,23 @@ public final class Entities: Sendable {
         default:
             // Fallback: Try creating a string and see if it succeeds
             return String(bytes: bytes, encoding: encoder) != nil
+        }
+    }
+
+    @inline(__always)
+    internal static func canEncode(bytes: ByteSlice, encoder: String.Encoding) -> Bool {
+        switch encoder {
+        case .ascii:
+            for b in bytes {
+                if b >= asciiUpperLimitByte { return false }
+            }
+            return true
+        case .utf8, .utf16, .unicode:
+            return true
+        default:
+            return bytes.withUnsafeBytes { buf in
+                return String(bytes: buf, encoding: encoder) != nil
+            }
         }
     }
     
