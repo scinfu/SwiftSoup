@@ -302,6 +302,16 @@ public final class Entities: Sendable {
             return bestNameForScalar(scalar)
         }
 
+        func nameForCodepoint(_ codepoint: ByteSlice) -> ArraySlice<UInt8>? {
+            guard !codepoint.isEmpty else { return nil }
+            var iterator = codepoint.makeIterator()
+            var utf8Decoder = UTF8()
+            guard case .scalarValue(let scalar) = utf8Decoder.decode(&iterator) else {
+                return nil
+            }
+            return bestNameForScalar(scalar)
+        }
+
         @inline(__always)
         private func bestNameForScalar(_ scalar: UnicodeScalar) -> ArraySlice<UInt8>? {
             var ix = entitiesByCodepoint.binarySearch { $0.scalar < scalar }
@@ -1216,7 +1226,23 @@ public final class Entities: Sendable {
 
     @inline(__always)
     internal static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: ByteSlice) {
-        appendEncoded(accum: accum, escapeMode: escapeMode, bytes: bytes.toArraySlice())
+        if let name = escapeMode.nameForCodepoint(bytes) {
+            accum.append(TokeniserStateVars.ampersandByte) // '&'
+            accum.append(name)
+            accum.append(UTF8Arrays.semicolon[0]) // ';'
+        } else {
+            var iterator = bytes.makeIterator()
+            var utf8Decoder = UTF8()
+            guard case .scalarValue(let scalar) = utf8Decoder.decode(&iterator) else {
+                accum.append([TokeniserStateVars.ampersandByte, TokeniserStateVars.hashByte, TokeniserStateVars.lowerXByte])
+                for b in bytes { appendHex(Int(b), accum) }
+                accum.append(UTF8Arrays.semicolon[0])
+                return
+            }
+            accum.append([TokeniserStateVars.ampersandByte, TokeniserStateVars.hashByte, TokeniserStateVars.lowerXByte])
+            appendHex(Int(scalar.value), accum)
+            accum.append(UTF8Arrays.semicolon[0])
+        }
     }
 
     internal static func appendEncoded(accum: StringBuilder, escapeMode: EscapeMode, bytes: [UInt8]) {
