@@ -27,6 +27,10 @@ open class Attribute {
         self.key = key.trim()
         self.value = value
     }
+
+    public convenience init(keySlice: ArraySlice<UInt8>, valueSlice: ArraySlice<UInt8>) throws {
+        try self.init(key: Array(keySlice), value: Array(valueSlice))
+    }
     
     public convenience init(key: String, value: String) throws {
         try self.init(key: key.utf8Array, value: value.utf8Array)
