@@ -443,7 +443,7 @@ class HtmlTreeBuilder: TreeBuilder {
            !fosterInserts,
            !isScriptOrStyle,
            let current,
-           let slice = characterToken.getDataSlice()?.toArraySlice() {
+           let slice = characterToken.getDataSlice() {
             if let lastText = current.childNodes.last as? TextNode {
                 lastText.appendSlice(slice)
                 return
@@ -461,16 +461,16 @@ class HtmlTreeBuilder: TreeBuilder {
             return lastRange.end == newRange.start
         }
         let node: Node
-        var useSlice: ArraySlice<UInt8>?
+        var useSlice: ByteSlice?
         if !tracksSourceRanges {
-            useSlice = characterToken.getDataSlice()?.toArraySlice()
-        } else if let tokenSlice = characterToken.getDataSlice()?.toArraySlice() {
+            useSlice = characterToken.getDataSlice()
+        } else if let tokenSlice = characterToken.getDataSlice() {
             useSlice = tokenSlice
         } else if let range = characterToken.sourceRange,
-                  let source = doc.sourceBuffer?.bytes,
+                  let source = doc.sourceBuffer,
                   range.isValid,
-                  range.end <= source.count {
-            useSlice = source[range.start..<range.end]
+                  range.end <= source.bytes.count {
+            useSlice = ByteSlice(storage: source.storage, start: range.start, end: range.end)
         } else {
             useSlice = nil
         }
@@ -487,7 +487,7 @@ class HtmlTreeBuilder: TreeBuilder {
                    (!tracksSourceRanges || canCoalesceSource(lastData.sourceRange, characterToken.sourceRange)) {
                     if tracksSourceRanges,
                        let range = characterToken.sourceRange,
-                       let source = doc.sourceBuffer?.bytes,
+                       let source = doc.sourceBuffer,
                        lastData.extendSliceFromSourceRange(source, newRange: range) {
                         lastData.setSourceRangeEnd(range.end)
                         return
@@ -503,7 +503,7 @@ class HtmlTreeBuilder: TreeBuilder {
                    (!tracksSourceRanges || canCoalesceSource(lastText.sourceRange, characterToken.sourceRange)) {
                     if tracksSourceRanges,
                        let range = characterToken.sourceRange,
-                       let source = doc.sourceBuffer?.bytes,
+                       let source = doc.sourceBuffer,
                        lastText.extendSliceFromSourceRange(source, newRange: range) {
                         lastText.setSourceRangeEnd(range.end)
                         return

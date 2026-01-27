@@ -1619,7 +1619,7 @@ open class Element: Node {
     
     public func textUTF8Slice(trimAndNormaliseWhitespace: Bool = true) throws -> ArraySlice<UInt8> {
         if trimAndNormaliseWhitespace, let slice = singleTextNoWhitespaceSlice() {
-            return slice
+            return slice.toArraySlice()
         }
         let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         if trimAndNormaliseWhitespace {
@@ -1637,7 +1637,7 @@ open class Element: Node {
     }
 
     @inline(__always)
-    private func singleTextNoWhitespaceSlice() -> ArraySlice<UInt8>? {
+    private func singleTextNoWhitespaceSlice() -> ByteSlice? {
         guard childNodes.count == 1, let textNode = childNodes.first as? TextNode else {
             return nil
         }
@@ -1884,6 +1884,19 @@ open class Element: Node {
             i = next
         }
         return false
+    }
+
+    @inline(__always)
+    private static func emitNormalizedSlice(_ slice: ByteSlice,
+                                            stripLeading: Bool,
+                                            emittedAny: inout Bool,
+                                            lastWasWhite: inout Bool,
+                                            matcher: inout AsciiKMPMatcher) -> Bool {
+        return emitNormalizedSlice(slice.toArraySlice(),
+                                   stripLeading: stripLeading,
+                                   emittedAny: &emittedAny,
+                                   lastWasWhite: &lastWasWhite,
+                                   matcher: &matcher)
     }
 
     @inline(__always)

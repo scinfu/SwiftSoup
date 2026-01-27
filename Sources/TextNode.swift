@@ -23,7 +23,7 @@ open class TextNode: Node {
      */
     private static let TEXT_KEY = "text".utf8Array
     var _text: [UInt8]
-    private var _textSlice: ArraySlice<UInt8>? = nil
+    private var _textSlice: ByteSlice? = nil
 
     /**
      Create a new TextNode representing the supplied (unencoded) text).
@@ -39,11 +39,16 @@ open class TextNode: Node {
     }
 
     @usableFromInline
-    internal init(slice: ArraySlice<UInt8>, baseUri: [UInt8]?) {
+    internal init(slice: ByteSlice, baseUri: [UInt8]?) {
         self._text = []
         self._textSlice = slice
         super.init()
         self.baseUri = baseUri
+    }
+
+    @usableFromInline
+    internal convenience init(slice: ArraySlice<UInt8>, baseUri: [UInt8]?) {
+        self.init(slice: ByteSlice.fromArraySlice(slice), baseUri: baseUri)
     }
     public convenience init(_ text: String, _ baseUri: String?) {
         self.init(text.utf8Array, baseUri?.utf8Array)
@@ -66,7 +71,7 @@ open class TextNode: Node {
      */
     @inline(__always)
     open func text() -> String {
-        return TextNode.normaliseWhitespace(wholeTextSlice())
+        return TextNode.normaliseWhitespace(wholeTextSlice().toArraySlice())
     }
 
     /**
@@ -106,7 +111,7 @@ open class TextNode: Node {
     @inline(__always)
     open func getWholeTextUTF8() -> [UInt8] {
         if let slice = _textSlice {
-            let materialized = Array(slice)
+            let materialized = slice.toArray()
             _textSlice = nil
             _text = materialized
             if let attrs = attributes {
@@ -119,18 +124,18 @@ open class TextNode: Node {
     }
 
     @usableFromInline
-    internal func wholeTextSlice() -> ArraySlice<UInt8> {
+    internal func wholeTextSlice() -> ByteSlice {
         if attributes != nil {
-            return getWholeTextUTF8()[...]
+            return ByteSlice.fromArray(getWholeTextUTF8())
         }
         if let slice = _textSlice {
             return slice
         }
-        return _text[...]
+        return ByteSlice.fromArray(_text)
     }
 
     @usableFromInline
-    internal func appendSlice(_ slice: ArraySlice<UInt8>) {
+    internal func appendSlice(_ slice: ByteSlice) {
         if attributes != nil {
             var bytes = getWholeTextUTF8()
             bytes.append(contentsOf: slice)
@@ -139,7 +144,7 @@ open class TextNode: Node {
             } catch {}
         } else {
             if let existingSlice = _textSlice {
-                _text = Array(existingSlice)
+                _text = existingSlice.toArray()
                 _textSlice = nil
             }
             _text.append(contentsOf: slice)
@@ -149,7 +154,7 @@ open class TextNode: Node {
     }
 
     @usableFromInline
-    internal func extendSliceFromSourceRange(_ source: [UInt8], newRange: SourceRange) -> Bool {
+    internal func extendSliceFromSourceRange(_ source: SourceBuffer, newRange: SourceRange) -> Bool {
         if attributes != nil || sourceRangeDirty {
             return false
         }
@@ -157,18 +162,18 @@ open class TextNode: Node {
               existingRange.isValid,
               newRange.isValid,
               existingRange.end == newRange.start,
-              newRange.end <= source.count
+              newRange.end <= source.bytes.count
         else {
             return false
         }
         _text = []
-        _textSlice = source[existingRange.start..<newRange.end]
+        _textSlice = ByteSlice(storage: source.storage, start: existingRange.start, end: newRange.end)
         return true
     }
 
     @usableFromInline
     internal func appendBytes(_ bytes: [UInt8]) {
-        appendSlice(bytes[...])
+        appendSlice(ByteSlice.fromArray(bytes))
     }
 
 
@@ -234,7 +239,7 @@ open class TextNode: Node {
                 if encoder == .ascii {
                     for b in slice {
                         if b >= Entities.asciiUpperLimitByte {
-                            Entities.escape(accum, slice, out, false, false, false)
+                            Entities.escape(accum, slice.toArraySlice(), out, false, false, false)
                             return
                         }
                     }
@@ -259,7 +264,7 @@ open class TextNode: Node {
                     return
                 }
             }
-            Entities.escape(accum, slice, out, false, false, false)
+            Entities.escape(accum, slice.toArraySlice(), out, false, false, false)
             return
         }
         let normaliseWhite: Bool
@@ -270,7 +275,7 @@ open class TextNode: Node {
             normaliseWhite = false
         }
 
-        Entities.escape(accum, wholeTextSlice(), out, false, normaliseWhite, false)
+        Entities.escape(accum, wholeTextSlice().toArraySlice(), out, false, normaliseWhite, false)
     }
 
     @inline(__always)

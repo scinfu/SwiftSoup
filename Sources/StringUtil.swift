@@ -34,6 +34,14 @@ open class StringUtil {
     }
 
     @inline(__always)
+    static func isAscii(_ bytes: ByteSlice) -> Bool {
+        for b in bytes where b >= 128 {
+            return false
+        }
+        return true
+    }
+
+    @inline(__always)
     static func hasPrefixIgnoreCaseAscii(_ bytes: [UInt8], _ prefix: [UInt8]) -> Bool {
         if prefix.count > bytes.count { return false }
         var i = 0
@@ -576,6 +584,13 @@ open class StringUtil {
         }
     }
 
+    @inline(__always)
+    static func appendNormalisedWhitespace(_ accum: StringBuilder,
+                                                  string: ByteSlice,
+                                                  stripLeading: Bool) {
+        appendNormalisedWhitespace(accum, string: string.toArraySlice(), stripLeading: stripLeading)
+    }
+
     @inlinable
     public static func appendNormalisedWhitespace(_ accum: StringBuilder,
                                                   string: ArraySlice<UInt8>,
@@ -585,6 +600,21 @@ open class StringUtil {
         appendNormalisedWhitespace(
             accum,
             string: string,
+            stripLeading: stripLeading,
+            lastWasWhite: &lastWasWhite,
+            sawWhitespace: &sawWhitespace
+        )
+    }
+
+    @inline(__always)
+    static func appendNormalisedWhitespace(_ accum: StringBuilder,
+                                                  string: ByteSlice,
+                                                  stripLeading: Bool,
+                                                  lastWasWhite: inout Bool) {
+        var sawWhitespace = false
+        appendNormalisedWhitespace(
+            accum,
+            string: string.toArraySlice(),
             stripLeading: stripLeading,
             lastWasWhite: &lastWasWhite,
             sawWhitespace: &sawWhitespace
@@ -776,6 +806,21 @@ open class StringUtil {
                 i = next
             }
         }
+    }
+
+    @inline(__always)
+    static func appendNormalisedWhitespace(_ accum: StringBuilder,
+                                                  string: ByteSlice,
+                                                  stripLeading: Bool,
+                                                  lastWasWhite: inout Bool,
+                                                  sawWhitespace: inout Bool) {
+        appendNormalisedWhitespace(
+            accum,
+            string: string.toArraySlice(),
+            stripLeading: stripLeading,
+            lastWasWhite: &lastWasWhite,
+            sawWhitespace: &sawWhitespace
+        )
     }
 
 
