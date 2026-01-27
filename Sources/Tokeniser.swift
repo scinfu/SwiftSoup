@@ -157,9 +157,9 @@ final class Tokeniser {
     private var isEmitPendingFast: Bool = false
     private var emitPending: Token?  // the token we are about to emit on next read
     private var isEmitPending: Bool = false
-    private var charsSlice: ArraySlice<UInt8>? = nil // single pending slice to avoid array allocation
+    private var charsSlice: ByteSlice? = nil // single pending slice to avoid array allocation
     private var charsSliceFromInput: Bool = false
-    private var pendingSlices = [ArraySlice<UInt8>]()
+    private var pendingSlices = [ByteSlice]()
     private var pendingSlicesCount: Int = 0
     private var pendingCharRange: SourceRange? = nil
     private var pendingTagStartPos: Int? = nil
@@ -401,8 +401,8 @@ final class Tokeniser {
     }
 
     @inline(__always)
-    private func consumeDataTracked() -> ArraySlice<UInt8> {
-        return reader.consumeData()
+    private func consumeDataTracked() -> ByteSlice {
+        return reader.consumeDataSlice()
     }
 
     @inline(__always)
@@ -420,7 +420,7 @@ final class Tokeniser {
                 return
             }
             let dataStart = reader.pos
-            let data = remaining >= 128 ? reader.consumeDataFastNoNull() : reader.consumeData()
+            let data = remaining >= 128 ? reader.consumeDataFastNoNullSlice() : reader.consumeDataSlice()
             if !data.isEmpty {
                 let dataEnd = reader.pos
                 emitRaw(data, start: dataStart, end: dataEnd)
@@ -559,7 +559,7 @@ final class Tokeniser {
                 try handleDataStateDelimiter()
                 return
             }
-            let data = remaining >= 128 ? reader.consumeDataFastNoNull() : reader.consumeData()
+            let data = remaining >= 128 ? reader.consumeDataFastNoNullSlice() : reader.consumeDataSlice()
             if !data.isEmpty {
                 emitInputSlice(data)
                 return
@@ -585,7 +585,7 @@ final class Tokeniser {
                 return
             }
         }
-        let data = reader.consumeData()
+        let data = reader.consumeDataSlice()
         if !data.isEmpty {
             emitInputSlice(data)
             return
@@ -676,7 +676,7 @@ final class Tokeniser {
     }
 
     @inline(__always)
-    func emitRaw(_ str: ArraySlice<UInt8>, start: Int, end: Int) {
+    func emitRaw(_ str: ByteSlice, start: Int, end: Int) {
         if trackSourceRanges {
             if charsBuilder.isEmpty && charsSlice == nil && pendingSlices.isEmpty {
                 pendingCharRange = SourceRange(start: start, end: end)
@@ -690,13 +690,13 @@ final class Tokeniser {
     }
 
     @inline(__always)
-    func emitRaw(_ str: ArraySlice<UInt8>) {
+    func emitRaw(_ str: ByteSlice) {
         pendingCharRange = nil
         emitInputSlice(str)
     }
     
     @inline(__always)
-    private func emitInputSlice(_ str: ArraySlice<UInt8>) {
+    private func emitInputSlice(_ str: ByteSlice) {
         if pendingCharRange != nil, (!charsBuilder.isEmpty || charsSlice != nil || !pendingSlices.isEmpty) {
             pendingCharRange = nil
         }
@@ -705,8 +705,8 @@ final class Tokeniser {
             return
         }
         if let existing = charsSlice {
-            if charsSliceFromInput, existing.endIndex == str.startIndex {
-                charsSlice = reader.slice(existing.startIndex, str.endIndex)
+            if charsSliceFromInput, existing.end == str.start {
+                charsSlice = reader.slice(existing.start, str.end)
                 return
             }
             if pendingSlices.isEmpty {
@@ -726,7 +726,7 @@ final class Tokeniser {
         }
     }
 
-    func emit(_ str: ArraySlice<UInt8>) {
+    func emit(_ str: ByteSlice) {
         if pendingCharRange != nil, (!charsBuilder.isEmpty || charsSlice != nil || !pendingSlices.isEmpty) {
             pendingCharRange = nil
         }
@@ -753,7 +753,11 @@ final class Tokeniser {
     }
     
     func emit(_ str: [UInt8]) {
-        emit(str[...]) // Call the slice version with the full array as a slice
+        emit(ByteSlice.fromArray(str))
+    }
+
+    func emit(_ str: ArraySlice<UInt8>) {
+        emit(ByteSlice.fromArraySlice(str))
     }
     
     func emit(_ str: String) {
@@ -1044,7 +1048,7 @@ final class Tokeniser {
                 }
             }
              // get as many letters as possible, and look for matching entities.
-            let nameRef: ArraySlice<UInt8>
+            let nameRef: ByteSlice
             if let b = reader.currentByte(), b < TokeniserStateVars.asciiUpperLimitByte,
                TokeniserStateVars.isAsciiAlpha(b) {
                 let start = reader.pos
@@ -1078,13 +1082,13 @@ final class Tokeniser {
                 }
                 if hitNonAscii {
                     reader.pos = start
-                    nameRef = reader.consumeLetterThenDigitSequence()
+                    nameRef = reader.consumeLetterThenDigitSequenceSlice()
                 } else {
                     reader.pos = j
                     nameRef = reader.slice(start, j)
                 }
             } else {
-                nameRef = reader.consumeLetterThenDigitSequence()
+                nameRef = reader.consumeLetterThenDigitSequenceSlice()
             }
             let looksLegit: Bool = (reader.currentByte() == UTF8Arrays.semicolon[0])
             let points = Entities.lookupNamedEntity(nameRef, allowExtended: looksLegit)
@@ -1226,7 +1230,7 @@ final class Tokeniser {
     }
 
     @inline(__always)
-    private static func equalsIgnoreCase(_ lhs: ArraySlice<UInt8>, _ rhs: [UInt8]) -> Bool {
+    private static func equalsIgnoreCase(_ lhs: ByteSlice, _ rhs: [UInt8]) -> Bool {
         if lhs.count != rhs.count {
             return false
         }
@@ -1298,7 +1302,7 @@ final class Tokeniser {
         #endif
         let builder: StringBuilder = StringBuilder()
         while (!reader.isEmpty()) {
-            builder.append(reader.consumeToAnyOfOne(TokeniserStateVars.ampersandByte))
+            builder.append(reader.consumeToAnyOfOneSlice(TokeniserStateVars.ampersandByte))
             if reader.matches(UnicodeScalar.Ampersand) {
                 reader.consume()
                 if let c = try consumeCharacterReference(nil, inAttribute) {

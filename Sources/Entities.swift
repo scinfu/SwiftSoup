@@ -205,19 +205,19 @@ public final class Entities: Sendable {
             let newline = UTF8Arrays.newline
             
             while !reader.isEmpty() {
-                let name: ArraySlice<UInt8> = reader.consumeTo(equals)
+                let name: ArraySlice<UInt8> = reader.consumeToSlice(equals).toArraySlice()
                 reader.advance()
-                let cp1: Int = reader.consumeToAny(EscapeMode.codeDelims).toIntAscii(radix: codepointRadix) ?? 0
+                let cp1: Int = reader.consumeToAnySlice(EscapeMode.codeDelims).toArraySlice().toIntAscii(radix: codepointRadix) ?? 0
                 let codeDelim: UnicodeScalar = reader.current()
                 reader.advance()
                 let cp2: Int
                 if codeDelim == "," {
-                    cp2 = reader.consumeTo(semicolon).toIntAscii(radix: codepointRadix) ?? 0
+                    cp2 = reader.consumeToSlice(semicolon).toArraySlice().toIntAscii(radix: codepointRadix) ?? 0
                     reader.advance()
                 } else {
                     cp2 = empty
                 }
-                let _ = reader.consumeTo(newline).toIntAscii(radix: codepointRadix) ?? 0
+                let _ = reader.consumeToSlice(newline).toArraySlice().toIntAscii(radix: codepointRadix) ?? 0
                 reader.advance()
                 
                 entitiesByNameMap.append(NamedCodepoint(scalar: UnicodeScalar(cp1)!, name: name))
@@ -336,6 +336,10 @@ public final class Entities: Sendable {
         return nil
     }
 
+    static func getByName(name: ByteSlice) -> String? {
+        return getByName(name: name.toArraySlice())
+    }
+
     public static func codepointsForName(_ name: ArraySlice<UInt8>) -> [UnicodeScalar]? {
         if let common = commonNamedEntities[name] {
             return common
@@ -350,6 +354,10 @@ public final class Entities: Sendable {
         return nil
     }
 
+    static func codepointsForName(_ name: ByteSlice) -> [UnicodeScalar]? {
+        return codepointsForName(name.toArraySlice())
+    }
+
     @inline(__always)
     internal static func lookupNamedEntity(_ name: ArraySlice<UInt8>, allowExtended: Bool) -> [UnicodeScalar]? {
         if let fast = lookupNamedEntityFast(name, allowExtended: allowExtended) {
@@ -359,6 +367,11 @@ public final class Entities: Sendable {
             return codepointsForName(name)
         }
         return codepointsForBaseName(name)
+    }
+
+    @inline(__always)
+    internal static func lookupNamedEntity(_ name: ByteSlice, allowExtended: Bool) -> [UnicodeScalar]? {
+        return lookupNamedEntity(name.toArraySlice(), allowExtended: allowExtended)
     }
 
     

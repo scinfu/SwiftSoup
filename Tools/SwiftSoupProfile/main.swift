@@ -312,7 +312,7 @@ case .consumeToAnySingleByte:
     for _ in 0..<options.repeatCount {
         for _ in 0..<options.iterations {
             reader.pos = reader.input.startIndex
-            _ = reader.consumeToAny(chars) as ArraySlice<UInt8>
+            _ = reader.consumeToAny(chars)
         }
     }
 case .manabiInjectionParse:

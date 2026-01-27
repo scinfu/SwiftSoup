@@ -323,6 +323,23 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 return true
             }
 
+            func equalsSlice(_ array: [UInt8], _ slice: ByteSlice) -> Bool {
+                if array.count != slice.count {
+                    return false
+                }
+                var i = array.startIndex
+                var j = slice.startIndex
+                let end = array.endIndex
+                while i < end {
+                    if array[i] != slice[j] {
+                        return false
+                    }
+                    i = array.index(after: i)
+                    j = slice.index(after: j)
+                }
+                return true
+            }
+
             func anyOtherEndTag(_ t: Token, _ tb: HtmlTreeBuilder) -> Bool {
                 let endTag = t.asEndTag()
                 if let tagName = endTag.tagIdName() {
@@ -892,7 +909,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         return nil
                     }
 
-                    var nameSlice: ArraySlice<UInt8>? = nil
+                    var nameSlice: ByteSlice? = nil
                     if startTag.tagId == .none {
                         nameSlice = startTag.normalNameSlice()
                     }
@@ -2471,6 +2488,27 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
     @inline(__always)
     internal static func isWhitespace(_ data: ArraySlice<UInt8>?) -> Bool {
+        guard let data else { return true }
+        if data.isEmpty { return true }
+        let table = HtmlTreeBuilderState.whitespaceTable
+        if let first = data.first, !table[Int(first)] {
+            return false
+        }
+        if data.count == 1 {
+            return true
+        }
+        var it = data.index(after: data.startIndex)
+        while it < data.endIndex {
+            if !table[Int(data[it])] {
+                return false
+            }
+            it = data.index(after: it)
+        }
+        return true
+    }
+
+    @inline(__always)
+    internal static func isWhitespace(_ data: ByteSlice?) -> Bool {
         guard let data else { return true }
         if data.isEmpty { return true }
         let table = HtmlTreeBuilderState.whitespaceTable

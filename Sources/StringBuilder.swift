@@ -259,6 +259,18 @@ open class StringBuilder {
         write(contentsOf: value)
         return self
     }
+
+    @discardableResult
+    @inline(__always)
+    @usableFromInline
+    func append(_ value: ByteSlice) -> StringBuilder {
+        if value.count == 1, let byte = value.first {
+            write(byte)
+            return self
+        }
+        write(contentsOf: value)
+        return self
+    }
     
     @discardableResult
     @inline(__always)
@@ -442,6 +454,45 @@ open class StringBuilder {
     @usableFromInline
     @inline(__always)
     internal func write(contentsOf bytes: ArraySlice<UInt8>) {
+        if Self.useFastWrite {
+            let count = bytes.count
+            if count == 0 { return }
+            let newSize = size + count
+            if size == internalBuffer.count {
+                internalBuffer.append(contentsOf: bytes)
+                size = newSize
+                return
+            }
+            let available = internalBuffer.count - size
+            if available > 0 {
+                let firstCount = min(count, available)
+                internalBuffer.withUnsafeMutableBufferPointer { dst in
+                    bytes.withUnsafeBufferPointer { src in
+                        guard let dstBase = dst.baseAddress, let srcBase = src.baseAddress else { return }
+                        dstBase.advanced(by: size).update(from: srcBase, count: firstCount)
+                    }
+                }
+                if count > available {
+                    internalBuffer.append(contentsOf: bytes[bytes.index(bytes.startIndex, offsetBy: available)...])
+                }
+                size = newSize
+                return
+            }
+        }
+        let newSize = size + bytes.count
+        if size == internalBuffer.count {
+            internalBuffer.append(contentsOf: bytes)
+        } else if newSize <= internalBuffer.count {
+            internalBuffer.replaceSubrange(size..<newSize, with: bytes)
+        } else {
+            internalBuffer.replaceSubrange(size..<internalBuffer.count, with: bytes)
+        }
+        size = newSize
+    }
+
+    @usableFromInline
+    @inline(__always)
+    internal func write(contentsOf bytes: ByteSlice) {
         if Self.useFastWrite {
             let count = bytes.count
             if count == 0 { return }

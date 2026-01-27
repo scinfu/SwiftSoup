@@ -11,7 +11,7 @@ public final class CharacterReader {
     private static let empty = ""
     public static let EOF: UnicodeScalar = "\u{FFFF}" // 65535
     public let input: UnsafeBufferPointer<UInt8>
-    private var inputArray: [UInt8]?
+    private var storage: ByteStorage?
     private let owner: AnyObject?
     public var pos: Int
     private var mark: Int
@@ -75,7 +75,7 @@ public final class CharacterReader {
     }()
     
     public init(_ input: [UInt8]) {
-        self.inputArray = input
+        self.storage = ByteStorage(array: input)
         self.owner = nil
         var base: UnsafePointer<UInt8>? = nil
         input.withUnsafeBufferPointer { buf in
@@ -104,8 +104,8 @@ public final class CharacterReader {
         }
     }
 
-    public init(_ input: UnsafeBufferPointer<UInt8>, owner: AnyObject? = nil) {
-        self.inputArray = nil
+    init(_ input: UnsafeBufferPointer<UInt8>, storage: ByteStorage? = nil, owner: AnyObject? = nil) {
+        self.storage = storage
         self.owner = owner
         self.input = input
         self.start = 0
@@ -138,6 +138,10 @@ public final class CharacterReader {
             self.useNoNullFastPath = !hasNull
         }
     }
+
+    public convenience init(_ input: UnsafeBufferPointer<UInt8>, owner: AnyObject? = nil) {
+        self.init(input, storage: nil, owner: owner)
+    }
     
     public convenience init(_ input: String) {
         self.init(input.utf8Array)
@@ -150,13 +154,14 @@ public final class CharacterReader {
 
     @usableFromInline
     @inline(__always)
-    func slice(_ start: Int, _ end: Int) -> ArraySlice<UInt8> {
-        if let inputArray {
-            return inputArray[start..<end]
+    func slice(_ start: Int, _ end: Int) -> ByteSlice {
+        if let storage {
+            return ByteSlice(storage: storage, start: start, end: end)
         }
         let array = Array(input)
-        inputArray = array
-        return array[start..<end]
+        let storage = ByteStorage(array: array)
+        self.storage = storage
+        return ByteSlice(storage: storage, start: start, end: end)
     }
 
     public func getPos() -> Int {
@@ -185,8 +190,7 @@ public final class CharacterReader {
         }
     }
     
-    @inlinable
-    public func currentUTF8() -> ArraySlice<UInt8> {
+    func currentUTF8Slice() -> ByteSlice {
         guard pos < end else { return TokeniserStateVars.eofUTF8Slice }
         
         let firstByte = input[pos]
@@ -203,23 +207,27 @@ public final class CharacterReader {
         } else if firstByte & Self.utf8Lead4Mask == Self.utf8Lead4Min { // 4-byte sequence (11110xxx)
             length = 4
         } else {
-            return [] // Invalid UTF-8 leading byte
+            return ByteSlice.empty // Invalid UTF-8 leading byte
         }
         
         // Ensure there are enough bytes remaining in `input`
         if pos + length > end {
-            return [] // Incomplete UTF-8 sequence
+            return ByteSlice.empty // Incomplete UTF-8 sequence
         }
         
         // Validate continuation bytes (they should all be 10xxxxxx)
         for i in 1..<length {
             if input[pos + i] & Self.utf8ContinuationMask != Self.utf8ContinuationValue {
-                return [] // Invalid UTF-8 sequence
+                return ByteSlice.empty // Invalid UTF-8 sequence
             }
         }
         
         // Return the valid UTF-8 byte sequence
         return slice(pos, pos + length)
+    }
+
+    public func currentUTF8() -> ArraySlice<UInt8> {
+        return currentUTF8Slice().toArraySlice()
     }
 
     @inline(__always)
@@ -336,23 +344,23 @@ public final class CharacterReader {
     }
     
     @inline(__always)
-    public func consumeToAny(_ chars: ParsingStrings) -> String {
-        return String(decoding: consumeToAny(chars), as: UTF8.self)
+    func consumeToAnySlice(_ chars: ParsingStrings) -> String {
+        return String(decoding: consumeToAnySlice(chars), as: UTF8.self)
     }
     
     @inline(__always)
-    public func consumeToAny(_ chars: ParsingStrings) -> ArraySlice<UInt8> {
+    func consumeToAnySlice(_ chars: ParsingStrings) -> ByteSlice {
         let start = pos
         if chars.isSingleByteOnly {
             switch chars.singleByteCount {
             case 1:
-                return consumeToAnyOfOne(chars.singleByteList[0])
+                return consumeToAnyOfOneSlice(chars.singleByteList[0])
             case 2:
-                return consumeToAnyOfTwo(chars.singleByteList[0], chars.singleByteList[1])
+                return consumeToAnyOfTwoSlice(chars.singleByteList[0], chars.singleByteList[1])
             case 3:
-                return consumeToAnyOfThree(chars.singleByteList[0], chars.singleByteList[1], chars.singleByteList[2])
+                return consumeToAnyOfThreeSlice(chars.singleByteList[0], chars.singleByteList[1], chars.singleByteList[2])
             case 4:
-                return consumeToAnyOfFour(chars.singleByteList[0], chars.singleByteList[1], chars.singleByteList[2], chars.singleByteList[3])
+                return consumeToAnyOfFourSlice(chars.singleByteList[0], chars.singleByteList[1], chars.singleByteList[2], chars.singleByteList[3])
             default:
                 break
             }
@@ -411,10 +419,10 @@ public final class CharacterReader {
         return unicodeScalar
     }
     
-    public func consumeTo(_ c: UnicodeScalar) -> ArraySlice<UInt8> {
+    func consumeToSlice(_ c: UnicodeScalar) -> ByteSlice {
         if c.value <= Self.asciiMaxScalar {
             let byte = UInt8(c.value)
-            return consumeToAnyOfOne(byte)
+            return consumeToAnyOfOneSlice(byte)
         }
         var buffer = [UInt8](repeating: 0, count: 4)
         var length = 0
@@ -422,24 +430,24 @@ public final class CharacterReader {
             buffer[length] = b
             length &+= 1
         }
-        if length == 0 { return consumeToEndUTF8() }
+        if length == 0 { return consumeToEndUTF8Slice() }
         let target = Array(buffer[..<length])
-        guard let targetIx = nextIndexOf(target) else { return consumeToEndUTF8() }
+        guard let targetIx = nextIndexOf(target) else { return consumeToEndUTF8Slice() }
         let consumed = cacheString(pos, targetIx)
         pos = targetIx
         return consumed
     }
     
     @inline(__always)
-    public func consumeTo(_ seq: String) -> String {
-        return String(decoding: consumeTo(seq.utf8Array), as: UTF8.self)
+    func consumeToSlice(_ seq: String) -> String {
+        return String(decoding: consumeToSlice(seq.utf8Array), as: UTF8.self)
     }
     
-    public func consumeTo(_ seq: [UInt8]) -> ArraySlice<UInt8> {
+    func consumeToSlice(_ seq: [UInt8]) -> ByteSlice {
         if seq.count == 1 {
-            return consumeToAnyOfOne(seq[0])
+            return consumeToAnyOfOneSlice(seq[0])
         }
-        guard let targetIx = nextIndexOf(seq) else { return consumeToEndUTF8() }
+        guard let targetIx = nextIndexOf(seq) else { return consumeToEndUTF8Slice() }
         let consumed = cacheString(pos, targetIx)
         pos = targetIx
         return consumed
@@ -447,17 +455,17 @@ public final class CharacterReader {
     
     @inline(__always)
     public func consumeToEnd() -> String {
-        return String(decoding: consumeToEndUTF8(), as: UTF8.self)
+        return String(decoding: consumeToEndUTF8Slice(), as: UTF8.self)
     }
     
     @inline(__always)
-    public func consumeToEndUTF8() -> ArraySlice<UInt8> {
+    func consumeToEndUTF8Slice() -> ByteSlice {
         let consumed = cacheString(pos, end)
         pos = end
         return consumed
     }
     
-    public func consumeLetterSequence() -> ArraySlice<UInt8> {
+    func consumeLetterSequenceSlice() -> ByteSlice {
         let start = pos
         while pos < end {
             let firstByte = input[pos]
@@ -494,7 +502,7 @@ public final class CharacterReader {
         return cacheString(start, pos)
     }
     
-    public func consumeLetterThenDigitSequence() -> ArraySlice<UInt8> {
+    func consumeLetterThenDigitSequenceSlice() -> ByteSlice {
         let start = pos
         letterLoop: while pos < end {
             let firstByte = input[pos]
@@ -564,7 +572,7 @@ public final class CharacterReader {
         return cacheString(start, pos)
     }
     
-    public func consumeHexSequence() -> ArraySlice<UInt8> {
+    func consumeHexSequenceSlice() -> ByteSlice {
         let start = pos
         while pos < end {
             let firstByte = input[pos]
@@ -607,7 +615,7 @@ public final class CharacterReader {
         return cacheString(start, pos)
     }
     
-    public func consumeDigitSequence() -> ArraySlice<UInt8> {
+    func consumeDigitSequenceSlice() -> ByteSlice {
         let start = pos
         while pos < end {
             let firstByte = input[pos]
@@ -619,7 +627,7 @@ public final class CharacterReader {
                 return cacheString(start, pos)
             }
 
-            let slice = currentUTF8()
+            let slice = currentUTF8Slice()
             if slice.isEmpty { return cacheString(start, pos) }
             var iterator = slice.makeIterator()
             var utf8Decoder = UTF8()
@@ -735,7 +743,7 @@ public final class CharacterReader {
             return seq.contains(byte)
         }
 
-        let slice = currentUTF8()
+        let slice = currentUTF8Slice()
         if slice.isEmpty { return false }
         if slice.count == 1 {
             return seq.contains(slice.first!)
@@ -774,7 +782,7 @@ public final class CharacterReader {
             }
         }
 
-        let slice = currentUTF8()
+        let slice = currentUTF8Slice()
         if slice.isEmpty { return false }
         for utf8Bytes in seq where utf8Bytes.count == slice.count {
             if utf8Bytes.elementsEqual(slice) { return true }
@@ -816,7 +824,7 @@ public final class CharacterReader {
             return firstByte >= 48 && firstByte <= 57
         }
 
-        let slice = currentUTF8()
+        let slice = currentUTF8Slice()
         if slice.isEmpty { return false }
         if slice.count == 1 {
             let b = slice.first!
@@ -979,7 +987,7 @@ public final class CharacterReader {
      * seem to improve performance. Now just a stub.
      */
     @inline(__always)
-    private func cacheString(_ start: Int, _ end: Int) -> ArraySlice<UInt8> {
+    private func cacheString(_ start: Int, _ end: Int) -> ByteSlice {
         return slice(start, end)
     }
     
@@ -1071,13 +1079,13 @@ public final class CharacterReader {
         return nil
     }
 
-    public func consumeToAnyOfTwo(_ a: UInt8, _ b: UInt8) -> ArraySlice<UInt8> {
+    func consumeToAnyOfTwoSlice(_ a: UInt8, _ b: UInt8) -> ByteSlice {
         #if PROFILE
-        let _p = Profiler.start("CharacterReader.consumeToAnyOfTwo")
-        defer { Profiler.end("CharacterReader.consumeToAnyOfTwo", _p) }
+        let _p = Profiler.start("CharacterReader.consumeToAnyOfTwoSlice")
+        defer { Profiler.end("CharacterReader.consumeToAnyOfTwoSlice", _p) }
         #endif
         if a == b {
-            return consumeToAnyOfOne(a)
+            return consumeToAnyOfOneSlice(a)
         }
         let start = pos
         let count = end - pos
@@ -1090,7 +1098,7 @@ public final class CharacterReader {
                 return slice(start, pos)
             }
                 @inline(__always)
-                func memchrMin(_ len: Int) -> ArraySlice<UInt8> {
+                func memchrMin(_ len: Int) -> ByteSlice {
                     let startPtr = basePtr.advanced(by: pos)
                     let startRaw = UnsafeRawPointer(startPtr)
                     let pa = memchr(startPtr, Int32(a), len)
@@ -1165,7 +1173,7 @@ public final class CharacterReader {
     }
 
     @inline(__always)
-    public func consumeToAnyOfOne(_ a: UInt8) -> ArraySlice<UInt8> {
+    func consumeToAnyOfOneSlice(_ a: UInt8) -> ByteSlice {
         let start = pos
         let count = end - pos
         if count <= 0 {
@@ -1232,7 +1240,7 @@ public final class CharacterReader {
     }
 
     @inline(__always)
-    public func consumeToAnyOfThree(_ a: UInt8, _ b: UInt8, _ c: UInt8) -> ArraySlice<UInt8> {
+    func consumeToAnyOfThreeSlice(_ a: UInt8, _ b: UInt8, _ c: UInt8) -> ByteSlice {
         let start = pos
         let count = end - pos
         if count <= 0 {
@@ -1328,7 +1336,7 @@ public final class CharacterReader {
     }
 
     @inline(__always)
-    public func consumeToAnyOfFour(_ a: UInt8, _ b: UInt8, _ c: UInt8, _ d: UInt8) -> ArraySlice<UInt8> {
+    func consumeToAnyOfFourSlice(_ a: UInt8, _ b: UInt8, _ c: UInt8, _ d: UInt8) -> ByteSlice {
         let start = pos
         let count = end - pos
         if count <= 0 {
@@ -1442,7 +1450,7 @@ public final class CharacterReader {
     public static let dataTerminators = ParsingStrings([.Ampersand, .LessThan, TokeniserStateVars.nullScalr])
 
     @inline(__always)
-    public func consumeData() -> ArraySlice<UInt8> {
+    func consumeDataSlice() -> ByteSlice {
         let start = pos
         let count = end - pos
         if count <= 0 {
@@ -1581,7 +1589,7 @@ public final class CharacterReader {
     }
 
     @inline(__always)
-    public func consumeDataFastNoNull() -> ArraySlice<UInt8> {
+    func consumeDataFastNoNullSlice() -> ByteSlice {
         let start = pos
         let count = end - pos
         if count <= 0 {
@@ -1611,7 +1619,7 @@ public final class CharacterReader {
             pos = start + offset
             return slice(start, pos)
         #else
-        return consumeData()
+        return consumeDataSlice()
         #endif
     }
     
@@ -1678,13 +1686,12 @@ public final class CharacterReader {
         return table
     }()
     
-    @inlinable
-    public func consumeTagName() -> ArraySlice<UInt8> {
-        return consumeTagNameWithUppercaseFlag().0
+    func consumeTagNameSlice() -> ByteSlice {
+        return consumeTagNameWithUppercaseFlagSlice().0
     }
 
     @inline(__always)
-    public func consumeTagNameWithUppercaseFlag() -> (ArraySlice<UInt8>, Bool) {
+    func consumeTagNameWithUppercaseFlagSlice() -> (ByteSlice, Bool) {
         // Fast path for ASCII tag names
         if pos < end && input[pos] < Self.asciiUpperLimitByte {
             let start = pos
@@ -1693,7 +1700,7 @@ public final class CharacterReader {
             while i < end {
                 let b = input[i]
                 if b >= Self.asciiUpperLimitByte {
-                    let slice: ArraySlice<UInt8> = consumeToAny(CharacterReader.tagNameTerminators)
+                    let slice: ByteSlice = consumeToAnySlice(CharacterReader.tagNameTerminators)
                     return (slice, Attributes.containsAsciiUppercase(slice))
                 }
                 if CharacterReader.tagNameDelims[Int(b)] {
@@ -1708,12 +1715,12 @@ public final class CharacterReader {
             pos = i
             return (slice(start, pos), hasUppercase)
         }
-        let slice: ArraySlice<UInt8> = consumeToAny(CharacterReader.tagNameTerminators)
+        let slice: ByteSlice = consumeToAnySlice(CharacterReader.tagNameTerminators)
         return (slice, Attributes.containsAsciiUppercase(slice))
     }
 
 
-    public func consumeAttributeName() -> ArraySlice<UInt8> {
+    func consumeAttributeNameSlice() -> ByteSlice {
         // Fast path for ASCII attribute names
         if pos < end && input[pos] < Self.asciiUpperLimitByte {
             let start = pos
@@ -1721,7 +1728,7 @@ public final class CharacterReader {
             while i < end {
                 let b = input[i]
                 if b >= Self.asciiUpperLimitByte {
-                    return consumeToAny(TokeniserStateVars.attributeNameChars)
+                    return consumeToAnySlice(TokeniserStateVars.attributeNameChars)
                 }
                 if CharacterReader.attributeNameDelims[Int(b)] {
                     pos = i
@@ -1732,12 +1739,12 @@ public final class CharacterReader {
             pos = i
             return slice(start, pos)
         }
-        return consumeToAny(TokeniserStateVars.attributeNameChars)
+        return consumeToAnySlice(TokeniserStateVars.attributeNameChars)
     }
 
 
     @inline(__always)
-    public func consumeAttributeValueUnquoted() -> ArraySlice<UInt8> {
+    func consumeAttributeValueUnquotedSlice() -> ByteSlice {
         let start = pos
         while pos < end {
             let byte = input[pos]
@@ -1750,19 +1757,126 @@ public final class CharacterReader {
     }
 
     @inline(__always)
-    public func consumeAttributeValueDoubleQuoted() -> ArraySlice<UInt8> {
+    func consumeAttributeValueDoubleQuotedSlice() -> ByteSlice {
         if canSkipNullCheck {
-            return consumeToAnyOfTwo(TokeniserStateVars.quoteByte, TokeniserStateVars.ampersandByte)
+            return consumeToAnyOfTwoSlice(TokeniserStateVars.quoteByte, TokeniserStateVars.ampersandByte)
         }
-        return consumeToAnyOfThree(TokeniserStateVars.quoteByte, TokeniserStateVars.ampersandByte, TokeniserStateVars.nullByte)
+        return consumeToAnyOfThreeSlice(TokeniserStateVars.quoteByte, TokeniserStateVars.ampersandByte, TokeniserStateVars.nullByte)
+    }
+
+    @inline(__always)
+    func consumeAttributeValueSingleQuotedSlice() -> ByteSlice {
+        if canSkipNullCheck {
+            return consumeToAnyOfTwoSlice(TokeniserStateVars.apostropheByte, TokeniserStateVars.ampersandByte)
+        }
+        return consumeToAnyOfThreeSlice(TokeniserStateVars.apostropheByte, TokeniserStateVars.ampersandByte, TokeniserStateVars.nullByte)
+    }
+
+    // Public ArraySlice wrappers to preserve API.
+    @inline(__always)
+    public func consumeToAny(_ chars: ParsingStrings) -> ArraySlice<UInt8> {
+        return consumeToAnySlice(chars).toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeTo(_ c: UnicodeScalar) -> ArraySlice<UInt8> {
+        return consumeToSlice(c).toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeTo(_ seq: [UInt8]) -> ArraySlice<UInt8> {
+        return consumeToSlice(seq).toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeTo(_ seq: String) -> String {
+        return String(decoding: consumeToSlice(seq.utf8Array), as: UTF8.self)
+    }
+
+    @inline(__always)
+    public func consumeToEndUTF8() -> ArraySlice<UInt8> {
+        return consumeToEndUTF8Slice().toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeLetterSequence() -> ArraySlice<UInt8> {
+        return consumeLetterSequenceSlice().toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeLetterThenDigitSequence() -> ArraySlice<UInt8> {
+        return consumeLetterThenDigitSequenceSlice().toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeHexSequence() -> ArraySlice<UInt8> {
+        return consumeHexSequenceSlice().toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeDigitSequence() -> ArraySlice<UInt8> {
+        return consumeDigitSequenceSlice().toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeToAnyOfOne(_ a: UInt8) -> ArraySlice<UInt8> {
+        return consumeToAnyOfOneSlice(a).toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeToAnyOfTwo(_ a: UInt8, _ b: UInt8) -> ArraySlice<UInt8> {
+        return consumeToAnyOfTwoSlice(a, b).toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeToAnyOfThree(_ a: UInt8, _ b: UInt8, _ c: UInt8) -> ArraySlice<UInt8> {
+        return consumeToAnyOfThreeSlice(a, b, c).toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeToAnyOfFour(_ a: UInt8, _ b: UInt8, _ c: UInt8, _ d: UInt8) -> ArraySlice<UInt8> {
+        return consumeToAnyOfFourSlice(a, b, c, d).toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeData() -> ArraySlice<UInt8> {
+        return consumeDataSlice().toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeDataFastNoNull() -> ArraySlice<UInt8> {
+        return consumeDataFastNoNullSlice().toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeTagName() -> ArraySlice<UInt8> {
+        return consumeTagNameSlice().toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeTagNameWithUppercaseFlag() -> (ArraySlice<UInt8>, Bool) {
+        let (slice, hasUppercase) = consumeTagNameWithUppercaseFlagSlice()
+        return (slice.toArraySlice(), hasUppercase)
+    }
+
+    @inline(__always)
+    public func consumeAttributeName() -> ArraySlice<UInt8> {
+        return consumeAttributeNameSlice().toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeAttributeValueUnquoted() -> ArraySlice<UInt8> {
+        return consumeAttributeValueUnquotedSlice().toArraySlice()
+    }
+
+    @inline(__always)
+    public func consumeAttributeValueDoubleQuoted() -> ArraySlice<UInt8> {
+        return consumeAttributeValueDoubleQuotedSlice().toArraySlice()
     }
 
     @inline(__always)
     public func consumeAttributeValueSingleQuoted() -> ArraySlice<UInt8> {
-        if canSkipNullCheck {
-            return consumeToAnyOfTwo(TokeniserStateVars.apostropheByte, TokeniserStateVars.ampersandByte)
-        }
-        return consumeToAnyOfThree(TokeniserStateVars.apostropheByte, TokeniserStateVars.ampersandByte, TokeniserStateVars.nullByte)
+        return consumeAttributeValueSingleQuotedSlice().toArraySlice()
     }
 
 }

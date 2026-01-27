@@ -12,7 +12,7 @@ import Foundation
  */
 class HtmlTreeBuilder: TreeBuilder {
     enum PendingTableCharacter {
-        case slice(ArraySlice<UInt8>)
+        case slice(ByteSlice)
         case bytes([UInt8])
     }
 
@@ -443,7 +443,7 @@ class HtmlTreeBuilder: TreeBuilder {
            !fosterInserts,
            !isScriptOrStyle,
            let current,
-           let slice = characterToken.getDataSlice() {
+           let slice = characterToken.getDataSlice()?.toArraySlice() {
             if let lastText = current.childNodes.last as? TextNode {
                 lastText.appendSlice(slice)
                 return
@@ -463,8 +463,8 @@ class HtmlTreeBuilder: TreeBuilder {
         let node: Node
         var useSlice: ArraySlice<UInt8>?
         if !tracksSourceRanges {
-            useSlice = characterToken.getDataSlice()
-        } else if let tokenSlice = characterToken.getDataSlice() {
+            useSlice = characterToken.getDataSlice()?.toArraySlice()
+        } else if let tokenSlice = characterToken.getDataSlice()?.toArraySlice() {
             useSlice = tokenSlice
         } else if let range = characterToken.sourceRange,
                   let source = doc.sourceBuffer?.bytes,

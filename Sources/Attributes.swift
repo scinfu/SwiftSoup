@@ -35,14 +35,14 @@ open class Attributes: NSCopying {
     internal enum PendingAttrValue {
         case none
         case empty
-        case slice(ArraySlice<UInt8>)
-        case slices([ArraySlice<UInt8>], Int)
+        case slice(ByteSlice)
+        case slices([ByteSlice], Int)
         case bytes([UInt8])
     }
 
     @usableFromInline
     internal struct PendingAttribute {
-        var nameSlice: ArraySlice<UInt8>?
+        var nameSlice: ByteSlice?
         var nameBytes: [UInt8]?
         var hasUppercase: Bool
         var value: PendingAttrValue
@@ -876,7 +876,7 @@ open class Attributes: NSCopying {
 
     @inline(__always)
     @usableFromInline
-    internal func equalsSlice(_ slice: ArraySlice<UInt8>, _ key: [UInt8]) -> Bool {
+    internal func equalsSlice(_ slice: ByteSlice, _ key: [UInt8]) -> Bool {
         if slice.count != key.count {
             return false
         }
@@ -911,7 +911,7 @@ open class Attributes: NSCopying {
 
     @inline(__always)
     @usableFromInline
-    internal func equalsIgnoreCase<T: Collection>(_ slice: ArraySlice<UInt8>, _ key: T) -> Bool where T.Element == UInt8 {
+    internal func equalsIgnoreCase<T: Collection>(_ slice: ByteSlice, _ key: T) -> Bool where T.Element == UInt8 {
         if slice.count != key.count {
             return false
         }
@@ -1097,7 +1097,7 @@ open class Attributes: NSCopying {
 
     @usableFromInline
     @inline(__always)
-    internal static func equalsIgnoreCase(_ lhs: ArraySlice<UInt8>, _ rhs: ArraySlice<UInt8>) -> Bool {
+    internal static func equalsIgnoreCase(_ lhs: ByteSlice, _ rhs: ByteSlice) -> Bool {
         guard lhs.count == rhs.count else { return false }
         var i = lhs.startIndex
         var j = rhs.startIndex
@@ -1183,7 +1183,7 @@ open class Attributes: NSCopying {
 
 
     @inline(__always)
-    internal static func containsAsciiUppercase(_ key: ArraySlice<UInt8>) -> Bool {
+    internal static func containsAsciiUppercase(_ key: ByteSlice) -> Bool {
         for b in key {
             if b >= 65 && b <= 90 {
                 return true
