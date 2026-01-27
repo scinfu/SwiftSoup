@@ -38,6 +38,7 @@ enum Workload: String {
     case attributeParseNoSelect
     case attributeParseDoubleQuoted
     case parseClosureBasedData
+    case parseClosureBasedLargeNoCopy
     case parsingStringsSingleByte
     case parsingStringsTable
     case entitiesHeavy
@@ -278,6 +279,24 @@ case .parseClosureBasedData:
     for _ in 0..<options.repeatCount {
         for _ in 0..<options.iterations {
             _ = try SwiftSoup.parse(data)
+        }
+    }
+case .parseClosureBasedLargeNoCopy:
+    let chunk = "<div class=\"c\"><span>hello</span><a href=\"/x\">link</a></div>"
+    let html = String(repeating: chunk, count: 20000)
+    let data = Data(html.utf8)
+    let loops = max(1, options.iterations / 100)
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<loops {
+            _ = try SwiftSoup.parse(withBytes: { parse in
+                return try data.withUnsafeBytes { raw -> Document in
+                    let buf = raw.bindMemory(to: UInt8.self)
+                    guard let base = buf.baseAddress else {
+                        return try parse(UnsafeBufferPointer(start: nil, count: 0))
+                    }
+                    return try parse(UnsafeBufferPointer(start: base, count: buf.count))
+                }
+            })
         }
     }
 case .parsingStringsSingleByte:
