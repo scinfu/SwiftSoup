@@ -75,6 +75,27 @@ public class TreeBuilder {
         self.baseUri = baseUri
         pendingAttributeElements.removeAll(keepingCapacity: true)
     }
+
+    public func initialiseParse(_ input: UnsafeBufferPointer<UInt8>, owner: AnyObject?, _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
+        doc = Document(baseUri)
+        tracksSourceRanges = settings.tracksSourceRanges()
+        if tracksSourceRanges {
+            let copied = Array(input)
+            doc.sourceBuffer = SourceBuffer(copied)
+            reader = CharacterReader(copied)
+        } else {
+            doc.sourceBuffer = nil
+            reader = CharacterReader(input, owner: owner)
+        }
+        doc.parsedAsXml = false
+        self.settings = settings
+        self.errors = errors
+        tracksErrors = errors.getMaxSize() > 0
+        tokeniser = Tokeniser(reader, tracksErrors ? errors : nil, settings)
+        stack = Array<Element>()
+        self.baseUri = baseUri
+        pendingAttributeElements.removeAll(keepingCapacity: true)
+    }
     
     func parse(_ input: [UInt8], _ baseUri: [UInt8],
                _ errors: ParseErrorList,
@@ -87,6 +108,24 @@ public class TreeBuilder {
         defer { endBulkAppend() }
         
         initialiseParse(input, baseUri, errors, settings)
+        try runParser()
+        if !tracksSourceRanges, !pendingAttributeElements.isEmpty {
+            for element in pendingAttributeElements {
+                element.attributes?.ensureMaterialized()
+            }
+            pendingAttributeElements.removeAll(keepingCapacity: true)
+        }
+        return doc
+    }
+
+    func parse(_ input: UnsafeBufferPointer<UInt8>, owner: AnyObject?, _ baseUri: [UInt8],
+               _ errors: ParseErrorList,
+               _ settings: ParseSettings) throws -> Document {
+        doc.treeBuilder = self
+        beginBulkAppend()
+        defer { endBulkAppend() }
+
+        initialiseParse(input, owner: owner, baseUri, errors, settings)
         try runParser()
         if !tracksSourceRanges, !pendingAttributeElements.isEmpty {
             for element in pendingAttributeElements {

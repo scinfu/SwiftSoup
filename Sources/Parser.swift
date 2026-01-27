@@ -132,7 +132,7 @@ public class Parser {
         FeatureFlags.configureFromEnvironmentOnce()
         let treeBuilder = acquireHtmlTreeBuilder()
         defer { releaseHtmlTreeBuilder(treeBuilder) }
-        return try treeBuilder.parse(Array(html), baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
+        return try treeBuilder.parse(html, owner: nil, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
     }
     
     public static func parse(_ html: String, _ baseUri: String) throws -> Document {

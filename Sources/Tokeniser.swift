@@ -706,7 +706,7 @@ final class Tokeniser {
         }
         if let existing = charsSlice {
             if charsSliceFromInput, existing.endIndex == str.startIndex {
-                charsSlice = reader.input[existing.startIndex..<str.endIndex]
+                charsSlice = reader.slice(existing.startIndex, str.endIndex)
                 return
             }
             if pendingSlices.isEmpty {
@@ -1081,7 +1081,7 @@ final class Tokeniser {
                     nameRef = reader.consumeLetterThenDigitSequence()
                 } else {
                     reader.pos = j
-                    nameRef = reader.input[start..<j]
+                    nameRef = reader.slice(start, j)
                 }
             } else {
                 nameRef = reader.consumeLetterThenDigitSequence()
