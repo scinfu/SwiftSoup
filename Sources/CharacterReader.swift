@@ -1732,6 +1732,7 @@ public final class CharacterReader {
         }
         return consumeToAnyOfThree(TokeniserStateVars.apostropheByte, TokeniserStateVars.ampersandByte, TokeniserStateVars.nullByte)
     }
+
 }
 
 extension CharacterReader: CustomDebugStringConvertible {

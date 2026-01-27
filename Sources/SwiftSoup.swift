@@ -31,6 +31,28 @@ import Foundation
         return try Parser.parse(data, baseUri)
     }
 
+    /**
+     Parse HTML into a Document using a closure-provided byte buffer.
+
+     - parameter baseUri: The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs.
+     - parameter provider: Closure that supplies a byte buffer and invokes the parse callback within the buffer lifetime.
+     - returns: sane HTML
+     */
+    public func parse(_ baseUri: String,
+                      withBytes provider: (_ parse: (UnsafeBufferPointer<UInt8>) throws -> Document) throws -> Document) rethrows -> Document {
+        return try Parser.parse(baseUri, withBytes: provider)
+    }
+
+    /**
+     Parse HTML into a Document using a closure-provided byte buffer.
+
+     - parameter provider: Closure that supplies a byte buffer and invokes the parse callback within the buffer lifetime.
+     - returns: sane HTML
+     */
+    public func parse(withBytes provider: (_ parse: (UnsafeBufferPointer<UInt8>) throws -> Document) throws -> Document) rethrows -> Document {
+        return try Parser.parse("", withBytes: provider)
+    }
+
 	/**
 	 Parse HTML into a Document, using the provided Parser. You can provide an alternate parser, such as a simple XML
 	 (non-HTML) parser.

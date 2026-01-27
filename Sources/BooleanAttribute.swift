@@ -20,9 +20,8 @@ open class BooleanAttribute: Attribute {
         try super.init(key: key, value: [])
     }
 
-    @usableFromInline
-    init(keySlice: ArraySlice<UInt8>) throws {
-        try super.init(keySlice: keySlice, valueSlice: ArraySlice<UInt8>())
+    public convenience init(keySlice: ArraySlice<UInt8>) throws {
+        try self.init(key: Array(keySlice))
     }
 
     override public func isBooleanAttribute() -> Bool {
