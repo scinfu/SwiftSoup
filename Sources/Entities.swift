@@ -42,6 +42,42 @@ public final class Entities: Sendable {
         table[Int(TokeniserStateVars.greaterThanByte)] = 3
         return table
     }()
+
+    @inline(__always)
+    private static func compareName(_ lhs: ArraySlice<UInt8>, _ rhs: ByteSlice) -> Int {
+        let lhsCount = lhs.count
+        let rhsCount = rhs.count
+        if lhsCount == 0 || rhsCount == 0 {
+            if lhsCount == rhsCount { return 0 }
+            return lhsCount < rhsCount ? -1 : 1
+        }
+        let limit = lhsCount < rhsCount ? lhsCount : rhsCount
+        var li = lhs.startIndex
+        var ri = 0
+        var remaining = limit
+        while remaining > 0 {
+            let lb = lhs[li]
+            let rb = rhs[ri]
+            if lb != rb {
+                return lb < rb ? -1 : 1
+            }
+            li = lhs.index(after: li)
+            ri &+= 1
+            remaining &-= 1
+        }
+        if lhsCount == rhsCount { return 0 }
+        return lhsCount < rhsCount ? -1 : 1
+    }
+
+    @inline(__always)
+    private static func multipointsForName(_ name: ByteSlice) -> [UnicodeScalar]? {
+        for (key, value) in EscapeMode.staticData.multipoints {
+            if compareName(key, name) == 0 {
+                return value
+            }
+        }
+        return nil
+    }
     private static let escapeTableAttrHtml: [UInt8] = {
         var table = [UInt8](repeating: 0, count: 256)
         table[Int(TokeniserStateVars.ampersandByte)] = 1
@@ -160,6 +196,17 @@ public final class Entities: Sendable {
     fileprivate static func codepointsForBaseName(_ name: ArraySlice<UInt8>) -> [UnicodeScalar]? {
         if let scalar = EscapeMode.base.codepointForName(name) {
             if let multipoints = EscapeMode.staticData.multipoints[name] {
+                return multipoints
+            }
+            return [scalar]
+        }
+        return nil
+    }
+
+    @inline(__always)
+    fileprivate static func codepointsForBaseName(_ name: ByteSlice) -> [UnicodeScalar]? {
+        if let scalar = EscapeMode.base.codepointForName(name) {
+            if let multipoints = multipointsForName(name) {
                 return multipoints
             }
             return [scalar]
@@ -312,6 +359,14 @@ public final class Entities: Sendable {
             return bestNameForScalar(scalar)
         }
 
+        func codepointForName(_ name: ByteSlice) -> UnicodeScalar? {
+            let ix = entitiesByName.binarySearch { Entities.compareName($0.name, name) < 0 }
+            guard ix < entitiesByName.endIndex else { return nil }
+            let entity = entitiesByName[ix]
+            guard Entities.compareName(entity.name, name) == 0 else { return nil }
+            return entity.scalar
+        }
+
         @inline(__always)
         private func bestNameForScalar(_ scalar: UnicodeScalar) -> ArraySlice<UInt8>? {
             var ix = entitiesByCodepoint.binarySearch { $0.scalar < scalar }
@@ -395,7 +450,13 @@ public final class Entities: Sendable {
         if let fast = lookupNamedEntityFast(name, allowExtended: true) {
             return fast.codepoints()
         }
-        return codepointsForName(name.toArraySlice())
+        if let multipoints = multipointsForName(name) {
+            return multipoints
+        }
+        if let scalar = EscapeMode.extended.codepointForName(name) {
+            return [scalar]
+        }
+        return nil
     }
 
     @inline(__always)
@@ -415,9 +476,9 @@ public final class Entities: Sendable {
             return fast.codepoints()
         }
         if allowExtended {
-            return codepointsForName(name.toArraySlice())
+            return codepointsForName(name)
         }
-        return codepointsForBaseName(name.toArraySlice())
+        return codepointsForBaseName(name)
     }
 
     
