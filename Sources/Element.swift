@@ -910,6 +910,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByTag(_ tagName: String) throws -> Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         if let lookup = UTF8Arrays.tagLookup[tagName] {
             return try getElementsByTagNormalized(lookup)
         }
@@ -930,6 +931,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByTag(_ tagName: [UInt8]) throws -> Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         try Validate.notEmpty(string: tagName)
         let trimmed = tagName.trim()
         if trimmed.isEmpty {
@@ -993,6 +995,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementById(_ id: String) throws -> Element? {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         let idBytes = id.utf8Array
         try Validate.notEmpty(string: idBytes)
         let needsTrim = (idBytes.first?.isWhitespace ?? false) || (idBytes.last?.isWhitespace ?? false)
@@ -1027,6 +1030,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByClass(_ className: String) throws -> Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         DebugTrace.log("Element.getElementsByClass: \(className)")
         let key = className.utf8Array
         if isClassQueryIndexDirty || normalizedClassNameIndex == nil {
@@ -1066,6 +1070,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttribute(_ key: String) throws -> Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         try Validate.notEmpty(string: key.utf8Array)
         let keyBytes = key.utf8Array
         @inline(__always)
@@ -1131,6 +1136,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeStarting(_ keyPrefix: String) throws -> Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         try Validate.notEmpty(string: keyPrefix.utf8Array)
         let keyPrefix = keyPrefix.trim()
         return try Collector.collect(Evaluator.AttributeStarting(keyPrefix.utf8Array), self)
@@ -1145,6 +1151,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValue(_ key: String, _ value: String)throws->Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         let keyBytes = key.utf8Array
         @inline(__always)
         func hasAbsPrefix(_ bytes: [UInt8]) -> Bool {
@@ -1223,6 +1230,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValueNot(_ key: String, _ value: String)throws->Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         return try Collector.collect(Evaluator.AttributeWithValueNot(key, value), self)
     }
     
@@ -1235,6 +1243,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValueStarting(_ key: String, _ valuePrefix: String)throws->Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         return try Collector.collect(Evaluator.AttributeWithValueStarting(key, valuePrefix), self)
     }
     
@@ -1247,6 +1256,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValueEnding(_ key: String, _ valueSuffix: String)throws->Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         return try Collector.collect(Evaluator.AttributeWithValueEnding(key, valueSuffix), self)
     }
     
@@ -1259,6 +1269,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValueContaining(_ key: String, _ match: String)throws->Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         return try Collector.collect(Evaluator.AttributeWithValueContaining(key, match), self)
     }
     
@@ -1269,6 +1280,7 @@ open class Element: Node {
      - returns: elements that have attributes matching this regular expression
      */
     public func getElementsByAttributeValueMatching(_ key: String, _ pattern: Pattern)throws->Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         return try Collector.collect(Evaluator.AttributeWithValueMatching(key, pattern), self)
         
     }
@@ -2476,6 +2488,7 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markQueryIndexesDirty() {
+        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
@@ -2494,6 +2507,7 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markTagQueryIndexDirty() {
+        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
@@ -2508,6 +2522,7 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markClassQueryIndexDirty() {
+        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
@@ -2522,6 +2537,7 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markIdQueryIndexDirty() {
+        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
@@ -2536,6 +2552,7 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markAttributeQueryIndexDirty() {
+        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
@@ -2550,6 +2567,7 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markAttributeValueQueryIndexDirty() {
+        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
@@ -2564,6 +2582,7 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markAttributeValueQueryIndexDirty(for key: [UInt8]) {
+        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         let normalizedKey = key.lowercased()
         if Element.isHotAttributeKey(normalizedKey) {
             markAttributeValueQueryIndexDirty()

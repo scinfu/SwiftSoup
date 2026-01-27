@@ -114,6 +114,7 @@ open class CssSelector {
      - throws ``Exception`` with ``ExceptionType/SelectorParseException`` (unchecked) on an invalid CSS query.
      */
     public static func select(_ query: String, _ root: Element)throws->Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: root)
         let query = query.trim()
         try Validate.notEmpty(string: query.utf8Array)
         DebugTrace.log("CssSelector.select(query): \(query)")
@@ -147,6 +148,7 @@ open class CssSelector {
      - returns: matching elements, empty if none
      */
     public static func select(_ evaluator: Evaluator, _ root: Element)throws->Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: root)
         return try CssSelector(evaluator, root).select()
     }
 
@@ -158,6 +160,7 @@ open class CssSelector {
      - returns: matching elements, empty if none
      */
     public static func select(_ query: String, _ roots: Array<Element>)throws->Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: roots.first)
         let query = query.trim()
         try Validate.notEmpty(string: query.utf8Array)
         if roots.count == 1, let root = roots.first {
@@ -210,6 +213,7 @@ open class CssSelector {
      - returns: matching elements, empty if none
      */
     public static func select(_ evaluator: Evaluator, _ roots: Array<Element>)throws->Elements {
+        FeatureFlags.enableSelectorIndexingIfNeeded(for: roots.first)
         if roots.count == 1, let root = roots.first {
             return try select(evaluator, root)
         }

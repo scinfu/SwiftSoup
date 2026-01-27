@@ -35,6 +35,9 @@ enum Workload: String {
     case trimHeavy
     case selectorParse
     case attributeParse
+    case attributeParseNoSelect
+    case attributeParseDoubleQuoted
+    case parseClosureBasedData
     case parsingStringsSingleByte
     case parsingStringsTable
     case entitiesHeavy
@@ -247,6 +250,34 @@ case .attributeParse:
         for _ in 0..<options.iterations {
             let doc = try SwiftSoup.parse(html)
             _ = try doc.select("div").first()?.getAttributes()
+        }
+    }
+case .attributeParseNoSelect:
+    let html = "<div id='root' data-a='1' data-b='2' class='a b c' title='hello world' aria-label='x'></div>"
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            let doc = try SwiftSoup.parse(html)
+            if let body = doc.body(), body.children().size() > 0 {
+                _ = body.child(0).getAttributes()
+            }
+        }
+    }
+case .attributeParseDoubleQuoted:
+    let html = "<div id=\"root\" data-a=\"1\" data-b=\"2\" class=\"a b c\" title=\"hello world\" aria-label=\"x\"></div>"
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            let doc = try SwiftSoup.parse(html)
+            if let body = doc.body(), body.children().size() > 0 {
+                _ = body.child(0).getAttributes()
+            }
+        }
+    }
+case .parseClosureBasedData:
+    let html = "<div id=\"root\" data-a=\"1\" data-b=\"2\" class=\"a b c\" title=\"hello world\" aria-label=\"x\"></div>"
+    let data = Data(html.utf8)
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<options.iterations {
+            _ = try SwiftSoup.parse(data)
         }
     }
 case .parsingStringsSingleByte:
@@ -702,6 +733,7 @@ func printResult(_ result: RunResult, label: String? = nil) {
 }
 
 let options = parseOptions()
+FeatureFlags.configureFromEnvironment()
 let files = findSourceHTMLFiles(fixturesPath: options.fixturesPath)
 
 let workloadsToCheck: [Workload] = options.abMode

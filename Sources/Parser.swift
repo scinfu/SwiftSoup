@@ -122,23 +122,55 @@ public class Parser {
 	 - returns: parsed Document
 	*/
 	public static func parse(_ html: [UInt8], _ baseUri: [UInt8]) throws -> Document {
+		FeatureFlags.configureFromEnvironmentOnce()
 		let treeBuilder = acquireHtmlTreeBuilder()
 		defer { releaseHtmlTreeBuilder(treeBuilder) }
 		return try treeBuilder.parse(html, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
 	}
+
+    public static func parse(_ html: UnsafeBufferPointer<UInt8>, _ baseUri: [UInt8]) throws -> Document {
+        FeatureFlags.configureFromEnvironmentOnce()
+        let treeBuilder = acquireHtmlTreeBuilder()
+        defer { releaseHtmlTreeBuilder(treeBuilder) }
+        return try treeBuilder.parse(Array(html), baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
+    }
     
     public static func parse(_ html: String, _ baseUri: String) throws -> Document {
+        FeatureFlags.configureFromEnvironmentOnce()
         return try parse(html.utf8Array, baseUri.utf8Array)
     }
 
     public static func parse(_ data: Data, _ baseUri: [UInt8]) throws -> Document {
+        FeatureFlags.configureFromEnvironmentOnce()
+        if FeatureFlags.closureBasedParsing {
+            return try parse(baseUri, withBytes: { parse in
+                return try data.withUnsafeBytes { raw in
+                    let buffer = raw.bindMemory(to: UInt8.self)
+                    return try parse(buffer)
+                }
+            })
+        }
         let treeBuilder = acquireHtmlTreeBuilder()
         defer { releaseHtmlTreeBuilder(treeBuilder) }
         return try treeBuilder.parse([UInt8](data), baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
     }
 
     public static func parse(_ data: Data, _ baseUri: String) throws -> Document {
+        FeatureFlags.configureFromEnvironmentOnce()
         return try parse([UInt8](data), baseUri.utf8Array)
+    }
+
+    public static func parse(_ baseUri: [UInt8],
+                             withBytes provider: (_ parse: (UnsafeBufferPointer<UInt8>) throws -> Document) throws -> Document) rethrows -> Document {
+        FeatureFlags.configureFromEnvironmentOnce()
+        return try provider { buffer in
+            return try Parser.parse(buffer, baseUri)
+        }
+    }
+
+    public static func parse(_ baseUri: String,
+                             withBytes provider: (_ parse: (UnsafeBufferPointer<UInt8>) throws -> Document) throws -> Document) rethrows -> Document {
+        return try parse(baseUri.utf8Array, withBytes: provider)
     }
 
 	/**
@@ -152,6 +184,7 @@ public class Parser {
 	 - returns: list of nodes parsed from the input HTML. Note that the context element, if supplied, is not modified.
 	*/
 	public static func parseFragment(_ fragmentHtml: [UInt8], _ context: Element?, _ baseUri: [UInt8]) throws -> Array<Node> {
+		FeatureFlags.configureFromEnvironmentOnce()
 		let treeBuilder = acquireHtmlTreeBuilder()
 		defer { releaseHtmlTreeBuilder(treeBuilder) }
 		return try treeBuilder.parseFragment(fragmentHtml, context, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
