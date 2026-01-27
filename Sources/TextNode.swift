@@ -71,7 +71,7 @@ open class TextNode: Node {
      */
     @inline(__always)
     open func text() -> String {
-        return TextNode.normaliseWhitespace(wholeTextSlice().toArraySlice())
+        return TextNode.normaliseWhitespace(wholeTextSlice())
     }
 
     /**
@@ -306,6 +306,11 @@ open class TextNode: Node {
 
     @inline(__always)
     static public func normaliseWhitespace(_ text: ArraySlice<UInt8>) -> String {
+        return StringUtil.normaliseWhitespace(text)
+    }
+
+    @inline(__always)
+    static func normaliseWhitespace(_ text: ByteSlice) -> String {
         return StringUtil.normaliseWhitespace(text)
     }
 

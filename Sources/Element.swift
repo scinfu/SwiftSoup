@@ -1892,11 +1892,78 @@ open class Element: Node {
                                             emittedAny: inout Bool,
                                             lastWasWhite: inout Bool,
                                             matcher: inout AsciiKMPMatcher) -> Bool {
-        return emitNormalizedSlice(slice.toArraySlice(),
-                                   stripLeading: stripLeading,
-                                   emittedAny: &emittedAny,
-                                   lastWasWhite: &lastWasWhite,
-                                   matcher: &matcher)
+        var reachedNonWhite = false
+        var i = 0
+        let end = slice.count
+        while i < end {
+            let firstByte = slice[i]
+            if firstByte < TokeniserStateVars.asciiUpperLimitByte {
+                if StringUtil.isAsciiWhitespaceByte(firstByte) {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i &+= 1
+                        continue
+                    }
+                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
+                    lastWasWhite = true
+                    emittedAny = true
+                    i &+= 1
+                    continue
+                }
+                var j = i
+                while j < end {
+                    let b = slice[j]
+                    if b >= TokeniserStateVars.asciiUpperLimitByte || StringUtil.isAsciiWhitespaceByte(b) {
+                        break
+                    }
+                    if matcher.feed(b) { return true }
+                    j &+= 1
+                }
+                if i != j {
+                    emittedAny = true
+                    lastWasWhite = false
+                    reachedNonWhite = true
+                    i = j
+                    continue
+                }
+                i &+= 1
+                continue
+            }
+            if firstByte == StringUtil.utf8NBSPLead {
+                let next = i &+ 1
+                if next < end, slice[next] == StringUtil.utf8NBSPTrail {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i = next &+ 1
+                        continue
+                    }
+                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
+                    lastWasWhite = true
+                    emittedAny = true
+                    reachedNonWhite = true
+                    i = next &+ 1
+                    continue
+                }
+            }
+            let scalarByteCount: Int
+            if firstByte < StringUtil.utf8Lead3Min {
+                scalarByteCount = 2
+            } else if firstByte < StringUtil.utf8Lead4Min {
+                scalarByteCount = 3
+            } else {
+                scalarByteCount = 4
+            }
+            var next = i
+            for _ in 0..<scalarByteCount {
+                if next == end { return false }
+                let b = slice[next]
+                if matcher.feed(b) { return true }
+                next &+= 1
+            }
+            emittedAny = true
+            lastWasWhite = false
+            reachedNonWhite = true
+            i = next
+        }
+        return false
     }
 
     @inline(__always)
