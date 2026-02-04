@@ -7,6 +7,187 @@
 
 import Foundation
 
+@usableFromInline
+final class SelectorResultCache {
+    @usableFromInline
+    final class LRUNode {
+        let key: String
+        var value: Elements
+        var prev: LRUNode?
+        var next: LRUNode?
+
+        init(key: String, value: Elements) {
+            self.key = key
+            self.value = value
+        }
+    }
+
+    @usableFromInline
+    final class LRUMap {
+        let capacity: Int
+        private var nodes: [String: LRUNode] = [:]
+        private var head: LRUNode?
+        private var tail: LRUNode?
+
+        init(capacity: Int) {
+            self.capacity = max(1, capacity)
+        }
+
+        @inline(__always)
+        func contains(_ key: String) -> Bool {
+            return nodes[key] != nil
+        }
+
+        @inline(__always)
+        func get(_ key: String) -> Elements? {
+            guard let node = nodes[key] else { return nil }
+            moveToHead(node)
+            return node.value
+        }
+
+        @inline(__always)
+        func set(_ key: String, _ value: Elements) -> LRUNode? {
+            if let node = nodes[key] {
+                node.value = value
+                moveToHead(node)
+                return nil
+            }
+            let node = LRUNode(key: key, value: value)
+            nodes[key] = node
+            insertAtHead(node)
+            if nodes.count > capacity {
+                return popTail()
+            }
+            return nil
+        }
+
+        @inline(__always)
+        func remove(_ key: String) -> Elements? {
+            guard let node = nodes.removeValue(forKey: key) else { return nil }
+            removeNode(node)
+            return node.value
+        }
+
+        @inline(__always)
+        func popTail() -> LRUNode? {
+            guard let tail else { return nil }
+            removeNode(tail)
+            nodes.removeValue(forKey: tail.key)
+            return tail
+        }
+
+        @inline(__always)
+        func clear() {
+            nodes.removeAll(keepingCapacity: true)
+            head = nil
+            tail = nil
+        }
+
+        @inline(__always)
+        private func insertAtHead(_ node: LRUNode) {
+            node.prev = nil
+            node.next = head
+            if let head {
+                head.prev = node
+            } else {
+                tail = node
+            }
+            head = node
+        }
+
+        @inline(__always)
+        private func moveToHead(_ node: LRUNode) {
+            guard head !== node else { return }
+            removeNode(node)
+            insertAtHead(node)
+        }
+
+        @inline(__always)
+        private func removeNode(_ node: LRUNode) {
+            let prev = node.prev
+            let next = node.next
+            if let prev {
+                prev.next = next
+            } else {
+                head = next
+            }
+            if let next {
+                next.prev = prev
+            } else {
+                tail = prev
+            }
+            node.prev = nil
+            node.next = nil
+        }
+    }
+
+    @usableFromInline
+    let probationary: LRUMap
+    @usableFromInline
+    let protected: LRUMap
+    private let doorkeeperCapacity: Int
+    private var doorkeeper: Set<String> = []
+    private var doorkeeperOrder: [String] = []
+
+    init(capacity: Int) {
+        let protectedCap = max(1, (capacity * 3) / 4)
+        let probationaryCap = max(1, capacity - protectedCap)
+        probationary = LRUMap(capacity: probationaryCap)
+        protected = LRUMap(capacity: protectedCap)
+        doorkeeperCapacity = max(1, capacity)
+        doorkeeper.reserveCapacity(doorkeeperCapacity)
+        doorkeeperOrder.reserveCapacity(doorkeeperCapacity)
+    }
+
+    @inline(__always)
+    func get(_ key: String) -> Elements? {
+        if let value = protected.get(key) {
+            return value
+        }
+        if let value = probationary.remove(key) {
+            if let evicted = protected.set(key, value) {
+                _ = probationary.set(evicted.key, evicted.value)
+            }
+            return value
+        }
+        return nil
+    }
+
+    @inline(__always)
+    func put(_ key: String, _ value: Elements) {
+        if protected.contains(key) {
+            _ = protected.set(key, value)
+            return
+        }
+        if probationary.contains(key) {
+            _ = probationary.set(key, value)
+            return
+        }
+        if doorkeeper.contains(key) {
+            doorkeeper.remove(key)
+            if let idx = doorkeeperOrder.firstIndex(of: key) {
+                doorkeeperOrder.remove(at: idx)
+            }
+            _ = probationary.set(key, value)
+            return
+        }
+        doorkeeper.insert(key)
+        doorkeeperOrder.append(key)
+        if doorkeeperOrder.count > doorkeeperCapacity {
+            let removed = doorkeeperOrder.removeFirst()
+            doorkeeper.remove(removed)
+        }
+    }
+
+    @inline(__always)
+    func clear() {
+        probationary.clear()
+        protected.clear()
+        doorkeeper.removeAll(keepingCapacity: true)
+        doorkeeperOrder.removeAll(keepingCapacity: true)
+    }
+}
+
 open class Element: Node {
     var _tag: Tag
     
@@ -84,13 +265,11 @@ open class Element: Node {
     @usableFromInline
     internal var suppressQueryIndexDirty: Bool = false
 
-    /// Small LRU cache for selector results on this root, invalidated on mutations.
+    /// Small SLRU cache for selector results on this root, invalidated on mutations.
     @usableFromInline
     internal static let selectorResultCacheCapacity: Int = 256
     @usableFromInline
-    internal var selectorResultCache: [String: Elements]? = nil
-    @usableFromInline
-    internal var selectorResultCacheOrder: [String] = []
+    internal var selectorResultCache: SelectorResultCache? = nil
     @usableFromInline
     internal var selectorResultTextVersion: Int = 0
     @usableFromInline
@@ -2723,7 +2902,7 @@ internal extension Element {
             selectorResultTextVersion = currentTextVersion
             return nil
         }
-        if let result = cache[query] {
+        if let result = cache.get(query) {
             #if PROFILE
             let _hit = Profiler.start("Element.cachedSelectorResult.hit")
             Profiler.end("Element.cachedSelectorResult.hit", _hit)
@@ -2745,8 +2924,7 @@ internal extension Element {
         defer { Profiler.end("Element.storeSelectorResult", _p) }
         #endif
         if selectorResultCache == nil {
-            selectorResultCache = [:]
-            selectorResultCacheOrder = []
+            selectorResultCache = SelectorResultCache(capacity: Element.selectorResultCacheCapacity)
         }
         if selectorResultCacheRoot == nil || selectorResultCacheRoot?.parentNode != nil {
             selectorResultCacheRoot = textMutationRoot()
@@ -2756,21 +2934,7 @@ internal extension Element {
         } else {
             selectorResultTextVersion = textMutationVersionToken()
         }
-        if selectorResultCache![query] != nil {
-            return
-        }
-        selectorResultCache![query] = result
-        selectorResultCacheOrder.append(query)
-        let capacity = Element.selectorResultCacheCapacity
-        if selectorResultCacheOrder.count > capacity {
-            let overflow = selectorResultCacheOrder.count - capacity
-            if overflow > 0 {
-                for _ in 0..<overflow {
-                    let removedKey = selectorResultCacheOrder.removeFirst()
-                    selectorResultCache?.removeValue(forKey: removedKey)
-                }
-            }
-        }
+        selectorResultCache?.put(query, result)
     }
 
     @usableFromInline
@@ -2781,8 +2945,8 @@ internal extension Element {
         defer { Profiler.end("Element.invalidateSelectorResultCache", _p) }
         #endif
         if selectorResultCache != nil {
+            selectorResultCache?.clear()
             selectorResultCache = nil
-            selectorResultCacheOrder.removeAll(keepingCapacity: true)
             selectorResultCacheRoot = nil
         }
     }
