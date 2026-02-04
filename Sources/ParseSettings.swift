@@ -79,7 +79,8 @@ open class ParseSettings: @unchecked Sendable {
         return name
     }
 
-    open func normalizeTag(_ name: ByteSlice) -> ByteSlice {
+    @usableFromInline
+    internal func normalizeTag(_ name: ByteSlice) -> ByteSlice {
         var name = name.trim()
         if (!preserveTagCase) {
             name = name.lowercased()
@@ -99,7 +100,8 @@ open class ParseSettings: @unchecked Sendable {
         return name
     }
 
-    open func normalizeAttribute(_ name: ByteSlice) -> ByteSlice {
+    @usableFromInline
+    internal func normalizeAttribute(_ name: ByteSlice) -> ByteSlice {
         var name = name.trim()
         if (!preserveAttributeCase) {
             name = name.lowercased()
