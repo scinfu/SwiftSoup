@@ -4,9 +4,11 @@ This repo uses the `SwiftSoupProfile` executable for performance checks.
 
 ## A/B comparison rules
 - Always compare release builds on the same machine.
-- If an optimization has a runtime flag: run with flag OFF and ON.
+- If an optimization has a runtime or compile-time flag: run with flag OFF and ON.
 - If there is no flag: compare HEAD to a baseline commit in a worktree.
+- For each optimization, test it in isolation (no other flags changed) before any combined run.
 - Run targeted workloads 3x and report the average to reduce noise.
+- Record commit SHAs, flags, iterations, and the exact command lines used.
 
 ## Regression suite (broad coverage)
 Run these in both baseline and current:
@@ -23,3 +25,4 @@ Pick the workload most likely to stress the change and run 3x:
 ## Baseline worktree helper
 - `git worktree add ../SwiftSoup-bench-base <baseline-commit>`
 - Run the same commands in both trees, then compare deltas.
+- Use `git rev-parse HEAD` to log the commit for each side.
