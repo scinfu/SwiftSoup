@@ -7,6 +7,10 @@
 
 import Foundation
 
+// Selector result cache:
+// - Segmented LRU (probationary/protected) to favor items reused at least twice.
+// - Admission control via a "doorkeeper" (TinyLFU-style) so first-seen items
+//   don't immediately enter the cache and churn it. See Einziger & Friedman 2015.
 @usableFromInline
 final class SelectorResultCache {
     @usableFromInline
@@ -188,6 +192,8 @@ final class SelectorResultCache {
     }
 }
 
+// Tracks query-stream locality to detect scan-heavy workloads and bypass caching
+// when unique queries overwhelm the cache and hit rate stays low.
 @usableFromInline
 final class SelectorQueryStats {
     let windowSize: Int
