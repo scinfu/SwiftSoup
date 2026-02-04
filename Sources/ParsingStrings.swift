@@ -189,7 +189,29 @@ public struct ParsingStrings: Hashable, Equatable, Sendable {
     public func contains(_ bytes: [UInt8]) -> Bool {
         return contains(ArraySlice(bytes))
     }
-    
+
+    @inline(__always)
+    func contains(_ slice: ByteSlice) -> Bool {
+        if slice.count == 1 {
+            return contains(slice[0])
+        }
+        var index = 0
+        for byte in slice {
+            if index >= multiByteByteLookupsCount || !testBit(multiByteByteLookups[index], byte) {
+                return false
+            }
+            index &+= 1
+        }
+        var node = root
+        for byte in slice {
+            guard let next = node.children[Int(byte)] else {
+                return false
+            }
+            node = next
+        }
+        return node.isTerminal
+    }
+
     @inline(__always)
     public func contains(_ slice: ArraySlice<UInt8>) -> Bool {
         if slice.count == 1 {

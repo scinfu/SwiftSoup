@@ -114,7 +114,6 @@ open class CssSelector {
      - throws ``Exception`` with ``ExceptionType/SelectorParseException`` (unchecked) on an invalid CSS query.
      */
     public static func select(_ query: String, _ root: Element)throws->Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: root)
         let query = query.trim()
         try Validate.notEmpty(string: query.utf8Array)
         DebugTrace.log("CssSelector.select(query): \(query)")
@@ -148,7 +147,6 @@ open class CssSelector {
      - returns: matching elements, empty if none
      */
     public static func select(_ evaluator: Evaluator, _ root: Element)throws->Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: root)
         return try CssSelector(evaluator, root).select()
     }
 
@@ -160,7 +158,6 @@ open class CssSelector {
      - returns: matching elements, empty if none
      */
     public static func select(_ query: String, _ roots: Array<Element>)throws->Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: roots.first)
         let query = query.trim()
         try Validate.notEmpty(string: query.utf8Array)
         if roots.count == 1, let root = roots.first {
@@ -213,7 +210,6 @@ open class CssSelector {
      - returns: matching elements, empty if none
      */
     public static func select(_ evaluator: Evaluator, _ roots: Array<Element>)throws->Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: roots.first)
         if roots.count == 1, let root = roots.first {
             return try select(evaluator, root)
         }
@@ -235,10 +231,6 @@ open class CssSelector {
     }
 
     private func select()throws->Elements {
-        #if PROFILE
-        let _p = Profiler.start("CssSelector.select")
-        defer { Profiler.end("CssSelector.select", _p) }
-        #endif
         DebugTrace.log("CssSelector.select(evaluator): \(evaluator)")
         if let fast = try CssSelector.fastSelect(evaluator, root) {
             DebugTrace.log("CssSelector.select(evaluator): fast path hit")

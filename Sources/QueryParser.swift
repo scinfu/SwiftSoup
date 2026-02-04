@@ -251,7 +251,7 @@ public class QueryParser {
 
     private func byAttribute() throws {
         let cq: TokenQueue = TokenQueue(tq.chompBalanced("[", "]")) // content queue
-        let key: String = cq.consumeToAny(QueryParser.AttributeEvals) // eq, not, start, end, contain, match, (no val)
+        let key: String = cq.consumeToAnySlice(QueryParser.AttributeEvals) // eq, not, start, end, contain, match, (no val)
         try Validate.notEmpty(string: key)
         cq.consumeWhitespace()
 

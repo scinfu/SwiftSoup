@@ -17,6 +17,10 @@ public class DocumentType: Node {
     private static let PUB_SYS_KEY = "pubSysKey".utf8Array // PUBLIC or SYSTEM
     private static let PUBLIC_ID = "publicId".utf8Array
     private static let SYSTEM_ID = "systemId".utf8Array
+    private static let nameKeySlice = ByteSlice.fromArray(NAME)
+    private static let pubSysKeySlice = ByteSlice.fromArray(PUB_SYS_KEY)
+    private static let publicIdKeySlice = ByteSlice.fromArray(PUBLIC_ID)
+    private static let systemIdKeySlice = ByteSlice.fromArray(SYSTEM_ID)
     // todo: quirk mode from publicId and systemId
 
     /**
@@ -33,12 +37,13 @@ public class DocumentType: Node {
     public init(_ name: [UInt8], _ publicId: [UInt8], _ systemId: [UInt8], _ baseUri: [UInt8]) {
         super.init(baseUri)
         do {
-            try attr(DocumentType.NAME, name)
-            try attr(DocumentType.PUBLIC_ID, publicId)
+            let attrs = ensureAttributesForWrite()
+            try attrs.put(attribute: Attribute(keySlice: DocumentType.nameKeySlice, valueSlice: ByteSlice.fromArray(name)))
+            try attrs.put(attribute: Attribute(keySlice: DocumentType.publicIdKeySlice, valueSlice: ByteSlice.fromArray(publicId)))
             if (has(DocumentType.PUBLIC_ID)) {
-                try attr(DocumentType.PUB_SYS_KEY, DocumentType.PUBLIC_KEY)
+                try attrs.put(attribute: Attribute(keySlice: DocumentType.pubSysKeySlice, valueSlice: ByteSlice.fromArray(DocumentType.PUBLIC_KEY)))
             }
-            try attr(DocumentType.SYSTEM_ID, systemId)
+            try attrs.put(attribute: Attribute(keySlice: DocumentType.systemIdKeySlice, valueSlice: ByteSlice.fromArray(systemId)))
         } catch {}
     }
 
@@ -53,12 +58,27 @@ public class DocumentType: Node {
     public init(_ name: [UInt8], _ pubSysKey: [UInt8]?, _ publicId: [UInt8], _ systemId: [UInt8], _ baseUri: [UInt8]) {
         super.init(baseUri)
         do {
-            try attr(DocumentType.NAME, name)
-            if(pubSysKey != nil) {
-                try attr(DocumentType.PUB_SYS_KEY, pubSysKey!)
+            let attrs = ensureAttributesForWrite()
+            try attrs.put(attribute: Attribute(keySlice: DocumentType.nameKeySlice, valueSlice: ByteSlice.fromArray(name)))
+            if let pubSysKey {
+                try attrs.put(attribute: Attribute(keySlice: DocumentType.pubSysKeySlice, valueSlice: ByteSlice.fromArray(pubSysKey)))
             }
-            try attr(DocumentType.PUBLIC_ID, publicId)
-            try attr(DocumentType.SYSTEM_ID, systemId)
+            try attrs.put(attribute: Attribute(keySlice: DocumentType.publicIdKeySlice, valueSlice: ByteSlice.fromArray(publicId)))
+            try attrs.put(attribute: Attribute(keySlice: DocumentType.systemIdKeySlice, valueSlice: ByteSlice.fromArray(systemId)))
+        } catch {}
+    }
+
+    @usableFromInline
+    internal init(nameSlice: ByteSlice, pubSysKeySlice: ByteSlice?, publicIdSlice: ByteSlice, systemIdSlice: ByteSlice, baseUri: [UInt8]) {
+        super.init(baseUri)
+        do {
+            let attrs = ensureAttributesForWrite()
+            try attrs.put(attribute: Attribute(keySlice: DocumentType.nameKeySlice, valueSlice: nameSlice))
+            if let pubSysKeySlice {
+                try attrs.put(attribute: Attribute(keySlice: DocumentType.pubSysKeySlice, valueSlice: pubSysKeySlice))
+            }
+            try attrs.put(attribute: Attribute(keySlice: DocumentType.publicIdKeySlice, valueSlice: publicIdSlice))
+            try attrs.put(attribute: Attribute(keySlice: DocumentType.systemIdKeySlice, valueSlice: systemIdSlice))
         } catch {}
     }
 
@@ -117,26 +137,35 @@ public class DocumentType: Node {
     }
 
 	public override func copy(with zone: NSZone? = nil) -> Any {
-		let clone = DocumentType(attributes!.get(key: DocumentType.NAME),
-		                         attributes!.get(key: DocumentType.PUBLIC_ID),
-		                         attributes!.get(key: DocumentType.SYSTEM_ID),
-		                         baseUri!)
+		let clone = DocumentType(
+            nameSlice: attributes?.valueSliceCaseSensitive(DocumentType.NAME) ?? ByteSlice.empty,
+            pubSysKeySlice: attributes?.valueSliceCaseSensitive(DocumentType.PUB_SYS_KEY),
+            publicIdSlice: attributes?.valueSliceCaseSensitive(DocumentType.PUBLIC_ID) ?? ByteSlice.empty,
+            systemIdSlice: attributes?.valueSliceCaseSensitive(DocumentType.SYSTEM_ID) ?? ByteSlice.empty,
+            baseUri: baseUri!
+        )
 		return copy(clone: clone)
 	}
 
 	public override func copy(parent: Node?) -> Node {
-		let clone = DocumentType(attributes!.get(key: DocumentType.NAME),
-		                         attributes!.get(key: DocumentType.PUBLIC_ID),
-		                         attributes!.get(key: DocumentType.SYSTEM_ID),
-		                         baseUri!)
+		let clone = DocumentType(
+            nameSlice: attributes?.valueSliceCaseSensitive(DocumentType.NAME) ?? ByteSlice.empty,
+            pubSysKeySlice: attributes?.valueSliceCaseSensitive(DocumentType.PUB_SYS_KEY),
+            publicIdSlice: attributes?.valueSliceCaseSensitive(DocumentType.PUBLIC_ID) ?? ByteSlice.empty,
+            systemIdSlice: attributes?.valueSliceCaseSensitive(DocumentType.SYSTEM_ID) ?? ByteSlice.empty,
+            baseUri: baseUri!
+        )
 		return copy(clone: clone, parent: parent)
 	}
 
     override func copyForDeepClone(parent: Node?) -> Node {
-        let clone = DocumentType(attributes!.get(key: DocumentType.NAME),
-                                 attributes!.get(key: DocumentType.PUBLIC_ID),
-                                 attributes!.get(key: DocumentType.SYSTEM_ID),
-                                 baseUri!)
+        let clone = DocumentType(
+            nameSlice: attributes?.valueSliceCaseSensitive(DocumentType.NAME) ?? ByteSlice.empty,
+            pubSysKeySlice: attributes?.valueSliceCaseSensitive(DocumentType.PUB_SYS_KEY),
+            publicIdSlice: attributes?.valueSliceCaseSensitive(DocumentType.PUBLIC_ID) ?? ByteSlice.empty,
+            systemIdSlice: attributes?.valueSliceCaseSensitive(DocumentType.SYSTEM_ID) ?? ByteSlice.empty,
+            baseUri: baseUri!
+        )
         return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
 

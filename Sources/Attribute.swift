@@ -18,18 +18,38 @@ open class Attribute {
     ])
     
     @usableFromInline
-    var key: [UInt8]
+    var keySlice: ByteSlice
     @usableFromInline
-    var value: [UInt8]
+    var valueSlice: ByteSlice
+    @usableFromInline
+    var keyBytes: [UInt8]? = nil
+    @usableFromInline
+    var valueBytes: [UInt8]? = nil
+    @usableFromInline
+    var lowerKeySliceCache: ByteSlice? = nil
+    @usableFromInline
+    var lowerValueSliceCache: ByteSlice? = nil
+    @usableFromInline
+    var lowerTrimmedValueSliceCache: ByteSlice? = nil
     
     public init(key: [UInt8], value: [UInt8]) throws {
         try Validate.notEmpty(string: key)
-        self.key = key.trim()
-        self.value = value
+        let trimmedKey = ByteSlice.fromArray(key).trim()
+        self.keySlice = trimmedKey
+        self.valueSlice = ByteSlice.fromArray(value)
     }
 
     public convenience init(keySlice: ArraySlice<UInt8>, valueSlice: ArraySlice<UInt8>) throws {
-        try self.init(key: Array(keySlice), value: Array(valueSlice))
+        let key = ByteSlice.fromArraySlice(keySlice).trim()
+        let value = ByteSlice.fromArraySlice(valueSlice)
+        try self.init(keySlice: key, valueSlice: value)
+    }
+
+    @usableFromInline
+    init(keySlice: ByteSlice, valueSlice: ByteSlice) throws {
+        try Validate.notEmpty(string: keySlice)
+        self.keySlice = keySlice.trim()
+        self.valueSlice = valueSlice
     }
     
     public convenience init(key: String, value: String) throws {
@@ -47,7 +67,12 @@ open class Attribute {
     
     @inline(__always)
     open func getKeyUTF8() -> [UInt8] {
-        return key
+        if let keyBytes {
+            return keyBytes
+        }
+        let bytes = keySlice.toArray()
+        keyBytes = bytes
+        return bytes
     }
     
     /**
@@ -57,7 +82,9 @@ open class Attribute {
     @inline(__always)
     open func setKey(key: [UInt8]) throws {
         try Validate.notEmpty(string: key)
-        self.key = key.trim()
+        keySlice = ByteSlice.fromArray(key).trim()
+        keyBytes = nil
+        lowerKeySliceCache = nil
     }
     
     @inline(__always)
@@ -76,7 +103,12 @@ open class Attribute {
     
     @inline(__always)
     open func getValueUTF8() -> [UInt8] {
-        return value
+        if let valueBytes {
+            return valueBytes
+        }
+        let bytes = valueSlice.toArray()
+        valueBytes = bytes
+        return bytes
     }
     
     /**
@@ -86,8 +118,11 @@ open class Attribute {
     @discardableResult
     @inline(__always)
     open func setValue(value: [UInt8]) -> [UInt8] {
-        let old = self.value
-        self.value = value
+        let old = getValueUTF8()
+        valueSlice = ByteSlice.fromArray(value)
+        valueBytes = nil
+        lowerValueSliceCache = nil
+        lowerTrimmedValueSliceCache = nil
         return old
     }
     
@@ -104,10 +139,10 @@ open class Attribute {
     
     @inline(__always)
     public func html(accum: StringBuilder, out: OutputSettings) {
-        accum.append(getKeyUTF8())
+        accum.append(keySlice)
         if (!shouldCollapseAttribute(out: out)) {
             accum.append(UTF8Arrays.attributeEqualsQuoteMark)
-            Attribute.appendAttributeValue(accum, out, getValueUTF8())
+            Attribute.appendAttributeValue(accum, out, valueSlice)
             accum.append(UTF8Arrays.quoteMark)
         }
     }
@@ -135,8 +170,17 @@ open class Attribute {
     
     @inline(__always)
     public func isDataAttribute() -> Bool {
-        let bytes = getKeyUTF8()
-        return bytes.starts(with: Attributes.dataPrefix) && bytes.count > Attributes.dataPrefix.count
+        let key = keySlice
+        let prefix = Attributes.dataPrefix
+        if key.count <= prefix.count { return false }
+        var i = 0
+        while i < prefix.count {
+            if key[i] != prefix[i] {
+                return false
+            }
+            i &+= 1
+        }
+        return true
     }
 
     @usableFromInline
@@ -181,6 +225,48 @@ open class Attribute {
         Entities.escape(accum, value, out, true, false, false)
     }
 
+    @usableFromInline
+    @inline(__always)
+    static func appendAttributeValue(_ accum: StringBuilder, _ out: OutputSettings, _ value: ByteSlice) {
+        if value.isEmpty {
+            return
+        }
+        let escapeMode = out.escapeMode()
+        let encoder = out.encoder()
+        let encoderIsAscii = encoder == .ascii
+        var needsEscape = false
+        value.withUnsafeBytes { buf in
+            guard let base = buf.baseAddress else { return }
+            let len = buf.count
+            var i = 0
+            while i < len {
+                let b = base[i]
+                if encoderIsAscii && b >= Entities.asciiUpperLimitByte {
+                    needsEscape = true
+                    return
+                }
+                if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.quoteByte {
+                    needsEscape = true
+                    return
+                }
+                if escapeMode == .xhtml && b == TokeniserStateVars.lessThanByte {
+                    needsEscape = true
+                    return
+                }
+                if b == StringUtil.utf8NBSPLead, i + 1 < len, base[i + 1] == StringUtil.utf8NBSPTrail {
+                    needsEscape = true
+                    return
+                }
+                i += 1
+            }
+        }
+        if !needsEscape {
+            accum.append(value)
+            return
+        }
+        Entities.escape(accum, value, out, true, false, false)
+    }
+
     
     /**
      Collapsible if it's a boolean attribute and value is empty or same as name
@@ -190,22 +276,53 @@ open class Attribute {
      */
     @inline(__always)
     public final func shouldCollapseAttribute(out: OutputSettings) -> Bool {
-        return getValueUTF8().isEmpty
+        return valueSlice.isEmpty
         && out.syntax() == OutputSettings.Syntax.html
         && isBooleanAttribute()
     }
     
     @inline(__always)
     public func isBooleanAttribute() -> Bool {
-        return Attribute.booleanAttributes.contains(getKeyUTF8().lowercased()[...])
+        return Attribute.booleanAttributes.contains(lowerKeySlice())
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func lowerKeySlice() -> ByteSlice {
+        if let cached = lowerKeySliceCache {
+            return cached
+        }
+        let lowered = keySlice.lowercased()
+        lowerKeySliceCache = lowered
+        return lowered
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func lowerValueSlice() -> ByteSlice {
+        if let cached = lowerValueSliceCache {
+            return cached
+        }
+        let lowered = valueSlice.lowercased()
+        lowerValueSliceCache = lowered
+        return lowered
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func lowerTrimmedValueSlice() -> ByteSlice {
+        if let cached = lowerTrimmedValueSliceCache {
+            return cached
+        }
+        let lowered = valueSlice.trim().lowercased()
+        lowerTrimmedValueSliceCache = lowered
+        return lowered
     }
     
     @inline(__always)
     public func hashCode() -> Int {
-        let keyBytes = getKeyUTF8()
-        let valueBytes = getValueUTF8()
-        var result = keyBytes.hashValue
-        result = 31 * result + valueBytes.hashValue
+        var result = keySlice.hashValue
+        result = 31 * result + valueSlice.hashValue
         return result
     }
     
@@ -226,7 +343,7 @@ open class Attribute {
 extension Attribute: Equatable {
     @inline(__always)
     static public func == (lhs: Attribute, rhs: Attribute) -> Bool {
-        return lhs.getKeyUTF8() == rhs.getKeyUTF8() && lhs.getValueUTF8() == rhs.getValueUTF8()
+        return lhs.keySlice == rhs.keySlice && lhs.valueSlice == rhs.valueSlice
     }
     
 }

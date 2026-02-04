@@ -93,7 +93,9 @@ public class TokeniserStateVars {
     static let eof: UnicodeScalar = CharacterReader.EOF
     static let eofUTF8 = String(CharacterReader.EOF).utf8Array
     @usableFromInline
-    static let eofUTF8Slice = ArraySlice(String(CharacterReader.EOF).utf8Array)
+    static let eofUTF8Storage = ByteStorage(array: eofUTF8)
+    @usableFromInline
+    static let eofUTF8Slice = ByteSlice(storage: eofUTF8Storage, start: 0, end: eofUTF8.count)
     static let commentStartUTF8 = "--".utf8Array
     static let doctypeUTF8 = "DOCTYPE".utf8Array
     static let cdataStartUTF8 = "[CDATA[".utf8Array
@@ -182,10 +184,6 @@ enum TokeniserState: TokeniserStateProtocol {
 
     @inlinable
     internal func read(_ t: Tokeniser, _ r: CharacterReader) throws {
-        #if PROFILE
-        let _p = Profiler.startDynamic("TokeniserState.\(self)")
-        defer { Profiler.endDynamic("TokeniserState.\(self)", _p) }
-        #endif
         switch self {
         case .Data:
             if r.pos >= r.end {
@@ -194,13 +192,13 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             if t.isTrackingSourceRanges() {
                 let dataStart = r.pos
-                let data: ArraySlice<UInt8> = r.consumeData()
+                let data: ByteSlice = r.consumeDataSlice()
                 if !data.isEmpty {
                     t.emitRaw(data, start: dataStart, end: r.pos)
                     break
                 }
             } else {
-                let data: ArraySlice<UInt8> = r.consumeData()
+                let data: ByteSlice = r.consumeDataSlice()
                 if !data.isEmpty {
                     t.emitRaw(data)
                     break
@@ -317,12 +315,11 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             default:
                 let dataStart = r.pos
-                let data: ArraySlice<UInt8>
-                if r.canSkipNullCheck {
-                    data = r.consumeToAnyOfTwo(TokeniserStateVars.ampersandByte, TokeniserStateVars.lessThanByte)
-                } else {
-                    data = r.consumeToAnyOfThree(TokeniserStateVars.ampersandByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
-                }
+                let data = r.consumeToAnyOfThreeSlice(
+                    TokeniserStateVars.ampersandByte,
+                    TokeniserStateVars.lessThanByte,
+                    TokeniserStateVars.nullByte
+                )
                 t.emitRaw(data, start: dataStart, end: r.pos)
                 break
             }
@@ -350,12 +347,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             default:
                 let dataStart = r.pos
-                let data: ArraySlice<UInt8>
-                if r.canSkipNullCheck {
-                    data = r.consumeToEndUTF8()
-                } else {
-                    data = r.consumeToAnyOfTwo(TokeniserStateVars.nullByte, TokeniserStateVars.maxByte)
-                }
+                let data = r.consumeToAnyOfTwoSlice(TokeniserStateVars.nullByte, TokeniserStateVars.maxByte)
                 t.emitRaw(data, start: dataStart, end: r.pos)
                 break
             }
@@ -501,13 +493,13 @@ enum TokeniserState: TokeniserStateProtocol {
         case .RCDATAEndTagName:
             if let byte = r.currentByte(), byte < TokeniserStateVars.asciiUpperLimitByte {
                 if TokeniserStateVars.isAsciiAlpha(byte) {
-                    let name = r.consumeLetterSequence()
+                    let name = r.consumeLetterSequenceSlice()
                     t.tagPending.appendTagName(name)
                     t.dataBuffer.append(name)
                     return
                 }
             } else if (r.matchesLetter()) {
-                let name = r.consumeLetterSequence()
+                let name = r.consumeLetterSequenceSlice()
                 t.tagPending.appendTagName(name)
                 t.dataBuffer.append(name)
                 return
@@ -668,12 +660,11 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             default:
                 let dataStart = r.pos
-                let data: ArraySlice<UInt8>
-                if r.canSkipNullCheck {
-                    data = r.consumeToAnyOfTwo(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte)
-                } else {
-                    data = r.consumeToAnyOfThree(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
-                }
+                let data = r.consumeToAnyOfThreeSlice(
+                    TokeniserStateVars.hyphenByte,
+                    TokeniserStateVars.lessThanByte,
+                    TokeniserStateVars.nullByte
+                )
                 t.emitRaw(data, start: dataStart, end: r.pos)
             }
             break
@@ -704,7 +695,7 @@ enum TokeniserState: TokeniserStateProtocol {
                     break
                 default:
                     if byte < TokeniserStateVars.asciiUpperLimitByte {
-                        let data: ArraySlice<UInt8> = r.consumeToAnyOfThree(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
+                        let data: ByteSlice = r.consumeToAnyOfThreeSlice(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
                         t.emit(data)
                     } else {
                         let c = r.consume()
@@ -749,7 +740,7 @@ enum TokeniserState: TokeniserStateProtocol {
                     break
                 default:
                     if byte < TokeniserStateVars.asciiUpperLimitByte {
-                        let data: ArraySlice<UInt8> = r.consumeToAnyOfFour(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.greaterThanByte, TokeniserStateVars.nullByte)
+                        let data: ByteSlice = r.consumeToAnyOfFourSlice(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.greaterThanByte, TokeniserStateVars.nullByte)
                         t.emit(data)
                     } else {
                         let c = r.consume()
@@ -843,7 +834,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.emit(TokeniserStateVars.replacementStr)
                 break
             default:
-                let data: ArraySlice<UInt8> = r.consumeToAnyOfThree(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
+                let data: ByteSlice = r.consumeToAnyOfThreeSlice(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
                 t.emit(data)
             }
             break
@@ -874,7 +865,7 @@ enum TokeniserState: TokeniserStateProtocol {
                     break
                 default:
                     if byte < TokeniserStateVars.asciiUpperLimitByte {
-                        let data: ArraySlice<UInt8> = r.consumeToAnyOfThree(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
+                        let data: ByteSlice = r.consumeToAnyOfThreeSlice(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
                         t.emit(data)
                     } else {
                         let c = r.consume()
@@ -918,7 +909,7 @@ enum TokeniserState: TokeniserStateProtocol {
                     break
                 default:
                     if byte < TokeniserStateVars.asciiUpperLimitByte {
-                        let data: ArraySlice<UInt8> = r.consumeToAnyOfFour(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.greaterThanByte, TokeniserStateVars.nullByte)
+                        let data: ByteSlice = r.consumeToAnyOfFourSlice(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.greaterThanByte, TokeniserStateVars.nullByte)
                         t.emit(data)
                     } else {
                         let c = r.consume()
@@ -965,7 +956,7 @@ enum TokeniserState: TokeniserStateProtocol {
             t.transition(.BeforeAttributeName)
             return
         case .AttributeValue_doubleQuoted:
-            let value: ArraySlice<UInt8> = r.consumeAttributeValueDoubleQuoted()
+            let value: ByteSlice = r.consumeAttributeValueDoubleQuotedSlice()
             if !value.isEmpty {
                 t.tagPending.appendAttributeValue(value)
             } else if let nextByte = r.currentByte(), nextByte == TokeniserStateVars.quoteByte {
@@ -1010,7 +1001,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_singleQuoted:
-            let value: ArraySlice<UInt8> = r.consumeAttributeValueSingleQuoted()
+            let value: ByteSlice = r.consumeAttributeValueSingleQuotedSlice()
             if !value.isEmpty {
                 t.tagPending.appendAttributeValue(value)
             } else if let nextByte = r.currentByte(), nextByte == TokeniserStateVars.apostropheByte {
@@ -1055,7 +1046,7 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .AttributeValue_unquoted:
-            let value: ArraySlice<UInt8> = r.consumeAttributeValueUnquoted()
+            let value: ByteSlice = r.consumeAttributeValueUnquotedSlice()
             if !value.isEmpty {
                 t.tagPending.appendAttributeValue(value)
             }
@@ -1170,7 +1161,7 @@ enum TokeniserState: TokeniserStateProtocol {
             r.unconsume()
             let comment: Token.Comment = Token.Comment()
             comment.bogus = true
-            comment.data.append(r.consumeTo(UTF8Arrays.tagEnd))
+            comment.data.append(r.consumeToSlice(UTF8Arrays.tagEnd))
             // todo: replace nullChar with replaceChar
             try t.emit(comment)
             t.advanceTransition(.Data)
@@ -1296,7 +1287,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.commentPending.data.append(TokeniserStateVars.replacementChar)
                 break
             default:
-                let value: ArraySlice<UInt8>  = r.consumeToAnyOfTwo(TokeniserStateVars.hyphenByte, TokeniserStateVars.nullByte)
+                let value: ByteSlice  = r.consumeToAnyOfTwoSlice(TokeniserStateVars.hyphenByte, TokeniserStateVars.nullByte)
                 t.commentPending.data.append(value)
             }
             break
@@ -1541,12 +1532,12 @@ enum TokeniserState: TokeniserStateProtocol {
         case .DoctypeName:
             if let byte = r.currentByte(), byte < TokeniserStateVars.asciiUpperLimitByte {
                 if TokeniserStateVars.isAsciiAlpha(byte) {
-                    let name = r.consumeLetterSequence()
+                    let name = r.consumeLetterSequenceSlice()
                     t.doctypePending.name.append(name)
                     return
                 }
             } else if (r.matchesLetter()) {
-                let name = r.consumeLetterSequence()
+                let name = r.consumeLetterSequenceSlice()
                 t.doctypePending.name.append(name)
                 return
             }
@@ -1750,12 +1741,11 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .DoctypePublicIdentifier_doubleQuoted:
-            let value: ArraySlice<UInt8>
-            if r.canSkipNullCheck {
-                value = r.consumeToAnyOfTwo(TokeniserStateVars.quoteByte, TokeniserStateVars.greaterThanByte)
-            } else {
-                value = r.consumeToAnyOfThree(TokeniserStateVars.quoteByte, TokeniserStateVars.nullByte, TokeniserStateVars.greaterThanByte)
-            }
+            let value = r.consumeToAnyOfThreeSlice(
+                TokeniserStateVars.quoteByte,
+                TokeniserStateVars.nullByte,
+                TokeniserStateVars.greaterThanByte
+            )
             if !value.isEmpty {
                 t.doctypePending.publicIdentifier.append(value)
             }
@@ -1794,12 +1784,11 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .DoctypePublicIdentifier_singleQuoted:
-            let value: ArraySlice<UInt8>
-            if r.canSkipNullCheck {
-                value = r.consumeToAnyOfTwo(TokeniserStateVars.apostropheByte, TokeniserStateVars.greaterThanByte)
-            } else {
-                value = r.consumeToAnyOfThree(TokeniserStateVars.apostropheByte, TokeniserStateVars.nullByte, TokeniserStateVars.greaterThanByte)
-            }
+            let value = r.consumeToAnyOfThreeSlice(
+                TokeniserStateVars.apostropheByte,
+                TokeniserStateVars.nullByte,
+                TokeniserStateVars.greaterThanByte
+            )
             if !value.isEmpty {
                 t.doctypePending.publicIdentifier.append(value)
             }
@@ -2080,12 +2069,11 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .DoctypeSystemIdentifier_doubleQuoted:
-            let value: ArraySlice<UInt8>
-            if r.canSkipNullCheck {
-                value = r.consumeToAnyOfTwo(TokeniserStateVars.quoteByte, TokeniserStateVars.greaterThanByte)
-            } else {
-                value = r.consumeToAnyOfThree(TokeniserStateVars.quoteByte, TokeniserStateVars.nullByte, TokeniserStateVars.greaterThanByte)
-            }
+            let value = r.consumeToAnyOfThreeSlice(
+                TokeniserStateVars.quoteByte,
+                TokeniserStateVars.nullByte,
+                TokeniserStateVars.greaterThanByte
+            )
             if !value.isEmpty {
                 t.doctypePending.systemIdentifier.append(value)
             }
@@ -2124,12 +2112,11 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .DoctypeSystemIdentifier_singleQuoted:
-            let value: ArraySlice<UInt8>
-            if r.canSkipNullCheck {
-                value = r.consumeToAnyOfTwo(TokeniserStateVars.apostropheByte, TokeniserStateVars.greaterThanByte)
-            } else {
-                value = r.consumeToAnyOfThree(TokeniserStateVars.apostropheByte, TokeniserStateVars.nullByte, TokeniserStateVars.greaterThanByte)
-            }
+            let value = r.consumeToAnyOfThreeSlice(
+                TokeniserStateVars.apostropheByte,
+                TokeniserStateVars.nullByte,
+                TokeniserStateVars.greaterThanByte
+            )
             if !value.isEmpty {
                 t.doctypePending.systemIdentifier.append(value)
             }
@@ -2215,7 +2202,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.transition(.Data)
                 break
             }
-            _ = r.consumeTo(UTF8Arrays.tagEnd)
+            _ = r.consumeToSlice(UTF8Arrays.tagEnd)
             if r.matchConsume(UTF8Arrays.tagEnd) {
                 try t.emitDoctypePending()
                 t.transition(.Data)
@@ -2226,7 +2213,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         case .CdataSection:
             let dataStart = r.pos
-            let data = r.consumeTo(TokeniserStateVars.cdataEndUTF8)
+            let data = r.consumeToSlice(TokeniserStateVars.cdataEndUTF8)
             t.emitRaw(data, start: dataStart, end: r.pos)
             r.matchConsume(TokeniserStateVars.cdataEndUTF8)
             t.transition(.Data)
@@ -2242,13 +2229,13 @@ enum TokeniserState: TokeniserStateProtocol {
     private static func handleDataEndTag(_ t: Tokeniser, _ r: CharacterReader, _ elseTransition: TokeniserState)throws {
         if let byte = r.currentByte(), byte < TokeniserStateVars.asciiUpperLimitByte {
             if TokeniserStateVars.isAsciiAlpha(byte) {
-                let name: ArraySlice<UInt8> = r.consumeLetterSequence()
+                let name: ByteSlice = r.consumeLetterSequenceSlice()
                 t.tagPending.appendTagName(name)
                 t.dataBuffer.append(name)
                 return
             }
         } else if (r.matchesLetter()) {
-            let name: ArraySlice<UInt8> = r.consumeLetterSequence()
+            let name: ByteSlice = r.consumeLetterSequenceSlice()
             t.tagPending.appendTagName(name)
             t.dataBuffer.append(name)
             return
@@ -2321,12 +2308,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         default:
             let dataStart = r.pos
-            let data: ArraySlice<UInt8>
-            if r.canSkipNullCheck {
-                data = r.consumeToAnyOfOne(TokeniserStateVars.lessThanByte)
-            } else {
-                data = r.consumeToAnyOfTwo(TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
-            }
+            let data = r.consumeToAnyOfTwoSlice(TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
             t.emitRaw(data, start: dataStart, end: r.pos)
             break
         }
@@ -2334,14 +2316,7 @@ enum TokeniserState: TokeniserStateProtocol {
 
     @inline(__always)
     internal static func readTagName(_ state: TokeniserState, _ t: Tokeniser, _ r: CharacterReader) throws {
-        #if PROFILE
-        let _pConsume = Profiler.start("TokeniserState.TagName.consumeTagName")
-        #endif
-        let (tagName, hasUppercase) = r.consumeTagNameWithUppercaseFlag()
-#if PROFILE
-        Profiler.end("TokeniserState.TagName.consumeTagName", _pConsume)
-        let _pAppend = Profiler.start("TokeniserState.TagName.appendTagName")
-#endif
+        let (tagName, hasUppercase) = r.consumeTagNameWithUppercaseFlagSlice()
         if t.lowercaseTagNames && hasUppercase {
             t.tagPending.appendTagNameLowercased(tagName)
             if let lowered = t.tagPending.tagNameSlice() {
@@ -2355,9 +2330,6 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.tagPending.tagId = .none
             }
         }
-#if PROFILE
-        Profiler.end("TokeniserState.TagName.appendTagName", _pAppend)
-#endif
         if r.isEmpty() {
             t.eofError(state)
             t.transition(.Data)
@@ -2400,7 +2372,7 @@ enum TokeniserState: TokeniserStateProtocol {
             return false
         }
         t.createTagPending(isStart)
-        let (tagName, hasUppercase) = r.consumeTagNameWithUppercaseFlag()
+        let (tagName, hasUppercase) = r.consumeTagNameWithUppercaseFlagSlice()
         if t.lowercaseTagNames && hasUppercase {
             t.tagPending.appendTagNameLowercased(tagName)
             if let lowered = t.tagPending.tagNameSlice() {
@@ -2548,15 +2520,9 @@ enum TokeniserState: TokeniserStateProtocol {
 
     @inline(__always)
     private static func readAttributeName(_ state: TokeniserState, _ t: Tokeniser, _ r: CharacterReader) throws {
-        let name: ArraySlice<UInt8> = r.consumeAttributeName()
+        let name: ByteSlice = r.consumeAttributeNameSlice()
         if !name.isEmpty {
-            #if PROFILE
-            let _pAttrAppend = Profiler.start("TokeniserState.AttributeName.appendAttributeName")
-            #endif
             t.tagPending.appendAttributeName(name)
-            #if PROFILE
-            Profiler.end("TokeniserState.AttributeName.appendAttributeName", _pAttrAppend)
-            #endif
         }
 
         if r.isEmpty() {
@@ -2694,7 +2660,7 @@ enum TokeniserState: TokeniserStateProtocol {
 
     @inline(__always)
     private static func consumeAttributeNameAndValueFast(_ t: Tokeniser, _ r: CharacterReader) throws -> Bool {
-        let name: ArraySlice<UInt8> = r.consumeAttributeName()
+        let name: ByteSlice = r.consumeAttributeNameSlice()
         if !name.isEmpty {
             t.tagPending.appendAttributeName(name)
         }
@@ -2799,7 +2765,7 @@ enum TokeniserState: TokeniserStateProtocol {
     @inline(__always)
     private static func consumeQuotedAttributeValueFast(_ t: Tokeniser, _ r: CharacterReader, _ quote: UInt8, _ state: TokeniserState) throws -> Bool {
         while true {
-            let value: ArraySlice<UInt8> = (quote == TokeniserStateVars.quoteByte) ? r.consumeAttributeValueDoubleQuoted() : r.consumeAttributeValueSingleQuoted()
+            let value: ByteSlice = (quote == TokeniserStateVars.quoteByte) ? r.consumeAttributeValueDoubleQuotedSlice() : r.consumeAttributeValueSingleQuotedSlice()
             if !value.isEmpty {
                 t.tagPending.appendAttributeValue(value)
             } else if let nextByte = r.currentByte(), nextByte == quote {
@@ -2847,7 +2813,7 @@ enum TokeniserState: TokeniserStateProtocol {
     @inline(__always)
     private static func consumeUnquotedAttributeValueFast(_ t: Tokeniser, _ r: CharacterReader) throws -> Bool {
         while true {
-            let value: ArraySlice<UInt8> = r.consumeAttributeValueUnquoted()
+            let value: ByteSlice = r.consumeAttributeValueUnquotedSlice()
             if !value.isEmpty {
                 t.tagPending.appendAttributeValue(value)
             }
@@ -3031,7 +2997,7 @@ enum TokeniserState: TokeniserStateProtocol {
         if let byte = r.currentByte() {
             if byte < TokeniserStateVars.asciiUpperLimitByte {
                 if TokeniserStateVars.isAsciiAlpha(byte) {
-                    let name = r.consumeLetterSequence()
+                    let name = r.consumeLetterSequenceSlice()
                     t.dataBuffer.append(name)
                     t.emit(name)
                     return
@@ -3050,7 +3016,7 @@ enum TokeniserState: TokeniserStateProtocol {
         }
 
         if (r.matchesLetter()) {
-            let name = r.consumeLetterSequence()
+            let name = r.consumeLetterSequenceSlice()
             t.dataBuffer.append(name)
             t.emit(name)
             return

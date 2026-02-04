@@ -12,7 +12,7 @@ import Foundation
  */
 open class DataNode: Node {
     private static let DATA_KEY  = "data".utf8Array
-    private var rawDataSlice: ArraySlice<UInt8>? = nil
+    private var rawDataSlice: ByteSlice? = nil
 
     /**
      Create a new DataNode.
@@ -28,9 +28,14 @@ open class DataNode: Node {
     }
 
     @usableFromInline
-    internal init(slice: ArraySlice<UInt8>, baseUri: [UInt8]) {
+    internal init(slice: ByteSlice, baseUri: [UInt8]) {
         super.init(baseUri)
         rawDataSlice = slice
+    }
+
+    @usableFromInline
+    internal convenience init(slice: ArraySlice<UInt8>, baseUri: [UInt8]) {
+        self.init(slice: ByteSlice.fromArraySlice(slice), baseUri: baseUri)
     }
 
     @inline(__always)
@@ -55,7 +60,7 @@ open class DataNode: Node {
     @inline(__always)
     open func getWholeDataUTF8() -> [UInt8] {
         if let slice = rawDataSlice {
-            let materialized = Array(slice)
+            let materialized = slice.toArray()
             rawDataSlice = nil
             do {
                 try ensureAttributesForWrite().put(DataNode.DATA_KEY, materialized)
@@ -69,18 +74,18 @@ open class DataNode: Node {
     }
 
     @usableFromInline
-    internal func wholeDataSlice() -> ArraySlice<UInt8> {
+    internal func wholeDataSlice() -> ByteSlice {
         if let slice = rawDataSlice {
             return slice
         }
         guard let attributes = attributes else {
-            return []
+            return ByteSlice.empty
         }
-        return attributes.get(key: DataNode.DATA_KEY)[...]
+        return ByteSlice.fromArray(attributes.get(key: DataNode.DATA_KEY))
     }
 
     @usableFromInline
-    internal func appendSlice(_ slice: ArraySlice<UInt8>) {
+    internal func appendSlice(_ slice: ByteSlice) {
         var data = getWholeDataUTF8()
         data.append(contentsOf: slice)
         do {
@@ -90,7 +95,7 @@ open class DataNode: Node {
     }
 
     @usableFromInline
-    internal func extendSliceFromSourceRange(_ source: [UInt8], newRange: SourceRange) -> Bool {
+    internal func extendSliceFromSourceRange(_ source: SourceBuffer, newRange: SourceRange) -> Bool {
         guard rawDataSlice != nil, !sourceRangeDirty else {
             return false
         }
@@ -98,18 +103,18 @@ open class DataNode: Node {
               existingRange.isValid,
               newRange.isValid,
               existingRange.end == newRange.start,
-              newRange.end <= source.count
+              newRange.end <= source.bytes.count
         else {
             return false
         }
-        rawDataSlice = source[existingRange.start..<newRange.end]
+        rawDataSlice = ByteSlice(storage: source.storage, start: existingRange.start, end: newRange.end)
         return true
     }
 
 
     @usableFromInline
     internal func appendBytes(_ bytes: [UInt8]) {
-        appendSlice(bytes[...])
+        appendSlice(ByteSlice.fromArray(bytes))
     }
 
 

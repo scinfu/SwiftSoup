@@ -207,7 +207,7 @@ open class Evaluator: @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element) throws -> Bool {
             if let values = element.getAttributes() {
                 for attribute in values {
-                    let key = attribute.getKeyUTF8()
+                    let key = attribute.keySlice
                     if key.count < keyPrefix.count { continue }
                     var matches = true
                     var i = 0
@@ -243,6 +243,15 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let slice = element.attrSlice(keyBytes) {
+                if slice.isEmpty { return false }
+                let needsTrim = (slice.first?.isWhitespace ?? false) || (slice.last?.isWhitespace ?? false)
+                let candidate = needsTrim ? slice.trim() : slice
+                return StringUtil.equalsIgnoreCase(valueBytes, candidate)
+            }
+            if !Element.isAbsAttributeKey(keyBytes) {
+                return false
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
             let needsTrim = (bytes.first?.isWhitespace ?? false) || (bytes.last?.isWhitespace ?? false)
@@ -265,6 +274,13 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let slice = element.attrSlice(keyBytes) {
+                if slice.isEmpty { return true }
+                return !StringUtil.equalsIgnoreCase(valueBytes, slice)
+            }
+            if !Element.isAbsAttributeKey(keyBytes) {
+                return true
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return true }
             return !valueBytes.equalsIgnoreCase(string: bytes)
@@ -285,6 +301,18 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let slice = element.attrSlice(keyBytes) {
+                if slice.isEmpty { return false }
+                if StringUtil.isAscii(slice),
+                   StringUtil.isAscii(valueBytes) {
+                    return StringUtil.hasPrefixLowercaseAscii(slice, valueBytes)
+                }
+                let string = slice.withUnsafeBytes { String(decoding: $0, as: UTF8.self) }
+                return string.lowercased().hasPrefix(value)
+            }
+            if !Element.isAbsAttributeKey(keyBytes) {
+                return false
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
             if StringUtil.isAscii(bytes),
@@ -309,6 +337,18 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let slice = element.attrSlice(keyBytes) {
+                if slice.isEmpty { return false }
+                if StringUtil.isAscii(slice),
+                   StringUtil.isAscii(valueBytes) {
+                    return StringUtil.hasSuffixLowercaseAscii(slice, valueBytes)
+                }
+                let string = slice.withUnsafeBytes { String(decoding: $0, as: UTF8.self) }
+                return string.lowercased().hasSuffix(value)
+            }
+            if !Element.isAbsAttributeKey(keyBytes) {
+                return false
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
             if StringUtil.isAscii(bytes),
@@ -333,6 +373,18 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let slice = element.attrSlice(keyBytes) {
+                if slice.isEmpty { return false }
+                if StringUtil.isAscii(slice),
+                   StringUtil.isAscii(valueBytes) {
+                    return StringUtil.containsLowercaseAscii(slice, valueBytes)
+                }
+                let string = slice.withUnsafeBytes { String(decoding: $0, as: UTF8.self) }
+                return string.lowercased().contains(value)
+            }
+            if !Element.isAbsAttributeKey(keyBytes) {
+                return false
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
             if StringUtil.isAscii(bytes),
@@ -364,6 +416,14 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let slice = element.attrSlice(keyBytes) {
+                if slice.isEmpty { return false }
+                let string = slice.withUnsafeBytes { String(decoding: $0, as: UTF8.self) }
+                return pattern.matcher(in: string).find()
+            }
+            if !Element.isAbsAttributeKey(keyBytes) {
+                return false
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
             let string = String(decoding: bytes, as: UTF8.self)
@@ -748,6 +808,9 @@ open class Evaluator: @unchecked Sendable {
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             if let needle = searchTextLowerUTF8 {
+                if let slice = element.textUTF8ByteSlice(trimAndNormaliseWhitespace: true) {
+                    return StringUtil.containsLowercaseAscii(slice, needle)
+                }
                 return element.containsNormalizedTextASCII(needle)
             }
             return (try element.text().lowercased().contains(searchText))
@@ -778,6 +841,9 @@ open class Evaluator: @unchecked Sendable {
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             if let needle = searchTextLowerUTF8 {
+                if let slice = element.textUTF8ByteSlice(trimAndNormaliseWhitespace: true) {
+                    return StringUtil.containsLowercaseAscii(slice, needle)
+                }
                 return element.containsOwnTextASCII(needle)
             }
             return (element.ownText().lowercased().contains(searchText))

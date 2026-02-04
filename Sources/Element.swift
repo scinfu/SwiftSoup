@@ -7,6 +7,264 @@
 
 import Foundation
 
+// Selector result cache:
+// - Segmented LRU (probationary/protected) to favor items reused at least twice.
+// - Admission control via a "doorkeeper" (TinyLFU-style) so first-seen items
+//   don't immediately enter the cache and churn it. See Einziger & Friedman 2015.
+@usableFromInline
+final class SelectorResultCache {
+    @usableFromInline
+    final class LRUNode {
+        let key: String
+        var value: Elements
+        var prev: LRUNode?
+        var next: LRUNode?
+
+        init(key: String, value: Elements) {
+            self.key = key
+            self.value = value
+        }
+    }
+
+    @usableFromInline
+    final class LRUMap {
+        let capacity: Int
+        private var nodes: [String: LRUNode] = [:]
+        private var head: LRUNode?
+        private var tail: LRUNode?
+
+        init(capacity: Int) {
+            self.capacity = max(1, capacity)
+        }
+
+        @inline(__always)
+        func contains(_ key: String) -> Bool {
+            return nodes[key] != nil
+        }
+
+        @inline(__always)
+        func get(_ key: String) -> Elements? {
+            guard let node = nodes[key] else { return nil }
+            moveToHead(node)
+            return node.value
+        }
+
+        @inline(__always)
+        func set(_ key: String, _ value: Elements) -> LRUNode? {
+            if let node = nodes[key] {
+                node.value = value
+                moveToHead(node)
+                return nil
+            }
+            let node = LRUNode(key: key, value: value)
+            nodes[key] = node
+            insertAtHead(node)
+            if nodes.count > capacity {
+                return popTail()
+            }
+            return nil
+        }
+
+        @inline(__always)
+        func remove(_ key: String) -> Elements? {
+            guard let node = nodes.removeValue(forKey: key) else { return nil }
+            removeNode(node)
+            return node.value
+        }
+
+        @inline(__always)
+        func popTail() -> LRUNode? {
+            guard let tail else { return nil }
+            removeNode(tail)
+            nodes.removeValue(forKey: tail.key)
+            return tail
+        }
+
+        @inline(__always)
+        func clear() {
+            nodes.removeAll(keepingCapacity: true)
+            head = nil
+            tail = nil
+        }
+
+        @inline(__always)
+        private func insertAtHead(_ node: LRUNode) {
+            node.prev = nil
+            node.next = head
+            if let head {
+                head.prev = node
+            } else {
+                tail = node
+            }
+            head = node
+        }
+
+        @inline(__always)
+        private func moveToHead(_ node: LRUNode) {
+            guard head !== node else { return }
+            removeNode(node)
+            insertAtHead(node)
+        }
+
+        @inline(__always)
+        private func removeNode(_ node: LRUNode) {
+            let prev = node.prev
+            let next = node.next
+            if let prev {
+                prev.next = next
+            } else {
+                head = next
+            }
+            if let next {
+                next.prev = prev
+            } else {
+                tail = prev
+            }
+            node.prev = nil
+            node.next = nil
+        }
+    }
+
+    @usableFromInline
+    let probationary: LRUMap
+    @usableFromInline
+    let protected: LRUMap
+    private let doorkeeperCapacity: Int
+    private var doorkeeper: Set<String> = []
+    private var doorkeeperOrder: [String] = []
+
+    init(capacity: Int) {
+        let protectedCap = max(1, (capacity * 3) / 4)
+        let probationaryCap = max(1, capacity - protectedCap)
+        probationary = LRUMap(capacity: probationaryCap)
+        protected = LRUMap(capacity: protectedCap)
+        doorkeeperCapacity = max(1, capacity)
+        doorkeeper.reserveCapacity(doorkeeperCapacity)
+        doorkeeperOrder.reserveCapacity(doorkeeperCapacity)
+    }
+
+    @inline(__always)
+    func get(_ key: String) -> Elements? {
+        if let value = protected.get(key) {
+            return value
+        }
+        if let value = probationary.remove(key) {
+            if let evicted = protected.set(key, value) {
+                _ = probationary.set(evicted.key, evicted.value)
+            }
+            return value
+        }
+        return nil
+    }
+
+    @inline(__always)
+    func put(_ key: String, _ value: Elements) {
+        if protected.contains(key) {
+            _ = protected.set(key, value)
+            return
+        }
+        if probationary.contains(key) {
+            _ = probationary.set(key, value)
+            return
+        }
+        if doorkeeper.contains(key) {
+            doorkeeper.remove(key)
+            if let idx = doorkeeperOrder.firstIndex(of: key) {
+                doorkeeperOrder.remove(at: idx)
+            }
+            _ = probationary.set(key, value)
+            return
+        }
+        doorkeeper.insert(key)
+        doorkeeperOrder.append(key)
+        if doorkeeperOrder.count > doorkeeperCapacity {
+            let removed = doorkeeperOrder.removeFirst()
+            doorkeeper.remove(removed)
+        }
+    }
+
+    @inline(__always)
+    func clear() {
+        probationary.clear()
+        protected.clear()
+        doorkeeper.removeAll(keepingCapacity: true)
+        doorkeeperOrder.removeAll(keepingCapacity: true)
+    }
+}
+
+// Tracks query-stream locality to detect scan-heavy workloads and bypass caching
+// when unique queries overwhelm the cache and hit rate stays low.
+@usableFromInline
+final class SelectorQueryStats {
+    let windowSize: Int
+    private var queries: [String]
+    private var hits: [UInt8]
+    private var index: Int = 0
+    private var filled: Bool = false
+    private var uniqueCounts: [String: Int] = [:]
+    private var hitCount: Int = 0
+
+    init(windowSize: Int) {
+        self.windowSize = max(1, windowSize)
+        self.queries = Array(repeating: "", count: self.windowSize)
+        self.hits = Array(repeating: 0, count: self.windowSize)
+        self.uniqueCounts.reserveCapacity(self.windowSize)
+    }
+
+    @inline(__always)
+    func record(_ query: String, hit: Bool) {
+        if filled {
+            let oldQuery = queries[index]
+            let oldHit = hits[index]
+            if oldHit != 0 {
+                hitCount &-= 1
+            }
+            if let count = uniqueCounts[oldQuery] {
+                if count <= 1 {
+                    uniqueCounts.removeValue(forKey: oldQuery)
+                } else {
+                    uniqueCounts[oldQuery] = count - 1
+                }
+            }
+        }
+        queries[index] = query
+        let hitByte: UInt8 = hit ? 1 : 0
+        hits[index] = hitByte
+        if hitByte != 0 {
+            hitCount &+= 1
+        }
+        uniqueCounts[query, default: 0] &+= 1
+        index &+= 1
+        if index >= windowSize {
+            index = 0
+            filled = true
+        }
+    }
+
+    @inline(__always)
+    func totalCount() -> Int {
+        return filled ? windowSize : index
+    }
+
+    @inline(__always)
+    func uniqueCount() -> Int {
+        return uniqueCounts.count
+    }
+
+    @inline(__always)
+    func hitsInWindow() -> Int {
+        return hitCount
+    }
+
+    @inline(__always)
+    func reset() {
+        uniqueCounts.removeAll(keepingCapacity: true)
+        hitCount = 0
+        index = 0
+        filled = false
+    }
+}
+
 open class Element: Node {
     var _tag: Tag
     
@@ -19,7 +277,7 @@ open class Element: Node {
     @usableFromInline
     internal static let dynamicAttributeValueIndexMaxKeys: Int = 8
     @usableFromInline
-    internal static let hotAttributeIndexKeys: Set<[UInt8]> = Set([
+    internal static let hotAttributeIndexKeys: Set<ByteSlice> = Set([
         "href".utf8Array,
         "src".utf8Array,
         "srcset".utf8Array,
@@ -38,7 +296,7 @@ open class Element: Node {
         "aria-hidden".utf8Array,
         "type".utf8Array,
         "charset".utf8Array
-    ].map { $0.lowercased() })
+    ].map { ByteSlice.fromArray($0.lowercased()) })
 
 
     /// Lazily-built tag → elements index (normalized lowercase UTF‑8 keys), invalidated on mutations.
@@ -65,7 +323,7 @@ open class Element: Node {
     /// Lazily-built attribute-name → elements index (normalized lowercase UTF‑8 keys).
     /// Keeps full scan out of attribute‑heavy selectors like [href], [data-*].
     @usableFromInline
-    internal var normalizedAttributeNameIndex: [[UInt8]: [Weak<Element>]]? = nil
+    internal var normalizedAttributeNameIndex: [ByteSlice: [Weak<Element>]]? = nil
     @usableFromInline
     internal var isAttributeQueryIndexDirty: Bool = false
 
@@ -73,26 +331,36 @@ open class Element: Node {
     /// Lazily-built attribute-name → (value → elements) index for a curated hot list.
     /// Focused to avoid index build cost dwarfing selector savings.
     @usableFromInline
-    internal var normalizedAttributeValueIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]]? = nil
+    internal var normalizedAttributeValueIndex: [ByteSlice: [ByteSlice: [Weak<Element>]]]? = nil
     @usableFromInline
     internal var isAttributeValueQueryIndexDirty: Bool = false
     /// Tracks dynamically indexed attribute keys (in insertion order) for bounded caching.
     @usableFromInline
-    internal var dynamicAttributeValueIndexKeySet: Set<[UInt8]>? = nil
+    internal var dynamicAttributeValueIndexKeySet: Set<ByteSlice>? = nil
     @usableFromInline
-    internal var dynamicAttributeValueIndexKeyOrder: [[UInt8]]? = nil
+    internal var dynamicAttributeValueIndexKeyOrder: [ByteSlice]? = nil
     @usableFromInline
     internal var suppressQueryIndexDirty: Bool = false
 
-    /// Small LRU cache for selector results on this root, invalidated on mutations.
+    /// Small SLRU cache for selector results on this root, invalidated on mutations.
     @usableFromInline
     internal static let selectorResultCacheCapacity: Int = 256
     @usableFromInline
-    internal var selectorResultCache: [String: Elements]? = nil
+    internal static let selectorResultCacheScanWindowMultiplier: Int = 2
     @usableFromInline
-    internal var selectorResultCacheOrder: [String] = []
+    internal static let selectorResultCacheScanUniqueThresholdNumerator: Int = 3
+    @usableFromInline
+    internal static let selectorResultCacheScanUniqueThresholdDenominator: Int = 2
+    @usableFromInline
+    internal static let selectorResultCacheScanHitRatePermille: Int = 20 // 2%
+    @usableFromInline
+    internal var selectorResultCache: SelectorResultCache? = nil
     @usableFromInline
     internal var selectorResultTextVersion: Int = 0
+    @usableFromInline
+    internal var selectorCacheBypassRemaining: Int = 0
+    @usableFromInline
+    internal var selectorQueryStats: SelectorQueryStats? = nil
     @usableFromInline
     internal var selectorResultCacheRoot: Node? = nil
     
@@ -252,21 +520,37 @@ open class Element: Node {
     @inline(__always)
     open override func attr(_ attributeKey: [UInt8]) throws -> [UInt8] {
         guard attributes != nil else {
-            if attributeKey.count >= UTF8Arrays.absPrefix.count {
-                @inline(__always)
-                func lowerAscii(_ b: UInt8) -> UInt8 {
-                    return (b >= 65 && b <= 90) ? (b &+ 32) : b
-                }
-                if lowerAscii(attributeKey[0]) == UTF8Arrays.absPrefix[0] &&
-                    lowerAscii(attributeKey[1]) == UTF8Arrays.absPrefix[1] &&
-                    lowerAscii(attributeKey[2]) == UTF8Arrays.absPrefix[2] &&
-                    attributeKey[3] == UTF8Arrays.absPrefix[3] {
-                    return try absUrl(attributeKey.substring(UTF8Arrays.absPrefix.count))
-                }
+            if Element.isAbsAttributeKey(attributeKey) {
+                return try absUrl(attributeKey.substring(UTF8Arrays.absPrefix.count))
             }
             return []
         }
         return try super.attr(attributeKey)
+    }
+
+    @inline(__always)
+    internal func attrSlice(_ attributeKey: [UInt8]) -> ByteSlice? {
+        guard let attributes else { return nil }
+        if Element.isAbsAttributeKey(attributeKey) {
+            return nil
+        }
+        return attributes.valueSliceCaseSensitive(attributeKey)
+    }
+
+    @usableFromInline
+    @inline(__always)
+    static func isAbsAttributeKey(_ attributeKey: [UInt8]) -> Bool {
+        if attributeKey.count < UTF8Arrays.absPrefix.count {
+            return false
+        }
+        @inline(__always)
+        func lowerAscii(_ b: UInt8) -> UInt8 {
+            return (b >= 65 && b <= 90) ? (b &+ 32) : b
+        }
+        return lowerAscii(attributeKey[0]) == UTF8Arrays.absPrefix[0] &&
+            lowerAscii(attributeKey[1]) == UTF8Arrays.absPrefix[1] &&
+            lowerAscii(attributeKey[2]) == UTF8Arrays.absPrefix[2] &&
+            attributeKey[3] == UTF8Arrays.absPrefix[3]
     }
 
     @inline(__always)
@@ -529,10 +813,6 @@ open class Element: Node {
     @discardableResult
     @inline(__always)
     public func appendChild(_ child: Node) throws -> Element {
-        #if PROFILE
-        let _p = Profiler.start("Element.appendChild")
-        defer { Profiler.end("Element.appendChild", _p) }
-        #endif
         // was - Node#addChildren(child). short-circuits an array create and a loop.
         let isBulkBuilding = treeBuilder?.isBulkBuilding == true
         if isBulkBuilding, child.parentNode == nil {
@@ -910,7 +1190,6 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByTag(_ tagName: String) throws -> Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         if let lookup = UTF8Arrays.tagLookup[tagName] {
             return try getElementsByTagNormalized(lookup)
         }
@@ -931,7 +1210,6 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByTag(_ tagName: [UInt8]) throws -> Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         try Validate.notEmpty(string: tagName)
         let trimmed = tagName.trim()
         if trimmed.isEmpty {
@@ -995,7 +1273,6 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementById(_ id: String) throws -> Element? {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         let idBytes = id.utf8Array
         try Validate.notEmpty(string: idBytes)
         let needsTrim = (idBytes.first?.isWhitespace ?? false) || (idBytes.last?.isWhitespace ?? false)
@@ -1030,7 +1307,6 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByClass(_ className: String) throws -> Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         DebugTrace.log("Element.getElementsByClass: \(className)")
         let key = className.utf8Array
         if isClassQueryIndexDirty || normalizedClassNameIndex == nil {
@@ -1070,7 +1346,6 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttribute(_ key: String) throws -> Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         try Validate.notEmpty(string: key.utf8Array)
         let keyBytes = key.utf8Array
         @inline(__always)
@@ -1090,15 +1365,9 @@ open class Element: Node {
         if hasAbsPrefix(keyForPrefix) {
             return try Collector.collect(Evaluator.Attribute(key), self)
         }
-        let normalizedKey: [UInt8]
-        if needsTrim {
-            let trimmed = keyForPrefix
-            normalizedKey = Attributes.containsAsciiUppercase(trimmed) ? trimmed.lowercased() : trimmed
-        } else if Attributes.containsAsciiUppercase(keyBytes) {
-            normalizedKey = keyBytes.lowercased()
-        } else {
-            normalizedKey = keyBytes
-        }
+        let keySlice = ByteSlice.fromArray(keyBytes)
+        let trimmedSlice = needsTrim ? keySlice.trim() : keySlice
+        let normalizedKey = Attributes.containsAsciiUppercase(trimmedSlice) ? trimmedSlice.lowercased() : trimmedSlice
         if isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil {
             rebuildQueryIndexesForAllAttributes()
             isAttributeQueryIndexDirty = false
@@ -1124,7 +1393,8 @@ open class Element: Node {
             rebuildQueryIndexesForAllAttributes()
             isAttributeQueryIndexDirty = false
         }
-        let results = normalizedAttributeNameIndex?[key]?.compactMap { $0.value } ?? []
+        let keySlice = ByteSlice.fromArray(key)
+        let results = normalizedAttributeNameIndex?[keySlice]?.compactMap { $0.value } ?? []
         return Elements(results)
     }
     
@@ -1136,7 +1406,6 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeStarting(_ keyPrefix: String) throws -> Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         try Validate.notEmpty(string: keyPrefix.utf8Array)
         let keyPrefix = keyPrefix.trim()
         return try Collector.collect(Evaluator.AttributeStarting(keyPrefix.utf8Array), self)
@@ -1151,7 +1420,6 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValue(_ key: String, _ value: String)throws->Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         let keyBytes = key.utf8Array
         @inline(__always)
         func hasAbsPrefix(_ bytes: [UInt8]) -> Bool {
@@ -1169,15 +1437,9 @@ open class Element: Node {
             return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
         }
         let needsTrim = (keyBytes.first?.isWhitespace ?? false) || (keyBytes.last?.isWhitespace ?? false)
-        let normalizedKey: [UInt8]
-        if needsTrim {
-            let trimmed = keyBytes.trim()
-            normalizedKey = Attributes.containsAsciiUppercase(trimmed) ? trimmed.lowercased() : trimmed
-        } else if Attributes.containsAsciiUppercase(keyBytes) {
-            normalizedKey = keyBytes.lowercased()
-        } else {
-            normalizedKey = keyBytes
-        }
+        let keySlice = ByteSlice.fromArray(keyBytes)
+        let trimmedKeySlice = needsTrim ? keySlice.trim() : keySlice
+        let normalizedKey = Attributes.containsAsciiUppercase(trimmedKeySlice) ? trimmedKeySlice.lowercased() : trimmedKeySlice
         let isHotKey = Element.isHotAttributeKey(normalizedKey)
         if Element.dynamicAttributeValueIndexMaxKeys > 0,
            !isHotKey {
@@ -1188,7 +1450,7 @@ open class Element: Node {
                 rebuildQueryIndexesForHotAttributes()
                 isAttributeValueQueryIndexDirty = false
             }
-            let normalizedValue = value.utf8Array.trim().lowercased()
+            let normalizedValue = ByteSlice.fromArray(value.utf8Array).trim().lowercased()
             let results = normalizedAttributeValueIndex?[normalizedKey]?[normalizedValue]?.compactMap { $0.value } ?? []
             return Elements(results)
         }
@@ -1205,17 +1467,19 @@ open class Element: Node {
         if keyBytes.starts(with: UTF8Arrays.absPrefix) {
             return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
         }
-        let isHotKey = Element.isHotAttributeKey(keyBytes)
+        let keySlice = ByteSlice.fromArray(keyBytes)
+        let valueSlice = ByteSlice.fromArray(valueBytes)
+        let isHotKey = Element.isHotAttributeKey(keySlice)
         if Element.dynamicAttributeValueIndexMaxKeys > 0,
            !isHotKey {
-            ensureDynamicAttributeValueIndexKey(keyBytes)
+            ensureDynamicAttributeValueIndexKey(keySlice)
         }
-        if isHotKey || (dynamicAttributeValueIndexKeySet?.contains(keyBytes) ?? false) {
+        if isHotKey || (dynamicAttributeValueIndexKeySet?.contains(keySlice) ?? false) {
             if isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil {
                 rebuildQueryIndexesForHotAttributes()
                 isAttributeValueQueryIndexDirty = false
             }
-            let results = normalizedAttributeValueIndex?[keyBytes]?[valueBytes]?.compactMap { $0.value } ?? []
+            let results = normalizedAttributeValueIndex?[keySlice]?[valueSlice]?.compactMap { $0.value } ?? []
             return Elements(results)
         }
         return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
@@ -1230,7 +1494,6 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValueNot(_ key: String, _ value: String)throws->Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         return try Collector.collect(Evaluator.AttributeWithValueNot(key, value), self)
     }
     
@@ -1243,7 +1506,6 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValueStarting(_ key: String, _ valuePrefix: String)throws->Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         return try Collector.collect(Evaluator.AttributeWithValueStarting(key, valuePrefix), self)
     }
     
@@ -1256,7 +1518,6 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValueEnding(_ key: String, _ valueSuffix: String)throws->Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         return try Collector.collect(Evaluator.AttributeWithValueEnding(key, valueSuffix), self)
     }
     
@@ -1269,7 +1530,6 @@ open class Element: Node {
      */
     @inline(__always)
     public func getElementsByAttributeValueContaining(_ key: String, _ match: String)throws->Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         return try Collector.collect(Evaluator.AttributeWithValueContaining(key, match), self)
     }
     
@@ -1280,7 +1540,6 @@ open class Element: Node {
      - returns: elements that have attributes matching this regular expression
      */
     public func getElementsByAttributeValueMatching(_ key: String, _ pattern: Pattern)throws->Elements {
-        FeatureFlags.enableSelectorIndexingIfNeeded(for: self)
         return try Collector.collect(Evaluator.AttributeWithValueMatching(key, pattern), self)
         
     }
@@ -1576,10 +1835,6 @@ open class Element: Node {
                 return text
             }
             let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
-            #if PROFILE
-            let _p = Profiler.start("Element.text.traverse")
-            defer { Profiler.end("Element.text.traverse", _p) }
-            #endif
             let (lastWasWhite, sawWhitespace) = collectTextFastTrimmed(accum)
             if sawWhitespace, let first = accum.buffer.first, first.isWhitespace {
                 let trimmed = accum.buffer.trim()
@@ -1619,7 +1874,7 @@ open class Element: Node {
     
     public func textUTF8Slice(trimAndNormaliseWhitespace: Bool = true) throws -> ArraySlice<UInt8> {
         if trimAndNormaliseWhitespace, let slice = singleTextNoWhitespaceSlice() {
-            return slice
+            return slice.toArraySlice()
         }
         let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         if trimAndNormaliseWhitespace {
@@ -1637,7 +1892,15 @@ open class Element: Node {
     }
 
     @inline(__always)
-    private func singleTextNoWhitespaceSlice() -> ArraySlice<UInt8>? {
+    internal func textUTF8ByteSlice(trimAndNormaliseWhitespace: Bool = true) -> ByteSlice? {
+        if trimAndNormaliseWhitespace, let slice = singleTextNoWhitespaceSlice() {
+            return slice
+        }
+        return nil
+    }
+
+    @inline(__always)
+    private func singleTextNoWhitespaceSlice() -> ByteSlice? {
         guard childNodes.count == 1, let textNode = childNodes.first as? TextNode else {
             return nil
         }
@@ -1877,6 +2140,86 @@ open class Element: Node {
                 let b = slice[next]
                 if matcher.feed(b) { return true }
                 next = slice.index(after: next)
+            }
+            emittedAny = true
+            lastWasWhite = false
+            reachedNonWhite = true
+            i = next
+        }
+        return false
+    }
+
+    @inline(__always)
+    private static func emitNormalizedSlice(_ slice: ByteSlice,
+                                            stripLeading: Bool,
+                                            emittedAny: inout Bool,
+                                            lastWasWhite: inout Bool,
+                                            matcher: inout AsciiKMPMatcher) -> Bool {
+        var reachedNonWhite = false
+        var i = 0
+        let end = slice.count
+        while i < end {
+            let firstByte = slice[i]
+            if firstByte < TokeniserStateVars.asciiUpperLimitByte {
+                if StringUtil.isAsciiWhitespaceByte(firstByte) {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i &+= 1
+                        continue
+                    }
+                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
+                    lastWasWhite = true
+                    emittedAny = true
+                    i &+= 1
+                    continue
+                }
+                var j = i
+                while j < end {
+                    let b = slice[j]
+                    if b >= TokeniserStateVars.asciiUpperLimitByte || StringUtil.isAsciiWhitespaceByte(b) {
+                        break
+                    }
+                    if matcher.feed(b) { return true }
+                    j &+= 1
+                }
+                if i != j {
+                    emittedAny = true
+                    lastWasWhite = false
+                    reachedNonWhite = true
+                    i = j
+                    continue
+                }
+                i &+= 1
+                continue
+            }
+            if firstByte == StringUtil.utf8NBSPLead {
+                let next = i &+ 1
+                if next < end, slice[next] == StringUtil.utf8NBSPTrail {
+                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
+                        i = next &+ 1
+                        continue
+                    }
+                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
+                    lastWasWhite = true
+                    emittedAny = true
+                    reachedNonWhite = true
+                    i = next &+ 1
+                    continue
+                }
+            }
+            let scalarByteCount: Int
+            if firstByte < StringUtil.utf8Lead3Min {
+                scalarByteCount = 2
+            } else if firstByte < StringUtil.utf8Lead4Min {
+                scalarByteCount = 3
+            } else {
+                scalarByteCount = 4
+            }
+            var next = i
+            for _ in 0..<scalarByteCount {
+                if next == end { return false }
+                let b = slice[next]
+                if matcher.feed(b) { return true }
+                next &+= 1
             }
             emittedAny = true
             lastWasWhite = false
@@ -2488,7 +2831,6 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markQueryIndexesDirty() {
-        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
@@ -2507,7 +2849,6 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markTagQueryIndexDirty() {
-        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
@@ -2522,7 +2863,6 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markClassQueryIndexDirty() {
-        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
@@ -2537,7 +2877,6 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markIdQueryIndexDirty() {
-        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
@@ -2552,7 +2891,6 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markAttributeQueryIndexDirty() {
-        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
@@ -2567,7 +2905,6 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markAttributeValueQueryIndexDirty() {
-        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         guard !(treeBuilder?.isBulkBuilding ?? false) else { return }
         var current: Node? = self
         while let node = current {
@@ -2582,7 +2919,6 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func markAttributeValueQueryIndexDirty(for key: [UInt8]) {
-        guard FeatureFlags.shouldTrackSelectorIndexes() else { return }
         let normalizedKey = key.lowercased()
         if Element.isHotAttributeKey(normalizedKey) {
             markAttributeValueQueryIndexDirty()
@@ -2606,15 +2942,26 @@ internal extension Element {
             selectorResultTextVersion = currentTextVersion
             return nil
         }
-        return cache[query]
+        if let result = cache.get(query) {
+            recordSelectorQuery(query, hit: true)
+            return result
+        }
+        recordSelectorQuery(query, hit: false)
+        return nil
     }
 
     @usableFromInline
     @inline(__always)
     func storeSelectorResult(_ query: String, _ result: Elements) {
+        let hadCache = selectorResultCache != nil
         if selectorResultCache == nil {
-            selectorResultCache = [:]
-            selectorResultCacheOrder = []
+            selectorResultCache = SelectorResultCache(capacity: Element.selectorResultCacheCapacity)
+            selectorQueryStats = SelectorQueryStats(
+                windowSize: Element.selectorResultCacheCapacity * Element.selectorResultCacheScanWindowMultiplier
+            )
+        }
+        if !hadCache {
+            recordSelectorQuery(query, hit: false)
         }
         if selectorResultCacheRoot == nil || selectorResultCacheRoot?.parentNode != nil {
             selectorResultCacheRoot = textMutationRoot()
@@ -2624,37 +2971,55 @@ internal extension Element {
         } else {
             selectorResultTextVersion = textMutationVersionToken()
         }
-        if selectorResultCache![query] != nil {
+        if selectorCacheBypassRemaining > 0 {
+            selectorCacheBypassRemaining &-= 1
             return
         }
-        selectorResultCache![query] = result
-        selectorResultCacheOrder.append(query)
-        let capacity = Element.selectorResultCacheCapacity
-        if selectorResultCacheOrder.count > capacity {
-            let overflow = selectorResultCacheOrder.count - capacity
-            if overflow > 0 {
-                for _ in 0..<overflow {
-                    let removedKey = selectorResultCacheOrder.removeFirst()
-                    selectorResultCache?.removeValue(forKey: removedKey)
-                }
-            }
-        }
+        selectorResultCache?.put(query, result)
     }
 
     @usableFromInline
     @inline(__always)
     func invalidateSelectorResultCache() {
         if selectorResultCache != nil {
+            selectorResultCache?.clear()
             selectorResultCache = nil
-            selectorResultCacheOrder.removeAll(keepingCapacity: true)
             selectorResultCacheRoot = nil
+            selectorCacheBypassRemaining = 0
+            selectorQueryStats = nil
+        }
+    }
+
+    @inline(__always)
+    private func recordSelectorQuery(_ query: String, hit: Bool) {
+        guard let stats = selectorQueryStats else { return }
+        stats.record(query, hit: hit)
+        guard selectorCacheBypassRemaining == 0 else { return }
+        let total = stats.totalCount()
+        if total < stats.windowSize { return }
+        let uniqueCount = stats.uniqueCount()
+        let uniqueThreshold = (Element.selectorResultCacheCapacity
+                               * Element.selectorResultCacheScanUniqueThresholdNumerator)
+                               / Element.selectorResultCacheScanUniqueThresholdDenominator
+        if uniqueCount >= uniqueThreshold {
+            let hits = stats.hitsInWindow()
+            if hits * 1000 < total * Element.selectorResultCacheScanHitRatePermille {
+                selectorCacheBypassRemaining = stats.windowSize
+                stats.reset()
+            }
         }
     }
     
     @usableFromInline
     @inline(__always)
-    static func isHotAttributeKey(_ normalizedKey: [UInt8]) -> Bool {
+    static func isHotAttributeKey(_ normalizedKey: ByteSlice) -> Bool {
         return hotAttributeIndexKeys.contains(normalizedKey)
+    }
+
+    @usableFromInline
+    @inline(__always)
+    static func isHotAttributeKey(_ normalizedKey: [UInt8]) -> Bool {
+        return isHotAttributeKey(ByteSlice.fromArray(normalizedKey))
     }
 
     @inline(__always)
@@ -2725,7 +3090,7 @@ internal extension Element {
     }
 
     @inline(__always)
-    private func ensureDynamicAttributeValueIndexKey(_ key: [UInt8]) {
+    private func ensureDynamicAttributeValueIndexKey(_ key: ByteSlice) {
         guard Element.dynamicAttributeValueIndexMaxKeys > 0,
               !Element.isHotAttributeKey(key) else {
             return
@@ -2734,7 +3099,7 @@ internal extension Element {
             return
         }
         if dynamicAttributeValueIndexKeySet == nil {
-            dynamicAttributeValueIndexKeySet = Set<[UInt8]>()
+            dynamicAttributeValueIndexKeySet = Set<ByteSlice>()
             dynamicAttributeValueIndexKeyOrder = []
         }
         dynamicAttributeValueIndexKeySet?.insert(key)
@@ -2766,8 +3131,8 @@ internal extension Element {
         var tagIndex: [[UInt8]: [Weak<Element>]] = [:]
         var classIndex: [[UInt8]: [Weak<Element>]] = [:]
         var idIndex: [[UInt8]: [Weak<Element>]] = [:]
-        var attributeIndex: [[UInt8]: [Weak<Element>]] = [:]
-        var hotAttributeIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]] = [:]
+        var attributeIndex: [ByteSlice: [Weak<Element>]] = [:]
+        var hotAttributeIndex: [ByteSlice: [ByteSlice: [Weak<Element>]]] = [:]
         let dynamicKeys = dynamicAttributeValueIndexKeySet
 
         let childNodeCount = childNodeSize()
@@ -2822,14 +3187,14 @@ internal extension Element {
                     let lowerKeys = attrs.hasUppercaseKeys
                     for attr in attrs.attributes {
                         DebugTrace.log("rebuildQueryIndexesCombined: attr key \(String(decoding: attr.getKeyUTF8(), as: UTF8.self))")
-                        let keyBytes = attr.getKeyUTF8()
-                        let key = lowerKeys ? keyBytes.lowercased() : keyBytes
+                        let keySlice = attr.keySlice
+                        let key = lowerKeys ? attr.lowerKeySlice() : keySlice
                         if needsAttributes {
                             attributeIndex[key, default: []].append(Weak(element))
                         }
                         if needsHotAttributes,
                            (Element.isHotAttributeKey(key) || (dynamicKeys?.contains(key) ?? false)) {
-                            let value = attr.getValueUTF8().trim().lowercased()
+                            let value = attr.lowerTrimmedValueSlice()
                             var valueIndex = hotAttributeIndex[key] ?? [:]
                             valueIndex[value, default: []].append(Weak(element))
                             hotAttributeIndex[key] = valueIndex
@@ -3026,7 +3391,7 @@ internal extension Element {
             return
         }
         /// Index build is depth‑first to preserve document order.
-        var newIndex: [[UInt8]: [Weak<Element>]] = [:]
+        var newIndex: [ByteSlice: [Weak<Element>]] = [:]
         
         let childNodeCount = childNodeSize()
         newIndex.reserveCapacity(childNodeCount * 4)
@@ -3036,8 +3401,8 @@ internal extension Element {
                 attrs.ensureMaterialized()
                 let lowerKeys = attrs.hasUppercaseKeys
                 for attr in attrs.attributes {
-                    let keyBytes = attr.getKeyUTF8()
-                    let key = lowerKeys ? keyBytes.lowercased() : keyBytes
+                    let keySlice = attr.keySlice
+                    let key = lowerKeys ? attr.lowerKeySlice() : keySlice
                     newIndex[key, default: []].append(Weak(element))
                 }
             }
@@ -3069,7 +3434,7 @@ internal extension Element {
             return
         }
         /// Index build is depth‑first to preserve document order for stable selector results.
-        var newIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]] = [:]
+        var newIndex: [ByteSlice: [ByteSlice: [Weak<Element>]]] = [:]
         let dynamicKeys = dynamicAttributeValueIndexKeySet
         newIndex.reserveCapacity(Element.hotAttributeIndexKeys.count + (dynamicKeys?.count ?? 0))
         traverseElementsDepthFirst { element in
@@ -3077,10 +3442,10 @@ internal extension Element {
                 attrs.ensureMaterialized()
                 let lowerKeys = attrs.hasUppercaseKeys
                 for attr in attrs.attributes {
-                    let keyBytes = attr.getKeyUTF8()
-                    let key = lowerKeys ? keyBytes.lowercased() : keyBytes
+                    let keySlice = attr.keySlice
+                    let key = lowerKeys ? attr.lowerKeySlice() : keySlice
                     guard Element.isHotAttributeKey(key) || (dynamicKeys?.contains(key) ?? false) else { continue }
-                    let value = attr.getValueUTF8().trim().lowercased()
+                    let value = attr.lowerTrimmedValueSlice()
                     var valueIndex = newIndex[key] ?? [:]
                     valueIndex[value, default: []].append(Weak(element))
                     newIndex[key] = valueIndex

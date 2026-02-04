@@ -178,13 +178,13 @@ class CharacterReaderTest: XCTestCase {
 
     func testConsumeToAny() {
         let r = CharacterReader("One 二 &bar; qux 三")
-        XCTAssertEqual("One 二 ", r.consumeToAny(ParsingStrings(["&", ";"])))
+        XCTAssertEqual("One 二 ", String(decoding: r.consumeToAny(ParsingStrings(["&", ";"])), as: UTF8.self))
         XCTAssertTrue(r.matches("&"))
         XCTAssertTrue(r.matches("&bar;"))
         XCTAssertEqual("&", r.consume())
-        XCTAssertEqual("bar", r.consumeToAny(ParsingStrings(["&", ";"])))
+        XCTAssertEqual("bar", String(decoding: r.consumeToAny(ParsingStrings(["&", ";"])), as: UTF8.self))
         XCTAssertEqual(";", String(decoding: Array(r.consume().utf8), as: UTF8.self))
-        XCTAssertEqual(" qux 三", r.consumeToAny(ParsingStrings(["&", ";"])))
+        XCTAssertEqual(" qux 三", String(decoding: r.consumeToAny(ParsingStrings(["&", ";"])), as: UTF8.self))
     }
     
     func testConsumeToAnyMultibyte() {
@@ -351,7 +351,7 @@ class CharacterReaderTest: XCTestCase {
         //let scan = [" ", "\n", "\t"]
         let r = CharacterReader("One\nTwo\tThree")
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
-        XCTAssertEqual("One", r.consumeToAny(ParsingStrings([" ", "\n", "\t"])))
+        XCTAssertEqual("One", String(decoding: r.consumeToAny(ParsingStrings([" ", "\n", "\t"])), as: UTF8.self))
         XCTAssertTrue(r.matchesAny(" ", "\n", "\t"))
         XCTAssertEqual("\n", r.consume())
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))

@@ -197,7 +197,7 @@ open class TokenQueue {
      - returns: The matched data consumed from queue.
      */
 	@discardableResult
-    open func consumeTo(_ seq: String) -> String {
+    open func consumeToSlice(_ seq: String) -> String {
         let offset = queue.indexOf(seq, pos)
         if (offset != -1) {
             let consumed = queue.substring(pos, offset-pos)
@@ -239,12 +239,12 @@ open class TokenQueue {
      - parameter seq: any number of terminators to consume to. **Case insensitive.**
      - returns: consumed string
      */
-    // todo: method name. not good that consumeTo cares for case, and consume to any doesn't. And the only use for this
+    // todo: method name. not good that consumeToSlice cares for case, and consume to any doesn't. And the only use for this
     // is is a case sensitive time...
-    open func consumeToAny(_ seq: String...) -> String {
-        return consumeToAny(seq)
+    open func consumeToAnySlice(_ seq: String...) -> String {
+        return consumeToAnySlice(seq)
     }
-    open func consumeToAny(_ seq: [String]) -> String {
+    open func consumeToAnySlice(_ seq: [String]) -> String {
         let start = pos
         while (!isEmpty() && !matchesAny(seq)) {
             pos+=1
@@ -252,9 +252,25 @@ open class TokenQueue {
 
         return queue.substring(start, pos-start)
     }
+
+    // Backward-compatible wrappers.
+    @discardableResult
+    open func consumeTo(_ seq: String) -> String {
+        return consumeToSlice(seq)
+    }
+
+    @discardableResult
+    open func consumeToAny(_ seq: String...) -> String {
+        return consumeToAnySlice(seq)
+    }
+
+    @discardableResult
+    open func consumeToAny(_ seq: [String]) -> String {
+        return consumeToAnySlice(seq)
+    }
     
     /**
-     Pulls a string off the queue (like consumeTo), and then pulls off the matched string (but does not return it).
+     Pulls a string off the queue (like consumeToSlice), and then pulls off the matched string (but does not return it).
      
      If the queue runs out of characters before finding the seq, will return as much as it can (and queue will go
      isEmpty() == true).
@@ -262,7 +278,7 @@ open class TokenQueue {
      - returns: Data matched from queue.
      */
     open func chompTo(_ seq: String) -> String {
-        let data = consumeTo(seq)
+        let data = consumeToSlice(seq)
         matchChomp(seq)
         return data
     }
@@ -370,7 +386,7 @@ open class TokenQueue {
      
      - returns: tag name
      */
-    open func consumeTagName() -> String {
+    open func consumeTagNameSlice() -> String {
         let start = pos
         while (!isEmpty() && (matchesWord() || matchesAny(":", "_", "-"))) {
             pos+=1

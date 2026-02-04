@@ -11,10 +11,13 @@ import Foundation
 internal final class SourceBuffer {
     @usableFromInline
     let bytes: [UInt8]
+    @usableFromInline
+    let storage: ByteStorage
     
     @usableFromInline
     init(_ bytes: [UInt8]) {
         self.bytes = bytes
+        self.storage = ByteStorage(array: bytes)
     }
 }
 

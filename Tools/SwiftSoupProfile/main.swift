@@ -38,6 +38,7 @@ enum Workload: String {
     case attributeParseNoSelect
     case attributeParseDoubleQuoted
     case parseClosureBasedData
+    case parseClosureBasedLargeNoCopy
     case parsingStringsSingleByte
     case parsingStringsTable
     case entitiesHeavy
@@ -67,6 +68,7 @@ enum Workload: String {
     case fixturesInnerHtmlNoPretty
     case fixturesText
     case fixturesSelect
+    case fixturesSelectLoop
 }
 
 func parseOptions() -> Options {
@@ -176,7 +178,8 @@ func workloadNeedsFixtures(_ workload: Workload) -> Bool {
         .fixturesOuterHtmlNoPrettyNoSourceRanges,
          .fixturesInnerHtmlNoPretty,
          .fixturesText,
-         .fixturesSelect:
+         .fixturesSelect,
+         .fixturesSelectLoop:
         return true
     default:
         return false
@@ -280,6 +283,24 @@ case .parseClosureBasedData:
             _ = try SwiftSoup.parse(data)
         }
     }
+case .parseClosureBasedLargeNoCopy:
+    let chunk = "<div class=\"c\"><span>hello</span><a href=\"/x\">link</a></div>"
+    let html = String(repeating: chunk, count: 20000)
+    let data = Data(html.utf8)
+    let loops = max(1, options.iterations / 100)
+    for _ in 0..<options.repeatCount {
+        for _ in 0..<loops {
+            _ = try SwiftSoup.parse(withBytes: { parse in
+                return try data.withUnsafeBytes { raw -> Document in
+                    let buf = raw.bindMemory(to: UInt8.self)
+                    guard let base = buf.baseAddress else {
+                        return try parse(UnsafeBufferPointer(start: nil, count: 0))
+                    }
+                    return try parse(UnsafeBufferPointer(start: base, count: buf.count))
+                }
+            })
+        }
+    }
 case .parsingStringsSingleByte:
     let parsingStrings = ParsingStrings([" ", ">", "€"])
     let one = [UInt8](arrayLiteral: 32)
@@ -312,7 +333,7 @@ case .consumeToAnySingleByte:
     for _ in 0..<options.repeatCount {
         for _ in 0..<options.iterations {
             reader.pos = reader.input.startIndex
-            _ = reader.consumeToAny(chars) as ArraySlice<UInt8>
+            _ = reader.consumeToAny(chars)
         }
     }
 case .manabiInjectionParse:
@@ -715,6 +736,31 @@ case .fixturesSelect:
             }
         }
     }
+case .fixturesSelectLoop:
+    let iterations = max(1, options.iterations)
+    for _ in 0..<options.repeatCount {
+        for url in files {
+            withAutoreleasepool {
+                do {
+                    let data = try Data(contentsOf: url)
+                    let doc = try SwiftSoup.parse(data, "")
+                    if let body = doc.body() {
+                        var i = 0
+                        while i < iterations {
+                            _ = try body.select("p")
+                            _ = try body.select("a")
+                            _ = try body.select("img")
+                            i &+= 1
+                        }
+                    }
+                    totalBytes += data.count
+                    parsedCount += 1
+                } catch {
+                    writeStderr("Error parsing \(url.path): \(error)\n")
+                }
+            }
+        }
+    }
 }
 
     let total = Date().timeIntervalSince(start)
@@ -733,7 +779,6 @@ func printResult(_ result: RunResult, label: String? = nil) {
 }
 
 let options = parseOptions()
-FeatureFlags.configureFromEnvironment()
 let files = findSourceHTMLFiles(fixturesPath: options.fixturesPath)
 
 let workloadsToCheck: [Workload] = options.abMode
@@ -769,4 +814,4 @@ if options.abMode {
         exit(1)
     }
 }
-print(Profiler.report(top: 40))
+print(Profiler.report(top: 80))

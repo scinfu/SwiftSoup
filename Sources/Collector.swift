@@ -59,7 +59,8 @@ open class Collector {
                     var matchesAll = true
                     for (idx, evaluator) in evaluators.enumerated() {
                         if idx == skipIndex { continue }
-                        if try !evaluator.matches(root, el) {
+                        let matched = try evaluator.matches(root, el)
+                        if !matched {
                             matchesAll = false
                             break
                         }
@@ -81,7 +82,8 @@ open class Collector {
         stack.reserveCapacity(root.childNodes.count + 1)
         stack.append(root)
         while let el = stack.popLast() {
-            if try eval.matches(root, el) {
+            let matched = try eval.matches(root, el)
+            if matched {
                 elements.add(el)
             }
             let children = el.childNodes
