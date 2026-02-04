@@ -142,6 +142,30 @@ open class StringUtil {
         }
         return false
     }
+
+    @inline(__always)
+    static func containsLowercaseAscii(_ bytes: ByteSlice, _ lowerNeedle: [UInt8]) -> Bool {
+        let hayCount = bytes.count
+        let needleCount = lowerNeedle.count
+        if needleCount == 0 { return true }
+        if needleCount > hayCount { return false }
+        let limit = hayCount - needleCount
+        var i = 0
+        while i <= limit {
+            var j = 0
+            while j < needleCount {
+                if Attributes.asciiLowercase(bytes[i + j]) != lowerNeedle[j] {
+                    break
+                }
+                j &+= 1
+            }
+            if j == needleCount {
+                return true
+            }
+            i &+= 1
+        }
+        return false
+    }
     enum StringError: Error {
         case empty
         case short

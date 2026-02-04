@@ -1637,6 +1637,14 @@ open class Element: Node {
     }
 
     @inline(__always)
+    internal func textUTF8ByteSlice(trimAndNormaliseWhitespace: Bool = true) -> ByteSlice? {
+        if trimAndNormaliseWhitespace, let slice = singleTextNoWhitespaceSlice() {
+            return slice
+        }
+        return nil
+    }
+
+    @inline(__always)
     private func singleTextNoWhitespaceSlice() -> ByteSlice? {
         guard childNodes.count == 1, let textNode = childNodes.first as? TextNode else {
             return nil
