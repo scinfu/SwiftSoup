@@ -520,17 +520,8 @@ open class Element: Node {
     @inline(__always)
     open override func attr(_ attributeKey: [UInt8]) throws -> [UInt8] {
         guard attributes != nil else {
-            if attributeKey.count >= UTF8Arrays.absPrefix.count {
-                @inline(__always)
-                func lowerAscii(_ b: UInt8) -> UInt8 {
-                    return (b >= 65 && b <= 90) ? (b &+ 32) : b
-                }
-                if lowerAscii(attributeKey[0]) == UTF8Arrays.absPrefix[0] &&
-                    lowerAscii(attributeKey[1]) == UTF8Arrays.absPrefix[1] &&
-                    lowerAscii(attributeKey[2]) == UTF8Arrays.absPrefix[2] &&
-                    attributeKey[3] == UTF8Arrays.absPrefix[3] {
-                    return try absUrl(attributeKey.substring(UTF8Arrays.absPrefix.count))
-                }
+            if Element.isAbsAttributeKey(attributeKey) {
+                return try absUrl(attributeKey.substring(UTF8Arrays.absPrefix.count))
             }
             return []
         }
@@ -540,19 +531,26 @@ open class Element: Node {
     @inline(__always)
     internal func attrSlice(_ attributeKey: [UInt8]) -> ByteSlice? {
         guard let attributes else { return nil }
-        if attributeKey.count >= UTF8Arrays.absPrefix.count {
-            @inline(__always)
-            func lowerAscii(_ b: UInt8) -> UInt8 {
-                return (b >= 65 && b <= 90) ? (b &+ 32) : b
-            }
-            if lowerAscii(attributeKey[0]) == UTF8Arrays.absPrefix[0] &&
-                lowerAscii(attributeKey[1]) == UTF8Arrays.absPrefix[1] &&
-                lowerAscii(attributeKey[2]) == UTF8Arrays.absPrefix[2] &&
-                attributeKey[3] == UTF8Arrays.absPrefix[3] {
-                return nil
-            }
+        if Element.isAbsAttributeKey(attributeKey) {
+            return nil
         }
         return attributes.valueSliceCaseSensitive(attributeKey)
+    }
+
+    @usableFromInline
+    @inline(__always)
+    static func isAbsAttributeKey(_ attributeKey: [UInt8]) -> Bool {
+        if attributeKey.count < UTF8Arrays.absPrefix.count {
+            return false
+        }
+        @inline(__always)
+        func lowerAscii(_ b: UInt8) -> UInt8 {
+            return (b >= 65 && b <= 90) ? (b &+ 32) : b
+        }
+        return lowerAscii(attributeKey[0]) == UTF8Arrays.absPrefix[0] &&
+            lowerAscii(attributeKey[1]) == UTF8Arrays.absPrefix[1] &&
+            lowerAscii(attributeKey[2]) == UTF8Arrays.absPrefix[2] &&
+            attributeKey[3] == UTF8Arrays.absPrefix[3]
     }
 
     @inline(__always)
@@ -815,10 +813,6 @@ open class Element: Node {
     @discardableResult
     @inline(__always)
     public func appendChild(_ child: Node) throws -> Element {
-        #if PROFILE
-        let _p = Profiler.start("Element.appendChild")
-        defer { Profiler.end("Element.appendChild", _p) }
-        #endif
         // was - Node#addChildren(child). short-circuits an array create and a loop.
         let isBulkBuilding = treeBuilder?.isBulkBuilding == true
         if isBulkBuilding, child.parentNode == nil {
@@ -1470,10 +1464,6 @@ open class Element: Node {
         _ key: String,
         _ value: String
     ) throws -> Elements {
-        #if PROFILE
-        let _p = Profiler.start("Element.getElementsByAttributeValueNormalized")
-        defer { Profiler.end("Element.getElementsByAttributeValueNormalized", _p) }
-        #endif
         if keyBytes.starts(with: UTF8Arrays.absPrefix) {
             return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
         }
@@ -1486,24 +1476,12 @@ open class Element: Node {
         }
         if isHotKey || (dynamicAttributeValueIndexKeySet?.contains(keySlice) ?? false) {
             if isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil {
-                #if PROFILE
-                let _pRebuild = Profiler.start("Element.rebuildQueryIndexesForHotAttributes")
-                defer { Profiler.end("Element.rebuildQueryIndexesForHotAttributes", _pRebuild) }
-                #endif
                 rebuildQueryIndexesForHotAttributes()
                 isAttributeValueQueryIndexDirty = false
             }
-            #if PROFILE
-            let _pLookup = Profiler.start("Element.attrValueIndex.lookup")
-            defer { Profiler.end("Element.attrValueIndex.lookup", _pLookup) }
-            #endif
             let results = normalizedAttributeValueIndex?[keySlice]?[valueSlice]?.compactMap { $0.value } ?? []
             return Elements(results)
         }
-        #if PROFILE
-        let _pFallback = Profiler.start("Element.attrValueIndex.fallback")
-        defer { Profiler.end("Element.attrValueIndex.fallback", _pFallback) }
-        #endif
         return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
     }
     
@@ -1732,10 +1710,6 @@ open class Element: Node {
 
     @inline(__always)
     private func collectTextFast(_ accum: StringBuilder, trimAndNormaliseWhitespace: Bool) {
-        #if PROFILE
-        let _p = Profiler.start("Element.collectTextFast")
-        defer { Profiler.end("Element.collectTextFast", _p) }
-        #endif
         var stack: ContiguousArray<Node> = []
         stack.reserveCapacity(childNodes.count + 1)
         stack.append(self)
@@ -1774,10 +1748,6 @@ open class Element: Node {
 
     @inline(__always)
     private func collectTextFastTrimmed(_ accum: StringBuilder) -> (Bool, Bool) {
-        #if PROFILE
-        let _p = Profiler.start("Element.collectTextFastTrimmed")
-        defer { Profiler.end("Element.collectTextFastTrimmed", _p) }
-        #endif
         var stack: ContiguousArray<Node> = []
         stack.reserveCapacity(childNodes.count + 1)
         stack.append(self)
@@ -1816,10 +1786,6 @@ open class Element: Node {
 
     @inline(__always)
     private func collectTextFastRaw(_ accum: StringBuilder) {
-        #if PROFILE
-        let _p = Profiler.start("Element.collectTextFastRaw")
-        defer { Profiler.end("Element.collectTextFastRaw", _p) }
-        #endif
         var stack: ContiguousArray<Node> = []
         stack.reserveCapacity(childNodes.count + 1)
         stack.append(self)
@@ -1855,17 +1821,9 @@ open class Element: Node {
     public func text(trimAndNormaliseWhitespace: Bool = true) throws -> String {
         if trimAndNormaliseWhitespace {
             if let slice = singleTextNoWhitespaceSlice() {
-                #if PROFILE
-                let _p = Profiler.start("Element.text.fastPath.singleSlice")
-                Profiler.end("Element.text.fastPath.singleSlice", _p)
-                #endif
                 return String(decoding: slice, as: UTF8.self)
             }
             if childNodes.count == 1, let textNode = childNodes.first as? TextNode {
-                #if PROFILE
-                let _p = Profiler.start("Element.text.fastPath.singleTextNode")
-                defer { Profiler.end("Element.text.fastPath.singleTextNode", _p) }
-                #endif
                 let accum = StringBuilder()
                 Element.appendNormalisedText(accum, textNode)
                 if let first = accum.buffer.first, first.isWhitespace {
@@ -1877,10 +1835,6 @@ open class Element: Node {
                 return text
             }
             let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
-            #if PROFILE
-            let _p = Profiler.start("Element.text.traverse")
-            defer { Profiler.end("Element.text.traverse", _p) }
-            #endif
             let (lastWasWhite, sawWhitespace) = collectTextFastTrimmed(accum)
             if sawWhitespace, let first = accum.buffer.first, first.isWhitespace {
                 let trimmed = accum.buffer.trim()
@@ -1892,17 +1846,9 @@ open class Element: Node {
             return String(decoding: accum.buffer, as: UTF8.self)
         }
         if childNodes.count == 1, let textNode = childNodes.first as? TextNode {
-            #if PROFILE
-            let _p = Profiler.start("Element.text.raw.singleTextNode")
-            defer { Profiler.end("Element.text.raw.singleTextNode", _p) }
-            #endif
             return String(decoding: textNode.wholeTextSlice(), as: UTF8.self)
         }
         let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
-        #if PROFILE
-        let _p = Profiler.start("Element.text.raw.traverse")
-        defer { Profiler.end("Element.text.raw.traverse", _p) }
-        #endif
         collectTextFastRaw(accum)
         return accum.toString()
     }
@@ -1955,10 +1901,6 @@ open class Element: Node {
 
     @inline(__always)
     private func singleTextNoWhitespaceSlice() -> ByteSlice? {
-        #if PROFILE
-        let _p = Profiler.start("Element.singleTextNoWhitespaceSlice")
-        defer { Profiler.end("Element.singleTextNoWhitespaceSlice", _p) }
-        #endif
         guard childNodes.count == 1, let textNode = childNodes.first as? TextNode else {
             return nil
         }
@@ -2986,10 +2928,6 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func cachedSelectorResult(_ query: String) -> Elements? {
-        #if PROFILE
-        let _p = Profiler.start("Element.cachedSelectorResult")
-        defer { Profiler.end("Element.cachedSelectorResult", _p) }
-        #endif
         guard let cache = selectorResultCache else { return nil }
         let root: Node
         if let cachedRoot = selectorResultCacheRoot, cachedRoot.parentNode == nil {
@@ -3006,27 +2944,15 @@ internal extension Element {
         }
         if let result = cache.get(query) {
             recordSelectorQuery(query, hit: true)
-            #if PROFILE
-            let _hit = Profiler.start("Element.cachedSelectorResult.hit")
-            Profiler.end("Element.cachedSelectorResult.hit", _hit)
-            #endif
             return result
         }
         recordSelectorQuery(query, hit: false)
-        #if PROFILE
-        let _miss = Profiler.start("Element.cachedSelectorResult.miss")
-        Profiler.end("Element.cachedSelectorResult.miss", _miss)
-        #endif
         return nil
     }
 
     @usableFromInline
     @inline(__always)
     func storeSelectorResult(_ query: String, _ result: Elements) {
-        #if PROFILE
-        let _p = Profiler.start("Element.storeSelectorResult")
-        defer { Profiler.end("Element.storeSelectorResult", _p) }
-        #endif
         let hadCache = selectorResultCache != nil
         if selectorResultCache == nil {
             selectorResultCache = SelectorResultCache(capacity: Element.selectorResultCacheCapacity)
@@ -3055,10 +2981,6 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func invalidateSelectorResultCache() {
-        #if PROFILE
-        let _p = Profiler.start("Element.invalidateSelectorResultCache")
-        defer { Profiler.end("Element.invalidateSelectorResultCache", _p) }
-        #endif
         if selectorResultCache != nil {
             selectorResultCache?.clear()
             selectorResultCache = nil
@@ -3205,10 +3127,6 @@ internal extension Element {
         needsAttributes: Bool,
         needsHotAttributes: Bool
     ) {
-        #if PROFILE
-        let _p = Profiler.start("Element.rebuildQueryIndexesCombined")
-        defer { Profiler.end("Element.rebuildQueryIndexesCombined", _p) }
-        #endif
         DebugTrace.log("Element.rebuildQueryIndexesCombined: tags=\(needsTags) classes=\(needsClasses) ids=\(needsIds) attrs=\(needsAttributes) hot=\(needsHotAttributes)")
         var tagIndex: [[UInt8]: [Weak<Element>]] = [:]
         var classIndex: [[UInt8]: [Weak<Element>]] = [:]
@@ -3270,13 +3188,13 @@ internal extension Element {
                     for attr in attrs.attributes {
                         DebugTrace.log("rebuildQueryIndexesCombined: attr key \(String(decoding: attr.getKeyUTF8(), as: UTF8.self))")
                         let keySlice = attr.keySlice
-                        let key = lowerKeys ? keySlice.lowercased() : keySlice
+                        let key = lowerKeys ? attr.lowerKeySlice() : keySlice
                         if needsAttributes {
                             attributeIndex[key, default: []].append(Weak(element))
                         }
                         if needsHotAttributes,
                            (Element.isHotAttributeKey(key) || (dynamicKeys?.contains(key) ?? false)) {
-                            let value = attr.valueSlice.trim().lowercased()
+                            let value = attr.lowerTrimmedValueSlice()
                             var valueIndex = hotAttributeIndex[key] ?? [:]
                             valueIndex[value, default: []].append(Weak(element))
                             hotAttributeIndex[key] = valueIndex
@@ -3311,10 +3229,6 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func rebuildQueryIndexesForAllTags() {
-        #if PROFILE
-        let _p = Profiler.start("Element.rebuildQueryIndexesForAllTags")
-        defer { Profiler.end("Element.rebuildQueryIndexesForAllTags", _p) }
-        #endif
         let needsClasses = isClassQueryIndexDirty || normalizedClassNameIndex == nil
         let needsIds = isIdQueryIndexDirty || normalizedIdIndex == nil
         let needsAttributes = isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil
@@ -3352,10 +3266,6 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func tagQueryIndexForKey(_ key: [UInt8]) -> [Weak<Element>] {
-        #if PROFILE
-        let _p = Profiler.start("Element.tagQueryIndexForKey")
-        defer { Profiler.end("Element.tagQueryIndexForKey", _p) }
-        #endif
         if isTagQueryIndexDirty {
             normalizedTagNameIndex = nil
             isTagQueryIndexDirty = false
@@ -3364,16 +3274,8 @@ internal extension Element {
             normalizedTagNameIndex = [:]
         }
         if let existing = normalizedTagNameIndex?[key] {
-            #if PROFILE
-            let _pHit = Profiler.start("Element.tagQueryIndexForKey.hit")
-            Profiler.end("Element.tagQueryIndexForKey.hit", _pHit)
-            #endif
             return existing
         }
-        #if PROFILE
-        let _pBuild = Profiler.start("Element.tagQueryIndexForKey.build")
-        defer { Profiler.end("Element.tagQueryIndexForKey.build", _pBuild) }
-        #endif
         var matches: [Weak<Element>] = []
         let childNodeCount = childNodeSize()
         matches.reserveCapacity(max(4, childNodeCount / 8))
@@ -3500,7 +3402,7 @@ internal extension Element {
                 let lowerKeys = attrs.hasUppercaseKeys
                 for attr in attrs.attributes {
                     let keySlice = attr.keySlice
-                    let key = lowerKeys ? keySlice.lowercased() : keySlice
+                    let key = lowerKeys ? attr.lowerKeySlice() : keySlice
                     newIndex[key, default: []].append(Weak(element))
                 }
             }
@@ -3541,9 +3443,9 @@ internal extension Element {
                 let lowerKeys = attrs.hasUppercaseKeys
                 for attr in attrs.attributes {
                     let keySlice = attr.keySlice
-                    let key = lowerKeys ? keySlice.lowercased() : keySlice
+                    let key = lowerKeys ? attr.lowerKeySlice() : keySlice
                     guard Element.isHotAttributeKey(key) || (dynamicKeys?.contains(key) ?? false) else { continue }
-                    let value = attr.valueSlice.trim().lowercased()
+                    let value = attr.lowerTrimmedValueSlice()
                     var valueIndex = newIndex[key] ?? [:]
                     valueIndex[value, default: []].append(Weak(element))
                     newIndex[key] = valueIndex

@@ -67,20 +67,41 @@ open class Token {
         func getName() -> [UInt8] {
             return Array(name.buffer)
         }
+
+        @inline(__always)
+        func getNameSlice() -> ByteSlice {
+            return name.asByteSlice()
+        }
         
         @inline(__always)
         func getPubSysKey() -> [UInt8]? {
             return pubSysKey
+        }
+
+        @inline(__always)
+        func getPubSysKeySlice() -> ByteSlice? {
+            guard let pubSysKey else { return nil }
+            return ByteSlice.fromArray(pubSysKey)
         }
         
         @inline(__always)
         func getPublicIdentifier() -> [UInt8] {
             return Array(publicIdentifier.buffer)
         }
+
+        @inline(__always)
+        func getPublicIdentifierSlice() -> ByteSlice {
+            return publicIdentifier.asByteSlice()
+        }
         
         @inline(__always)
         public func getSystemIdentifier() -> [UInt8] {
             return Array(systemIdentifier.buffer)
+        }
+
+        @inline(__always)
+        func getSystemIdentifierSlice() -> ByteSlice {
+            return systemIdentifier.asByteSlice()
         }
         
         @inline(__always)
@@ -1222,6 +1243,11 @@ open class Token {
         @inline(__always)
         func getData() -> [UInt8] {
             return Array(data.buffer)
+        }
+
+        @inline(__always)
+        func getDataSlice() -> ByteSlice {
+            return data.asByteSlice()
         }
         
         @inline(__always)

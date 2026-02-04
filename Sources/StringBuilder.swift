@@ -37,6 +37,14 @@ open class StringBuilder {
     public var buffer: ArraySlice<UInt8> {
         return internalBuffer[0..<size]
     }
+
+    @usableFromInline
+    @inline(__always)
+    func asByteSlice() -> ByteSlice {
+        if size == 0 { return ByteSlice.empty }
+        let storage = ByteStorage(array: internalBuffer)
+        return ByteSlice(storage: storage, start: 0, end: size)
+    }
     
     /**
      Construct with initial String contents

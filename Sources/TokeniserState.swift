@@ -184,10 +184,6 @@ enum TokeniserState: TokeniserStateProtocol {
 
     @inlinable
     internal func read(_ t: Tokeniser, _ r: CharacterReader) throws {
-        #if PROFILE
-        let _p = Profiler.startDynamic("TokeniserState.\(self)")
-        defer { Profiler.endDynamic("TokeniserState.\(self)", _p) }
-        #endif
         switch self {
         case .Data:
             if r.pos >= r.end {
@@ -2320,14 +2316,7 @@ enum TokeniserState: TokeniserStateProtocol {
 
     @inline(__always)
     internal static func readTagName(_ state: TokeniserState, _ t: Tokeniser, _ r: CharacterReader) throws {
-        #if PROFILE
-        let _pConsume = Profiler.start("TokeniserState.TagName.consumeTagNameSlice")
-        #endif
         let (tagName, hasUppercase) = r.consumeTagNameWithUppercaseFlagSlice()
-#if PROFILE
-        Profiler.end("TokeniserState.TagName.consumeTagNameSlice", _pConsume)
-        let _pAppend = Profiler.start("TokeniserState.TagName.appendTagName")
-#endif
         if t.lowercaseTagNames && hasUppercase {
             t.tagPending.appendTagNameLowercased(tagName)
             if let lowered = t.tagPending.tagNameSlice() {
@@ -2341,9 +2330,6 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.tagPending.tagId = .none
             }
         }
-#if PROFILE
-        Profiler.end("TokeniserState.TagName.appendTagName", _pAppend)
-#endif
         if r.isEmpty() {
             t.eofError(state)
             t.transition(.Data)
@@ -2536,13 +2522,7 @@ enum TokeniserState: TokeniserStateProtocol {
     private static func readAttributeName(_ state: TokeniserState, _ t: Tokeniser, _ r: CharacterReader) throws {
         let name: ByteSlice = r.consumeAttributeNameSlice()
         if !name.isEmpty {
-            #if PROFILE
-            let _pAttrAppend = Profiler.start("TokeniserState.AttributeName.appendAttributeName")
-            #endif
             t.tagPending.appendAttributeName(name)
-            #if PROFILE
-            Profiler.end("TokeniserState.AttributeName.appendAttributeName", _pAttrAppend)
-            #endif
         }
 
         if r.isEmpty() {

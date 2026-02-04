@@ -263,7 +263,7 @@ open class Attributes: NSCopying {
     internal func putMaterialized(_ attribute: Attribute) {
         let keySlice = attribute.keySlice
         let hasUppercase = Attributes.containsAsciiUppercase(keySlice)
-        let normalizedKey = hasUppercase ? keySlice.lowercased() : keySlice
+        let normalizedKey = hasUppercase ? attribute.lowerKeySlice() : keySlice
         if let ix = indexForKey(keySlice) {
             attributes[ix] = attribute
             if !keyIndexDirty, keyIndex != nil {
@@ -294,7 +294,7 @@ open class Attributes: NSCopying {
     internal func updateLowercasedKeysCache() {
         ensureMaterialized()
         lowercasedKeysCache = Set(attributes.map { attr in
-            attr.keySlice.lowercased()
+            attr.lowerKeySlice()
         })
     }
 
@@ -307,7 +307,7 @@ open class Attributes: NSCopying {
             var rebuilt: [ByteSlice: Int] = [:]
             rebuilt.reserveCapacity(attributes.count)
             for (index, attr) in attributes.enumerated() {
-                let lowerKey = attr.keySlice.lowercased()
+                let lowerKey = attr.lowerKeySlice()
                 if rebuilt[lowerKey] == nil {
                     rebuilt[lowerKey] = index
                 }
@@ -1159,9 +1159,10 @@ open class Attributes: NSCopying {
         ensureMaterialized()
         guard hasUppercaseKeys else { return }
         for ix in attributes.indices {
-            let lowered = attributes[ix].keySlice.lowercased()
+            let lowered = attributes[ix].lowerKeySlice()
             attributes[ix].keySlice = lowered
             attributes[ix].keyBytes = nil
+            attributes[ix].lowerKeySliceCache = lowered
         }
         hasUppercaseKeys = false
         invalidateLowercasedKeysCache()

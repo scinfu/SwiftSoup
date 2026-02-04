@@ -76,10 +76,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
     }
 
     func process(_ t: Token, _ tb: HtmlTreeBuilder) throws -> Bool {
-        #if PROFILE
-        let _p = Profiler.startDynamic("HtmlTreeBuilderState.\(self)")
-        defer { Profiler.endDynamic("HtmlTreeBuilderState.\(self)", _p) }
-        #endif
         switch self {
         case .Initial:
             if (HtmlTreeBuilderState.isWhitespace(t)) {
@@ -91,11 +87,11 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 // todo: quirk state check on doctype ids
                 let d: Token.Doctype = t.asDoctype()
                 let doctype: DocumentType = DocumentType(
-                    tb.settings.normalizeTag(d.getName()),
-                    d.getPubSysKey(),
-                    d.getPublicIdentifier(),
-                    d.getSystemIdentifier(),
-                    tb.getBaseUri()
+                    nameSlice: tb.settings.normalizeTag(d.getNameSlice()),
+                    pubSysKeySlice: d.getPubSysKeySlice(),
+                    publicIdSlice: d.getPublicIdentifierSlice(),
+                    systemIdSlice: d.getSystemIdentifierSlice(),
+                    baseUri: tb.getBaseUri()
                 )
                     //tb.settings.normalizeTag(d.getName()), d.getPublicIdentifier(), d.getSystemIdentifier(), tb.getBaseUri())
                 if let range = d.sourceRange {
@@ -478,10 +474,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
 
             switch (t.type) {
             case Token.TokenType.Char:
-#if PROFILE
-                let _pChar = Profiler.start("HtmlTreeBuilderState.InBody.char")
-                defer { Profiler.end("HtmlTreeBuilderState.InBody.char", _pChar) }
-#endif
                 let c: Token.Char = t.asCharacter()
                 let data = c.getDataSlice()
                 if let data, data.count == 1, data.first == TokeniserStateVars.nullByte {
@@ -518,10 +510,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 tb.error(self)
                 return false
             case Token.TokenType.StartTag:
-#if PROFILE
-                let _pStart = Profiler.start("HtmlTreeBuilderState.InBody.startTag")
-                defer { Profiler.end("HtmlTreeBuilderState.InBody.startTag", _pStart) }
-#endif
                 let startTag: Token.StartTag = t.asStartTag()
                 let currentTagId = tb.currentElement()?._tag.tagId
                 var hasFormattingChecked = false
@@ -1018,10 +1006,6 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 break
 
             case .EndTag:
-#if PROFILE
-                let _pEnd = Profiler.start("HtmlTreeBuilderState.InBody.endTag")
-                defer { Profiler.end("HtmlTreeBuilderState.InBody.endTag", _pEnd) }
-#endif
                 let endTag: Token.EndTag = t.asEndTag()
                 let currentTagId = tb.currentElement()?._tag.tagId
                 var adoptionName: [UInt8]? = nil

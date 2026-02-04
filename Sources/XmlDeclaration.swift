@@ -11,7 +11,7 @@ import Foundation
  An XML Declaration.
   */
 public class XmlDeclaration: Node {
-    private let _name: [UInt8]
+    private let nameSlice: ByteSlice
     private let isProcessingInstruction: Bool // <! if true, <? if false, declaration (and last data char should be ?)
 
     /**
@@ -21,7 +21,15 @@ public class XmlDeclaration: Node {
      - parameter isProcessingInstruction: is processing instruction
      */
     public init(_ name: [UInt8], _ baseUri: [UInt8], _ isProcessingInstruction: Bool) {
-        self._name = name
+        self.nameSlice = ByteSlice.fromArray(name)
+        self.isProcessingInstruction = isProcessingInstruction
+        super.init(baseUri)
+        _ = ensureAttributesForWrite()
+    }
+
+    @usableFromInline
+    internal init(slice: ByteSlice, _ baseUri: [UInt8], _ isProcessingInstruction: Bool) {
+        self.nameSlice = slice
         self.isProcessingInstruction = isProcessingInstruction
         super.init(baseUri)
         _ = ensureAttributesForWrite()
@@ -44,7 +52,7 @@ public class XmlDeclaration: Node {
      - returns: name of this declaration.
      */
     public func name() -> String {
-        return String(decoding: _name, as: UTF8.self)
+        return String(decoding: nameSlice, as: UTF8.self)
     }
 
     /**
@@ -62,7 +70,7 @@ public class XmlDeclaration: Node {
         accum
             .append(UTF8Arrays.tagStart)
             .append(isProcessingInstruction ? "!" : "?")
-            .append(_name)
+            .append(nameSlice)
         do {
             try attributes?.html(accum: accum, out: out)
         } catch {}
@@ -74,17 +82,17 @@ public class XmlDeclaration: Node {
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {}
 
 	public override func copy(with zone: NSZone? = nil) -> Any {
-		let clone = XmlDeclaration(_name, baseUri!, isProcessingInstruction)
+		let clone = XmlDeclaration(slice: nameSlice, baseUri!, isProcessingInstruction)
 		return copy(clone: clone)
 	}
 
 	public override func copy(parent: Node?) -> Node {
-		let clone = XmlDeclaration(_name, baseUri!, isProcessingInstruction)
+		let clone = XmlDeclaration(slice: nameSlice, baseUri!, isProcessingInstruction)
 		return copy(clone: clone, parent: parent)
 	}
 
     override func copyForDeepClone(parent: Node?) -> Node {
-        let clone = XmlDeclaration(_name, baseUri!, isProcessingInstruction)
+        let clone = XmlDeclaration(slice: nameSlice, baseUri!, isProcessingInstruction)
         return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
 	public override func copy(clone: Node, parent: Node?) -> Node {

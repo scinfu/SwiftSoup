@@ -88,8 +88,14 @@ public final class CharacterReader {
     }
 
     init(_ input: UnsafeBufferPointer<UInt8>, storage: ByteStorage? = nil, owner: AnyObject? = nil) {
-        self.storage = storage
         self.owner = owner
+        if let storage {
+            self.storage = storage
+        } else if let base = input.baseAddress, owner != nil {
+            self.storage = ByteStorage(buffer: base, count: input.count, owner: owner)
+        } else {
+            self.storage = nil
+        }
         self.input = input
         self.start = 0
         self.pos = 0
@@ -109,6 +115,11 @@ public final class CharacterReader {
     @inline(__always)
     func slice(_ start: Int, _ end: Int) -> ByteSlice {
         if let storage {
+            return ByteSlice(storage: storage, start: start, end: end)
+        }
+        if let base = input.baseAddress, owner != nil {
+            let storage = ByteStorage(buffer: base, count: input.count, owner: owner)
+            self.storage = storage
             return ByteSlice(storage: storage, start: start, end: end)
         }
         let array = Array(input)
@@ -969,10 +980,6 @@ public final class CharacterReader {
     }
 
     public func nextIndexOf(_ targetUtf8: [UInt8]) -> Int? {
-        #if PROFILE
-        let _p = Profiler.start("CharacterReader.nextIndexOf")
-        defer { Profiler.end("CharacterReader.nextIndexOf", _p) }
-        #endif
         let targetCount = targetUtf8.count
         if targetCount == 1 {
             return input[pos...].firstIndex(of: targetUtf8[0])
@@ -1033,10 +1040,6 @@ public final class CharacterReader {
     }
 
     func consumeToAnyOfTwoSlice(_ a: UInt8, _ b: UInt8) -> ByteSlice {
-        #if PROFILE
-        let _p = Profiler.start("CharacterReader.consumeToAnyOfTwoSlice")
-        defer { Profiler.end("CharacterReader.consumeToAnyOfTwoSlice", _p) }
-        #endif
         if a == b {
             return consumeToAnyOfOneSlice(a)
         }
@@ -1733,7 +1736,6 @@ public final class CharacterReader {
         return consumeDataSlice().toArraySlice()
     }
 
-    @inline(__always)
     @inline(__always)
     public func consumeTagName() -> ArraySlice<UInt8> {
         return consumeTagNameSlice().toArraySlice()

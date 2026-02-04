@@ -249,6 +249,9 @@ open class Evaluator: @unchecked Sendable {
                 let candidate = needsTrim ? slice.trim() : slice
                 return StringUtil.equalsIgnoreCase(valueBytes, candidate)
             }
+            if !Element.isAbsAttributeKey(keyBytes) {
+                return false
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
             let needsTrim = (bytes.first?.isWhitespace ?? false) || (bytes.last?.isWhitespace ?? false)
@@ -274,6 +277,9 @@ open class Evaluator: @unchecked Sendable {
             if let slice = element.attrSlice(keyBytes) {
                 if slice.isEmpty { return true }
                 return !StringUtil.equalsIgnoreCase(valueBytes, slice)
+            }
+            if !Element.isAbsAttributeKey(keyBytes) {
+                return true
             }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return true }
@@ -303,6 +309,9 @@ open class Evaluator: @unchecked Sendable {
                 }
                 let string = slice.withUnsafeBytes { String(decoding: $0, as: UTF8.self) }
                 return string.lowercased().hasPrefix(value)
+            }
+            if !Element.isAbsAttributeKey(keyBytes) {
+                return false
             }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
@@ -337,6 +346,9 @@ open class Evaluator: @unchecked Sendable {
                 let string = slice.withUnsafeBytes { String(decoding: $0, as: UTF8.self) }
                 return string.lowercased().hasSuffix(value)
             }
+            if !Element.isAbsAttributeKey(keyBytes) {
+                return false
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
             if StringUtil.isAscii(bytes),
@@ -369,6 +381,9 @@ open class Evaluator: @unchecked Sendable {
                 }
                 let string = slice.withUnsafeBytes { String(decoding: $0, as: UTF8.self) }
                 return string.lowercased().contains(value)
+            }
+            if !Element.isAbsAttributeKey(keyBytes) {
+                return false
             }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
@@ -405,6 +420,9 @@ open class Evaluator: @unchecked Sendable {
                 if slice.isEmpty { return false }
                 let string = slice.withUnsafeBytes { String(decoding: $0, as: UTF8.self) }
                 return pattern.matcher(in: string).find()
+            }
+            if !Element.isAbsAttributeKey(keyBytes) {
+                return false
             }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }

@@ -132,6 +132,12 @@ public class Parser {
         defer { releaseHtmlTreeBuilder(treeBuilder) }
         return try treeBuilder.parse(html, owner: nil, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
     }
+
+    public static func parse(_ html: UnsafeBufferPointer<UInt8>, owner: AnyObject, _ baseUri: [UInt8]) throws -> Document {
+        let treeBuilder = acquireHtmlTreeBuilder()
+        defer { releaseHtmlTreeBuilder(treeBuilder) }
+        return try treeBuilder.parse(html, owner: owner, baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
+    }
     
     public static func parse(_ html: String, _ baseUri: String) throws -> Document {
         return try parse(html.utf8Array, baseUri.utf8Array)
@@ -154,9 +160,21 @@ public class Parser {
         }
     }
 
+    public static func parse(_ baseUri: [UInt8],
+                             withBytesOwned provider: (_ parse: (UnsafeBufferPointer<UInt8>, AnyObject) throws -> Document) throws -> Document) rethrows -> Document {
+        return try provider { buffer, owner in
+            return try Parser.parse(buffer, owner: owner, baseUri)
+        }
+    }
+
     public static func parse(_ baseUri: String,
                              withBytes provider: (_ parse: (UnsafeBufferPointer<UInt8>) throws -> Document) throws -> Document) rethrows -> Document {
         return try parse(baseUri.utf8Array, withBytes: provider)
+    }
+
+    public static func parse(_ baseUri: String,
+                             withBytesOwned provider: (_ parse: (UnsafeBufferPointer<UInt8>, AnyObject) throws -> Document) throws -> Document) rethrows -> Document {
+        return try parse(baseUri.utf8Array, withBytesOwned: provider)
     }
 
 	/**

@@ -6,6 +6,7 @@ final class ByteStorage: @unchecked Sendable {
     enum Backing {
         case array([UInt8])
         case data(Data)
+        case buffer(UnsafePointer<UInt8>, Int, AnyObject?)
     }
 
     @usableFromInline
@@ -21,6 +22,11 @@ final class ByteStorage: @unchecked Sendable {
         self.backing = .data(data)
     }
 
+    @usableFromInline
+    init(buffer base: UnsafePointer<UInt8>, count: Int, owner: AnyObject?) {
+        self.backing = .buffer(base, count, owner)
+    }
+
     @inline(__always)
     func byte(at index: Int) -> UInt8 {
         switch backing {
@@ -28,6 +34,8 @@ final class ByteStorage: @unchecked Sendable {
             return array[index]
         case .data(let data):
             return data[data.startIndex + index]
+        case .buffer(let base, _, _):
+            return base[index]
         }
     }
 
@@ -47,6 +55,9 @@ final class ByteStorage: @unchecked Sendable {
                 let slice = UnsafeBufferPointer(start: base == nil ? nil : base! + start, count: length)
                 return try body(slice)
             }
+        case .buffer(let base, _, _):
+            let slice = UnsafeBufferPointer(start: base + start, count: length)
+            return try body(slice)
         }
     }
 
@@ -59,6 +70,8 @@ final class ByteStorage: @unchecked Sendable {
             return Array(array[start..<end])
         case .data(let data):
             return Array(data[data.startIndex + start ..< data.startIndex + end])
+        case .buffer(let base, _, _):
+            return Array(UnsafeBufferPointer(start: base + start, count: length))
         }
     }
 
@@ -68,6 +81,8 @@ final class ByteStorage: @unchecked Sendable {
         case .array(let array):
             return array[start..<end]
         case .data:
+            return ArraySlice(toArray(start, end))
+        case .buffer:
             return ArraySlice(toArray(start, end))
         }
     }

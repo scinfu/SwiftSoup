@@ -114,10 +114,6 @@ open class CssSelector {
      - throws ``Exception`` with ``ExceptionType/SelectorParseException`` (unchecked) on an invalid CSS query.
      */
     public static func select(_ query: String, _ root: Element)throws->Elements {
-        #if PROFILE
-        let _p = Profiler.start("CssSelector.select")
-        defer { Profiler.end("CssSelector.select", _p) }
-        #endif
         let query = query.trim()
         try Validate.notEmpty(string: query.utf8Array)
         DebugTrace.log("CssSelector.select(query): \(query)")
@@ -162,34 +158,16 @@ open class CssSelector {
      - returns: matching elements, empty if none
      */
     public static func select(_ query: String, _ roots: Array<Element>)throws->Elements {
-        #if PROFILE
-        let _p = Profiler.start("CssSelector.select.query")
-        defer { Profiler.end("CssSelector.select.query", _p) }
-        #endif
         let query = query.trim()
         try Validate.notEmpty(string: query.utf8Array)
         if roots.count == 1, let root = roots.first {
             if let cached = root.cachedSelectorResult(query) {
-                #if PROFILE
-                let _pHit = Profiler.start("CssSelector.select.resultCache.hit")
-                Profiler.end("CssSelector.select.resultCache.hit", _pHit)
-                #endif
                 return cached
             }
         }
         if let tagBytes = simpleTagQueryBytes(query) {
-            #if PROFILE
-            let _pSimple = Profiler.start("CssSelector.select.simpleTag")
-            defer { Profiler.end("CssSelector.select.simpleTag", _pSimple) }
-            #endif
             if roots.count == 1, let root = roots.first {
-                #if PROFILE
-                let _pLookup = Profiler.start("CssSelector.select.simpleTag.lookup")
-                #endif
                 let result = try root.getElementsByTagNormalized(tagBytes)
-                #if PROFILE
-                Profiler.end("CssSelector.select.simpleTag.lookup", _pLookup)
-                #endif
                 root.storeSelectorResult(query, result)
                 return result
             }
@@ -210,27 +188,13 @@ open class CssSelector {
             return Elements(elements)
         }
         if let fast = try fastSelectQuery(query, roots, query) {
-            #if PROFILE
-            let _pFast = Profiler.start("CssSelector.select.fastQuery")
-            Profiler.end("CssSelector.select.fastQuery", _pFast)
-            #endif
             if roots.count == 1, let root = roots.first {
                 root.storeSelectorResult(query, fast)
             }
             return fast
         }
-        #if PROFILE
-        let _pEval = Profiler.start("CssSelector.select.evaluator")
-        #endif
         let evaluator: Evaluator = try cachedEvaluatorTrimmed(query)
-        #if PROFILE
-        Profiler.end("CssSelector.select.evaluator", _pEval)
-        let _pCollect = Profiler.start("CssSelector.select.collect")
-        #endif
         let result = try self.select(evaluator, roots)
-        #if PROFILE
-        Profiler.end("CssSelector.select.collect", _pCollect)
-        #endif
         if roots.count == 1, let root = roots.first {
             root.storeSelectorResult(query, result)
         }
@@ -267,10 +231,6 @@ open class CssSelector {
     }
 
     private func select()throws->Elements {
-        #if PROFILE
-        let _p = Profiler.start("CssSelector.select")
-        defer { Profiler.end("CssSelector.select", _p) }
-        #endif
         DebugTrace.log("CssSelector.select(evaluator): \(evaluator)")
         if let fast = try CssSelector.fastSelect(evaluator, root) {
             DebugTrace.log("CssSelector.select(evaluator): fast path hit")

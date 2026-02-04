@@ -145,10 +145,6 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     public override func process(_ token: Token)throws->Bool {
-        #if PROFILE
-        let _p = Profiler.start("HtmlTreeBuilder.process")
-        defer { Profiler.end("HtmlTreeBuilder.process", _p) }
-        #endif
         if !tracksErrors, !tracksSourceRanges, _state == .InBody {
             switch token.type {
             case .Char:
@@ -188,10 +184,6 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @discardableResult
     func process(_ token: Token, _ state: HtmlTreeBuilderState)throws->Bool {
-        #if PROFILE
-        let _p = Profiler.start("HtmlTreeBuilder.process.state")
-        defer { Profiler.end("HtmlTreeBuilder.process.state", _p) }
-        #endif
         if !tracksErrors && !tracksSourceRanges {
             return try state.process(token, self)
         }
@@ -269,10 +261,6 @@ class HtmlTreeBuilder: TreeBuilder {
     @inlinable
     @discardableResult
     func insert(_ startTag: Token.StartTag) throws -> Element {
-        #if PROFILE
-        let _p = Profiler.start("HtmlTreeBuilder.insert.startTag")
-        defer { Profiler.end("HtmlTreeBuilder.insert.startTag", _p) }
-        #endif
         // handle empty unknown tags
         // when the spec expects an empty tag, will directly hit insertEmpty, so won't generate this fake end tag.
         let isSelfClosing = startTag.isSelfClosing()
@@ -337,10 +325,6 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @inlinable
     func insert(_ el: Element) throws {
-        #if PROFILE
-        let _p = Profiler.start("HtmlTreeBuilder.insert.element")
-        defer { Profiler.end("HtmlTreeBuilder.insert.element", _p) }
-        #endif
         try insertNode(el)
         push(el)
     }
@@ -420,7 +404,7 @@ class HtmlTreeBuilder: TreeBuilder {
 
     
     func insert(_ commentToken: Token.Comment) throws {
-        let comment: Comment = Comment(commentToken.getData(), baseUri)
+        let comment: Comment = Comment(slice: commentToken.getDataSlice(), baseUri)
         if let range = commentToken.sourceRange {
             comment.setSourceRange(range, complete: true)
         }
@@ -429,10 +413,6 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @inlinable
     func insert(_ characterToken: Token.Char) throws {
-        #if PROFILE
-        let _p = Profiler.start("HtmlTreeBuilder.insert.char")
-        defer { Profiler.end("HtmlTreeBuilder.insert.char", _p) }
-        #endif
         let current = currentElement()
         let currentTag = current?._tag
         let currentTagId = currentTag?.tagId ?? .none
@@ -573,10 +553,6 @@ class HtmlTreeBuilder: TreeBuilder {
     
     @inlinable
     internal func insertNode(_ node: Node) throws {
-        #if PROFILE
-        let _p = Profiler.start("HtmlTreeBuilder.insert.node")
-        defer { Profiler.end("HtmlTreeBuilder.insert.node", _p) }
-        #endif
         node.treeBuilder = self
         // if the stack hasn't been set up yet, elements (doctype, comments) go into the doc
         if stack.isEmpty {

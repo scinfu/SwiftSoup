@@ -25,6 +25,12 @@ open class Attribute {
     var keyBytes: [UInt8]? = nil
     @usableFromInline
     var valueBytes: [UInt8]? = nil
+    @usableFromInline
+    var lowerKeySliceCache: ByteSlice? = nil
+    @usableFromInline
+    var lowerValueSliceCache: ByteSlice? = nil
+    @usableFromInline
+    var lowerTrimmedValueSliceCache: ByteSlice? = nil
     
     public init(key: [UInt8], value: [UInt8]) throws {
         try Validate.notEmpty(string: key)
@@ -78,6 +84,7 @@ open class Attribute {
         try Validate.notEmpty(string: key)
         keySlice = ByteSlice.fromArray(key).trim()
         keyBytes = nil
+        lowerKeySliceCache = nil
     }
     
     @inline(__always)
@@ -114,6 +121,8 @@ open class Attribute {
         let old = getValueUTF8()
         valueSlice = ByteSlice.fromArray(value)
         valueBytes = nil
+        lowerValueSliceCache = nil
+        lowerTrimmedValueSliceCache = nil
         return old
     }
     
@@ -274,7 +283,40 @@ open class Attribute {
     
     @inline(__always)
     public func isBooleanAttribute() -> Bool {
-        return Attribute.booleanAttributes.contains(keySlice.lowercased())
+        return Attribute.booleanAttributes.contains(lowerKeySlice())
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func lowerKeySlice() -> ByteSlice {
+        if let cached = lowerKeySliceCache {
+            return cached
+        }
+        let lowered = keySlice.lowercased()
+        lowerKeySliceCache = lowered
+        return lowered
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func lowerValueSlice() -> ByteSlice {
+        if let cached = lowerValueSliceCache {
+            return cached
+        }
+        let lowered = valueSlice.lowercased()
+        lowerValueSliceCache = lowered
+        return lowered
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func lowerTrimmedValueSlice() -> ByteSlice {
+        if let cached = lowerTrimmedValueSliceCache {
+            return cached
+        }
+        let lowered = valueSlice.trim().lowercased()
+        lowerTrimmedValueSliceCache = lowered
+        return lowered
     }
     
     @inline(__always)

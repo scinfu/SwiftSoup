@@ -59,22 +59,10 @@ public class QueryParser {
      - seealso: ``cache``
      */
     public static func parse(_ query: String)throws->Evaluator {
-        #if PROFILE
-        let _p = Profiler.start("QueryParser.parse")
-        defer { Profiler.end("QueryParser.parse", _p) }
-        #endif
         let cache = Self.cache
         if let cached = cache?.get(query) {
-            #if PROFILE
-            let _hit = Profiler.start("QueryParser.cache.hit")
-            Profiler.end("QueryParser.cache.hit", _hit)
-            #endif
             return cached
         }
-        #if PROFILE
-        let _miss = Profiler.start("QueryParser.cache.miss")
-        Profiler.end("QueryParser.cache.miss", _miss)
-        #endif
         
         let p = QueryParser(query)
         let eval = try p.parse()

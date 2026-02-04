@@ -24,10 +24,6 @@ open class Collector {
      - returns: list of matches; empty if none
      */
     public static func collect (_ eval: Evaluator, _ root: Element) throws -> Elements {
-        #if PROFILE
-        let _p = Profiler.start("Collector.collect")
-        defer { Profiler.end("Collector.collect", _p) }
-        #endif
         if eval is Evaluator.AllElements {
             let elements = Elements()
             var stack: ContiguousArray<Element> = []
@@ -63,13 +59,7 @@ open class Collector {
                     var matchesAll = true
                     for (idx, evaluator) in evaluators.enumerated() {
                         if idx == skipIndex { continue }
-                        #if PROFILE
-                        let _pMatch = Profiler.start("Collector.matches.seeded")
-                        #endif
                         let matched = try evaluator.matches(root, el)
-                        #if PROFILE
-                        Profiler.end("Collector.matches.seeded", _pMatch)
-                        #endif
                         if !matched {
                             matchesAll = false
                             break
@@ -92,13 +82,7 @@ open class Collector {
         stack.reserveCapacity(root.childNodes.count + 1)
         stack.append(root)
         while let el = stack.popLast() {
-            #if PROFILE
-            let _pMatch = Profiler.start("Collector.matches")
-            #endif
             let matched = try eval.matches(root, el)
-            #if PROFILE
-            Profiler.end("Collector.matches", _pMatch)
-            #endif
             if matched {
                 elements.add(el)
             }

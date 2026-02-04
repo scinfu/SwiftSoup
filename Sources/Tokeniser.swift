@@ -238,10 +238,6 @@ final class Tokeniser {
     }
     
     func read() throws -> Token {
-        #if PROFILE
-        let _p = Profiler.start("Tokeniser.read")
-        defer { Profiler.end("Tokeniser.read", _p) }
-        #endif
         if (!selfClosingFlagAcknowledged) {
             if trackErrors {
                 error("Self closing flag not acknowledged")
@@ -249,9 +245,6 @@ final class Tokeniser {
             selfClosingFlagAcknowledged = true
         }
         
-        #if PROFILE
-        let _pLoop = Profiler.start("Tokeniser.read.loop")
-        #endif
         while (!isEmitPendingFast) {
             if isDataState {
                 if trackSourceRanges {
@@ -267,15 +260,8 @@ final class Tokeniser {
             }
             try state.read(self, reader)
         }
-        #if PROFILE
-        Profiler.end("Tokeniser.read.loop", _pLoop)
-        #endif
         
         if !charsBuilder.isEmpty {
-            #if PROFILE
-            let _pEmit = Profiler.start("Tokeniser.read.emitBuilder")
-            defer { Profiler.end("Tokeniser.read.emitBuilder", _pEmit) }
-            #endif
             let str = charsBuilder.takeBuffer()
             // Clear any pending slices, as the builder takes precedence.
             charsSlice = nil
@@ -286,20 +272,12 @@ final class Tokeniser {
             pendingCharRange = nil
             return charPending.data(str)
         } else if let slice = charsSlice {
-            #if PROFILE
-            let _pEmit = Profiler.start("Tokeniser.read.emitSlice")
-            defer { Profiler.end("Tokeniser.read.emitSlice", _pEmit) }
-            #endif
             charsSlice = nil
             charsSliceFromInput = false
             charPending.sourceRange = pendingCharRange
             pendingCharRange = nil
             return charPending.data(slice)
         } else if !pendingSlices.isEmpty {
-            #if PROFILE
-            let _pEmit = Profiler.start("Tokeniser.read.emitSlices")
-            defer { Profiler.end("Tokeniser.read.emitSlices", _pEmit) }
-            #endif
             if pendingSlices.count == 1 {
                 let slice = pendingSlices[0]
                 pendingSlices.removeAll(keepingCapacity: true)
@@ -344,10 +322,6 @@ final class Tokeniser {
                 }
             }
         } else {
-            #if PROFILE
-            let _pEmit = Profiler.start("Tokeniser.read.emitToken")
-            defer { Profiler.end("Tokeniser.read.emitToken", _pEmit) }
-            #endif
             isEmitPending = false
             isEmitPendingFast = false
             pendingCharRange = nil
@@ -407,10 +381,6 @@ final class Tokeniser {
 
     @inline(__always)
     private func readDataStateTracked() throws {
-        #if PROFILE
-        let _p = Profiler.start("TokeniserState.Data")
-        defer { Profiler.end("TokeniserState.Data", _p) }
-        #endif
         if reader.pos < reader.end {
             let first = reader.input[reader.pos]
             if first == TokeniserStateVars.ampersandByte ||
@@ -792,10 +762,6 @@ final class Tokeniser {
     }
     
     func consumeCharacterReference(_ additionalAllowedCharacter: UnicodeScalar?, _ inAttribute: Bool) throws -> [UnicodeScalar]? {
-        #if PROFILE
-        let _p = Profiler.start("Tokeniser.consumeCharacterReference")
-        defer { Profiler.end("Tokeniser.consumeCharacterReference", _p) }
-        #endif
         if (reader.isEmpty()) {
             return nil
         }
@@ -1242,10 +1208,6 @@ final class Tokeniser {
      - returns: unescaped string from reader
      */
     func unescapeEntities(_ inAttribute: Bool) throws -> [UInt8] {
-        #if PROFILE
-        let _p = Profiler.start("Tokeniser.unescapeEntities")
-        defer { Profiler.end("Tokeniser.unescapeEntities", _p) }
-        #endif
         let builder: StringBuilder = StringBuilder()
         while (!reader.isEmpty()) {
             builder.append(reader.consumeToAnyOfOneSlice(TokeniserStateVars.ampersandByte))
