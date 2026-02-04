@@ -20,6 +20,11 @@ open class BooleanAttribute: Attribute {
         try super.init(key: key, value: [])
     }
 
+    @usableFromInline
+    init(keySlice: ByteSlice) throws {
+        try super.init(keySlice: keySlice, valueSlice: ByteSlice.empty)
+    }
+
     public convenience init(keySlice: ArraySlice<UInt8>) throws {
         try self.init(key: Array(keySlice))
     }

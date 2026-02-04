@@ -19,7 +19,7 @@ open class Element: Node {
     @usableFromInline
     internal static let dynamicAttributeValueIndexMaxKeys: Int = 8
     @usableFromInline
-    internal static let hotAttributeIndexKeys: Set<[UInt8]> = Set([
+    internal static let hotAttributeIndexKeys: Set<ByteSlice> = Set([
         "href".utf8Array,
         "src".utf8Array,
         "srcset".utf8Array,
@@ -38,7 +38,7 @@ open class Element: Node {
         "aria-hidden".utf8Array,
         "type".utf8Array,
         "charset".utf8Array
-    ].map { $0.lowercased() })
+    ].map { ByteSlice.fromArray($0.lowercased()) })
 
 
     /// Lazily-built tag → elements index (normalized lowercase UTF‑8 keys), invalidated on mutations.
@@ -65,7 +65,7 @@ open class Element: Node {
     /// Lazily-built attribute-name → elements index (normalized lowercase UTF‑8 keys).
     /// Keeps full scan out of attribute‑heavy selectors like [href], [data-*].
     @usableFromInline
-    internal var normalizedAttributeNameIndex: [[UInt8]: [Weak<Element>]]? = nil
+    internal var normalizedAttributeNameIndex: [ByteSlice: [Weak<Element>]]? = nil
     @usableFromInline
     internal var isAttributeQueryIndexDirty: Bool = false
 
@@ -73,14 +73,14 @@ open class Element: Node {
     /// Lazily-built attribute-name → (value → elements) index for a curated hot list.
     /// Focused to avoid index build cost dwarfing selector savings.
     @usableFromInline
-    internal var normalizedAttributeValueIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]]? = nil
+    internal var normalizedAttributeValueIndex: [ByteSlice: [ByteSlice: [Weak<Element>]]]? = nil
     @usableFromInline
     internal var isAttributeValueQueryIndexDirty: Bool = false
     /// Tracks dynamically indexed attribute keys (in insertion order) for bounded caching.
     @usableFromInline
-    internal var dynamicAttributeValueIndexKeySet: Set<[UInt8]>? = nil
+    internal var dynamicAttributeValueIndexKeySet: Set<ByteSlice>? = nil
     @usableFromInline
-    internal var dynamicAttributeValueIndexKeyOrder: [[UInt8]]? = nil
+    internal var dynamicAttributeValueIndexKeyOrder: [ByteSlice]? = nil
     @usableFromInline
     internal var suppressQueryIndexDirty: Bool = false
 
@@ -284,7 +284,7 @@ open class Element: Node {
                 return nil
             }
         }
-        return attributes.pendingValueCaseSensitiveSlice(attributeKey)
+        return attributes.valueSliceCaseSensitive(attributeKey)
     }
 
     @inline(__always)
@@ -1108,15 +1108,9 @@ open class Element: Node {
         if hasAbsPrefix(keyForPrefix) {
             return try Collector.collect(Evaluator.Attribute(key), self)
         }
-        let normalizedKey: [UInt8]
-        if needsTrim {
-            let trimmed = keyForPrefix
-            normalizedKey = Attributes.containsAsciiUppercase(trimmed) ? trimmed.lowercased() : trimmed
-        } else if Attributes.containsAsciiUppercase(keyBytes) {
-            normalizedKey = keyBytes.lowercased()
-        } else {
-            normalizedKey = keyBytes
-        }
+        let keySlice = ByteSlice.fromArray(keyBytes)
+        let trimmedSlice = needsTrim ? keySlice.trim() : keySlice
+        let normalizedKey = Attributes.containsAsciiUppercase(trimmedSlice) ? trimmedSlice.lowercased() : trimmedSlice
         if isAttributeQueryIndexDirty || normalizedAttributeNameIndex == nil {
             rebuildQueryIndexesForAllAttributes()
             isAttributeQueryIndexDirty = false
@@ -1142,7 +1136,8 @@ open class Element: Node {
             rebuildQueryIndexesForAllAttributes()
             isAttributeQueryIndexDirty = false
         }
-        let results = normalizedAttributeNameIndex?[key]?.compactMap { $0.value } ?? []
+        let keySlice = ByteSlice.fromArray(key)
+        let results = normalizedAttributeNameIndex?[keySlice]?.compactMap { $0.value } ?? []
         return Elements(results)
     }
     
@@ -1187,15 +1182,9 @@ open class Element: Node {
             return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
         }
         let needsTrim = (keyBytes.first?.isWhitespace ?? false) || (keyBytes.last?.isWhitespace ?? false)
-        let normalizedKey: [UInt8]
-        if needsTrim {
-            let trimmed = keyBytes.trim()
-            normalizedKey = Attributes.containsAsciiUppercase(trimmed) ? trimmed.lowercased() : trimmed
-        } else if Attributes.containsAsciiUppercase(keyBytes) {
-            normalizedKey = keyBytes.lowercased()
-        } else {
-            normalizedKey = keyBytes
-        }
+        let keySlice = ByteSlice.fromArray(keyBytes)
+        let trimmedKeySlice = needsTrim ? keySlice.trim() : keySlice
+        let normalizedKey = Attributes.containsAsciiUppercase(trimmedKeySlice) ? trimmedKeySlice.lowercased() : trimmedKeySlice
         let isHotKey = Element.isHotAttributeKey(normalizedKey)
         if Element.dynamicAttributeValueIndexMaxKeys > 0,
            !isHotKey {
@@ -1206,7 +1195,7 @@ open class Element: Node {
                 rebuildQueryIndexesForHotAttributes()
                 isAttributeValueQueryIndexDirty = false
             }
-            let normalizedValue = value.utf8Array.trim().lowercased()
+            let normalizedValue = ByteSlice.fromArray(value.utf8Array).trim().lowercased()
             let results = normalizedAttributeValueIndex?[normalizedKey]?[normalizedValue]?.compactMap { $0.value } ?? []
             return Elements(results)
         }
@@ -1223,17 +1212,19 @@ open class Element: Node {
         if keyBytes.starts(with: UTF8Arrays.absPrefix) {
             return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
         }
-        let isHotKey = Element.isHotAttributeKey(keyBytes)
+        let keySlice = ByteSlice.fromArray(keyBytes)
+        let valueSlice = ByteSlice.fromArray(valueBytes)
+        let isHotKey = Element.isHotAttributeKey(keySlice)
         if Element.dynamicAttributeValueIndexMaxKeys > 0,
            !isHotKey {
-            ensureDynamicAttributeValueIndexKey(keyBytes)
+            ensureDynamicAttributeValueIndexKey(keySlice)
         }
-        if isHotKey || (dynamicAttributeValueIndexKeySet?.contains(keyBytes) ?? false) {
+        if isHotKey || (dynamicAttributeValueIndexKeySet?.contains(keySlice) ?? false) {
             if isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil {
                 rebuildQueryIndexesForHotAttributes()
                 isAttributeValueQueryIndexDirty = false
             }
-            let results = normalizedAttributeValueIndex?[keyBytes]?[valueBytes]?.compactMap { $0.value } ?? []
+            let results = normalizedAttributeValueIndex?[keySlice]?[valueSlice]?.compactMap { $0.value } ?? []
             return Elements(results)
         }
         return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
@@ -2759,8 +2750,14 @@ internal extension Element {
     
     @usableFromInline
     @inline(__always)
-    static func isHotAttributeKey(_ normalizedKey: [UInt8]) -> Bool {
+    static func isHotAttributeKey(_ normalizedKey: ByteSlice) -> Bool {
         return hotAttributeIndexKeys.contains(normalizedKey)
+    }
+
+    @usableFromInline
+    @inline(__always)
+    static func isHotAttributeKey(_ normalizedKey: [UInt8]) -> Bool {
+        return isHotAttributeKey(ByteSlice.fromArray(normalizedKey))
     }
 
     @inline(__always)
@@ -2831,7 +2828,7 @@ internal extension Element {
     }
 
     @inline(__always)
-    private func ensureDynamicAttributeValueIndexKey(_ key: [UInt8]) {
+    private func ensureDynamicAttributeValueIndexKey(_ key: ByteSlice) {
         guard Element.dynamicAttributeValueIndexMaxKeys > 0,
               !Element.isHotAttributeKey(key) else {
             return
@@ -2840,7 +2837,7 @@ internal extension Element {
             return
         }
         if dynamicAttributeValueIndexKeySet == nil {
-            dynamicAttributeValueIndexKeySet = Set<[UInt8]>()
+            dynamicAttributeValueIndexKeySet = Set<ByteSlice>()
             dynamicAttributeValueIndexKeyOrder = []
         }
         dynamicAttributeValueIndexKeySet?.insert(key)
@@ -2872,8 +2869,8 @@ internal extension Element {
         var tagIndex: [[UInt8]: [Weak<Element>]] = [:]
         var classIndex: [[UInt8]: [Weak<Element>]] = [:]
         var idIndex: [[UInt8]: [Weak<Element>]] = [:]
-        var attributeIndex: [[UInt8]: [Weak<Element>]] = [:]
-        var hotAttributeIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]] = [:]
+        var attributeIndex: [ByteSlice: [Weak<Element>]] = [:]
+        var hotAttributeIndex: [ByteSlice: [ByteSlice: [Weak<Element>]]] = [:]
         let dynamicKeys = dynamicAttributeValueIndexKeySet
 
         let childNodeCount = childNodeSize()
@@ -2928,14 +2925,14 @@ internal extension Element {
                     let lowerKeys = attrs.hasUppercaseKeys
                     for attr in attrs.attributes {
                         DebugTrace.log("rebuildQueryIndexesCombined: attr key \(String(decoding: attr.getKeyUTF8(), as: UTF8.self))")
-                        let keyBytes = attr.getKeyUTF8()
-                        let key = lowerKeys ? keyBytes.lowercased() : keyBytes
+                        let keySlice = attr.keySlice
+                        let key = lowerKeys ? keySlice.lowercased() : keySlice
                         if needsAttributes {
                             attributeIndex[key, default: []].append(Weak(element))
                         }
                         if needsHotAttributes,
                            (Element.isHotAttributeKey(key) || (dynamicKeys?.contains(key) ?? false)) {
-                            let value = attr.getValueUTF8().trim().lowercased()
+                            let value = attr.valueSlice.trim().lowercased()
                             var valueIndex = hotAttributeIndex[key] ?? [:]
                             valueIndex[value, default: []].append(Weak(element))
                             hotAttributeIndex[key] = valueIndex
@@ -3132,7 +3129,7 @@ internal extension Element {
             return
         }
         /// Index build is depth‑first to preserve document order.
-        var newIndex: [[UInt8]: [Weak<Element>]] = [:]
+        var newIndex: [ByteSlice: [Weak<Element>]] = [:]
         
         let childNodeCount = childNodeSize()
         newIndex.reserveCapacity(childNodeCount * 4)
@@ -3142,8 +3139,8 @@ internal extension Element {
                 attrs.ensureMaterialized()
                 let lowerKeys = attrs.hasUppercaseKeys
                 for attr in attrs.attributes {
-                    let keyBytes = attr.getKeyUTF8()
-                    let key = lowerKeys ? keyBytes.lowercased() : keyBytes
+                    let keySlice = attr.keySlice
+                    let key = lowerKeys ? keySlice.lowercased() : keySlice
                     newIndex[key, default: []].append(Weak(element))
                 }
             }
@@ -3175,7 +3172,7 @@ internal extension Element {
             return
         }
         /// Index build is depth‑first to preserve document order for stable selector results.
-        var newIndex: [[UInt8]: [[UInt8]: [Weak<Element>]]] = [:]
+        var newIndex: [ByteSlice: [ByteSlice: [Weak<Element>]]] = [:]
         let dynamicKeys = dynamicAttributeValueIndexKeySet
         newIndex.reserveCapacity(Element.hotAttributeIndexKeys.count + (dynamicKeys?.count ?? 0))
         traverseElementsDepthFirst { element in
@@ -3183,10 +3180,10 @@ internal extension Element {
                 attrs.ensureMaterialized()
                 let lowerKeys = attrs.hasUppercaseKeys
                 for attr in attrs.attributes {
-                    let keyBytes = attr.getKeyUTF8()
-                    let key = lowerKeys ? keyBytes.lowercased() : keyBytes
+                    let keySlice = attr.keySlice
+                    let key = lowerKeys ? keySlice.lowercased() : keySlice
                     guard Element.isHotAttributeKey(key) || (dynamicKeys?.contains(key) ?? false) else { continue }
-                    let value = attr.getValueUTF8().trim().lowercased()
+                    let value = attr.valueSlice.trim().lowercased()
                     var valueIndex = newIndex[key] ?? [:]
                     valueIndex[value, default: []].append(Weak(element))
                     newIndex[key] = valueIndex

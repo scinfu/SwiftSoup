@@ -207,7 +207,7 @@ open class Evaluator: @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element) throws -> Bool {
             if let values = element.getAttributes() {
                 for attribute in values {
-                    let key = attribute.getKeyUTF8()
+                    let key = attribute.keySlice
                     if key.count < keyPrefix.count { continue }
                     var matches = true
                     var i = 0

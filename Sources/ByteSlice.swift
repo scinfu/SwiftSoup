@@ -196,12 +196,14 @@ extension ByteSlice {
 }
 
 extension ByteSlice {
+    @usableFromInline
     @inline(__always)
     static func fromArray(_ array: [UInt8]) -> ByteSlice {
         let storage = ByteStorage(array: array)
         return ByteSlice(storage: storage, start: 0, end: array.count)
     }
 
+    @usableFromInline
     @inline(__always)
     static func fromArraySlice(_ slice: ArraySlice<UInt8>) -> ByteSlice {
         return fromArray(Array(slice))
