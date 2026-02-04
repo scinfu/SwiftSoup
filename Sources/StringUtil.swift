@@ -1003,6 +1003,10 @@ open class StringUtil {
                                                        stripLeading: Bool,
                                                        lastWasWhite: inout Bool,
                                                        sawWhitespace: inout Bool) {
+        #if PROFILE
+        let _p = Profiler.start("StringUtil.appendNormalisedWhitespaceBytes")
+        defer { Profiler.end("StringUtil.appendNormalisedWhitespaceBytes", _p) }
+        #endif
         if count <= 0 { return }
         // Fast path for ASCII slices that only contain single spaces (no tabs/newlines/NBSP, no doubles).
         var previousWasSpace = false

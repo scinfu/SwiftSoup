@@ -286,9 +286,7 @@ open class Attributes: NSCopying {
             ownerElement?.markIdQueryIndexDirty()
         }
         ownerElement?.markAttributeQueryIndexDirty()
-        if FeatureFlags.shouldTrackSelectorIndexes() {
-            ownerElement?.markAttributeValueQueryIndexDirty(for: attribute.getKeyUTF8())
-        }
+        ownerElement?.markAttributeValueQueryIndexDirty(for: attribute.getKeyUTF8())
     }
     
     @usableFromInline

@@ -68,6 +68,7 @@ enum Workload: String {
     case fixturesInnerHtmlNoPretty
     case fixturesText
     case fixturesSelect
+    case fixturesSelectLoop
 }
 
 func parseOptions() -> Options {
@@ -177,7 +178,8 @@ func workloadNeedsFixtures(_ workload: Workload) -> Bool {
         .fixturesOuterHtmlNoPrettyNoSourceRanges,
          .fixturesInnerHtmlNoPretty,
          .fixturesText,
-         .fixturesSelect:
+         .fixturesSelect,
+         .fixturesSelectLoop:
         return true
     default:
         return false
@@ -703,10 +705,26 @@ case .fixturesText:
         for url in files {
             withAutoreleasepool {
                 do {
+                    #if PROFILE
+                    let _pIO = Profiler.start("SwiftSoupProfile.fixturesText.io")
+                    #endif
                     let data = try Data(contentsOf: url)
+                    #if PROFILE
+                    Profiler.end("SwiftSoupProfile.fixturesText.io", _pIO)
+                    #endif
                     totalBytes += data.count
+                    #if PROFILE
+                    let _pParse = Profiler.start("SwiftSoupProfile.fixturesText.parse")
+                    #endif
                     let doc = try SwiftSoup.parse(data, "")
+                    #if PROFILE
+                    Profiler.end("SwiftSoupProfile.fixturesText.parse", _pParse)
+                    let _pText = Profiler.start("SwiftSoupProfile.fixturesText.text")
+                    #endif
                     _ = try doc.body()?.text()
+                    #if PROFILE
+                    Profiler.end("SwiftSoupProfile.fixturesText.text", _pText)
+                    #endif
                     parsedCount += 1
                 } catch {
                     writeStderr("Error parsing \(url.path): \(error)\n")
@@ -719,14 +737,73 @@ case .fixturesSelect:
         for url in files {
             withAutoreleasepool {
                 do {
+                    #if PROFILE
+                    let _pIO = Profiler.start("SwiftSoupProfile.fixturesSelect.io")
+                    #endif
                     let data = try Data(contentsOf: url)
+                    #if PROFILE
+                    Profiler.end("SwiftSoupProfile.fixturesSelect.io", _pIO)
+                    #endif
                     totalBytes += data.count
+                    #if PROFILE
+                    let _pParse = Profiler.start("SwiftSoupProfile.fixturesSelect.parse")
+                    #endif
                     let doc = try SwiftSoup.parse(data, "")
+                    #if PROFILE
+                    Profiler.end("SwiftSoupProfile.fixturesSelect.parse", _pParse)
+                    #endif
                     if let body = doc.body() {
+                        #if PROFILE
+                        let _pSelect = Profiler.start("SwiftSoupProfile.fixturesSelect.select")
+                        #endif
                         _ = try body.select("p")
                         _ = try body.select("a")
                         _ = try body.select("img")
+                        #if PROFILE
+                        Profiler.end("SwiftSoupProfile.fixturesSelect.select", _pSelect)
+                        #endif
                     }
+                    parsedCount += 1
+                } catch {
+                    writeStderr("Error parsing \(url.path): \(error)\n")
+                }
+            }
+        }
+    }
+case .fixturesSelectLoop:
+    let iterations = max(1, options.iterations)
+    for _ in 0..<options.repeatCount {
+        for url in files {
+            withAutoreleasepool {
+                do {
+                    #if PROFILE
+                    let _pIO = Profiler.start("SwiftSoupProfile.fixturesSelectLoop.io")
+                    #endif
+                    let data = try Data(contentsOf: url)
+                    #if PROFILE
+                    Profiler.end("SwiftSoupProfile.fixturesSelectLoop.io", _pIO)
+                    let _pParse = Profiler.start("SwiftSoupProfile.fixturesSelectLoop.parse")
+                    #endif
+                    let doc = try SwiftSoup.parse(data, "")
+                    #if PROFILE
+                    Profiler.end("SwiftSoupProfile.fixturesSelectLoop.parse", _pParse)
+                    #endif
+                    if let body = doc.body() {
+                        #if PROFILE
+                        let _pSelect = Profiler.start("SwiftSoupProfile.fixturesSelectLoop.select")
+                        #endif
+                        var i = 0
+                        while i < iterations {
+                            _ = try body.select("p")
+                            _ = try body.select("a")
+                            _ = try body.select("img")
+                            i &+= 1
+                        }
+                        #if PROFILE
+                        Profiler.end("SwiftSoupProfile.fixturesSelectLoop.select", _pSelect)
+                        #endif
+                    }
+                    totalBytes += data.count
                     parsedCount += 1
                 } catch {
                     writeStderr("Error parsing \(url.path): \(error)\n")
@@ -752,7 +829,6 @@ func printResult(_ result: RunResult, label: String? = nil) {
 }
 
 let options = parseOptions()
-FeatureFlags.configureFromEnvironment()
 let files = findSourceHTMLFiles(fixturesPath: options.fixturesPath)
 
 let workloadsToCheck: [Workload] = options.abMode
@@ -788,4 +864,4 @@ if options.abMode {
         exit(1)
     }
 }
-print(Profiler.report(top: 40))
+print(Profiler.report(top: 80))

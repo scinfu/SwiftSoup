@@ -63,7 +63,14 @@ open class Collector {
                     var matchesAll = true
                     for (idx, evaluator) in evaluators.enumerated() {
                         if idx == skipIndex { continue }
-                        if try !evaluator.matches(root, el) {
+                        #if PROFILE
+                        let _pMatch = Profiler.start("Collector.matches.seeded")
+                        #endif
+                        let matched = try evaluator.matches(root, el)
+                        #if PROFILE
+                        Profiler.end("Collector.matches.seeded", _pMatch)
+                        #endif
+                        if !matched {
                             matchesAll = false
                             break
                         }
@@ -85,7 +92,14 @@ open class Collector {
         stack.reserveCapacity(root.childNodes.count + 1)
         stack.append(root)
         while let el = stack.popLast() {
-            if try eval.matches(root, el) {
+            #if PROFILE
+            let _pMatch = Profiler.start("Collector.matches")
+            #endif
+            let matched = try eval.matches(root, el)
+            #if PROFILE
+            Profiler.end("Collector.matches", _pMatch)
+            #endif
+            if matched {
                 elements.add(el)
             }
             let children = el.childNodes

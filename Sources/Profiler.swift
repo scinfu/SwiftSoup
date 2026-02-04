@@ -6,15 +6,13 @@ public enum Profiler {
     nonisolated(unsafe) static var totals: [String: (count: UInt64, nanos: UInt64)] = [:]
 
     @inline(__always)
-    @usableFromInline
-    static func start(_ name: StaticString) -> UInt64 {
+    public static func start(_ name: StaticString) -> UInt64 {
         _ = name
         return DispatchTime.now().uptimeNanoseconds
     }
 
     @inline(__always)
-    @usableFromInline
-    static func end(_ name: StaticString, _ start: UInt64) {
+    public static func end(_ name: StaticString, _ start: UInt64) {
         let delta = DispatchTime.now().uptimeNanoseconds &- start
         let key = String(describing: name)
         if let existing = totals[key] {
@@ -25,15 +23,13 @@ public enum Profiler {
     }
 
     @inline(__always)
-    @usableFromInline
-    static func startDynamic(_ name: String) -> UInt64 {
+    public static func startDynamic(_ name: String) -> UInt64 {
         _ = name
         return DispatchTime.now().uptimeNanoseconds
     }
 
     @inline(__always)
-    @usableFromInline
-    static func endDynamic(_ name: String, _ start: UInt64) {
+    public static func endDynamic(_ name: String, _ start: UInt64) {
         let delta = DispatchTime.now().uptimeNanoseconds &- start
         if let existing = totals[name] {
             totals[name] = (existing.count &+ 1, existing.nanos &+ delta)
@@ -64,20 +60,16 @@ public enum Profiler {
 #else
 public enum Profiler {
     @inline(__always)
-    @usableFromInline
-    static func start(_ name: StaticString) -> UInt64 { 0 }
+    public static func start(_ name: StaticString) -> UInt64 { 0 }
 
     @inline(__always)
-    @usableFromInline
-    static func end(_ name: StaticString, _ start: UInt64) {}
+    public static func end(_ name: StaticString, _ start: UInt64) {}
 
     @inline(__always)
-    @usableFromInline
-    static func startDynamic(_ name: String) -> UInt64 { 0 }
+    public static func startDynamic(_ name: String) -> UInt64 { 0 }
 
     @inline(__always)
-    @usableFromInline
-    static func endDynamic(_ name: String, _ start: UInt64) {}
+    public static func endDynamic(_ name: String, _ start: UInt64) {}
 
     public static func reset() {}
     public static func report(top: Int = 0) -> String { "" }
