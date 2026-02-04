@@ -411,38 +411,11 @@ final class Tokeniser {
         let _p = Profiler.start("TokeniserState.Data")
         defer { Profiler.end("TokeniserState.Data", _p) }
         #endif
-        let remaining = reader.end - reader.pos
-        if reader.canSkipNullCheck, remaining >= 64 {
+        if reader.pos < reader.end {
             let first = reader.input[reader.pos]
             if first == TokeniserStateVars.ampersandByte ||
-                first == TokeniserStateVars.lessThanByte {
-                try handleDataStateDelimiterTracked()
-                return
-            }
-            let dataStart = reader.pos
-            let data = remaining >= 128 ? reader.consumeDataFastNoNullSlice() : reader.consumeDataSlice()
-            if !data.isEmpty {
-                let dataEnd = reader.pos
-                emitRaw(data, start: dataStart, end: dataEnd)
-                return
-            }
-            if reader.pos >= reader.end {
-                try emitEOF()
-                return
-            }
-            try handleDataStateDelimiterTracked()
-            return
-        } else if reader.pos < reader.end {
-            let first = reader.input[reader.pos]
-            if reader.canSkipNullCheck {
-                if first == TokeniserStateVars.ampersandByte ||
-                    first == TokeniserStateVars.lessThanByte {
-                    try handleDataStateDelimiterTracked()
-                    return
-                }
-            } else if first == TokeniserStateVars.ampersandByte ||
-                        first == TokeniserStateVars.lessThanByte ||
-                        first == TokeniserStateVars.nullByte {
+                first == TokeniserStateVars.lessThanByte ||
+                first == TokeniserStateVars.nullByte {
                 try handleDataStateDelimiterTracked()
                 return
             }
@@ -551,39 +524,12 @@ final class Tokeniser {
             try emitEOF()
             return
         }
-        let remaining = reader.end - reader.pos
-        if reader.canSkipNullCheck, remaining >= 64 {
-            let first = reader.input[reader.pos]
-            if first == TokeniserStateVars.ampersandByte ||
-                first == TokeniserStateVars.lessThanByte {
-                try handleDataStateDelimiter()
-                return
-            }
-            let data = remaining >= 128 ? reader.consumeDataFastNoNullSlice() : reader.consumeDataSlice()
-            if !data.isEmpty {
-                emitInputSlice(data)
-                return
-            }
-            if reader.pos >= reader.end {
-                try emitEOF()
-                return
-            }
+        let first = reader.input[reader.pos]
+        if first == TokeniserStateVars.ampersandByte ||
+            first == TokeniserStateVars.lessThanByte ||
+            first == TokeniserStateVars.nullByte {
             try handleDataStateDelimiter()
             return
-        } else {
-            let first = reader.input[reader.pos]
-            if reader.canSkipNullCheck {
-                if first == TokeniserStateVars.ampersandByte ||
-                    first == TokeniserStateVars.lessThanByte {
-                    try handleDataStateDelimiter()
-                    return
-                }
-            } else if first == TokeniserStateVars.ampersandByte ||
-                        first == TokeniserStateVars.lessThanByte ||
-                        first == TokeniserStateVars.nullByte {
-                try handleDataStateDelimiter()
-                return
-            }
         }
         let data = reader.consumeDataSlice()
         if !data.isEmpty {

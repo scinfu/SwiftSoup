@@ -319,12 +319,11 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             default:
                 let dataStart = r.pos
-                let data: ByteSlice
-                if r.canSkipNullCheck {
-                    data = r.consumeToAnyOfTwoSlice(TokeniserStateVars.ampersandByte, TokeniserStateVars.lessThanByte)
-                } else {
-                    data = r.consumeToAnyOfThreeSlice(TokeniserStateVars.ampersandByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
-                }
+                let data = r.consumeToAnyOfThreeSlice(
+                    TokeniserStateVars.ampersandByte,
+                    TokeniserStateVars.lessThanByte,
+                    TokeniserStateVars.nullByte
+                )
                 t.emitRaw(data, start: dataStart, end: r.pos)
                 break
             }
@@ -352,12 +351,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             default:
                 let dataStart = r.pos
-                let data: ByteSlice
-                if r.canSkipNullCheck {
-                    data = r.consumeToEndUTF8Slice()
-                } else {
-                    data = r.consumeToAnyOfTwoSlice(TokeniserStateVars.nullByte, TokeniserStateVars.maxByte)
-                }
+                let data = r.consumeToAnyOfTwoSlice(TokeniserStateVars.nullByte, TokeniserStateVars.maxByte)
                 t.emitRaw(data, start: dataStart, end: r.pos)
                 break
             }
@@ -670,12 +664,11 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             default:
                 let dataStart = r.pos
-                let data: ByteSlice
-                if r.canSkipNullCheck {
-                    data = r.consumeToAnyOfTwoSlice(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte)
-                } else {
-                    data = r.consumeToAnyOfThreeSlice(TokeniserStateVars.hyphenByte, TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
-                }
+                let data = r.consumeToAnyOfThreeSlice(
+                    TokeniserStateVars.hyphenByte,
+                    TokeniserStateVars.lessThanByte,
+                    TokeniserStateVars.nullByte
+                )
                 t.emitRaw(data, start: dataStart, end: r.pos)
             }
             break
@@ -1752,12 +1745,11 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .DoctypePublicIdentifier_doubleQuoted:
-            let value: ByteSlice
-            if r.canSkipNullCheck {
-                value = r.consumeToAnyOfTwoSlice(TokeniserStateVars.quoteByte, TokeniserStateVars.greaterThanByte)
-            } else {
-                value = r.consumeToAnyOfThreeSlice(TokeniserStateVars.quoteByte, TokeniserStateVars.nullByte, TokeniserStateVars.greaterThanByte)
-            }
+            let value = r.consumeToAnyOfThreeSlice(
+                TokeniserStateVars.quoteByte,
+                TokeniserStateVars.nullByte,
+                TokeniserStateVars.greaterThanByte
+            )
             if !value.isEmpty {
                 t.doctypePending.publicIdentifier.append(value)
             }
@@ -1796,12 +1788,11 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .DoctypePublicIdentifier_singleQuoted:
-            let value: ByteSlice
-            if r.canSkipNullCheck {
-                value = r.consumeToAnyOfTwoSlice(TokeniserStateVars.apostropheByte, TokeniserStateVars.greaterThanByte)
-            } else {
-                value = r.consumeToAnyOfThreeSlice(TokeniserStateVars.apostropheByte, TokeniserStateVars.nullByte, TokeniserStateVars.greaterThanByte)
-            }
+            let value = r.consumeToAnyOfThreeSlice(
+                TokeniserStateVars.apostropheByte,
+                TokeniserStateVars.nullByte,
+                TokeniserStateVars.greaterThanByte
+            )
             if !value.isEmpty {
                 t.doctypePending.publicIdentifier.append(value)
             }
@@ -2082,12 +2073,11 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .DoctypeSystemIdentifier_doubleQuoted:
-            let value: ByteSlice
-            if r.canSkipNullCheck {
-                value = r.consumeToAnyOfTwoSlice(TokeniserStateVars.quoteByte, TokeniserStateVars.greaterThanByte)
-            } else {
-                value = r.consumeToAnyOfThreeSlice(TokeniserStateVars.quoteByte, TokeniserStateVars.nullByte, TokeniserStateVars.greaterThanByte)
-            }
+            let value = r.consumeToAnyOfThreeSlice(
+                TokeniserStateVars.quoteByte,
+                TokeniserStateVars.nullByte,
+                TokeniserStateVars.greaterThanByte
+            )
             if !value.isEmpty {
                 t.doctypePending.systemIdentifier.append(value)
             }
@@ -2126,12 +2116,11 @@ enum TokeniserState: TokeniserStateProtocol {
             }
             break
         case .DoctypeSystemIdentifier_singleQuoted:
-            let value: ByteSlice
-            if r.canSkipNullCheck {
-                value = r.consumeToAnyOfTwoSlice(TokeniserStateVars.apostropheByte, TokeniserStateVars.greaterThanByte)
-            } else {
-                value = r.consumeToAnyOfThreeSlice(TokeniserStateVars.apostropheByte, TokeniserStateVars.nullByte, TokeniserStateVars.greaterThanByte)
-            }
+            let value = r.consumeToAnyOfThreeSlice(
+                TokeniserStateVars.apostropheByte,
+                TokeniserStateVars.nullByte,
+                TokeniserStateVars.greaterThanByte
+            )
             if !value.isEmpty {
                 t.doctypePending.systemIdentifier.append(value)
             }
@@ -2323,12 +2312,7 @@ enum TokeniserState: TokeniserStateProtocol {
             break
         default:
             let dataStart = r.pos
-            let data: ByteSlice
-            if r.canSkipNullCheck {
-                data = r.consumeToAnyOfOneSlice(TokeniserStateVars.lessThanByte)
-            } else {
-                data = r.consumeToAnyOfTwoSlice(TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
-            }
+            let data = r.consumeToAnyOfTwoSlice(TokeniserStateVars.lessThanByte, TokeniserStateVars.nullByte)
             t.emitRaw(data, start: dataStart, end: r.pos)
             break
         }

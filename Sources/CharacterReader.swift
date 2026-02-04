@@ -17,7 +17,6 @@ public final class CharacterReader {
     private var mark: Int
     private let start: Int
     public let end: Int
-    private let useNoNullFastPath: Bool
     
     private static let letters = ParsingStrings("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".map { String($0) })
     private static let digits = ParsingStrings(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"])
@@ -86,22 +85,6 @@ public final class CharacterReader {
         self.pos = 0
         self.mark = 0
         self.end = input.count
-        let totalCount = input.count
-        if totalCount == 0 {
-            self.useNoNullFastPath = false
-        } else if totalCount >= 64 {
-            #if canImport(Darwin) || canImport(Glibc)
-            let hasNull = input.withUnsafeBytes { buf in
-                guard let basePtr = buf.bindMemory(to: UInt8.self).baseAddress else { return false }
-                return memchr(basePtr, Int32(TokeniserStateVars.nullByte), totalCount) != nil
-            }
-            self.useNoNullFastPath = !hasNull
-            #else
-            self.useNoNullFastPath = !input.contains(0)
-            #endif
-        } else {
-            self.useNoNullFastPath = !input.contains(0)
-        }
     }
 
     init(_ input: UnsafeBufferPointer<UInt8>, storage: ByteStorage? = nil, owner: AnyObject? = nil) {
@@ -112,31 +95,6 @@ public final class CharacterReader {
         self.pos = 0
         self.mark = 0
         self.end = input.count
-        let totalCount = input.count
-        if totalCount == 0 {
-            self.useNoNullFastPath = false
-        } else if totalCount >= 64 {
-            #if canImport(Darwin) || canImport(Glibc)
-            if let basePtr = input.baseAddress {
-                let hasNull = memchr(basePtr, Int32(TokeniserStateVars.nullByte), totalCount) != nil
-                self.useNoNullFastPath = !hasNull
-            } else {
-                self.useNoNullFastPath = true
-            }
-            #else
-            var hasNull = false
-            for b in input {
-                if b == 0 { hasNull = true; break }
-            }
-            self.useNoNullFastPath = !hasNull
-            #endif
-        } else {
-            var hasNull = false
-            for b in input {
-                if b == 0 { hasNull = true; break }
-            }
-            self.useNoNullFastPath = !hasNull
-        }
     }
 
     public convenience init(_ input: UnsafeBufferPointer<UInt8>, owner: AnyObject? = nil) {
@@ -145,11 +103,6 @@ public final class CharacterReader {
     
     public convenience init(_ input: String) {
         self.init(input.utf8Array)
-    }
-
-    @inline(__always)
-    internal var canSkipNullCheck: Bool {
-        return useNoNullFastPath
     }
 
     @usableFromInline
@@ -1457,29 +1410,16 @@ public final class CharacterReader {
             return slice(start, pos)
         }
 
-        let useNoNullFastPath = self.useNoNullFastPath
-
         // Small unrolled scan for short runs before falling back to memchr.
         var i = pos
         let scanEnd = min(end, pos + 16)
-        if useNoNullFastPath {
-            while i < scanEnd {
-                let b = input[i]
-                if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte { // &, <
-                    pos = i
-                    return slice(start, pos)
-                }
-                i &+= 1
+        while i < scanEnd {
+            let b = input[i]
+            if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte || b == TokeniserStateVars.nullByte { // &, <, null
+                pos = i
+                return slice(start, pos)
             }
-        } else {
-            while i < scanEnd {
-                let b = input[i]
-                if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte || b == TokeniserStateVars.nullByte { // &, <, null
-                    pos = i
-                    return slice(start, pos)
-                }
-                i &+= 1
-            }
+            i &+= 1
         }
         pos = i
         if pos >= end {
@@ -1507,7 +1447,7 @@ public final class CharacterReader {
                     let byte = basePtr[i]
                     if byte == TokeniserStateVars.ampersandByte ||
                         byte == TokeniserStateVars.lessThanByte ||
-                        (!useNoNullFastPath && byte == TokeniserStateVars.nullByte) {
+                        byte == TokeniserStateVars.nullByte {
                         pos = i
                         return slice(start, pos)
                     }
@@ -1516,18 +1456,14 @@ public final class CharacterReader {
                 let endWord = end &- 8
                 while i <= endWord {
                     let word = UnsafeRawPointer(basePtr.advanced(by: i)).load(as: UInt64.self)
-                    var hit = hasByte(word, aWord) || hasByte(word, bWord)
-                    if !hit && !useNoNullFastPath {
-                        hit = hasByte(word, cWord)
-                    }
-                    if hit { break }
+                    if hasByte(word, aWord) || hasByte(word, bWord) || hasByte(word, cWord) { break }
                     i &+= 8
                 }
                 while i < end {
                     let byte = basePtr[i]
                     if byte == TokeniserStateVars.ampersandByte ||
                         byte == TokeniserStateVars.lessThanByte ||
-                        (!useNoNullFastPath && byte == TokeniserStateVars.nullByte) {
+                        byte == TokeniserStateVars.nullByte {
                         pos = i
                         return slice(start, pos)
                     }
@@ -1554,7 +1490,7 @@ public final class CharacterReader {
                     let off = Int(bitPattern: pb) - Int(bitPattern: startRaw)
                     if off < minOff { minOff = off }
                 }
-                if !useNoNullFastPath, let pc = memchr(startPtr, Int32(TokeniserStateVars.nullByte), len) {
+                if let pc = memchr(startPtr, Int32(TokeniserStateVars.nullByte), len) {
                     let off = Int(bitPattern: pc) - Int(bitPattern: startRaw)
                     if off < minOff { minOff = off }
                 }
@@ -1568,61 +1504,16 @@ public final class CharacterReader {
         // No mid-tier memchr: default to scalar loop for short remaining spans.
         #endif
 
-        if useNoNullFastPath {
-            while pos < end {
-                let b = input[pos]
-                if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte { // &, <
-                    return slice(start, pos)
-                }
-                pos &+= 1
+        while pos < end {
+            let b = input[pos]
+            if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte || b == TokeniserStateVars.nullByte { // &, <, null
+                return slice(start, pos)
             }
-        } else {
-            while pos < end {
-                let b = input[pos]
-                if b == TokeniserStateVars.ampersandByte || b == TokeniserStateVars.lessThanByte || b == TokeniserStateVars.nullByte { // &, <, null
-                    return slice(start, pos)
-                }
-                pos &+= 1
-            }
+            pos &+= 1
         }
         return slice(start, pos)
     }
 
-    @inline(__always)
-    func consumeDataFastNoNullSlice() -> ByteSlice {
-        let start = pos
-        let count = end - pos
-        if count <= 0 {
-            return slice(start, pos)
-        }
-        #if canImport(Darwin) || canImport(Glibc)
-        guard let basePtr = input.baseAddress else {
-            return slice(start, pos)
-        }
-            let startPtr = basePtr.advanced(by: start)
-            let len = count
-            let pa = memchr(startPtr, Int32(TokeniserStateVars.ampersandByte), len) // &
-            let pb = memchr(startPtr, Int32(TokeniserStateVars.lessThanByte), len) // <
-            if pa == nil && pb == nil {
-                pos = end
-                return slice(start, pos)
-            }
-            let target: UnsafeMutableRawPointer
-            if let pa = pa, let pb = pb {
-                target = (pa < pb) ? pa : pb
-            } else if let pa = pa {
-                target = pa
-            } else {
-                target = pb!
-            }
-            let offset = Int(bitPattern: target) - Int(bitPattern: startPtr)
-            pos = start + offset
-            return slice(start, pos)
-        #else
-        return consumeDataSlice()
-        #endif
-    }
-    
     public static let tagNameTerminators = ParsingStrings([.BackslashT, .BackslashN, .BackslashR, .BackslashF, .Space, .Slash, .GreaterThan, TokeniserStateVars.nullScalr])
     public static let tagNameDelims: [Bool] = {
         var table = [Bool](repeating: false, count: 256)
@@ -1758,17 +1649,11 @@ public final class CharacterReader {
 
     @inline(__always)
     func consumeAttributeValueDoubleQuotedSlice() -> ByteSlice {
-        if canSkipNullCheck {
-            return consumeToAnyOfTwoSlice(TokeniserStateVars.quoteByte, TokeniserStateVars.ampersandByte)
-        }
         return consumeToAnyOfThreeSlice(TokeniserStateVars.quoteByte, TokeniserStateVars.ampersandByte, TokeniserStateVars.nullByte)
     }
 
     @inline(__always)
     func consumeAttributeValueSingleQuotedSlice() -> ByteSlice {
-        if canSkipNullCheck {
-            return consumeToAnyOfTwoSlice(TokeniserStateVars.apostropheByte, TokeniserStateVars.ampersandByte)
-        }
         return consumeToAnyOfThreeSlice(TokeniserStateVars.apostropheByte, TokeniserStateVars.ampersandByte, TokeniserStateVars.nullByte)
     }
 
@@ -1845,9 +1730,10 @@ public final class CharacterReader {
 
     @inline(__always)
     public func consumeDataFastNoNull() -> ArraySlice<UInt8> {
-        return consumeDataFastNoNullSlice().toArraySlice()
+        return consumeDataSlice().toArraySlice()
     }
 
+    @inline(__always)
     @inline(__always)
     public func consumeTagName() -> ArraySlice<UInt8> {
         return consumeTagNameSlice().toArraySlice()
