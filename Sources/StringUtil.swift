@@ -55,7 +55,33 @@ open class StringUtil {
     }
 
     @inline(__always)
+    static func hasPrefixIgnoreCaseAscii(_ bytes: ByteSlice, _ prefix: [UInt8]) -> Bool {
+        if prefix.count > bytes.count { return false }
+        var i = 0
+        while i < prefix.count {
+            if Attributes.asciiLowercase(bytes[i]) != Attributes.asciiLowercase(prefix[i]) {
+                return false
+            }
+            i &+= 1
+        }
+        return true
+    }
+
+    @inline(__always)
     static func hasPrefixLowercaseAscii(_ bytes: [UInt8], _ lowerPrefix: [UInt8]) -> Bool {
+        if lowerPrefix.count > bytes.count { return false }
+        var i = 0
+        while i < lowerPrefix.count {
+            if Attributes.asciiLowercase(bytes[i]) != lowerPrefix[i] {
+                return false
+            }
+            i &+= 1
+        }
+        return true
+    }
+
+    @inline(__always)
+    static func hasPrefixLowercaseAscii(_ bytes: ByteSlice, _ lowerPrefix: [UInt8]) -> Bool {
         if lowerPrefix.count > bytes.count { return false }
         var i = 0
         while i < lowerPrefix.count {
@@ -82,7 +108,35 @@ open class StringUtil {
     }
 
     @inline(__always)
+    static func hasSuffixIgnoreCaseAscii(_ bytes: ByteSlice, _ suffix: [UInt8]) -> Bool {
+        if suffix.count > bytes.count { return false }
+        let offset = bytes.count - suffix.count
+        var i = 0
+        while i < suffix.count {
+            if Attributes.asciiLowercase(bytes[offset + i]) != Attributes.asciiLowercase(suffix[i]) {
+                return false
+            }
+            i &+= 1
+        }
+        return true
+    }
+
+    @inline(__always)
     static func hasSuffixLowercaseAscii(_ bytes: [UInt8], _ lowerSuffix: [UInt8]) -> Bool {
+        if lowerSuffix.count > bytes.count { return false }
+        let offset = bytes.count - lowerSuffix.count
+        var i = 0
+        while i < lowerSuffix.count {
+            if Attributes.asciiLowercase(bytes[offset + i]) != lowerSuffix[i] {
+                return false
+            }
+            i &+= 1
+        }
+        return true
+    }
+
+    @inline(__always)
+    static func hasSuffixLowercaseAscii(_ bytes: ByteSlice, _ lowerSuffix: [UInt8]) -> Bool {
         if lowerSuffix.count > bytes.count { return false }
         let offset = bytes.count - lowerSuffix.count
         var i = 0
@@ -117,6 +171,43 @@ open class StringUtil {
             i &+= 1
         }
         return false
+    }
+
+    @inline(__always)
+    static func containsIgnoreCaseAscii(_ bytes: ByteSlice, _ needle: [UInt8]) -> Bool {
+        let hayCount = bytes.count
+        let needleCount = needle.count
+        if needleCount == 0 { return true }
+        if needleCount > hayCount { return false }
+        let limit = hayCount - needleCount
+        var i = 0
+        while i <= limit {
+            var j = 0
+            while j < needleCount {
+                if Attributes.asciiLowercase(bytes[i + j]) != Attributes.asciiLowercase(needle[j]) {
+                    break
+                }
+                j &+= 1
+            }
+            if j == needleCount {
+                return true
+            }
+            i &+= 1
+        }
+        return false
+    }
+
+    @inline(__always)
+    static func equalsIgnoreCase(_ lhs: [UInt8], _ rhs: ByteSlice) -> Bool {
+        if lhs.count != rhs.count { return false }
+        var i = 0
+        for b in rhs {
+            if Attributes.asciiLowercase(b) != Attributes.asciiLowercase(lhs[i]) {
+                return false
+            }
+            i &+= 1
+        }
+        return true
     }
 
     @inline(__always)

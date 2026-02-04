@@ -243,6 +243,12 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let slice = element.attrSlice(keyBytes) {
+                if slice.isEmpty { return false }
+                let needsTrim = (slice.first?.isWhitespace ?? false) || (slice.last?.isWhitespace ?? false)
+                let candidate = needsTrim ? slice.trim() : slice
+                return StringUtil.equalsIgnoreCase(valueBytes, candidate)
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
             let needsTrim = (bytes.first?.isWhitespace ?? false) || (bytes.last?.isWhitespace ?? false)
@@ -265,6 +271,10 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let slice = element.attrSlice(keyBytes) {
+                if slice.isEmpty { return true }
+                return !StringUtil.equalsIgnoreCase(valueBytes, slice)
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return true }
             return !valueBytes.equalsIgnoreCase(string: bytes)
@@ -285,6 +295,15 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let slice = element.attrSlice(keyBytes) {
+                if slice.isEmpty { return false }
+                if StringUtil.isAscii(slice),
+                   StringUtil.isAscii(valueBytes) {
+                    return StringUtil.hasPrefixLowercaseAscii(slice, valueBytes)
+                }
+                let string = slice.withUnsafeBytes { String(decoding: $0, as: UTF8.self) }
+                return string.lowercased().hasPrefix(value)
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
             if StringUtil.isAscii(bytes),
@@ -309,6 +328,15 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let slice = element.attrSlice(keyBytes) {
+                if slice.isEmpty { return false }
+                if StringUtil.isAscii(slice),
+                   StringUtil.isAscii(valueBytes) {
+                    return StringUtil.hasSuffixLowercaseAscii(slice, valueBytes)
+                }
+                let string = slice.withUnsafeBytes { String(decoding: $0, as: UTF8.self) }
+                return string.lowercased().hasSuffix(value)
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
             if StringUtil.isAscii(bytes),
@@ -333,6 +361,15 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let slice = element.attrSlice(keyBytes) {
+                if slice.isEmpty { return false }
+                if StringUtil.isAscii(slice),
+                   StringUtil.isAscii(valueBytes) {
+                    return StringUtil.containsLowercaseAscii(slice, valueBytes)
+                }
+                let string = slice.withUnsafeBytes { String(decoding: $0, as: UTF8.self) }
+                return string.lowercased().contains(value)
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
             if StringUtil.isAscii(bytes),
@@ -364,6 +401,11 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            if let slice = element.attrSlice(keyBytes) {
+                if slice.isEmpty { return false }
+                let string = slice.withUnsafeBytes { String(decoding: $0, as: UTF8.self) }
+                return pattern.matcher(in: string).find()
+            }
             let bytes = try element.attr(keyBytes)
             if bytes.isEmpty { return false }
             let string = String(decoding: bytes, as: UTF8.self)

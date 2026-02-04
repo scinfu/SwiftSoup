@@ -834,6 +834,40 @@ open class Attributes: NSCopying {
 
     @inline(__always)
     @usableFromInline
+    internal func pendingValueCaseSensitiveSlice(_ key: [UInt8]) -> ByteSlice? {
+        guard !key.isEmpty, attributes.isEmpty, let pending = pendingAttributes, !pending.isEmpty else {
+            return nil
+        }
+        for pendingAttr in pending {
+            if let nameBytes = pendingAttr.nameBytes {
+                if nameBytes == key {
+                    switch pendingAttr.value {
+                    case .none, .empty:
+                        return ByteSlice.empty
+                    case .slice(let slice):
+                        return slice
+                    default:
+                        return nil
+                    }
+                }
+            } else if let nameSlice = pendingAttr.nameSlice {
+                if equalsSlice(nameSlice, key) {
+                    switch pendingAttr.value {
+                    case .none, .empty:
+                        return ByteSlice.empty
+                    case .slice(let slice):
+                        return slice
+                    default:
+                        return nil
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
+    @inline(__always)
+    @usableFromInline
     internal func pendingValueIgnoreCase<T: Collection>(_ key: T) -> [UInt8]? where T.Element == UInt8 {
         guard !key.isEmpty, attributes.isEmpty, let pending = pendingAttributes, !pending.isEmpty else {
             return nil

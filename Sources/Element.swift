@@ -270,6 +270,24 @@ open class Element: Node {
     }
 
     @inline(__always)
+    internal func attrSlice(_ attributeKey: [UInt8]) -> ByteSlice? {
+        guard let attributes else { return nil }
+        if attributeKey.count >= UTF8Arrays.absPrefix.count {
+            @inline(__always)
+            func lowerAscii(_ b: UInt8) -> UInt8 {
+                return (b >= 65 && b <= 90) ? (b &+ 32) : b
+            }
+            if lowerAscii(attributeKey[0]) == UTF8Arrays.absPrefix[0] &&
+                lowerAscii(attributeKey[1]) == UTF8Arrays.absPrefix[1] &&
+                lowerAscii(attributeKey[2]) == UTF8Arrays.absPrefix[2] &&
+                attributeKey[3] == UTF8Arrays.absPrefix[3] {
+                return nil
+            }
+        }
+        return attributes.pendingValueCaseSensitiveSlice(attributeKey)
+    }
+
+    @inline(__always)
     open override func attr(_ attributeKey: String) throws -> String {
         if let lookup = UTF8Arrays.attributeLookup[attributeKey] {
             return try String(decoding: attr(lookup), as: UTF8.self)

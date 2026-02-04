@@ -142,14 +142,6 @@ public class Parser {
 
     public static func parse(_ data: Data, _ baseUri: [UInt8]) throws -> Document {
         FeatureFlags.configureFromEnvironmentOnce()
-        if FeatureFlags.closureBasedParsing {
-            return try parse(baseUri, withBytes: { parse in
-                return try data.withUnsafeBytes { raw in
-                    let buffer = raw.bindMemory(to: UInt8.self)
-                    return try parse(buffer)
-                }
-            })
-        }
         let treeBuilder = acquireHtmlTreeBuilder()
         defer { releaseHtmlTreeBuilder(treeBuilder) }
         return try treeBuilder.parse([UInt8](data), baseUri, ParseErrorList.noTracking(), treeBuilder.defaultSettings())
