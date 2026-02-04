@@ -188,6 +188,77 @@ final class SelectorResultCache {
     }
 }
 
+@usableFromInline
+final class SelectorQueryStats {
+    let windowSize: Int
+    private var queries: [String]
+    private var hits: [UInt8]
+    private var index: Int = 0
+    private var filled: Bool = false
+    private var uniqueCounts: [String: Int] = [:]
+    private var hitCount: Int = 0
+
+    init(windowSize: Int) {
+        self.windowSize = max(1, windowSize)
+        self.queries = Array(repeating: "", count: self.windowSize)
+        self.hits = Array(repeating: 0, count: self.windowSize)
+        self.uniqueCounts.reserveCapacity(self.windowSize)
+    }
+
+    @inline(__always)
+    func record(_ query: String, hit: Bool) {
+        if filled {
+            let oldQuery = queries[index]
+            let oldHit = hits[index]
+            if oldHit != 0 {
+                hitCount &-= 1
+            }
+            if let count = uniqueCounts[oldQuery] {
+                if count <= 1 {
+                    uniqueCounts.removeValue(forKey: oldQuery)
+                } else {
+                    uniqueCounts[oldQuery] = count - 1
+                }
+            }
+        }
+        queries[index] = query
+        let hitByte: UInt8 = hit ? 1 : 0
+        hits[index] = hitByte
+        if hitByte != 0 {
+            hitCount &+= 1
+        }
+        uniqueCounts[query, default: 0] &+= 1
+        index &+= 1
+        if index >= windowSize {
+            index = 0
+            filled = true
+        }
+    }
+
+    @inline(__always)
+    func totalCount() -> Int {
+        return filled ? windowSize : index
+    }
+
+    @inline(__always)
+    func uniqueCount() -> Int {
+        return uniqueCounts.count
+    }
+
+    @inline(__always)
+    func hitsInWindow() -> Int {
+        return hitCount
+    }
+
+    @inline(__always)
+    func reset() {
+        uniqueCounts.removeAll(keepingCapacity: true)
+        hitCount = 0
+        index = 0
+        filled = false
+    }
+}
+
 open class Element: Node {
     var _tag: Tag
     
@@ -269,9 +340,21 @@ open class Element: Node {
     @usableFromInline
     internal static let selectorResultCacheCapacity: Int = 256
     @usableFromInline
+    internal static let selectorResultCacheScanWindowMultiplier: Int = 2
+    @usableFromInline
+    internal static let selectorResultCacheScanUniqueThresholdNumerator: Int = 3
+    @usableFromInline
+    internal static let selectorResultCacheScanUniqueThresholdDenominator: Int = 2
+    @usableFromInline
+    internal static let selectorResultCacheScanHitRatePermille: Int = 20 // 2%
+    @usableFromInline
     internal var selectorResultCache: SelectorResultCache? = nil
     @usableFromInline
     internal var selectorResultTextVersion: Int = 0
+    @usableFromInline
+    internal var selectorCacheBypassRemaining: Int = 0
+    @usableFromInline
+    internal var selectorQueryStats: SelectorQueryStats? = nil
     @usableFromInline
     internal var selectorResultCacheRoot: Node? = nil
     
@@ -2903,12 +2986,14 @@ internal extension Element {
             return nil
         }
         if let result = cache.get(query) {
+            recordSelectorQuery(query, hit: true)
             #if PROFILE
             let _hit = Profiler.start("Element.cachedSelectorResult.hit")
             Profiler.end("Element.cachedSelectorResult.hit", _hit)
             #endif
             return result
         }
+        recordSelectorQuery(query, hit: false)
         #if PROFILE
         let _miss = Profiler.start("Element.cachedSelectorResult.miss")
         Profiler.end("Element.cachedSelectorResult.miss", _miss)
@@ -2923,8 +3008,15 @@ internal extension Element {
         let _p = Profiler.start("Element.storeSelectorResult")
         defer { Profiler.end("Element.storeSelectorResult", _p) }
         #endif
+        let hadCache = selectorResultCache != nil
         if selectorResultCache == nil {
             selectorResultCache = SelectorResultCache(capacity: Element.selectorResultCacheCapacity)
+            selectorQueryStats = SelectorQueryStats(
+                windowSize: Element.selectorResultCacheCapacity * Element.selectorResultCacheScanWindowMultiplier
+            )
+        }
+        if !hadCache {
+            recordSelectorQuery(query, hit: false)
         }
         if selectorResultCacheRoot == nil || selectorResultCacheRoot?.parentNode != nil {
             selectorResultCacheRoot = textMutationRoot()
@@ -2933,6 +3025,10 @@ internal extension Element {
             selectorResultTextVersion = root.textMutationVersion
         } else {
             selectorResultTextVersion = textMutationVersionToken()
+        }
+        if selectorCacheBypassRemaining > 0 {
+            selectorCacheBypassRemaining &-= 1
+            return
         }
         selectorResultCache?.put(query, result)
     }
@@ -2948,6 +3044,28 @@ internal extension Element {
             selectorResultCache?.clear()
             selectorResultCache = nil
             selectorResultCacheRoot = nil
+            selectorCacheBypassRemaining = 0
+            selectorQueryStats = nil
+        }
+    }
+
+    @inline(__always)
+    private func recordSelectorQuery(_ query: String, hit: Bool) {
+        guard let stats = selectorQueryStats else { return }
+        stats.record(query, hit: hit)
+        guard selectorCacheBypassRemaining == 0 else { return }
+        let total = stats.totalCount()
+        if total < stats.windowSize { return }
+        let uniqueCount = stats.uniqueCount()
+        let uniqueThreshold = (Element.selectorResultCacheCapacity
+                               * Element.selectorResultCacheScanUniqueThresholdNumerator)
+                               / Element.selectorResultCacheScanUniqueThresholdDenominator
+        if uniqueCount >= uniqueThreshold {
+            let hits = stats.hitsInWindow()
+            if hits * 1000 < total * Element.selectorResultCacheScanHitRatePermille {
+                selectorCacheBypassRemaining = stats.windowSize
+                stats.reset()
+            }
         }
     }
     
