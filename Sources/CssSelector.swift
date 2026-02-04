@@ -114,6 +114,10 @@ open class CssSelector {
      - throws ``Exception`` with ``ExceptionType/SelectorParseException`` (unchecked) on an invalid CSS query.
      */
     public static func select(_ query: String, _ root: Element)throws->Elements {
+        #if PROFILE
+        let _p = Profiler.start("CssSelector.select")
+        defer { Profiler.end("CssSelector.select", _p) }
+        #endif
         FeatureFlags.enableSelectorIndexingIfNeeded(for: root)
         let query = query.trim()
         try Validate.notEmpty(string: query.utf8Array)

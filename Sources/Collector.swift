@@ -24,6 +24,10 @@ open class Collector {
      - returns: list of matches; empty if none
      */
     public static func collect (_ eval: Evaluator, _ root: Element) throws -> Elements {
+        #if PROFILE
+        let _p = Profiler.start("Collector.collect")
+        defer { Profiler.end("Collector.collect", _p) }
+        #endif
         if eval is Evaluator.AllElements {
             let elements = Elements()
             var stack: ContiguousArray<Element> = []

@@ -1209,6 +1209,10 @@ open class Element: Node {
         _ key: String,
         _ value: String
     ) throws -> Elements {
+        #if PROFILE
+        let _p = Profiler.start("Element.getElementsByAttributeValueNormalized")
+        defer { Profiler.end("Element.getElementsByAttributeValueNormalized", _p) }
+        #endif
         if keyBytes.starts(with: UTF8Arrays.absPrefix) {
             return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
         }
@@ -1221,12 +1225,24 @@ open class Element: Node {
         }
         if isHotKey || (dynamicAttributeValueIndexKeySet?.contains(keySlice) ?? false) {
             if isAttributeValueQueryIndexDirty || normalizedAttributeValueIndex == nil {
+                #if PROFILE
+                let _pRebuild = Profiler.start("Element.rebuildQueryIndexesForHotAttributes")
+                defer { Profiler.end("Element.rebuildQueryIndexesForHotAttributes", _pRebuild) }
+                #endif
                 rebuildQueryIndexesForHotAttributes()
                 isAttributeValueQueryIndexDirty = false
             }
+            #if PROFILE
+            let _pLookup = Profiler.start("Element.attrValueIndex.lookup")
+            defer { Profiler.end("Element.attrValueIndex.lookup", _pLookup) }
+            #endif
             let results = normalizedAttributeValueIndex?[keySlice]?[valueSlice]?.compactMap { $0.value } ?? []
             return Elements(results)
         }
+        #if PROFILE
+        let _pFallback = Profiler.start("Element.attrValueIndex.fallback")
+        defer { Profiler.end("Element.attrValueIndex.fallback", _pFallback) }
+        #endif
         return try Collector.collect(Evaluator.AttributeWithValue(key, value), self)
     }
     
@@ -2689,6 +2705,10 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func cachedSelectorResult(_ query: String) -> Elements? {
+        #if PROFILE
+        let _p = Profiler.start("Element.cachedSelectorResult")
+        defer { Profiler.end("Element.cachedSelectorResult", _p) }
+        #endif
         guard let cache = selectorResultCache else { return nil }
         let root: Node
         if let cachedRoot = selectorResultCacheRoot, cachedRoot.parentNode == nil {
@@ -2703,12 +2723,27 @@ internal extension Element {
             selectorResultTextVersion = currentTextVersion
             return nil
         }
-        return cache[query]
+        if let result = cache[query] {
+            #if PROFILE
+            let _hit = Profiler.start("Element.cachedSelectorResult.hit")
+            Profiler.end("Element.cachedSelectorResult.hit", _hit)
+            #endif
+            return result
+        }
+        #if PROFILE
+        let _miss = Profiler.start("Element.cachedSelectorResult.miss")
+        Profiler.end("Element.cachedSelectorResult.miss", _miss)
+        #endif
+        return nil
     }
 
     @usableFromInline
     @inline(__always)
     func storeSelectorResult(_ query: String, _ result: Elements) {
+        #if PROFILE
+        let _p = Profiler.start("Element.storeSelectorResult")
+        defer { Profiler.end("Element.storeSelectorResult", _p) }
+        #endif
         if selectorResultCache == nil {
             selectorResultCache = [:]
             selectorResultCacheOrder = []
@@ -2741,6 +2776,10 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func invalidateSelectorResultCache() {
+        #if PROFILE
+        let _p = Profiler.start("Element.invalidateSelectorResultCache")
+        defer { Profiler.end("Element.invalidateSelectorResultCache", _p) }
+        #endif
         if selectorResultCache != nil {
             selectorResultCache = nil
             selectorResultCacheOrder.removeAll(keepingCapacity: true)
