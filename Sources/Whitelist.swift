@@ -564,8 +564,17 @@ import Foundation
         guard try isSafeAttribute(tagName, el, attr) else {
             return nil
         }
-        
+
         let clonedAttr = attr.clone()
+
+        // Only apply URL resolution and whitespace handling to attributes that
+        // have protocols defined (i.e., URL attributes like href, src). Applying
+        // URL resolution to non-URL attributes like `style` corrupts values
+        // containing `#` (e.g., CSS colors) by percent-encoding them to `%23`.
+        guard isURLAttribute(tagName, attr) else {
+            return clonedAttr
+        }
+
         if !preserveRelativeLinks {
             let resolved = resolveWithTrimmedURL(el, attr)
             if !resolved.isEmpty {
@@ -582,6 +591,16 @@ import Foundation
         }
 
         return clonedAttr
+    }
+
+    /// Check if the attribute has protocols defined in the whitelist, indicating it's a URL attribute.
+    private func isURLAttribute(_ tagName: String, _ attr: Attribute) -> Bool {
+        let tag = TagName.valueOf(tagName)
+        let key = AttributeKey.valueOf(attr.getKey())
+        if protocols[tag]?[key] != nil {
+            return true
+        }
+        return tagName != ":all" && isURLAttribute(":all", attr)
     }
 
     /// Resolve a URL attribute, trimming whitespace before resolution when a base URI

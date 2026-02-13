@@ -490,4 +490,44 @@ class CleanerTest: XCTestCase {
         )
     }
 
+    // MARK: - Non-URL attribute preservation
+
+    func testDoesNotApplyURLResolutionToNonURLAttributes() throws {
+        // The `style` attribute is not a URL attribute — it should not be
+        // passed through URL resolution, which would percent-encode the `#`
+        // in CSS color values like `#E9EAEB`.
+        let html = #"<div style="background-color:#E9EAEB;">content</div>"#
+        let whitelist = try Whitelist()
+            .addTags("div")
+            .addAttributes("div", "style")
+        let cleaned = try SwiftSoup.clean(html, whitelist)
+        XCTAssertTrue(cleaned?.contains("background-color:#E9EAEB") == true,
+                      "Expected # to be preserved in style attribute, got: \(cleaned ?? "nil")")
+    }
+
+    func testDoesNotApplyURLResolutionToClassAttribute() throws {
+        let html = #"<div class="foo#bar">content</div>"#
+        let whitelist = try Whitelist()
+            .addTags("div")
+            .addAttributes("div", "class")
+        let cleaned = try SwiftSoup.clean(html, whitelist)
+        XCTAssertTrue(cleaned?.contains(#"class="foo#bar""#) == true,
+                      "Expected # to be preserved in class attribute, got: \(cleaned ?? "nil")")
+    }
+
+    func testStillResolvesURLAttributes() throws {
+        // URL attributes with protocols defined should still be resolved,
+        // while non-URL attributes on the same element are left alone.
+        let html = #"<a href="http://example.com" style="color:#333;">link</a>"#
+        let whitelist = try Whitelist()
+            .addTags("a")
+            .addAttributes("a", "href", "style")
+            .addProtocols("a", "href", "http", "https")
+        let cleaned = try SwiftSoup.clean(html, whitelist)
+        XCTAssertTrue(cleaned?.contains("http://example.com") == true,
+                      "Expected href to be preserved, got: \(cleaned ?? "nil")")
+        XCTAssertTrue(cleaned?.contains("color:#333") == true,
+                      "Expected # to be preserved in style attribute, got: \(cleaned ?? "nil")")
+    }
+
 }
