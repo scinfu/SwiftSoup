@@ -6,9 +6,6 @@
 //
 
 import Foundation
-#if canImport(Atomics)
-import Atomics
-#endif
 
 
 /**
@@ -17,21 +14,13 @@ import Atomics
 public class QueryParser {
     private static let combinators: [String]  = [",", ">", "+", "~", " "]
     private static let AttributeEvals: [String]  = ["=", "!=", "^=", "$=", "*=", "~="]
-    
-#if canImport(Atomics)
-    /// Atomic reference to the query parser cache. This allows for thread-safe manipulation of the
-    /// cache while avoiding locks.
-    private static let atomicCacheReference = ManagedAtomic<AtomicCacheWrapper?>(
-        AtomicCacheWrapper(cache: DefaultCache())
-    )
-#else
+
     /// Mutex lock for the cache instance.
     private static let cacheMutex = Mutex()
-    
+
     /// Cache instance. Must always access this with the ``QueryParser/cacheMutex``.
     nonisolated(unsafe)
     private static var cacheInstance: (any QueryParserCache)? = DefaultCache()
-#endif
     
     private var tq: TokenQueue
     private var query: String
@@ -108,20 +97,6 @@ public class QueryParser {
     ///
     /// Defaults to ``DefaultCache``. You can set this to `nil` to disable caching, provide a
     /// ``DefaultCache`` instance with a different limit, or provide your own cache.
-#if canImport(Atomics)
-    public static var cache: (any QueryParserCache)? {
-        get {
-            Self.atomicCacheReference.load(ordering: .relaxed)?.wrapped
-        }
-        set {
-            if let newValue {
-                Self.atomicCacheReference.store(AtomicCacheWrapper(cache: newValue), ordering: .relaxed)
-            } else {
-                Self.atomicCacheReference.store(nil, ordering: .relaxed)
-            }
-        }
-    }
-#else
     public static var cache: (any QueryParserCache)? {
         get {
             Self.cacheMutex.lock()
@@ -134,7 +109,6 @@ public class QueryParser {
             Self.cacheInstance = newValue
         }
     }
-#endif
     
     
     // MARK: Private methods
