@@ -9,6 +9,7 @@ import Foundation
 
 	/**
 	 Parse HTML into a Document. The parser will make a sensible, balanced document tree out of any HTML.
+     For XML input, use ``parseXML(_:_:)`` or ``parse(_:_:_:)`` with ``Parser/xmlParser()``.
 	 
 	 - parameter html:    HTML to parse
 	 - parameter baseUri: The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs, that occur
@@ -21,6 +22,7 @@ import Foundation
 
 	/**
 	 Parse Data into a Document. The parser will make a sensible, balanced document tree out of any HTML.
+     For XML input, use ``parseXML(_:_:)`` or ``parse(_:_:_:)`` with ``Parser/xmlParser()``.
 	 
 	 - parameter data: Data to parse
 	 - parameter baseUri: The URL where the HTML was retrieved from. Used to resolve relative URLs to absolute URLs, that occur
@@ -84,6 +86,7 @@ import Foundation
 	/**
 	 Parse HTML into a Document. As no base URI is specified, absolute URL detection relies on the HTML including a
 	 `<base href>` tag.
+     For XML input, use ``parseXML(_:)``.
 	 
 	 - parameter html: HTML to parse
 	 - returns: sane HTML
@@ -96,6 +99,7 @@ import Foundation
     /**
 	 Parse Data into a Document. As no base URI is specified, absolute URL detection relies on the HTML including a
 	 `<base href>` tag.
+     For XML input, use ``parseXML(_:)``.
 	 
 	 - parameter data: Data to parse
 	 - returns: sane HTML
@@ -104,6 +108,51 @@ import Foundation
 	public func parse(_ data: Data) throws -> Document {
 		return try Parser.parse(data, "")
 	}
+
+    /**
+     Parse XML into a Document using the XML parser. Unlike ``parse(_:_:)``, this does not apply HTML5 tree-building
+     rules or normalize known HTML tags like `<link>` or `<img>`.
+
+     - parameter xml: XML to parse
+     - parameter baseUri: The URL where the XML was retrieved from. Used to resolve relative URLs to absolute URLs.
+     - returns: parsed XML document
+     */
+    public func parseXML(_ xml: String, _ baseUri: String) throws -> Document {
+        return try parse(xml, baseUri, Parser.xmlParser())
+    }
+
+    /**
+     Parse XML into a Document using the XML parser. As no base URI is specified, absolute URL detection relies on the
+     XML including a suitable base URI in its own data.
+
+     - parameter xml: XML to parse
+     - returns: parsed XML document
+     */
+    public func parseXML(_ xml: String) throws -> Document {
+        return try parseXML(xml, "")
+    }
+
+    /**
+     Parse XML data into a Document using the XML parser.
+
+     - parameter data: XML data to parse
+     - parameter baseUri: The URL where the XML was retrieved from. Used to resolve relative URLs to absolute URLs.
+     - returns: parsed XML document
+     */
+    public func parseXML(_ data: Data, _ baseUri: String) throws -> Document {
+        return try Parser.xmlParser().parseInput([UInt8](data), baseUri)
+    }
+
+    /**
+     Parse XML data into a Document using the XML parser. As no base URI is specified, absolute URL detection relies on
+     the XML including a suitable base URI in its own data.
+
+     - parameter data: XML data to parse
+     - returns: parsed XML document
+     */
+    public func parseXML(_ data: Data) throws -> Document {
+        return try parseXML(data, "")
+    }
 
 
 

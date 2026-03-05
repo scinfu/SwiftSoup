@@ -79,6 +79,31 @@ print(try document.title()) // Output: Example
 ```
 
 ---
+### Parse an XML Document
+
+Use the XML parser when working with feeds, OPML, or other non-HTML documents. The default `SwiftSoup.parse(...)`
+entry points apply HTML5 parsing rules, so tags like `<link>` and `<img>` will be treated as HTML tags instead of
+generic XML elements.
+
+```swift
+import SwiftSoup
+
+let xml = """
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+  <body>
+    <link>I'm link</link>
+    <img>I'm img</img>
+  </body>
+</opml>
+"""
+
+let document = try SwiftSoup.parseXML(xml)
+print(try document.select("link").first()?.text()) // Output: I'm link
+print(try document.select("body > img").first()?.text()) // Output: I'm img
+```
+
+---
 ## Profiling
 
 SwiftSoup includes a lightweight profiler (gated by a compile-time flag) and a small CLI harness for parsing benchmarks.
