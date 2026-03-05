@@ -251,6 +251,25 @@ class CleanerTest: XCTestCase {
         XCTAssertEqual("привет", try SwiftSoup.clean("привет", Whitelist.none()))
     }
 
+    func testWhitelistNoneNormalizesNbspEntityToSpace() throws {
+        XCTAssertEqual(" ", try SwiftSoup.clean("&nbsp;", Whitelist.none()))
+    }
+
+    func testWhitelistNoneNormalizesNumericNbspEntitiesToSpaces() throws {
+        let html = "Hello&nbsp;there&#160;friend"
+        XCTAssertEqual("Hello there friend", try SwiftSoup.clean(html, Whitelist.none()))
+    }
+
+    func testWhitelistNoneStillEscapesOtherEntities() throws {
+        let html = "&amp;&lt;&gt;"
+        XCTAssertEqual("&amp;&lt;&gt;", try SwiftSoup.clean(html, Whitelist.none()))
+    }
+
+    func testNonEmptyWhitelistStillPreservesNbspEntity() throws {
+        let html = "&nbsp;<b>Bold</b>"
+        XCTAssertEqual("&nbsp;<b>Bold</b>", TextUtil.stripNewlines(try SwiftSoup.clean(html, Whitelist.simpleText())!))
+    }
+
     func testScriptTagInWhiteList() throws {
         let whitelist: Whitelist = try Whitelist.relaxed()
         try whitelist.addTags( "script" )
