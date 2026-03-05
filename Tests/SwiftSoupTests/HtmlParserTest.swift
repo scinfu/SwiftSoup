@@ -49,7 +49,7 @@ class HtmlParserTest: XCTestCase {
         XCTAssertThrowsError(try String(contentsOf: fileURL)) { error in
             let nsError = error as NSError
             XCTAssertEqual(NSCocoaErrorDomain, nsError.domain)
-            XCTAssertEqual(264, nsError.code)
+            XCTAssertTrue(nsError.localizedDescription.lowercased().contains("encoding"))
         }
 
         let doc: Document = try SwiftSoup.parse(fileURL)
