@@ -1184,6 +1184,25 @@ class ElementTest: XCTestCase {
 		XCTAssertTrue(try divC == doc.select(divC.cssSelector()).first())
 	}
 
+    func testCssPathEscapesSpecialCharactersInClassNames() throws {
+        let html = #"<div class="Fz(xs) Fw(b)"><div>149.64</div></div>"#
+        let doc = try SwiftSoup.parse(html)
+        let element = try doc.getElementsContainingOwnText("149.64").first()
+
+        XCTAssertNotNil(element)
+        XCTAssertEqual(#"html > body > div.Fz\(xs\).Fw\(b\) > div"#, try element?.cssSelector())
+        XCTAssertTrue(try element == doc.select(element?.cssSelector() ?? "").first())
+        XCTAssertEqual("149.64", try doc.select(#".Fw\(b\) > div"#).text())
+    }
+
+    func testCssPathEscapesSpecialCharactersInId() throws {
+        let doc = try SwiftSoup.parse(#"<div id="quote:body/main">A</div>"#)
+        let element = try doc.select("div").first()
+
+        XCTAssertEqual(#"#quote\:body\/main"#, try element?.cssSelector())
+        XCTAssertTrue(try element == doc.select(element?.cssSelector() ?? "").first())
+    }
+
 	func testClassNames() throws {
 		let doc: Document = try SwiftSoup.parse("<div class=\"c1 c2\">C</div>")
 		let div: Element = try doc.select("div").get(0)
