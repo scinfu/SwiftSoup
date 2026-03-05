@@ -28,6 +28,7 @@ import Foundation
  
  * ``addTags(_:)``
  * ``addAttributes(_:_:)``
+ * ``addCSSProperties(_:_:)``
  * ``addEnforcedAttribute(_:_:_:)``
  * ``addProtocols(_:_:_:)``
  
@@ -35,6 +36,7 @@ import Foundation
  
  * ``removeTags(_:)``
  * ``removeAttributes(_:_:)``
+ * ``removeCSSProperties(_:_:)``
  * ``removeEnforcedAttribute(_:_:)``
  * ``removeProtocols(_:_:_:)``
  
@@ -75,6 +77,7 @@ import Foundation
 
     private var tagNames: Set<TagName> // tags allowed, lower case. e.g. [p, br, span]
     private var attributes: Dictionary<TagName, Set<AttributeKey>> // tag -> attribute[]. allowed attributes [href] for a tag.
+    private var cssProperties: Dictionary<TagName, Set<CSSPropertyName>> // tag -> allowed CSS properties for inline style attributes.
     private var enforcedAttributes: Dictionary<TagName, Dictionary<AttributeKey, AttributeValue>> // always set these attribute values
     private var protocols: Dictionary<TagName, Dictionary<AttributeKey, Set<Protocol>>> // allowed URL protocols for attributes
     private var preserveRelativeLinks: Bool  // option to preserve relative links
@@ -189,6 +192,7 @@ import Foundation
     init() {
         tagNames = Set<TagName>()
         attributes = Dictionary<TagName, Set<AttributeKey>>()
+        cssProperties = Dictionary<TagName, Set<CSSPropertyName>>()
         enforcedAttributes = Dictionary<TagName, Dictionary<AttributeKey, AttributeValue>>()
         protocols = Dictionary<TagName, Dictionary<AttributeKey, Set<Protocol>>>()
         preserveRelativeLinks = false
@@ -227,10 +231,89 @@ import Foundation
             if(tagNames.contains(tagName)) { // Only look in sub-maps if tag was allowed
                 tagNames.remove(tagName)
                 attributes.removeValue(forKey: tagName)
+                cssProperties.removeValue(forKey: tagName)
                 enforcedAttributes.removeValue(forKey: tagName)
                 protocols.removeValue(forKey: tagName)
             }
         }
+        return self
+    }
+
+    /**
+     Add a list of allowed CSS properties to the `style` attribute for a tag.
+
+     To make CSS properties valid for <b>all tags</b>, use the pseudo tag `:all`.
+
+     - parameter tag: The tag the CSS properties are for. The tag will be added to the allowed tag list if necessary.
+     - parameter properties: List of valid CSS properties for inline styles on the tag
+     - returns: this (for chaining)
+     */
+    @discardableResult
+    open func addCSSProperties(_ tag: String, _ properties: String...) throws -> Whitelist {
+        try Validate.notEmpty(string: tag)
+        try Validate.isTrue(val: !properties.isEmpty, msg: "No CSS properties supplied.")
+
+        let tagName = TagName.valueOf(tag)
+        if !tagNames.contains(tagName) {
+            tagNames.insert(tagName)
+        }
+
+        var propertySet = cssProperties[tagName] ?? Set<CSSPropertyName>()
+        for property in properties {
+            try Validate.notEmpty(string: property)
+            propertySet.insert(CSSPropertyName.valueOf(property))
+        }
+        cssProperties[tagName] = propertySet
+
+        return self
+    }
+
+    /**
+     Remove a list of allowed CSS properties from the `style` attribute for a tag.
+
+     To make CSS properties invalid for <b>all tags</b>, use the pseudo tag `:all`.
+
+     - parameter tag: The tag the CSS properties are for.
+     - parameter properties: List of invalid CSS properties for inline styles on the tag
+     - returns: this (for chaining)
+     */
+    @discardableResult
+    open func removeCSSProperties(_ tag: String, _ properties: String...) throws -> Whitelist {
+        try Validate.notEmpty(string: tag)
+        try Validate.isTrue(val: !properties.isEmpty, msg: "No CSS properties supplied.")
+
+        let tagName = TagName.valueOf(tag)
+        var propertySet = Set<CSSPropertyName>()
+        for property in properties {
+            try Validate.notEmpty(string: property)
+            propertySet.insert(CSSPropertyName.valueOf(property))
+        }
+
+        if tagNames.contains(tagName), var currentSet = cssProperties[tagName] {
+            for property in propertySet {
+                currentSet.remove(property)
+            }
+            if currentSet.isEmpty {
+                cssProperties.removeValue(forKey: tagName)
+            } else {
+                cssProperties[tagName] = currentSet
+            }
+        }
+
+        if tag == ":all" {
+            for name in cssProperties.keys {
+                var currentSet = cssProperties[name]!
+                for property in propertySet {
+                    currentSet.remove(property)
+                }
+                if currentSet.isEmpty {
+                    cssProperties.removeValue(forKey: name)
+                } else {
+                    cssProperties[name] = currentSet
+                }
+            }
+        }
+
         return self
     }
 
@@ -567,6 +650,16 @@ import Foundation
 
         let clonedAttr = attr.clone()
 
+        if isStyleAttribute(attr), let allowedCSSProperties = configuredCSSProperties(for: tagName) {
+            guard let sanitizedStyle = sanitizeStyleAttribute(attr.getValue(), allowedProperties: allowedCSSProperties) else {
+                return nil
+            }
+            if sanitizedStyle != attr.getValue() {
+                clonedAttr.setValue(value: sanitizedStyle.utf8Array)
+            }
+            return clonedAttr
+        }
+
         // Only apply URL resolution and whitespace handling to attributes that
         // have protocols defined (i.e., URL attributes like href, src). Applying
         // URL resolution to non-URL attributes like `style` corrupts values
@@ -616,6 +709,227 @@ import Foundation
             : String(decoding: rawValue.trim(), as: UTF8.self)
         let resolved = StringUtil.resolve(baseUri, relUrl: relUrl)
         return resolved.utf8Array
+    }
+
+    private func isStyleAttribute(_ attr: Attribute) -> Bool {
+        AttributeKey.valueOf(attr.getKey()) == AttributeKey.valueOf("style")
+    }
+
+    private func configuredCSSProperties(for tagName: String) -> Set<CSSPropertyName>? {
+        let tag = TagName.valueOf(tagName)
+        let allTag = TagName.valueOf(":all")
+        let tagProperties = cssProperties[tag]
+        let allProperties = tagName == ":all" ? nil : cssProperties[allTag]
+
+        guard tagProperties != nil || allProperties != nil else {
+            return nil
+        }
+
+        var allowedProperties = Set<CSSPropertyName>()
+        if let tagProperties {
+            allowedProperties.formUnion(tagProperties)
+        }
+        if let allProperties {
+            allowedProperties.formUnion(allProperties)
+        }
+        return allowedProperties
+    }
+
+    // Inline CSS is filtered conservatively: only whitelisted properties survive,
+    // comments are stripped, and declarations using common XSS vectors are dropped.
+    private func sanitizeStyleAttribute(_ style: String, allowedProperties: Set<CSSPropertyName>) -> String? {
+        let safeDeclarations = parseStyleDeclarations(style).compactMap { declaration -> String? in
+            let propertyName = declaration.name.lowercased()
+            guard allowedProperties.contains(CSSPropertyName.valueOf(propertyName)) else {
+                return nil
+            }
+            guard !isAlwaysUnsafeCSSProperty(propertyName),
+                  isSafeCSSValue(declaration.value) else {
+                return nil
+            }
+            return "\(propertyName):\(declaration.value)"
+        }
+
+        guard !safeDeclarations.isEmpty else {
+            return nil
+        }
+
+        return safeDeclarations.joined(separator: "; ")
+    }
+
+    private func parseStyleDeclarations(_ style: String) -> [CSSDeclaration] {
+        let styleWithoutComments = stripCSSComments(style)
+        var declarations = [CSSDeclaration]()
+        var buffer = ""
+        var quote: Character?
+        var isEscaped = false
+        var parenthesisDepth = 0
+
+        for character in styleWithoutComments {
+            if let activeQuote = quote {
+                buffer.append(character)
+                if isEscaped {
+                    isEscaped = false
+                } else if character == "\\" {
+                    isEscaped = true
+                } else if character == activeQuote {
+                    quote = nil
+                }
+                continue
+            }
+
+            switch character {
+            case "\"", "'":
+                quote = character
+                buffer.append(character)
+            case "(":
+                parenthesisDepth += 1
+                buffer.append(character)
+            case ")":
+                parenthesisDepth = max(0, parenthesisDepth - 1)
+                buffer.append(character)
+            case ";" where parenthesisDepth == 0:
+                if let declaration = parseStyleDeclaration(buffer) {
+                    declarations.append(declaration)
+                }
+                buffer.removeAll(keepingCapacity: true)
+            default:
+                buffer.append(character)
+            }
+        }
+
+        if let declaration = parseStyleDeclaration(buffer) {
+            declarations.append(declaration)
+        }
+
+        return declarations
+    }
+
+    private func stripCSSComments(_ style: String) -> String {
+        var result = ""
+        var quote: Character?
+        var isEscaped = false
+        var index = style.startIndex
+
+        while index < style.endIndex {
+            let character = style[index]
+
+            if let activeQuote = quote {
+                result.append(character)
+                if isEscaped {
+                    isEscaped = false
+                } else if character == "\\" {
+                    isEscaped = true
+                } else if character == activeQuote {
+                    quote = nil
+                }
+                index = style.index(after: index)
+                continue
+            }
+
+            if character == "\"" || character == "'" {
+                quote = character
+                result.append(character)
+                index = style.index(after: index)
+                continue
+            }
+
+            if character == "/", style.index(after: index) < style.endIndex, style[style.index(after: index)] == "*" {
+                index = style.index(index, offsetBy: 2)
+                while index < style.endIndex {
+                    if style[index] == "*",
+                       style.index(after: index) < style.endIndex,
+                       style[style.index(after: index)] == "/" {
+                        index = style.index(index, offsetBy: 2)
+                        break
+                    }
+                    index = style.index(after: index)
+                }
+                continue
+            }
+
+            result.append(character)
+            index = style.index(after: index)
+        }
+
+        return result
+    }
+
+    private func isAlwaysUnsafeCSSProperty(_ propertyName: String) -> Bool {
+        switch propertyName {
+        case "behavior", "-moz-binding":
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func isSafeCSSValue(_ value: String) -> Bool {
+        let sanitized = stripCSSComments(value)
+        let normalized = sanitized.lowercased()
+            .replacingOccurrences(of: "\\s+", with: "", options: .regularExpression)
+
+        return !normalized.contains("expression(")
+            && !normalized.contains("@import")
+            && !normalized.contains("url(")
+    }
+
+    private func parseStyleDeclaration(_ declaration: String) -> CSSDeclaration? {
+        let trimmedDeclaration = declaration.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedDeclaration.isEmpty else {
+            return nil
+        }
+
+        var quote: Character?
+        var isEscaped = false
+        var parenthesisDepth = 0
+        var colonIndex: String.Index?
+        var index = trimmedDeclaration.startIndex
+
+        while index < trimmedDeclaration.endIndex {
+            let character = trimmedDeclaration[index]
+
+            if let activeQuote = quote {
+                if isEscaped {
+                    isEscaped = false
+                } else if character == "\\" {
+                    isEscaped = true
+                } else if character == activeQuote {
+                    quote = nil
+                }
+            } else {
+                switch character {
+                case "\"", "'":
+                    quote = character
+                case "(":
+                    parenthesisDepth += 1
+                case ")":
+                    parenthesisDepth = max(0, parenthesisDepth - 1)
+                case ":" where parenthesisDepth == 0:
+                    colonIndex = index
+                    index = trimmedDeclaration.endIndex
+                    continue
+                default:
+                    break
+                }
+            }
+
+            index = trimmedDeclaration.index(after: index)
+        }
+
+        guard let colonIndex else {
+            return nil
+        }
+
+        let name = trimmedDeclaration[..<colonIndex].trimmingCharacters(in: .whitespacesAndNewlines)
+        let valueStart = trimmedDeclaration.index(after: colonIndex)
+        let value = trimmedDeclaration[valueStart...].trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !name.isEmpty, !value.isEmpty else {
+            return nil
+        }
+
+        return CSSDeclaration(name: name, value: value)
     }
 
     private func testValidProtocol(_ el: Element, _ attr: Attribute, _ protocols: Set<Protocol>) throws -> Bool {
@@ -699,6 +1013,16 @@ open class  AttributeKey: TypedValue {
     }
 }
 
+open class CSSPropertyName: TypedValue {
+    override init(_ value: String) {
+        super.init(value.lowercased())
+    }
+
+    static func valueOf(_ value: String) -> CSSPropertyName {
+        return CSSPropertyName(value.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+}
+
 open class AttributeValue: TypedValue {
     override init(_ value: String) {
         super.init(value)
@@ -740,4 +1064,9 @@ extension TypedValue: Hashable {
 public func == (lhs: TypedValue, rhs: TypedValue) -> Bool {
     if(lhs === rhs) {return true}
     return lhs.value == rhs.value
+}
+
+private struct CSSDeclaration {
+    let name: String
+    let value: String
 }
