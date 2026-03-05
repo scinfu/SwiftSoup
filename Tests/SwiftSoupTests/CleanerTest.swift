@@ -530,4 +530,103 @@ class CleanerTest: XCTestCase {
                       "Expected # to be preserved in style attribute, got: \(cleaned ?? "nil")")
     }
 
+    func testFiltersStyleAttributeToWhitelistedCSSProperties() throws {
+        let html = #"<p style="color: red; position: absolute; font-weight: bold;">Hello</p>"#
+        let whitelist = try Whitelist()
+            .addTags("p")
+            .addAttributes("p", "style")
+            .addCSSProperties("p", "color", "font-weight")
+
+        let cleaned = try SwiftSoup.clean(html, whitelist)
+        XCTAssertEqual(#"<p style="color:red; font-weight:bold">Hello</p>"#, cleaned)
+    }
+
+    func testDropsStyleAttributeWhenNoWhitelistedCSSPropertiesRemain() throws {
+        let html = #"<p style="position:absolute">Hello</p>"#
+        let whitelist = try Whitelist()
+            .addTags("p")
+            .addAttributes("p", "style")
+            .addCSSProperties("p", "color")
+
+        let cleaned = try SwiftSoup.clean(html, whitelist)
+        XCTAssertEqual("<p>Hello</p>", cleaned)
+    }
+
+    func testSupportsAllPseudoTagForCSSProperties() throws {
+        let html = #"<div style="color:red; position:absolute">One</div><span style="font-weight:bold; color:blue">Two</span>"#
+        let whitelist = try Whitelist()
+            .addTags("div", "span")
+            .addAttributes(":all", "style")
+            .addCSSProperties(":all", "color")
+
+        let cleaned = try SwiftSoup.clean(html, whitelist)
+        XCTAssertEqual(#"<div style="color:red">One</div><span style="color:blue">Two</span>"#, TextUtil.stripNewlines(cleaned!))
+    }
+
+    func testCSSPropertyWhitelistIsCaseInsensitive() throws {
+        let html = #"<p style="COLOR: red; Font-Weight: bold; position:absolute">Hello</p>"#
+        let whitelist = try Whitelist()
+            .addTags("p")
+            .addAttributes("p", "style")
+            .addCSSProperties("p", "color", "font-weight")
+
+        let cleaned = try SwiftSoup.clean(html, whitelist)
+        XCTAssertEqual(#"<p style="color:red; font-weight:bold">Hello</p>"#, cleaned)
+    }
+
+    func testCSSPropertyWhitelistPreservesQuotedSemicolonsAndFunctions() throws {
+        let html = #"<p style="transform:translate(10px, calc(100% - 1em)); content:'a;b:c'; position:absolute">Hello</p>"#
+        let whitelist = try Whitelist()
+            .addTags("p")
+            .addAttributes("p", "style")
+            .addCSSProperties("p", "transform", "content")
+
+        let cleaned = try SwiftSoup.clean(html, whitelist)
+        XCTAssertEqual(#"<p style="transform:translate(10px, calc(100% - 1em)); content:'a;b:c'">Hello</p>"#, cleaned)
+    }
+
+    func testDropsUnsafeCSSDeclarationsEvenWhenPropertyIsWhitelisted() throws {
+        let html = #"<p style="color:red; background-image:url(javascript:alert(1)); width:expression(alert(1));">Hello</p>"#
+        let whitelist = try Whitelist()
+            .addTags("p")
+            .addAttributes("p", "style")
+            .addCSSProperties("p", "color", "background-image", "width")
+
+        let cleaned = try SwiftSoup.clean(html, whitelist)
+        XCTAssertEqual(#"<p style="color:red">Hello</p>"#, cleaned)
+    }
+
+    func testDropsUnsafeCSSPropertyNamesEvenWhenWhitelisted() throws {
+        let html = #"<p style="behavior:url(test.htc); color:red; -moz-binding:url(http://example.com/xbl.xml#xss)">Hello</p>"#
+        let whitelist = try Whitelist()
+            .addTags("p")
+            .addAttributes("p", "style")
+            .addCSSProperties("p", "behavior", "color", "-moz-binding")
+
+        let cleaned = try SwiftSoup.clean(html, whitelist)
+        XCTAssertEqual(#"<p style="color:red">Hello</p>"#, cleaned)
+    }
+
+    func testCSSCommentAwareParsingRemovesCommentsAndKeepsSafeDeclarations() throws {
+        let html = #"<p style="co/*x*/lor:red; /* comment with ; : */ font-weight:bold; content:'a/*not-comment*/b'">Hello</p>"#
+        let whitelist = try Whitelist()
+            .addTags("p")
+            .addAttributes("p", "style")
+            .addCSSProperties("p", "color", "font-weight", "content")
+
+        let cleaned = try SwiftSoup.clean(html, whitelist)
+        XCTAssertEqual(#"<p style="color:red; font-weight:bold; content:'a/*not-comment*/b'">Hello</p>"#, cleaned)
+    }
+
+    func testCSSCommentAwareValidationCatchesObfuscatedUnsafeValues() throws {
+        let html = #"<p style="color:red; width:exp/*x*/ression(alert(1)); background-image:u/*x*/rl(https://example.com/a.png)">Hello</p>"#
+        let whitelist = try Whitelist()
+            .addTags("p")
+            .addAttributes("p", "style")
+            .addCSSProperties("p", "color", "width", "background-image")
+
+        let cleaned = try SwiftSoup.clean(html, whitelist)
+        XCTAssertEqual(#"<p style="color:red">Hello</p>"#, cleaned)
+    }
+
 }

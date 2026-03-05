@@ -187,6 +187,16 @@ let cleanHtml = try SwiftSoup.clean(dirtyHtml, Whitelist.basic())
 print(cleanHtml) // Output: <b>Important text</b>
 ```
 
+```swift
+let dirtyHtml = #"<p style="color:red; position:absolute">Styled text</p>"#
+let whitelist = try Whitelist()
+    .addTags("p")
+    .addAttributes("p", "style")
+    .addCSSProperties("p", "color")
+let cleanHtml = try SwiftSoup.clean(dirtyHtml, whitelist)
+print(cleanHtml) // Output: <p style="color:red">Styled text</p>
+```
+
 ---
 ### Use CSS selectors to find elements
 (from [jsoup](https://jsoup.org/cookbook/extracting-data/selector-syntax))
