@@ -37,6 +37,27 @@ class HtmlParserTest: XCTestCase {
         XCTAssertEqual("img", img.tagName())
     }
 
+    func testParsesDocumentFromURLWhenStringEncodingDetectionFails() throws {
+        let invalidHtml = Data("<html><head><title>First!</title></head><body>ok ".utf8)
+            + Data([0xFF])
+            + Data("</body></html>".utf8)
+        let tempDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        let fileURL = tempDir.appendingPathComponent(UUID().uuidString).appendingPathExtension("html")
+        try invalidHtml.write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        XCTAssertThrowsError(try String(contentsOf: fileURL)) { error in
+            let nsError = error as NSError
+            XCTAssertEqual(NSCocoaErrorDomain, nsError.domain)
+            XCTAssertEqual(264, nsError.code)
+        }
+
+        let doc: Document = try SwiftSoup.parse(fileURL)
+        XCTAssertEqual("First!", try doc.title())
+        XCTAssertEqual(fileURL.absoluteString, doc.location())
+        XCTAssertTrue(try doc.text().contains("ok"))
+    }
+
     func testParsesMultibyteAttributes() throws {
         let html: String = "<div foo=\"若い\"></div>"
         let doc: Document = try SwiftSoup.parse(html)

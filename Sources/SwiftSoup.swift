@@ -154,6 +154,28 @@ import Foundation
         return try parseXML(data, "")
     }
 
+    /**
+     Fetch a URL as raw bytes and parse it as HTML. This avoids relying on Foundation string encoding detection before
+     parsing.
+
+     - parameter url: URL to fetch and parse
+     - returns: sane HTML
+     */
+    public func parse(_ url: URL) throws -> Document {
+        return try parse(Data(contentsOf: url), url.absoluteString)
+    }
+
+    /**
+     Fetch a URL as raw bytes and parse it using the provided parser.
+
+     - parameter url: URL to fetch and parse
+     - parameter parser: alternate parser (e.g. ``Parser/xmlParser()``) to use.
+     - returns: parsed document
+     */
+    public func parse(_ url: URL, _ parser: Parser) throws -> Document {
+        return try parser.parseInput([UInt8](Data(contentsOf: url)), url.absoluteString)
+    }
+
 
 
 
