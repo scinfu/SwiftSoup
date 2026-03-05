@@ -663,6 +663,10 @@ import Foundation
         return attrs
     }
 
+    func isTextOnly() -> Bool {
+        tagNames.isEmpty
+    }
+
 }
 
 // named types for config. All just hold strings, but here for my sanity.

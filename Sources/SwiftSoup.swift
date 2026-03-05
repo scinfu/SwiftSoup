@@ -248,7 +248,8 @@ import Foundation
 		let dirty: Document = try parseBodyFragment(bodyHtml, baseUri)
 		let cleaner: Cleaner = Cleaner(whitelist)
 		let clean: Document = try cleaner.clean(dirty)
-		return try clean.body()?.html()
+        let html = try clean.body()?.html()
+        return normalizeTextOnlyNbsp(html, whitelist: whitelist)
 	}
 
 	/**
@@ -282,8 +283,23 @@ import Foundation
 		let cleaner: Cleaner = Cleaner(whitelist)
 		let clean: Document = try cleaner.clean(dirty)
 		clean.outputSettings(outputSettings)
-		return try clean.body()?.html()
+        let html = try clean.body()?.html()
+        return normalizeTextOnlyNbsp(html, whitelist: whitelist)
 	}
+
+    private func normalizeTextOnlyNbsp(_ html: String?, whitelist: Whitelist) -> String? {
+        guard whitelist.isTextOnly(), let html else {
+            return html
+        }
+
+        var normalized = html.replacingOccurrences(of: "&nbsp;", with: " ")
+        normalized = normalized.replacingOccurrences(
+            of: "&#(?:160|x[aA]0);",
+            with: " ",
+            options: .regularExpression
+        )
+        return normalized
+    }
 
 	/**
 	 Test if the input HTML has only tags and attributes allowed by the Whitelist. Useful for form validation. The input HTML should
