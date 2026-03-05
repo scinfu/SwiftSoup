@@ -692,4 +692,62 @@ class HtmlParserTest: XCTestCase {
         let doc = try SwiftSoup.parse(html)
         XCTAssertEqual(try doc.body()?.text(), "")
     }
+
+    // https://github.com/scinfu/SwiftSoup/issues/344
+    // https://github.com/scinfu/SwiftSoup/issues/189
+    func testParse_DoesNotCrashOnTruncatedHtml() throws {
+        let html = """
+        <figure class="img-border featured-image"><img width="1600" height="800" src="https://9to5mac.com/wp-content/uploads/sites/6/2025/08/crash-detection.jpg?quality=82&amp
+        """
+        let doc = try SwiftSoup.parse(html)
+        XCTAssertNotNil(doc.body())
+    }
+
+    func testParse_DoesNotCrashOnTruncatedHtmlVariants() throws {
+        // Truncated at various points in attribute values, entities, tags
+        let truncatedHtmls = [
+            "<a href=\"",
+            "<a href=\"&",
+            "<a href=\"&amp",
+            "<a href=\"&amp;",
+            "<a href='test&amp",
+            "<div class=",
+            "<div class=\"test",
+            "<!DOCTYPE",
+            "<!DOCTYPE html",
+            "<!-- comment",
+            "<script>var x = ",
+            "<style>.foo {",
+            "<img src=\"data:image/png;base64,",
+            "<a href=\"https://example.com?a=1&",
+            "<a href=\"https://example.com?a=1&amp",
+            "<a href=\"https://example.com?a=1&amp;b=2&",
+            "<p>Hello \u{C3}",  // truncated 2-byte UTF-8 (first byte of ã)
+            "<p>Hello \u{E2}\u{80}",  // truncated 3-byte UTF-8 (first 2 bytes of —)
+            "<p>test</p><img src=\"foo&",
+            "<table><tr><td>cell&amp",
+            "<",
+            "< ",
+            "</",
+            "<a",
+            "<a ",
+            "<a h",
+            "<a hr",
+            "<a hre",
+            "<a href",
+            "<a href=",
+            "<a href='",
+            "&",
+            "&amp",
+            "&#",
+            "&#x",
+            "&#x4",
+            "&#65",
+        ]
+
+        for (i, html) in truncatedHtmls.enumerated() {
+            let doc = try SwiftSoup.parse(html)
+            XCTAssertNotNil(doc.body(), "Failed on variant \(i): \(html)")
+        }
+    }
 }
