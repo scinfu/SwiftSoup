@@ -415,12 +415,24 @@ open class TokenQueue {
      - returns: identifier
      */
     open func consumeCssIdentifier() -> String {
-        let start = pos
-        while (!isEmpty() && (matchesWord() || matchesAny("-", "_"))) {
-            pos+=1
+        let accum = StringBuilder()
+        while !isEmpty() {
+            let c = queue.charAt(pos)
+            if c == TokenQueue.ESC {
+                pos += 1
+                if !isEmpty() {
+                    accum.append(queue.charAt(pos))
+                    pos += 1
+                }
+            } else if Character.isLetterOrDigit(c) || c == "-" || c == "_" {
+                accum.append(c)
+                pos += 1
+            } else {
+                break
+            }
         }
 
-        return queue.substring(start, pos - start)
+        return accum.toString()
     }
 
     /**

@@ -1056,14 +1056,14 @@ open class Element: Node {
     public func cssSelector() throws -> String {
         let elementId = id()
         if !elementId.isEmpty {
-            return "#" + elementId
+            return "#" + Element.cssEscapeIdentifier(elementId)
         }
         
         // Translate HTML namespace ns:tag to CSS namespace syntax ns|tag
         let tagName: String = self.tagName().replacingOccurrences(of: ":", with: "|")
         var selector: String = tagName
         let cl = try classNames()
-        let classes: String = cl.joined(separator: ".")
+        let classes: String = cl.map(Element.cssEscapeIdentifier).joined(separator: ".")
         if !classes.isEmpty {
             selector.append(".")
             selector.append(classes)
@@ -1080,6 +1080,22 @@ open class Element: Node {
         }
         
         return try parent()!.cssSelector() + (selector)
+    }
+
+    private static func cssEscapeIdentifier(_ identifier: String) -> String {
+        var escaped = ""
+        escaped.reserveCapacity(identifier.count)
+
+        for character in identifier {
+            if Character.isLetterOrDigit(character) || character == "-" || character == "_" {
+                escaped.append(character)
+            } else {
+                escaped.append("\\")
+                escaped.append(character)
+            }
+        }
+
+        return escaped
     }
     
     /**

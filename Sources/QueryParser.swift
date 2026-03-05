@@ -163,7 +163,12 @@ public class QueryParser {
     private func consumeSubQuery() -> String {
         var sq = ""
         while (!tq.isEmpty()) {
-            if (tq.matches("(")) {
+            if tq.matchesCS("\\") {
+                sq.append(tq.consume())
+                if !tq.isEmpty() {
+                    sq.append(tq.consume())
+                }
+            } else if (tq.matches("(")) {
                 sq.append("(")
                 sq.append(tq.chompBalanced("(", ")"))
                 sq.append(")")
