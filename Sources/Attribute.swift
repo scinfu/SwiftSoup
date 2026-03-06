@@ -11,7 +11,7 @@ open class Attribute {
     /// The element type of a dictionary: a tuple containing an individual
     /// key-value pair.
     static let booleanAttributes = ParsingStrings([
-        "allowfullscreen", "async", "autofocus", "checked", "compact", "controls", "declare", "default", "defer",
+        "allowfullscreen", "async", "autofocus", "checked", "compact", "controls", "crossorigin", "declare", "default", "defer",
         "disabled", "formnovalidate", "hidden", "inert", "ismap", "itemscope", "multiple", "muted", "nohref",
         "noresize", "noshade", "novalidate", "nowrap", "open", "readonly", "required", "reversed", "seamless",
         "selected", "sortable", "truespeed", "typemustmatch"

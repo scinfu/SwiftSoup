@@ -59,4 +59,46 @@ class AttributeTest: XCTestCase {
         attr.html(accum: sb, out: out)
         XCTAssertEqual("disabled", sb.toString())
     }
+
+    func testCrossoriginWithoutValueCollapsesInOutput() throws {
+        // <script crossorigin> is parsed as a BooleanAttribute and should round-trip without =""
+        let html = "<script crossorigin src=\"app.js\"></script>"
+        let doc = try SwiftSoup.parse(html)
+        let script = try doc.select("script").first()!
+
+        XCTAssertTrue(try script.hasAttr("crossorigin"))
+        let output = try script.outerHtml()
+        XCTAssertTrue(output.contains("crossorigin"))
+        XCTAssertFalse(output.contains("crossorigin=\"\""))
+    }
+
+    func testCrossoriginEmptyValueCollapsesInOutput() throws {
+        // <script crossorigin=""> should also collapse to <script crossorigin> because
+        // crossorigin is in the boolean attributes list
+        let html = "<script crossorigin=\"\" src=\"app.js\"></script>"
+        let doc = try SwiftSoup.parse(html)
+        let script = try doc.select("script").first()!
+
+        let output = try script.outerHtml()
+        XCTAssertTrue(output.contains("crossorigin"))
+        XCTAssertFalse(output.contains("crossorigin=\"\""))
+    }
+
+    func testCrossoriginWithValuePreservesValue() throws {
+        let html = "<script crossorigin=\"use-credentials\" src=\"app.js\"></script>"
+        let doc = try SwiftSoup.parse(html)
+        let script = try doc.select("script").first()!
+
+        XCTAssertEqual("use-credentials", try script.attr("crossorigin"))
+    }
+
+    func testCrossoriginSetProgrammaticallyCollapsesWhenEmpty() throws {
+        let doc = try SwiftSoup.parse("<script src=\"app.js\"></script>")
+        let script = try doc.select("script").first()!
+        try script.attr("crossorigin", "")
+
+        let output = try script.outerHtml()
+        XCTAssertTrue(output.contains("crossorigin"))
+        XCTAssertFalse(output.contains("crossorigin=\"\""))
+    }
 }
