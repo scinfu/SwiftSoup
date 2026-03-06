@@ -855,6 +855,27 @@ open class Evaluator: @unchecked Sendable {
     }
 
     /**
+     * Evaluator for matching Element (and its descendants) data. The contents of script and style
+     * elements, and comment nodes (etc) are considered data nodes, not text nodes.
+     * The search is case insensitive and not whitespace normalized.
+     */
+    public final class ContainsData: Evaluator, @unchecked Sendable {
+        private let searchText: String
+
+        public init(_ searchText: String) {
+            self.searchText = searchText.lowercased()
+        }
+
+        public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            return element.data().lowercased().contains(searchText)
+        }
+
+        public override func toString() -> String {
+            return ":containsData(\(searchText)"
+        }
+    }
+
+    /**
      * Evaluator for matching Element (and its descendants) text with regex
      */
     public final class Matches: Evaluator, @unchecked Sendable {
