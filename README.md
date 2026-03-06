@@ -104,6 +104,20 @@ print(try document.select("body > img").first()?.text()) // Output: I'm img
 ```
 
 ---
+### Parse HTML from a URL
+
+If Foundation cannot determine a page's text encoding, avoid `String(contentsOf:)` and parse the raw response bytes
+instead:
+
+```swift
+import SwiftSoup
+
+let url = URL(string: "https://example.com")!
+let document = try SwiftSoup.parse(url)
+print(try document.title())
+```
+
+---
 ## Profiling
 
 SwiftSoup includes a lightweight profiler (gated by a compile-time flag) and a small CLI harness for parsing benchmarks.
