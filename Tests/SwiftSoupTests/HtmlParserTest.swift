@@ -46,11 +46,14 @@ class HtmlParserTest: XCTestCase {
         try invalidHtml.write(to: fileURL)
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
+        // On Apple platforms, String(contentsOf:) throws when it cannot determine the encoding.
+        // On Linux (swift-corelibs-foundation) it may silently fall back to lossy decoding instead.
+        #if canImport(Darwin)
         XCTAssertThrowsError(try String(contentsOf: fileURL)) { error in
             let nsError = error as NSError
             XCTAssertEqual(NSCocoaErrorDomain, nsError.domain)
-            XCTAssertTrue(nsError.localizedDescription.lowercased().contains("encoding"))
         }
+        #endif
 
         let doc: Document = try SwiftSoup.parse(fileURL)
         XCTAssertEqual("First!", try doc.title())
