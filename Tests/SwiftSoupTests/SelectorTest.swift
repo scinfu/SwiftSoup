@@ -881,6 +881,38 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(0, try doc.select("p:containsOwn(there)").size())
 	}
 
+	func testContainsData() throws {
+		let doc: Document = try SwiftSoup.parse("<div><p>Some text</p><script>var foo = 'bar';</script><style>.red { color: red; }</style></div>")
+
+		// script data
+		let scripts: Elements = try doc.select("script:containsData(foo)")
+		XCTAssertEqual(1, scripts.size())
+		XCTAssertEqual("var foo = 'bar';", scripts.first()?.data())
+
+		// case insensitive
+		let scriptsCI: Elements = try doc.select("script:containsData(FOO)")
+		XCTAssertEqual(1, scriptsCI.size())
+
+		// style data
+		let styles: Elements = try doc.select("style:containsData(red)")
+		XCTAssertEqual(1, styles.size())
+
+		// no match
+		let noMatch: Elements = try doc.select("script:containsData(baz)")
+		XCTAssertEqual(0, noMatch.size())
+
+		// :containsData does not match text nodes
+		let textMatch: Elements = try doc.select("p:containsData(Some text)")
+		XCTAssertEqual(0, textMatch.size())
+	}
+
+	func testContainsDataInDescendants() throws {
+		let doc: Document = try SwiftSoup.parse("<div><script>alert('hello');</script></div>")
+		let divs: Elements = try doc.select("div:containsData(hello)")
+		XCTAssertEqual(1, divs.size())
+		XCTAssertEqual("div", divs.first()?.tagName())
+	}
+
 	func testMatches() throws {
 		let doc: Document = try SwiftSoup.parse("<p id=1>The <i>Rain</i></p> <p id=2>There are 99 bottles.</p> <p id=3>Harder (this)</p> <p id=4>Rain</p>")
 
