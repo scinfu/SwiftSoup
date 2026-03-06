@@ -79,11 +79,11 @@ print(try document.title()) // Output: Example
 ```
 
 ---
-### Parse an XML Document
+### Automatic Format Detection
 
-Use the XML parser when working with feeds, OPML, or other non-HTML documents. The default `SwiftSoup.parse(...)`
-entry points apply HTML5 parsing rules, so tags like `<link>` and `<img>` will be treated as HTML tags instead of
-generic XML elements.
+`SwiftSoup.parse(...)` automatically detects XML input by looking for an `<?xml` declaration at the start of the
+content. When detected, the XML parser is used; otherwise the HTML parser is applied. This means feeds, OPML, and
+other XML documents with a standard XML declaration "just work":
 
 ```swift
 import SwiftSoup
@@ -98,9 +98,24 @@ let xml = """
 </opml>
 """
 
-let document = try SwiftSoup.parseXML(xml)
+let document = try SwiftSoup.parse(xml) // auto-detects XML
 print(try document.select("link").first()?.text()) // Output: I'm link
 print(try document.select("body > img").first()?.text()) // Output: I'm img
+```
+
+### Explicit Parse Modes
+
+Use `parseXML(...)` or `parseHTML(...)` when you want to force a specific parser regardless of the content:
+
+```swift
+// Force XML parsing (no HTML5 tag normalization)
+let xmlDoc = try SwiftSoup.parseXML(xmlString)
+
+// Force HTML parsing (always applies HTML5 rules, even if input has <?xml>)
+let htmlDoc = try SwiftSoup.parseHTML(htmlString)
+
+// Explicit parser argument (unchanged from before)
+let doc = try SwiftSoup.parse(input, baseUri, Parser.xmlParser())
 ```
 
 ---
