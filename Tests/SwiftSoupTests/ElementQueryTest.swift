@@ -158,4 +158,88 @@ class ElementQueryTest: XCTestCase {
         let fromElements = try elements.select("a")
         XCTAssertEqual(2, fromElements.size())
     }
+
+    func testSelectWithEvaluatorThroughProtocol() throws {
+        let doc = try SwiftSoup.parse(testHtml)
+        let evaluator = try QueryParser.parse("a.nav")
+
+        let element: any ElementQuery = try doc.select("div").first()!
+        let fromElement = try element.select(evaluator)
+        XCTAssertEqual(2, fromElement.size())
+
+        let elements: any ElementQuery = try doc.select("div")
+        let fromElements = try elements.select(evaluator)
+        XCTAssertEqual(2, fromElements.size())
+    }
+
+    func testOuterHtmlThroughProtocol() throws {
+        let doc = try SwiftSoup.parse("<p id=\"t\">Hi</p>")
+
+        let element: any ElementQuery = try doc.select("p").first()!
+        XCTAssertEqual("<p id=\"t\">Hi</p>", try element.outerHtml())
+
+        let elements: any ElementQuery = try doc.select("p")
+        XCTAssertEqual("<p id=\"t\">Hi</p>", try elements.outerHtml())
+    }
+
+    func testHasTextThroughProtocol() throws {
+        let doc = try SwiftSoup.parse("<p>Hello</p><div></div>")
+
+        let withText: any ElementQuery = try doc.select("p").first()!
+        XCTAssertTrue(withText.hasText())
+
+        let withoutText: any ElementQuery = try doc.select("div").first()!
+        XCTAssertFalse(withoutText.hasText())
+
+        let elementsWithText: any ElementQuery = try doc.select("p")
+        XCTAssertTrue(elementsWithText.hasText())
+
+        let elementsWithoutText: any ElementQuery = try doc.select("div")
+        XCTAssertFalse(elementsWithoutText.hasText())
+    }
+
+    func testTextWithExplicitNormalizationParameter() throws {
+        let doc = try SwiftSoup.parse("<p>  Hello   world  </p>")
+
+        let element: any ElementQuery = try doc.select("p").first()!
+        XCTAssertEqual("Hello world", try element.text(trimAndNormaliseWhitespace: true))
+        let rawText = try element.text(trimAndNormaliseWhitespace: false)
+        XCTAssertTrue(rawText.contains("Hello"))
+
+        let elements: any ElementQuery = try doc.select("p")
+        XCTAssertEqual("Hello world", try elements.text(trimAndNormaliseWhitespace: true))
+    }
+
+    // MARK: - Edge cases
+
+    func testAttrReturnsEmptyStringWhenMissing() throws {
+        let doc = try SwiftSoup.parse("<p>Hi</p>")
+
+        let element: any ElementQuery = try doc.select("p").first()!
+        XCTAssertEqual("", try element.attr("data-missing"))
+
+        let elements: any ElementQuery = try doc.select("p")
+        XCTAssertEqual("", try elements.attr("data-missing"))
+    }
+
+    func testEmptyElementsReturnsDefaults() throws {
+        let doc = try SwiftSoup.parse("<p>Hi</p>")
+        let empty: any ElementQuery = try doc.select("span") // no spans
+
+        XCTAssertEqual("", try empty.attr("href"))
+        XCTAssertFalse(empty.hasAttr("href"))
+        XCTAssertFalse(empty.hasClass("foo"))
+        XCTAssertEqual("", try empty.val())
+        XCTAssertEqual("", try empty.text())
+        XCTAssertFalse(empty.hasText())
+        XCTAssertEqual("", try empty.html())
+        XCTAssertEqual("", try empty.outerHtml())
+        XCTAssertEqual(0, try empty.select("a").size())
+    }
+
+    func testHasClassFalseOnElements() throws {
+        let doc = try SwiftSoup.parse("<p>No class</p>")
+        let elements: any ElementQuery = try doc.select("p")
+        XCTAssertFalse(elements.hasClass("missing"))
+    }
 }
