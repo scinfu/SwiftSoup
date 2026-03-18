@@ -163,6 +163,32 @@ class CleanerTest: XCTestCase {
         XCTAssertEqual("<a href=\"http://example.com/foo\" rel=\"nofollow\">Link</a>\n<img src=\"http://example.com/bar\" />", clean)
     }
 
+    func testOnlyResolvesSlashPrefixedURLAttributes() throws {
+        let html = "<a href='article.html'>Link</a><img src='image.png'>"
+        let clean = try SwiftSoup.clean(html, "http://example.com/base/", Whitelist.basicWithImages())
+        XCTAssertEqual("<a href=\"article.html\" rel=\"nofollow\">Link</a>\n<img src=\"image.png\" />", clean)
+    }
+
+    func testDoesNotResolveNonURLAttributesThatStartWithSlash() throws {
+        let html = "<img width='/16' src='/bar'>"
+        let whitelist = try Whitelist()
+            .addTags("img")
+            .addAttributes("img", "width", "src")
+            .addProtocols("img", "src", "http", "https")
+        let clean = try SwiftSoup.clean(html, "http://example.com/", whitelist)
+        XCTAssertEqual("<img width=\"/16\" src=\"http://example.com/bar\" />", clean)
+    }
+
+    func testDoesNotResolveNonURLAttributesWithoutLeadingSlash() throws {
+        let html = "<img width='16' height='16' src='/bar'>"
+        let whitelist = try Whitelist()
+            .addTags("img")
+            .addAttributes("img", "width", "height", "src")
+            .addProtocols("img", "src", "http", "https")
+        let clean = try SwiftSoup.clean(html, "http://example.com/", whitelist)
+        XCTAssertEqual("<img width=\"16\" height=\"16\" src=\"http://example.com/bar\" />", clean)
+    }
+
     func testPreservesRelativeLinksIfConfigured() throws {
         let html = "<a href='/foo'>Link</a><img src='/bar'> <img src='javascript:alert()'>"
         let clean = try SwiftSoup.clean(html, "http://example.com/", Whitelist.basicWithImages().preserveRelativeLinks(true))
