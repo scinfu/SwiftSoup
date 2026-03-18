@@ -668,8 +668,9 @@ import Foundation
             return clonedAttr
         }
 
-        if !preserveRelativeLinks {
-            let resolved = resolveWithTrimmedURL(el, attr)
+        let resolutionCandidate = resolutionCandidateValue(el, attr)
+        if !preserveRelativeLinks && shouldResolveURLAttribute(resolutionCandidate) {
+            let resolved = resolveURL(el, resolutionCandidate)
             if !resolved.isEmpty {
                 clonedAttr.setValue(value: resolved)
                 return clonedAttr
@@ -696,17 +697,40 @@ import Foundation
         return tagName != ":all" && isURLAttribute(":all", attr)
     }
 
+    /// Only absolutize values that already look root-relative or protocol-relative.
+    /// Other relative paths stay unchanged in the cleaned output.
+    private func shouldResolveURLAttribute(_ normalizedValue: [UInt8]) -> Bool {
+        if normalizedValue.first?.isWhitespace == true || normalizedValue.last?.isWhitespace == true {
+            return false
+        }
+        if normalizedValue.first == TokeniserStateVars.slashByte {
+            return true
+        }
+        let value = String(decoding: normalizedValue, as: UTF8.self)
+        return URL(string: value)?.scheme?.isEmpty == false
+    }
+
+    /// Prepare the value used for URL-resolution decisions. When a base URI is
+    /// available we trim first so existing base-resolution behavior is preserved.
+    private func resolutionCandidateValue(_ el: Element, _ attr: Attribute) -> [UInt8] {
+        let rawValue = attr.getValueUTF8()
+        let baseUri = el.getBaseUri()
+        if baseUri.isEmpty {
+            return rawValue
+        }
+        return rawValue.trim()
+    }
+
     /// Resolve a URL attribute, trimming whitespace before resolution when a base URI
     /// is present to avoid percent-encoding of leading/trailing spaces. Without a base
     /// URI, the raw value is passed through for Foundation normalization only.
     private func resolveWithTrimmedURL(_ el: Element, _ attr: Attribute) -> [UInt8] {
-        let rawValue = attr.getValueUTF8()
+        resolveURL(el, resolutionCandidateValue(el, attr))
+    }
+
+    private func resolveURL(_ el: Element, _ normalizedValue: [UInt8]) -> [UInt8] {
         let baseUri = el.getBaseUri()
-        // Only trim when there's a base URI to resolve against; without one,
-        // pass the raw value so whitespace still causes resolution failure.
-        let relUrl = baseUri.isEmpty
-            ? String(decoding: rawValue, as: UTF8.self)
-            : String(decoding: rawValue.trim(), as: UTF8.self)
+        let relUrl = String(decoding: normalizedValue, as: UTF8.self)
         let resolved = StringUtil.resolve(baseUri, relUrl: relUrl)
         return resolved.utf8Array
     }
