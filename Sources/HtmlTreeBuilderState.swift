@@ -685,7 +685,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     if (try tb.inButtonScope(UTF8Arrays.p)) {
                         try tb.processEndTag(UTF8Arrays.p)
                     }
-                    try tb.insertForm(startTag, false)
+                    try tb.insertForm(startTag, true)
                     tb.framesetOk(false)
                 case .html:
                     tb.error(self)
@@ -710,6 +710,12 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 bodyAttrs.put(attribute: attr)
                             }
                         }
+                    }
+                case .input:
+                    try reconstructFormattingIfNeeded()
+                    let el: Element = try tb.insertEmpty(startTag)
+                    if try !el.attr("type").equalsIgnoreCase(string: "hidden") {
+                        tb.framesetOk(false)
                     }
                 case .br, .img:
                     try reconstructFormattingIfNeeded()
@@ -780,7 +786,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             if (try tb.inButtonScope(UTF8Arrays.p)) {
                                 try tb.processEndTag(UTF8Arrays.p)
                             }
-                            try tb.insertForm(startTag, false)
+                            try tb.insertForm(startTag, true)
                             tb.framesetOk(false)
                             return true
                         }
@@ -910,7 +916,7 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             if (try tb.inButtonScope(UTF8Arrays.p)) {
                                 try tb.processEndTag(UTF8Arrays.p)
                             }
-                            try tb.insertForm(startTag, false)
+                            try tb.insertForm(startTag, true)
                             tb.framesetOk(false)
                         } else if equalsSlice(UTF8Arrays.table, nameSlice) {
                             if (try tb.inButtonScope(UTF8Arrays.p)) {
@@ -974,6 +980,12 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                             tb.framesetOk(false)
                         } else if Constants.InBodyStartMedia.contains(nameSlice) {
                             try tb.insertEmpty(startTag)
+                        } else if equalsSlice(UTF8Arrays.input, nameSlice) {
+                            try reconstructFormattingIfNeeded()
+                            let el: Element = try tb.insertEmpty(startTag)
+                            if try !el.attr("type").equalsIgnoreCase(string: "hidden") {
+                                tb.framesetOk(false)
+                            }
                         } else if Constants.InBodyStartOptions.contains(nameSlice) {
                             if let currentTagId, currentTagId == .option {
                                 try tb.processEndTag(UTF8Arrays.option)

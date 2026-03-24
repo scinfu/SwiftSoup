@@ -147,4 +147,57 @@ class FormElementTest: XCTestCase {
 //	assertEquals("pass", data.get(1).key());
 //	assertEquals("login", data.get(2).key());
 //	}
+
+	// Regression test for https://github.com/scinfu/SwiftSoup/issues/388
+	func testFormChildInputsAreDirectChildren() throws {
+		let html = """
+			<html>
+			<body>
+			<form name="FORM0" method="post">
+				<input type="hidden" name="a" value="1">
+				<input type="hidden" name="b" value="2">
+				<input type="hidden" name="c">
+			</form>
+			</body></html>
+			"""
+		let doc = try SwiftSoup.parse(html)
+
+		// Input elements should be direct children of form
+		let directInputs = try doc.select("form[name=FORM0] > input")
+		XCTAssertEqual(3, directInputs.size(), "Expected 3 input elements as direct children of form")
+
+		// Filtering for non-empty value should yield 2
+		let inputsWithValue = try directInputs.filter { try !$0.attr("value").isEmpty }
+		XCTAssertEqual(2, inputsWithValue.count, "Expected 2 input elements with non-empty value")
+	}
+
+	func testFormChildrenTreeStructure() throws {
+		let html = "<form id='f'><div><input name='a'></div><input name='b'></form>"
+		let doc = try SwiftSoup.parse(html)
+
+		// input 'a' is inside a div, so not a direct child of form
+		let directInputs = try doc.select("form#f > input")
+		XCTAssertEqual(1, directInputs.size())
+		XCTAssertEqual("b", try directInputs.first()!.attr("name"))
+
+		// but descendant selector should find both
+		let allInputs = try doc.select("form#f input")
+		XCTAssertEqual(2, allInputs.size())
+	}
+
+	func testNestedFormElementsStructure() throws {
+		let html = """
+			<form name="test">
+				<select name="sel"><option value="1">One</option></select>
+				<textarea name="ta">text</textarea>
+				<input name="in" value="val">
+			</form>
+			"""
+		let doc = try SwiftSoup.parse(html)
+
+		let form = try doc.select("form[name=test]").first()!
+		// All form controls should be direct children (or descendants) of the form
+		XCTAssertEqual(3, form.children().size(), "Form should have 3 direct child elements")
+		XCTAssertEqual("select", form.children().first()!.tagName())
+	}
 }
