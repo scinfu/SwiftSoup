@@ -899,7 +899,24 @@ open class CssSelector {
         }
         
         if let open = trimmed.firstIndex(of: "[") {
-            guard let close = trimmed.lastIndex(of: "]"), close == trimmed.index(before: trimmed.endIndex) else {
+            // Find the matching close bracket for the first '[', skipping quoted content.
+            // This correctly bails out for compound selectors like tag[a='x'][b='y'].
+            var scanIdx = trimmed.index(after: open)
+            var inQuote: Character? = nil
+            var close: String.Index? = nil
+            while scanIdx < trimmed.endIndex {
+                let ch = trimmed[scanIdx]
+                if let q = inQuote {
+                    if ch == q { inQuote = nil }
+                } else if ch == "'" || ch == "\"" {
+                    inQuote = ch
+                } else if ch == "]" {
+                    close = scanIdx
+                    break
+                }
+                scanIdx = trimmed.index(after: scanIdx)
+            }
+            guard let close, close == trimmed.index(before: trimmed.endIndex) else {
                 return .none
             }
             let tagPart = trimmed[..<open]
