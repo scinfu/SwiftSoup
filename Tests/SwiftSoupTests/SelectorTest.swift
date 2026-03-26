@@ -1055,4 +1055,50 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("One", try doc.select("div[data=\"End]\"").first()?.text())
 		XCTAssertEqual("Two", try doc.select("div[data=\"[Another)]]\"").first()?.text())
 	}
+
+	// Verify compound attribute selectors work on simple HTML
+	func testCompoundAttributeSelectorSimple() throws {
+		let html = "<div id='info-id' data-type='info-data'><p>Hello</p></div>"
+		let doc = try SwiftSoup.parse(html)
+		let result = try doc.select("div[id='info-id'][data-type='info-data']")
+		XCTAssertEqual(1, result.size(), "Compound selector on simple HTML should work")
+	}
+
+	// https://github.com/scinfu/SwiftSoup/issues/390
+	func testCompoundAttributeSelectorWithSpecialBodyTags() throws {
+		let html = """
+		<!doctype html>
+		<html>
+		    <head>
+		        <title></title>
+		        <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+		        </meta>
+		        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=3, minimum-scale=1, user-scalable=yes">
+		        </meta>
+		    </head>
+		    <body>
+		        <link>I'm link</link>
+		        <a>I'm a</a>
+		        <image>I'm image</image>
+
+		        <div id="info-id" data-type="info-data">
+		            <img src="cid:f269cce5-0cff-4041-81f4-d78865425c3c"/>
+		        </div>
+		    </body>
+		</html>
+		"""
+
+		let document = try SwiftSoup.parse(html)
+
+		// Single attribute selectors should work
+		let byId = try document.select("div[id='info-id']")
+		XCTAssertEqual(1, byId.size(), "Single [id] selector should match")
+
+		let byData = try document.select("div[data-type='info-data']")
+		XCTAssertEqual(1, byData.size(), "Single [data-type] selector should match")
+
+		// Compound attribute selector should also work
+		let compound = try document.select("div[id='info-id'][data-type='info-data']")
+		XCTAssertEqual(1, compound.size(), "Compound attribute selector should match one element")
+	}
 }
