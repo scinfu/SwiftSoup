@@ -504,7 +504,24 @@ open class Node: Equatable, Hashable {
             return
         }
         sourceRangeDirty = true
-        parentNode?.markSourceDirty(force: force)
+        ownerDocument()?.registerDirtySourceRoot(self)
+        parentNode?.markSourceDirty(force: force, registerDirtyRoot: false)
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func markSourceDirty(force: Bool = false, registerDirtyRoot: Bool) {
+        if sourceRangeDirty {
+            return
+        }
+        if !force, treeBuilder?.isBulkBuilding == true {
+            return
+        }
+        sourceRangeDirty = true
+        if registerDirtyRoot {
+            ownerDocument()?.registerDirtySourceRoot(self)
+        }
+        parentNode?.markSourceDirty(force: force, registerDirtyRoot: false)
     }
 
     @inline(__always)
@@ -523,6 +540,19 @@ open class Node: Equatable, Hashable {
         sourceRange = range
         sourceRangeIsComplete = true
         sourceRangeDirty = false
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func isAncestor(of node: Node) -> Bool {
+        var current = node.parentNode
+        while let candidate = current {
+            if candidate === self {
+                return true
+            }
+            current = candidate.parentNode
+        }
+        return false
     }
     
     /**

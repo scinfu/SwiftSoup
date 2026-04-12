@@ -33,6 +33,12 @@ open class Document: Element {
     
     @usableFromInline
     internal var parsedAsXml: Bool = false
+    
+    @usableFromInline
+    internal var dirtySourceRootIDs: Set<ObjectIdentifier> = []
+    
+    @usableFromInline
+    internal var dirtySourceRoots: [Weak<Node>] = []
 
 
 
@@ -245,6 +251,9 @@ open class Document: Element {
     
     @inline(__always)
     open func outerHtmlUTF8() throws -> [UInt8] {
+        if let patched = try patchedOuterHtmlUTF8() {
+            return patched
+        }
         return try super.htmlUTF8() // no outer wrapper tag
     }
 
@@ -445,11 +454,122 @@ open class Document: Element {
             }
         }
 
-        collect(self, false)
+        let roots = currentDirtySourceRoots()
+        if roots.isEmpty {
+            collect(self, false)
+        } else {
+            for root in roots {
+                collect(root, false)
+            }
+        }
         if patches.count > 1 {
             patches.sort { $0.range.start < $1.range.start }
         }
         return patches
+    }
+
+    @usableFromInline
+    internal func registerDirtySourceRoot(_ node: Node) {
+        cleanupDirtySourceRoots()
+
+        if node === self {
+            dirtySourceRootIDs = [ObjectIdentifier(self)]
+            dirtySourceRoots = [Weak(self)]
+            return
+        }
+
+        var ancestor = node.parentNode
+        while let current = ancestor {
+            if dirtySourceRootIDs.contains(ObjectIdentifier(current)) {
+                return
+            }
+            ancestor = current.parentNode
+        }
+
+        dirtySourceRoots.removeAll { weakNode in
+            guard let existing = weakNode.value else { return true }
+            if node.isAncestor(of: existing) {
+                dirtySourceRootIDs.remove(ObjectIdentifier(existing))
+                return true
+            }
+            return false
+        }
+
+        let identifier = ObjectIdentifier(node)
+        if dirtySourceRootIDs.insert(identifier).inserted {
+            dirtySourceRoots.append(Weak(node))
+        }
+    }
+
+    @usableFromInline
+    internal func currentDirtySourceRoots() -> [Node] {
+        cleanupDirtySourceRoots()
+        return dirtySourceRoots.compactMap { weakNode in
+            guard let node = weakNode.value, node.sourceRangeDirty else { return nil }
+            return node
+        }
+    }
+
+    @usableFromInline
+    internal func cleanupDirtySourceRoots() {
+        dirtySourceRoots.removeAll { weakNode in
+            guard let node = weakNode.value else { return true }
+            let identifier = ObjectIdentifier(node)
+            guard dirtySourceRootIDs.contains(identifier) else { return true }
+            return false
+        }
+
+        if dirtySourceRoots.isEmpty {
+            dirtySourceRootIDs.removeAll(keepingCapacity: true)
+            return
+        }
+
+        dirtySourceRootIDs = Set(dirtySourceRoots.compactMap { weakNode in
+            weakNode.value.map(ObjectIdentifier.init)
+        })
+    }
+
+    @usableFromInline
+    internal func patchedOuterHtmlUTF8() throws -> [UInt8]? {
+        guard !_outputSettings.prettyPrint(),
+              let source = sourceBuffer?.bytes else {
+            return nil
+        }
+
+        let patches = try sourcePatches()
+        if patches.isEmpty {
+            return source
+        }
+
+        var previousEnd = 0
+        var totalCount = source.count
+        for patch in patches {
+            let range = patch.range
+            guard range.isValid,
+                  range.start >= previousEnd,
+                  range.end <= source.count else {
+                return nil
+            }
+            totalCount += patch.replacement.count - (range.end - range.start)
+            previousEnd = range.end
+        }
+
+        var result: [UInt8] = []
+        result.reserveCapacity(max(totalCount, 0))
+
+        var cursor = 0
+        for patch in patches {
+            let range = patch.range
+            if cursor < range.start {
+                result.append(contentsOf: source[cursor..<range.start])
+            }
+            result.append(contentsOf: patch.replacement)
+            cursor = range.end
+        }
+        if cursor < source.count {
+            result.append(contentsOf: source[cursor..<source.count])
+        }
+        return result
     }
 
     @inline(__always)
@@ -483,6 +603,8 @@ open class Document: Element {
         clone.updateMetaCharset = updateMetaCharset
         clone.sourceBuffer = nil
         clone.parsedAsXml = parsedAsXml
+        clone.dirtySourceRootIDs.removeAll(keepingCapacity: false)
+        clone.dirtySourceRoots.removeAll(keepingCapacity: false)
         return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
 
@@ -494,6 +616,8 @@ open class Document: Element {
         clone.updateMetaCharset = updateMetaCharset
         clone.sourceBuffer = nil
         clone.parsedAsXml = parsedAsXml
+        clone.dirtySourceRootIDs.removeAll(keepingCapacity: false)
+        clone.dirtySourceRoots.removeAll(keepingCapacity: false)
         return super.copy(clone: clone, parent: parent)
     }
 
