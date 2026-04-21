@@ -250,11 +250,32 @@ open class Document: Element {
     }
     
     @inline(__always)
+    private func estimatedDocumentOuterHtmlCapacity() -> Int {
+        if let sourceCount = sourceBuffer?.bytes.count, sourceCount > 0 {
+            return min(max(1024, sourceCount), 8_388_608)
+        }
+
+        var estimated = 0
+        for child in childNodes {
+            estimated += child.estimatedOuterHtmlCapacity()
+            if estimated >= 8_388_608 {
+                return 8_388_608
+            }
+        }
+        return max(1024, estimated)
+    }
+
+    @inline(__always)
     open func outerHtmlUTF8() throws -> [UInt8] {
         if let patched = try patchedOuterHtmlUTF8() {
             return patched
         }
-        return try super.htmlUTF8() // no outer wrapper tag
+        let accum = StringBuilder.acquire(estimatedDocumentOuterHtmlCapacity())
+        defer { StringBuilder.release(accum) }
+        for node in childNodes {
+            try node.outerHtml(accum)
+        }
+        return Array(getOutputSettings().prettyPrint() ? accum.buffer.trim() : accum.buffer)
     }
 
     /**
