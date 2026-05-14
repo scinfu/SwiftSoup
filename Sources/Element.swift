@@ -362,7 +362,7 @@ open class Element: Node {
     @usableFromInline
     internal var selectorQueryStats: SelectorQueryStats? = nil
     @usableFromInline
-    internal var selectorResultCacheRoot: Node? = nil
+    internal weak var selectorResultCacheRoot: Node? = nil
     
     /// Cached normalized text (UTF‑8) for trim+normalize path.
     /// NOTE: Removed text cache; keep no per-node cache state here.
