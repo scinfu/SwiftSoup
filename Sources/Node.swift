@@ -158,7 +158,38 @@ open class Node: Equatable, Hashable {
         self.attributes = nil
         self.baseUri = nil
     }
-    
+
+    deinit {
+        // `childNodes` holds strong references, so the default release chain
+        // (Node.deinit -> release childNodes -> child Node.deinit -> ...) recurses
+        // once per nesting level. Deeply nested HTML overflows small thread stacks,
+        // so unwind the subtree iteratively instead.
+        tearDownChildNodesIteratively()
+    }
+
+    /// Releases the descendant subtree without recursing through `deinit`.
+    ///
+    /// Children are drained onto a work stack; a popped node held only by the
+    /// stack (`isKnownUniquelyReferenced`) is about to deinit, so its own
+    /// children are hoisted onto the stack and its `childNodes` cleared before
+    /// it is dropped - it then deinits with an empty `childNodes` and the chain
+    /// never nests. Nodes still referenced elsewhere are left fully intact, so
+    /// this is behaviourally identical to the default recursive release.
+    private func tearDownChildNodesIteratively() {
+        if childNodes.isEmpty { return }
+        var stack = childNodes
+        childNodes.removeAll(keepingCapacity: false)
+        while !stack.isEmpty {
+            var node = stack.removeLast()
+            if isKnownUniquelyReferenced(&node) && !node.childNodes.isEmpty {
+                stack.append(contentsOf: node.childNodes)
+                node.childNodes.removeAll(keepingCapacity: false)
+            }
+            // `node` leaves scope here: if it was uniquely held it deinits now,
+            // with an already-empty `childNodes`, so no recursion occurs.
+        }
+    }
+
     /**
      Get the node name of this node. Use for debugging purposes and not logic switching (for that, use instanceof).
      - returns: node name
