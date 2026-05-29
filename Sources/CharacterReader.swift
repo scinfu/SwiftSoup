@@ -361,12 +361,12 @@ public final class CharacterReader {
                 return slice(start, pos)
             }
 
-            pos += charLen
+            pos = min(pos + charLen, end)
         }
-        
+
         return slice(start, pos)
     }
-    
+
     private func unicodeScalar(at index: String.UTF8View.Index, in utf8View: String.UTF8View) -> UnicodeScalar? {
         var iterator = utf8View[index...].makeIterator()
         var utf8Decoder = UTF8()
@@ -696,7 +696,7 @@ public final class CharacterReader {
     }
 
     public func matchesAny(_ seq: ParsingStrings) -> Bool {
-        guard input.count > pos
+        guard pos < end
         else { return false }
 
         if let byte = currentByte(), byte < Self.asciiUpperLimitByte {
@@ -728,8 +728,7 @@ public final class CharacterReader {
     }
 
     public func matchesAny(_ seq: [[UInt8]]) -> Bool {
-        guard pos < end,
-              input.count > pos
+        guard pos < end
         else { return false }
 
         if let byte = currentByte() {
@@ -779,8 +778,7 @@ public final class CharacterReader {
     }
     
     public func matchesDigit() -> Bool {
-        guard pos < end,
-              input.count > pos
+        guard pos < end
         else { return false }
 
         let firstByte = input[pos]
@@ -873,8 +871,8 @@ public final class CharacterReader {
         if seq.count == 1 {
             return input[pos...].firstIndex(of: transformedFirst) != nil
         }
+        guard seq.count <= end - pos else { return false }
         let lastStart = end - seq.count
-        if pos > lastStart { return false }
         var i = pos
         while i <= lastStart {
             if input[i] == transformedFirst {
@@ -911,8 +909,8 @@ public final class CharacterReader {
         if totalCount == 1 {
             return input[pos...].firstIndex(of: transformedFirst) != nil
         }
+        guard totalCount <= end - pos else { return false }
         let lastStart = end - totalCount
-        if pos > lastStart { return false }
         var i = pos
         let prefixCount = prefix.count
         while i <= lastStart {
@@ -984,8 +982,8 @@ public final class CharacterReader {
         if targetCount == 1 {
             return input[pos...].firstIndex(of: targetUtf8[0])
         }
+        guard targetCount <= end - pos else { return nil }
         let lastStart = end - targetCount
-        if pos > lastStart { return nil }
 
         let first = targetUtf8[0]
         if targetCount == 2 {

@@ -601,6 +601,12 @@ public final class Entities: Sendable {
                 if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
                     return true
                 }
+                if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), len) {
+                    let idx = base.distance(to: nbspLead.assumingMemoryBound(to: UInt8.self))
+                    if idx + 1 < len, base[idx + 1] == StringUtil.utf8NBSPTrail {
+                        return true
+                    }
+                }
                 if inAttribute {
                     if escapeMode == .xhtml,
                        memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
@@ -634,6 +640,12 @@ public final class Entities: Sendable {
                 if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
                     return true
                 }
+                if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), len) {
+                    let idx = base.distance(to: nbspLead.assumingMemoryBound(to: UInt8.self))
+                    if idx + 1 < len, base[idx + 1] == StringUtil.utf8NBSPTrail {
+                        return true
+                    }
+                }
                 if inAttribute {
                     if escapeMode == .xhtml,
                        memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
@@ -662,8 +674,15 @@ public final class Entities: Sendable {
            count > 0 {
             var needsEscape = false
             var sawWhitespace = false
-            for b in string {
+            for i in string.indices {
+                let b = string[i]
                 if encoderIsAscii && b >= asciiUpperLimitByte {
+                    needsEscape = true
+                    break
+                }
+                if b == StringUtil.utf8NBSPLead,
+                   i + 1 < string.endIndex,
+                   string[i + 1] == StringUtil.utf8NBSPTrail {
                     needsEscape = true
                     break
                 }
@@ -843,6 +862,12 @@ public final class Entities: Sendable {
                 if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
                     return true
                 }
+                if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), len) {
+                    let idx = base.distance(to: nbspLead.assumingMemoryBound(to: UInt8.self))
+                    if idx + 1 < len, base[idx + 1] == StringUtil.utf8NBSPTrail {
+                        return true
+                    }
+                }
                 if inAttribute {
                     if escapeMode == .xhtml,
                        memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
@@ -876,6 +901,12 @@ public final class Entities: Sendable {
                 if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
                     return true
                 }
+                if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), len) {
+                    let idx = base.distance(to: nbspLead.assumingMemoryBound(to: UInt8.self))
+                    if idx + 1 < len, base[idx + 1] == StringUtil.utf8NBSPTrail {
+                        return true
+                    }
+                }
                 if inAttribute {
                     if escapeMode == .xhtml,
                        memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
@@ -904,8 +935,15 @@ public final class Entities: Sendable {
            count > 0 {
             var needsEscape = false
             var sawWhitespace = false
-            for b in string {
+            for i in string.indices {
+                let b = string[i]
                 if encoderIsAscii && b >= asciiUpperLimitByte {
+                    needsEscape = true
+                    break
+                }
+                if b == StringUtil.utf8NBSPLead,
+                   string.index(after: i) < string.endIndex,
+                   string[string.index(after: i)] == StringUtil.utf8NBSPTrail {
                     needsEscape = true
                     break
                 }
@@ -1084,6 +1122,12 @@ public final class Entities: Sendable {
                 if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
                     return true
                 }
+                if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), len) {
+                    let idx = base.distance(to: nbspLead.assumingMemoryBound(to: UInt8.self))
+                    if idx + 1 < len, base[idx + 1] == StringUtil.utf8NBSPTrail {
+                        return true
+                    }
+                }
                 if inAttribute {
                     if escapeMode == .xhtml,
                        memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
@@ -1116,6 +1160,12 @@ public final class Entities: Sendable {
                 let len = buf.count
                 if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
                     return true
+                }
+                if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), len) {
+                    let idx = base.distance(to: nbspLead.assumingMemoryBound(to: UInt8.self))
+                    if idx + 1 < len, base[idx + 1] == StringUtil.utf8NBSPTrail {
+                        return true
+                    }
                 }
                 if inAttribute {
                     if escapeMode == .xhtml,

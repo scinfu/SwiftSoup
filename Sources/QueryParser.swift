@@ -6,9 +6,6 @@
 //
 
 import Foundation
-#if canImport(Atomics)
-import Atomics
-#endif
 
 
 /**
@@ -17,21 +14,13 @@ import Atomics
 public class QueryParser {
     private static let combinators: [String]  = [",", ">", "+", "~", " "]
     private static let AttributeEvals: [String]  = ["=", "!=", "^=", "$=", "*=", "~="]
-    
-#if canImport(Atomics)
-    /// Atomic reference to the query parser cache. This allows for thread-safe manipulation of the
-    /// cache while avoiding locks.
-    private static let atomicCacheReference = ManagedAtomic<AtomicCacheWrapper?>(
-        AtomicCacheWrapper(cache: DefaultCache())
-    )
-#else
+
     /// Mutex lock for the cache instance.
     private static let cacheMutex = Mutex()
-    
+
     /// Cache instance. Must always access this with the ``QueryParser/cacheMutex``.
     nonisolated(unsafe)
     private static var cacheInstance: (any QueryParserCache)? = DefaultCache()
-#endif
     
     private var tq: TokenQueue
     private var query: String
@@ -108,20 +97,6 @@ public class QueryParser {
     ///
     /// Defaults to ``DefaultCache``. You can set this to `nil` to disable caching, provide a
     /// ``DefaultCache`` instance with a different limit, or provide your own cache.
-#if canImport(Atomics)
-    public static var cache: (any QueryParserCache)? {
-        get {
-            Self.atomicCacheReference.load(ordering: .relaxed)?.wrapped
-        }
-        set {
-            if let newValue {
-                Self.atomicCacheReference.store(AtomicCacheWrapper(cache: newValue), ordering: .relaxed)
-            } else {
-                Self.atomicCacheReference.store(nil, ordering: .relaxed)
-            }
-        }
-    }
-#else
     public static var cache: (any QueryParserCache)? {
         get {
             Self.cacheMutex.lock()
@@ -134,7 +109,6 @@ public class QueryParser {
             Self.cacheInstance = newValue
         }
     }
-#endif
     
     
     // MARK: Private methods
@@ -189,7 +163,12 @@ public class QueryParser {
     private func consumeSubQuery() -> String {
         var sq = ""
         while (!tq.isEmpty()) {
-            if (tq.matches("(")) {
+            if tq.matchesCS("\\") {
+                sq.append(tq.consume())
+                if !tq.isEmpty() {
+                    sq.append(tq.consume())
+                }
+            } else if (tq.matches("(")) {
                 sq.append("(")
                 sq.append(tq.chompBalanced("(", ")"))
                 sq.append(")")
@@ -210,7 +189,7 @@ public class QueryParser {
         if (tq.matchChomp("#")) {
             try byId()
         } else if (tq.matchChomp(".")) {
-            try byClass()} else if (tq.matchesWord() || tq.matches("*|")) {try byTag()} else if (tq.matches("[")) {try byAttribute()} else if (tq.matchChomp("*")) { allElements()} else if (tq.matchChomp(":lt(")) {try indexLessThan()} else if (tq.matchChomp(":gt(")) {try indexGreaterThan()} else if (tq.matchChomp(":eq(")) {try indexEquals()} else if (tq.matches(":has(")) {try has()} else if (tq.matches(":contains(")) {try contains(false)} else if (tq.matches(":containsOwn(")) {try contains(true)} else if (tq.matches(":matches(")) {try matches(false)} else if (tq.matches(":matchesOwn(")) {try matches(true)} else if (tq.matches(":not(")) {try not()} else if (tq.matchChomp(":nth-child(")) {try cssNthChild(false, false)} else if (tq.matchChomp(":nth-last-child(")) {try cssNthChild(true, false)} else if (tq.matchChomp(":nth-of-type(")) {try cssNthChild(false, true)} else if (tq.matchChomp(":nth-last-of-type(")) {try cssNthChild(true, true)} else if (tq.matchChomp(":first-child")) {evals.append(Evaluator.IsFirstChild())} else if (tq.matchChomp(":last-child")) {evals.append(Evaluator.IsLastChild())} else if (tq.matchChomp(":first-of-type")) {evals.append(Evaluator.IsFirstOfType())} else if (tq.matchChomp(":last-of-type")) {evals.append(Evaluator.IsLastOfType())} else if (tq.matchChomp(":only-child")) {evals.append(Evaluator.IsOnlyChild())} else if (tq.matchChomp(":only-of-type")) {evals.append(Evaluator.IsOnlyOfType())} else if (tq.matchChomp(":empty")) {evals.append(Evaluator.IsEmpty())} else if (tq.matchChomp(":root")) {evals.append(Evaluator.IsRoot())} else // unhandled
+            try byClass()} else if (tq.matchesWord() || tq.matches("*|")) {try byTag()} else if (tq.matches("[")) {try byAttribute()} else if (tq.matchChomp("*")) { allElements()} else if (tq.matchChomp(":lt(")) {try indexLessThan()} else if (tq.matchChomp(":gt(")) {try indexGreaterThan()} else if (tq.matchChomp(":eq(")) {try indexEquals()} else if (tq.matches(":has(")) {try has()} else if (tq.matches(":containsData(")) {try containsData()} else if (tq.matches(":contains(")) {try contains(false)} else if (tq.matches(":containsOwn(")) {try contains(true)} else if (tq.matches(":matches(")) {try matches(false)} else if (tq.matches(":matchesOwn(")) {try matches(true)} else if (tq.matches(":not(")) {try not()} else if (tq.matchChomp(":nth-child(")) {try cssNthChild(false, false)} else if (tq.matchChomp(":nth-last-child(")) {try cssNthChild(true, false)} else if (tq.matchChomp(":nth-of-type(")) {try cssNthChild(false, true)} else if (tq.matchChomp(":nth-last-of-type(")) {try cssNthChild(true, true)} else if (tq.matchChomp(":first-child")) {evals.append(Evaluator.IsFirstChild())} else if (tq.matchChomp(":last-child")) {evals.append(Evaluator.IsLastChild())} else if (tq.matchChomp(":first-of-type")) {evals.append(Evaluator.IsFirstOfType())} else if (tq.matchChomp(":last-of-type")) {evals.append(Evaluator.IsLastOfType())} else if (tq.matchChomp(":only-child")) {evals.append(Evaluator.IsOnlyChild())} else if (tq.matchChomp(":only-of-type")) {evals.append(Evaluator.IsOnlyOfType())} else if (tq.matchChomp(":empty")) {evals.append(Evaluator.IsEmpty())} else if (tq.matchChomp(":root")) {evals.append(Evaluator.IsRoot())} else // unhandled
         {
             throw Exception.Error(type: ExceptionType.SelectorParseException, Message: "Could not parse query \(query): unexpected token at \(tq.remainder())")
         }
@@ -363,6 +342,14 @@ public class QueryParser {
         } else {
             evals.append(Evaluator.ContainsText(searchText))
         }
+    }
+
+    // pseudo selector :containsData(data)
+    private func containsData() throws {
+        try tq.consume(":containsData")
+        let searchText: String = TokenQueue.unescape(tq.chompBalanced("(", ")"))
+        try Validate.notEmpty(string: searchText, msg: ":containsData(text) query must not be empty")
+        evals.append(Evaluator.ContainsData(searchText))
     }
 
     // :matches(regex), matchesOwn(regex)

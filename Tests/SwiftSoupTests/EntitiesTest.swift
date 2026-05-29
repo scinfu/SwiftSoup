@@ -141,4 +141,43 @@ class EntitiesTest: XCTestCase {
 		doc.outputSettings().escapeMode(Entities.EscapeMode.xhtml)
 		XCTAssertEqual("<a title=\"&lt;p>One&lt;/p>\">One</a>", try  element.outerHtml())
 	}
+
+	func testNbspEscapedWhenOnlySpecialChar() {
+		// When nbsp is the only special character present, the fast-path needsEscape
+		// check must still detect it and escape it (not output raw U+00A0 bytes).
+		let text = "hello\u{A0}world"
+
+		// Default: UTF-8, extended mode → &nbsp;
+		XCTAssertEqual("hello&nbsp;world", Entities.escape(text))
+
+		// Base mode, UTF-8 → &nbsp;
+		let base = OutputSettings().charset(.utf8).escapeMode(Entities.EscapeMode.base)
+		XCTAssertEqual("hello&nbsp;world", Entities.escape(text, base))
+
+		// XHTML mode, UTF-8 → &#xa0;
+		let xhtml = OutputSettings().charset(.utf8).escapeMode(Entities.EscapeMode.xhtml)
+		XCTAssertEqual("hello&#xa0;world", Entities.escape(text, xhtml))
+
+		// ASCII charset → should also escape
+		let ascii = OutputSettings().charset(.ascii).escapeMode(Entities.EscapeMode.base)
+		XCTAssertEqual("hello&nbsp;world", Entities.escape(text, ascii))
+	}
+
+	func testNbspPreservedThroughParseAndSerialize() throws {
+		// Round-trip: parse HTML containing &nbsp;, then serialize back.
+		// The output must contain the &nbsp; entity, not raw U+00A0 bytes.
+		let html = "<p>hello&nbsp;world</p>"
+		let doc = try SwiftSoup.parse(html)
+		let p = try doc.select("p").first()!
+		let output = try p.html()
+
+		XCTAssertEqual("hello&nbsp;world", output)
+		XCTAssertFalse(output.contains("\u{A0}"), "Output should not contain raw U+00A0")
+	}
+
+	func testMultipleNbspEscaped() {
+		// Multiple nbsp characters, no other special chars
+		let text = "a\u{A0}b\u{A0}c"
+		XCTAssertEqual("a&nbsp;b&nbsp;c", Entities.escape(text))
+	}
 }
