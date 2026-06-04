@@ -85,7 +85,6 @@ class HtmlTreeBuilder: TreeBuilder {
         resetStackTracking()
     }
 
-    
     func parseFragment(_ inputFragment: [UInt8], _ context: Element?, _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) throws -> Array<Node> {
         // context may be null
         _state = HtmlTreeBuilderState.Initial
