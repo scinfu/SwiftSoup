@@ -9,6 +9,29 @@ import XCTest
 import SwiftSoup
 
 class XmlTreeBuilderTest: XCTestCase {
+    private let issue309Xml = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <opml version="1.0">
+      <head>
+        <title>Default</title>
+      </head>
+      <body>
+        <link>I'm link</link>
+        <a>I'm a</a>
+        <image>I'm image</image>
+        <img>I'm img</img>
+        <outline text="News" title="News">
+          <outline type="rss" text="BBC NEWS" title="BBC NEWS" xmlUrl="https://feeds.bbci.co.uk/news/world/rss.xml" htmlUrl="https://feeds.bbci.co.uk"/>
+          <outline type="rss" text="CBS NEWS" title="CBS NEWS" xmlUrl="https://www.cbsnews.com/latest/rss/main" htmlUrl="https://www.cbsnews.com/"/>
+          <outline type="rss" text="ESPN" title="ESPN" xmlUrl="https://www.espn.com/espn/rss/news" htmlUrl="https://www.espn.com/"/>
+        </outline>
+        <outline text="Designer" title="Technology">
+          <outline type="rss" text="Daring Fireball" title="Daring Fireball" xmlUrl="https://daringfireball.net/feeds/json" htmlUrl="https://daringfireball.net"/>
+          <outline type="rss" text="Colossal" title="Colossal" xmlUrl="https://www.thisiscolossal.com/feed" htmlUrl="https://www.thisiscolossal.com/"/>
+        </outline>
+      </body>
+    </opml>
+    """
 
 	func testSimpleXmlParse() throws {
 		let xml = "<doc id=2 href='/bar'>Foo <br /><link>One</link><link>Two</link></doc>"
@@ -39,6 +62,95 @@ class XmlTreeBuilderTest: XCTestCase {
 		let doc = try SwiftSoup.parse(xml, "http://foo.com/", Parser.xmlParser())
 		try XCTAssertEqual("<doc><val>One<val>Two</val>Three</val></doc>", TextUtil.stripNewlines(doc.html()))
 	}
+
+    func testIssue309ParseXmlConvenienceParsesXmlSpecificTags() throws {
+        let doc = try SwiftSoup.parseXML(issue309Xml)
+
+        XCTAssertEqual("Default", try doc.select("title").first()?.text())
+        XCTAssertEqual("I'm link", try doc.select("link").first()?.text())
+        XCTAssertEqual("I'm a", try doc.select("a").first()?.text())
+        XCTAssertEqual("I'm image", try doc.select("image").first()?.text())
+        XCTAssertEqual("I'm img", try doc.select("img").first()?.text())
+        XCTAssertEqual(7, try doc.select("body outline").count)
+        XCTAssertEqual(2, try doc.select("body > outline").count)
+        XCTAssertEqual(OutputSettings.Syntax.xml, doc.outputSettings().syntax())
+    }
+
+    func testIssue309ParseXmlConvenienceMatchesExplicitXmlParser() throws {
+        let convenienceDoc = try SwiftSoup.parseXML(issue309Xml)
+        let explicitDoc = try SwiftSoup.parse(issue309Xml, "", Parser.xmlParser())
+
+        XCTAssertEqual(try explicitDoc.outerHtml(), try convenienceDoc.outerHtml())
+    }
+
+    // MARK: - Auto-detection tests
+
+    func testParseAutoDetectsXmlDeclaration() throws {
+        let doc = try SwiftSoup.parse(issue309Xml)
+
+        XCTAssertEqual("I'm link", try doc.select("link").first()?.text())
+        XCTAssertEqual("I'm img", try doc.select("img").first()?.text())
+        XCTAssertEqual("I'm image", try doc.select("image").first()?.text())
+        XCTAssertEqual(7, try doc.select("body outline").count)
+        XCTAssertEqual(OutputSettings.Syntax.xml, doc.outputSettings().syntax())
+    }
+
+    func testParseAutoDetectsXmlWithLeadingWhitespace() throws {
+        let xml = "\n  \t <?xml version=\"1.0\"?><root><item>Hello</item></root>"
+        let doc = try SwiftSoup.parse(xml)
+
+        XCTAssertEqual("Hello", try doc.select("item").first()?.text())
+        XCTAssertEqual(OutputSettings.Syntax.xml, doc.outputSettings().syntax())
+    }
+
+    func testParseAutoDetectsHtmlWithoutXmlDeclaration() throws {
+        let html = "<html><head><title>Test</title></head><body><p>Hello</p></body></html>"
+        let doc = try SwiftSoup.parse(html)
+
+        XCTAssertEqual("Test", try doc.title())
+        XCTAssertEqual("Hello", try doc.select("p").first()?.text())
+    }
+
+    func testParseAutoDetectsHtmlDoctype() throws {
+        let html = "<!DOCTYPE html><html><body><link rel=\"stylesheet\"><p>Hello</p></body></html>"
+        let doc = try SwiftSoup.parse(html)
+
+        XCTAssertEqual("Hello", try doc.select("p").first()?.text())
+    }
+
+    func testParseAutoDetectionMatchesExplicitXmlParser() throws {
+        let autoDoc = try SwiftSoup.parse(issue309Xml)
+        let explicitDoc = try SwiftSoup.parse(issue309Xml, "", Parser.xmlParser())
+
+        XCTAssertEqual(try explicitDoc.outerHtml(), try autoDoc.outerHtml())
+    }
+
+    func testParseAutoDetectionDataOverload() throws {
+        let data = issue309Xml.data(using: .utf8)!
+        let doc = try SwiftSoup.parse(data)
+
+        XCTAssertEqual("I'm link", try doc.select("link").first()?.text())
+        XCTAssertEqual(OutputSettings.Syntax.xml, doc.outputSettings().syntax())
+    }
+
+    // MARK: - Explicit parseHTML tests
+
+    func testParseHTMLForcesHtmlParserEvenForXmlInput() throws {
+        let doc = try SwiftSoup.parseHTML(issue309Xml)
+
+        // HTML parser treats <link> as a void element, so it won't contain text
+        XCTAssertNotEqual("I'm link", try doc.select("link").first()?.text())
+    }
+
+    func testParseHTMLNormalizesDocument() throws {
+        let html = "<p>Hello"
+        let doc = try SwiftSoup.parseHTML(html)
+
+        // HTML parser adds html/head/body structure
+        XCTAssertEqual(1, try doc.select("head").count)
+        XCTAssertEqual(1, try doc.select("body").count)
+        XCTAssertEqual("Hello", try doc.select("p").first()?.text())
+    }
 
 	//TODO: nabil
 	//	public void testSupplyParserToConnection() throws IOException {

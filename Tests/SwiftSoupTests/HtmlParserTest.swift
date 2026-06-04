@@ -37,6 +37,30 @@ class HtmlParserTest: XCTestCase {
         XCTAssertEqual("img", img.tagName())
     }
 
+    func testParsesDocumentFromURLWhenStringEncodingDetectionFails() throws {
+        let invalidHtml = Data("<html><head><title>First!</title></head><body>ok ".utf8)
+            + Data([0xFF])
+            + Data("</body></html>".utf8)
+        let tempDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        let fileURL = tempDir.appendingPathComponent(UUID().uuidString).appendingPathExtension("html")
+        try invalidHtml.write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        // On Apple platforms, String(contentsOf:) throws when it cannot determine the encoding.
+        // On Linux (swift-corelibs-foundation) it may silently fall back to lossy decoding instead.
+        #if canImport(Darwin)
+        XCTAssertThrowsError(try String(contentsOf: fileURL)) { error in
+            let nsError = error as NSError
+            XCTAssertEqual(NSCocoaErrorDomain, nsError.domain)
+        }
+        #endif
+
+        let doc: Document = try SwiftSoup.parse(fileURL)
+        XCTAssertEqual("First!", try doc.title())
+        XCTAssertEqual(fileURL.absoluteString, doc.location())
+        XCTAssertTrue(try doc.text().contains("ok"))
+    }
+
     func testParsesMultibyteAttributes() throws {
         let html: String = "<div foo=\"若い\"></div>"
         let doc: Document = try SwiftSoup.parse(html)
@@ -691,5 +715,63 @@ class HtmlParserTest: XCTestCase {
         let html = "<a href='&lt"
         let doc = try SwiftSoup.parse(html)
         XCTAssertEqual(try doc.body()?.text(), "")
+    }
+
+    // https://github.com/scinfu/SwiftSoup/issues/344
+    // https://github.com/scinfu/SwiftSoup/issues/189
+    func testParse_DoesNotCrashOnTruncatedHtml() throws {
+        let html = """
+        <figure class="img-border featured-image"><img width="1600" height="800" src="https://9to5mac.com/wp-content/uploads/sites/6/2025/08/crash-detection.jpg?quality=82&amp
+        """
+        let doc = try SwiftSoup.parse(html)
+        XCTAssertNotNil(doc.body())
+    }
+
+    func testParse_DoesNotCrashOnTruncatedHtmlVariants() throws {
+        // Truncated at various points in attribute values, entities, tags
+        let truncatedHtmls = [
+            "<a href=\"",
+            "<a href=\"&",
+            "<a href=\"&amp",
+            "<a href=\"&amp;",
+            "<a href='test&amp",
+            "<div class=",
+            "<div class=\"test",
+            "<!DOCTYPE",
+            "<!DOCTYPE html",
+            "<!-- comment",
+            "<script>var x = ",
+            "<style>.foo {",
+            "<img src=\"data:image/png;base64,",
+            "<a href=\"https://example.com?a=1&",
+            "<a href=\"https://example.com?a=1&amp",
+            "<a href=\"https://example.com?a=1&amp;b=2&",
+            "<p>Hello \u{C3}",  // truncated 2-byte UTF-8 (first byte of ã)
+            "<p>Hello \u{E2}\u{80}",  // truncated 3-byte UTF-8 (first 2 bytes of —)
+            "<p>test</p><img src=\"foo&",
+            "<table><tr><td>cell&amp",
+            "<",
+            "< ",
+            "</",
+            "<a",
+            "<a ",
+            "<a h",
+            "<a hr",
+            "<a hre",
+            "<a href",
+            "<a href=",
+            "<a href='",
+            "&",
+            "&amp",
+            "&#",
+            "&#x",
+            "&#x4",
+            "&#65",
+        ]
+
+        for (i, html) in truncatedHtmls.enumerated() {
+            let doc = try SwiftSoup.parse(html)
+            XCTAssertNotNil(doc.body(), "Failed on variant \(i): \(html)")
+        }
     }
 }

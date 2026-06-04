@@ -881,6 +881,38 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual(0, try doc.select("p:containsOwn(there)").size())
 	}
 
+	func testContainsData() throws {
+		let doc: Document = try SwiftSoup.parse("<div><p>Some text</p><script>var foo = 'bar';</script><style>.red { color: red; }</style></div>")
+
+		// script data
+		let scripts: Elements = try doc.select("script:containsData(foo)")
+		XCTAssertEqual(1, scripts.size())
+		XCTAssertEqual("var foo = 'bar';", scripts.first()?.data())
+
+		// case insensitive
+		let scriptsCI: Elements = try doc.select("script:containsData(FOO)")
+		XCTAssertEqual(1, scriptsCI.size())
+
+		// style data
+		let styles: Elements = try doc.select("style:containsData(red)")
+		XCTAssertEqual(1, styles.size())
+
+		// no match
+		let noMatch: Elements = try doc.select("script:containsData(baz)")
+		XCTAssertEqual(0, noMatch.size())
+
+		// :containsData does not match text nodes
+		let textMatch: Elements = try doc.select("p:containsData(Some text)")
+		XCTAssertEqual(0, textMatch.size())
+	}
+
+	func testContainsDataInDescendants() throws {
+		let doc: Document = try SwiftSoup.parse("<div><script>alert('hello');</script></div>")
+		let divs: Elements = try doc.select("div:containsData(hello)")
+		XCTAssertEqual(1, divs.size())
+		XCTAssertEqual("div", divs.first()?.tagName())
+	}
+
 	func testMatches() throws {
 		let doc: Document = try SwiftSoup.parse("<p id=1>The <i>Rain</i></p> <p id=2>There are 99 bottles.</p> <p id=3>Harder (this)</p> <p id=4>Rain</p>")
 
@@ -1022,5 +1054,51 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("Two", try doc.select("div[data='[Another)]]'").first()?.text())
 		XCTAssertEqual("One", try doc.select("div[data=\"End]\"").first()?.text())
 		XCTAssertEqual("Two", try doc.select("div[data=\"[Another)]]\"").first()?.text())
+	}
+
+	// Verify compound attribute selectors work on simple HTML
+	func testCompoundAttributeSelectorSimple() throws {
+		let html = "<div id='info-id' data-type='info-data'><p>Hello</p></div>"
+		let doc = try SwiftSoup.parse(html)
+		let result = try doc.select("div[id='info-id'][data-type='info-data']")
+		XCTAssertEqual(1, result.size(), "Compound selector on simple HTML should work")
+	}
+
+	// https://github.com/scinfu/SwiftSoup/issues/390
+	func testCompoundAttributeSelectorWithSpecialBodyTags() throws {
+		let html = """
+		<!doctype html>
+		<html>
+		    <head>
+		        <title></title>
+		        <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+		        </meta>
+		        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=3, minimum-scale=1, user-scalable=yes">
+		        </meta>
+		    </head>
+		    <body>
+		        <link>I'm link</link>
+		        <a>I'm a</a>
+		        <image>I'm image</image>
+
+		        <div id="info-id" data-type="info-data">
+		            <img src="cid:f269cce5-0cff-4041-81f4-d78865425c3c"/>
+		        </div>
+		    </body>
+		</html>
+		"""
+
+		let document = try SwiftSoup.parse(html)
+
+		// Single attribute selectors should work
+		let byId = try document.select("div[id='info-id']")
+		XCTAssertEqual(1, byId.size(), "Single [id] selector should match")
+
+		let byData = try document.select("div[data-type='info-data']")
+		XCTAssertEqual(1, byData.size(), "Single [data-type] selector should match")
+
+		// Compound attribute selector should also work
+		let compound = try document.select("div[id='info-id'][data-type='info-data']")
+		XCTAssertEqual(1, compound.size(), "Compound attribute selector should match one element")
 	}
 }
