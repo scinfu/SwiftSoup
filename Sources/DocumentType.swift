@@ -100,28 +100,28 @@ public class DocumentType: Node {
             accum.append("<!DOCTYPE")
         }
         if (has(DocumentType.NAME)) {
-            do {
-                accum.append(" ").append(try attr(DocumentType.NAME))
-            } catch {}
+            if let slice = attributes?.valueSliceCaseSensitive(DocumentType.NAME), !slice.isEmpty {
+                accum.append(" ").append(slice)
+            }
 
         }
 
         if (has(DocumentType.PUB_SYS_KEY)) {
-            do {
-                try accum.append(" ").append(attr(DocumentType.PUB_SYS_KEY))
-            } catch {}
+            if let slice = attributes?.valueSliceCaseSensitive(DocumentType.PUB_SYS_KEY), !slice.isEmpty {
+                accum.append(" ").append(slice)
+            }
         }
 
         if (has(DocumentType.PUBLIC_ID)) {
-            do {
-                try accum.append(" \"").append(attr(DocumentType.PUBLIC_ID)).append("\"")
-            } catch {}
+            if let slice = attributes?.valueSliceCaseSensitive(DocumentType.PUBLIC_ID), !slice.isEmpty {
+                accum.append(" \"").append(slice).append("\"")
+            }
 
         }
         if (has(DocumentType.SYSTEM_ID)) {
-            do {
-                accum.append(" \"").append(try attr(DocumentType.SYSTEM_ID)).append("\"")
-            } catch {}
+            if let slice = attributes?.valueSliceCaseSensitive(DocumentType.SYSTEM_ID), !slice.isEmpty {
+                accum.append(" \"").append(slice).append("\"")
+            }
 
         }
         accum.append(">")
@@ -131,9 +131,12 @@ public class DocumentType: Node {
     }
 
     private func has(_ attribute: [UInt8]) -> Bool {
+        guard let attributes else { return false }
         do {
-            return !StringUtil.isBlank(try String(decoding: attr(attribute), as: UTF8.self))
-        } catch {return false}
+            return !(try attributes.getIgnoreCaseSlice(key: attribute).trim().isEmpty)
+        } catch {
+            return false
+        }
     }
 
 	public override func copy(with zone: NSZone? = nil) -> Any {

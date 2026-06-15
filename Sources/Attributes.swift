@@ -125,13 +125,18 @@ open class Attributes: NSCopying {
                 attribute = try! Attribute(keySlice: keySlice, valueSlice: ByteSlice.empty)
             case .slice(let slice):
                 attribute = try! Attribute(keySlice: keySlice, valueSlice: slice)
-            case .slices(let slices, let count):
-                var value: [UInt8] = []
-                value.reserveCapacity(count)
-                for slice in slices {
-                    value.append(contentsOf: slice)
+            case .slices(let slices, _):
+                if let first = slices.first {
+                    let attr = try! Attribute(keySlice: keySlice, valueSlice: first)
+                    if slices.count > 1 {
+                        for slice in slices.dropFirst() {
+                            attr.appendValueSlice(slice)
+                        }
+                    }
+                    attribute = attr
+                } else {
+                    attribute = try! Attribute(keySlice: keySlice, valueSlice: ByteSlice.empty)
                 }
-                attribute = try! Attribute(keySlice: keySlice, valueSlice: ByteSlice.fromArray(value))
             case .bytes(let bytes):
                 attribute = try! Attribute(keySlice: keySlice, valueSlice: ByteSlice.fromArray(bytes))
             }
@@ -206,13 +211,18 @@ open class Attributes: NSCopying {
                 attribute = try! Attribute(keySlice: keySlice, valueSlice: ByteSlice.empty)
             case .slice(let slice):
                 attribute = try! Attribute(keySlice: keySlice, valueSlice: slice)
-            case .slices(let slices, let count):
-                var value: [UInt8] = []
-                value.reserveCapacity(count)
-                for slice in slices {
-                    value.append(contentsOf: slice)
+            case .slices(let slices, _):
+                if let first = slices.first {
+                    let attr = try! Attribute(keySlice: keySlice, valueSlice: first)
+                    if slices.count > 1 {
+                        for slice in slices.dropFirst() {
+                            attr.appendValueSlice(slice)
+                        }
+                    }
+                    attribute = attr
+                } else {
+                    attribute = try! Attribute(keySlice: keySlice, valueSlice: ByteSlice.empty)
                 }
-                attribute = try! Attribute(keySlice: keySlice, valueSlice: ByteSlice.fromArray(value))
             case .bytes(let bytes):
                 attribute = try! Attribute(keySlice: keySlice, valueSlice: ByteSlice.fromArray(bytes))
             }
@@ -447,6 +457,48 @@ open class Attributes: NSCopying {
         }
         return []
     }
+
+    @inline(__always)
+    @usableFromInline
+    internal func getIgnoreCaseSlice(key: [UInt8]) throws -> ByteSlice {
+        if attributes.isEmpty {
+            if let pendingSlice = pendingValueIgnoreCaseSlice(key) {
+                return pendingSlice
+            }
+            if let pendingValue = pendingValueIgnoreCase(key) {
+                return ByteSlice.fromArray(pendingValue)
+            }
+        }
+        ensureMaterialized()
+        try Validate.notEmpty(string: key)
+        let keySlice = ByteSlice.fromArray(key)
+        let hasUppercase = Attributes.containsAsciiUppercase(key)
+        if !Self.disableLowercasedKeyIndex, shouldBuildKeyIndex() {
+            ensureLowercasedKeyIndex()
+            if let lowercasedKeyIndex {
+                let lookupKey = hasUppercase ? keySlice.lowercased() : keySlice
+                if let ix = lowercasedKeyIndex[lookupKey] {
+                    return attributes[ix].valueSliceMaterialized()
+                }
+                return ByteSlice.empty
+            }
+        }
+        if lowercasedKeysCache == nil {
+            updateLowercasedKeysCache()
+        }
+        let normalizedKey = hasUppercase ? keySlice.lowercased() : keySlice
+        guard lowercasedKeysCache?.contains(normalizedKey) ?? false else { return ByteSlice.empty }
+        if !hasUppercaseKeys {
+            if let ix = indexForKey(normalizedKey) {
+                return attributes[ix].valueSliceMaterialized()
+            }
+            return ByteSlice.empty
+        }
+        if let attr = attributes.first(where: { equalsIgnoreCase($0.keySlice, key) }) {
+            return attr.valueSliceMaterialized()
+        }
+        return ByteSlice.empty
+    }
     
     /**
      Set a new attribute, or replace an existing one by key.
@@ -680,6 +732,30 @@ open class Attributes: NSCopying {
         }
     }
 
+    @usableFromInline
+    @inline(__always)
+    internal func appendValueSlice(key: [UInt8], slice: ByteSlice) {
+        ensureMaterialized()
+        guard !key.isEmpty else { return }
+        if let ix = indexForKey(key) {
+            attributes[ix].appendValueSlice(slice)
+            let normalizedKey = key.lowercased()
+            if normalizedKey == UTF8Arrays.class_ {
+                ownerElement?.markClassQueryIndexDirty()
+            }
+            if normalizedKey == SwiftSoup.Element.idString {
+                ownerElement?.markIdQueryIndexDirty()
+            }
+            ownerElement?.markAttributeValueQueryIndexDirty(for: key)
+            ownerElement?.markSourceDirty()
+            return
+        }
+        let keySlice = ByteSlice.fromArray(key).trim()
+        let attribute = try! Attribute(keySlice: keySlice, valueSlice: slice)
+        putMaterialized(attribute)
+        ownerElement?.markSourceDirty()
+    }
+
     
     /**
      Tests if these attributes contain an attribute with this key.
@@ -865,7 +941,7 @@ open class Attributes: NSCopying {
         }
         ensureMaterialized()
         if let ix = indexForKey(key) {
-            return attributes[ix].valueSlice
+            return attributes[ix].valueSliceMaterialized()
         }
         return nil
     }
@@ -884,6 +960,44 @@ open class Attributes: NSCopying {
             } else if let nameSlice = pendingAttr.nameSlice {
                 if equalsIgnoreCase(nameSlice, key) {
                     return materializePendingValue(pendingAttr.value)
+                }
+            }
+        }
+        return nil
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func pendingValueIgnoreCaseSlice<T: Collection>(_ key: T) -> ByteSlice? where T.Element == UInt8 {
+        guard !key.isEmpty, attributes.isEmpty, let pending = pendingAttributes, !pending.isEmpty else {
+            return nil
+        }
+        for pendingAttr in pending {
+            if let nameBytes = pendingAttr.nameBytes {
+                if equalsIgnoreCase(nameBytes, key) {
+                    switch pendingAttr.value {
+                    case .none, .empty:
+                        return ByteSlice.empty
+                    case .slice(let slice):
+                        return slice
+                    case .bytes(let bytes):
+                        return ByteSlice.fromArray(bytes)
+                    default:
+                        return nil
+                    }
+                }
+            } else if let nameSlice = pendingAttr.nameSlice {
+                if equalsIgnoreCase(nameSlice, key) {
+                    switch pendingAttr.value {
+                    case .none, .empty:
+                        return ByteSlice.empty
+                    case .slice(let slice):
+                        return slice
+                    case .bytes(let bytes):
+                        return ByteSlice.fromArray(bytes)
+                    default:
+                        return nil
+                    }
                 }
             }
         }
@@ -1010,7 +1124,9 @@ open class Attributes: NSCopying {
         var result: [String: String] = [:]
         result.reserveCapacity(attributes.count)
         for attr in attributes where attr.isDataAttribute() {
-            result[attr.getKey().substring(prefixLength)] = attr.getValue()
+            let key = attr.getKey().substring(prefixLength)
+            let value = String(decoding: attr.valueSliceMaterialized(), as: UTF8.self)
+            result[key] = value
         }
         return result
     }

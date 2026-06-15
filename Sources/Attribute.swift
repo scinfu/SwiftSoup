@@ -22,6 +22,10 @@ open class Attribute {
     @usableFromInline
     var valueSlice: ByteSlice
     @usableFromInline
+    var valueSlices: [ByteSlice]? = nil
+    @usableFromInline
+    var valueSlicesCount: Int = 0
+    @usableFromInline
     var keyBytes: [UInt8]? = nil
     @usableFromInline
     var valueBytes: [UInt8]? = nil
@@ -106,6 +110,18 @@ open class Attribute {
         if let valueBytes {
             return valueBytes
         }
+        if let slices = valueSlices {
+            var out: [UInt8] = []
+            out.reserveCapacity(valueSlicesCount)
+            for slice in slices {
+                out.append(contentsOf: slice)
+            }
+            valueSlices = nil
+            valueSlicesCount = 0
+            valueBytes = out
+            valueSlice = ByteSlice.fromArray(out)
+            return out
+        }
         let bytes = valueSlice.toArray()
         valueBytes = bytes
         return bytes
@@ -120,6 +136,8 @@ open class Attribute {
     open func setValue(value: [UInt8]) -> [UInt8] {
         let old = getValueUTF8()
         valueSlice = ByteSlice.fromArray(value)
+        valueSlices = nil
+        valueSlicesCount = 0
         valueBytes = nil
         lowerValueSliceCache = nil
         lowerTrimmedValueSliceCache = nil
@@ -142,7 +160,7 @@ open class Attribute {
         accum.append(keySlice)
         if (!shouldCollapseAttribute(out: out)) {
             accum.append(UTF8Arrays.attributeEqualsQuoteMark)
-            Attribute.appendAttributeValue(accum, out, valueSlice)
+            Attribute.appendAttributeValue(accum, out, valueSliceMaterialized())
             accum.append(UTF8Arrays.quoteMark)
         }
     }
@@ -276,7 +294,7 @@ open class Attribute {
      */
     @inline(__always)
     public final func shouldCollapseAttribute(out: OutputSettings) -> Bool {
-        return valueSlice.isEmpty
+        return isValueEmpty()
         && out.syntax() == OutputSettings.Syntax.html
         && isBooleanAttribute()
     }
@@ -284,6 +302,68 @@ open class Attribute {
     @inline(__always)
     public func isBooleanAttribute() -> Bool {
         return Attribute.booleanAttributes.contains(lowerKeySlice())
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func isValueEmpty() -> Bool {
+        if let valueBytes {
+            return valueBytes.isEmpty
+        }
+        if valueSlices != nil {
+            return valueSlicesCount == 0
+        }
+        return valueSlice.isEmpty
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func valueSliceMaterialized() -> ByteSlice {
+        if valueSlices == nil {
+            if !valueSlice.isEmpty {
+                return valueSlice
+            }
+            if let valueBytes {
+                let slice = ByteSlice.fromArray(valueBytes)
+                valueSlice = slice
+                return slice
+            }
+            return valueSlice
+        }
+        let slices = valueSlices ?? []
+        var out: [UInt8] = []
+        out.reserveCapacity(valueSlicesCount)
+        for slice in slices {
+            out.append(contentsOf: slice)
+        }
+        valueSlices = nil
+        valueSlicesCount = 0
+        valueBytes = out
+        let slice = ByteSlice.fromArray(out)
+        valueSlice = slice
+        return slice
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func appendValueSlice(_ slice: ByteSlice) {
+        valueBytes = nil
+        lowerValueSliceCache = nil
+        lowerTrimmedValueSliceCache = nil
+        if var slices = valueSlices {
+            slices.append(slice)
+            valueSlices = slices
+            valueSlicesCount += slice.count
+            return
+        }
+        if !valueSlice.isEmpty {
+            valueSlices = [valueSlice, slice]
+            valueSlicesCount = valueSlice.count + slice.count
+            valueSlice = ByteSlice.empty
+        } else {
+            valueSlices = [slice]
+            valueSlicesCount = slice.count
+        }
     }
 
     @usableFromInline
@@ -303,7 +383,7 @@ open class Attribute {
         if let cached = lowerValueSliceCache {
             return cached
         }
-        let lowered = valueSlice.lowercased()
+        let lowered = valueSliceMaterialized().lowercased()
         lowerValueSliceCache = lowered
         return lowered
     }
@@ -314,7 +394,7 @@ open class Attribute {
         if let cached = lowerTrimmedValueSliceCache {
             return cached
         }
-        let lowered = valueSlice.trim().lowercased()
+        let lowered = valueSliceMaterialized().trim().lowercased()
         lowerTrimmedValueSliceCache = lowered
         return lowered
     }
@@ -322,7 +402,7 @@ open class Attribute {
     @inline(__always)
     public func hashCode() -> Int {
         var result = keySlice.hashValue
-        result = 31 * result + valueSlice.hashValue
+        result = 31 * result + valueSliceMaterialized().hashValue
         return result
     }
     
@@ -343,7 +423,7 @@ open class Attribute {
 extension Attribute: Equatable {
     @inline(__always)
     static public func == (lhs: Attribute, rhs: Attribute) -> Bool {
-        return lhs.keySlice == rhs.keySlice && lhs.valueSlice == rhs.valueSlice
+        return lhs.keySlice == rhs.keySlice && lhs.valueSliceMaterialized() == rhs.valueSliceMaterialized()
     }
     
 }

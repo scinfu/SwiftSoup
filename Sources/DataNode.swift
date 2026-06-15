@@ -13,6 +13,8 @@ import Foundation
 open class DataNode: Node {
     private static let DATA_KEY  = "data".utf8Array
     private var rawDataSlice: ByteSlice? = nil
+    private var rawDataSlices: [ByteSlice]? = nil
+    private var rawDataSlicesCount: Int = 0
 
     /**
      Create a new DataNode.
@@ -31,6 +33,8 @@ open class DataNode: Node {
     internal init(slice: ByteSlice, baseUri: [UInt8]) {
         super.init(baseUri)
         rawDataSlice = slice
+        rawDataSlices = nil
+        rawDataSlicesCount = 0
     }
 
     @usableFromInline
@@ -58,10 +62,28 @@ open class DataNode: Node {
     }
     
     @inline(__always)
-    open func getWholeDataUTF8() -> [UInt8] {
-        if let slice = rawDataSlice {
-            let materialized = slice.toArray()
+    private func materializeRawDataIfNeeded() -> [UInt8]? {
+        if let slices = rawDataSlices {
+            var out: [UInt8] = []
+            out.reserveCapacity(rawDataSlicesCount)
+            for slice in slices {
+                out.append(contentsOf: slice)
+            }
+            rawDataSlices = nil
+            rawDataSlicesCount = 0
             rawDataSlice = nil
+            return out
+        }
+        if let slice = rawDataSlice {
+            rawDataSlice = nil
+            return slice.toArray()
+        }
+        return nil
+    }
+
+    @inline(__always)
+    open func getWholeDataUTF8() -> [UInt8] {
+        if let materialized = materializeRawDataIfNeeded() {
             do {
                 try ensureAttributesForWrite().put(DataNode.DATA_KEY, materialized)
             } catch {}
@@ -70,7 +92,10 @@ open class DataNode: Node {
         guard let attributes = attributes else {
             return []
         }
-        return attributes.get(key: DataNode.DATA_KEY)
+        if let slice = attributes.valueSliceCaseSensitive(DataNode.DATA_KEY) {
+            return slice.toArray()
+        }
+        return []
     }
 
     @usableFromInline
@@ -78,25 +103,53 @@ open class DataNode: Node {
         if let slice = rawDataSlice {
             return slice
         }
+        if rawDataSlices != nil {
+            let materialized = getWholeDataUTF8()
+            return ByteSlice.fromArray(materialized)
+        }
         guard let attributes = attributes else {
             return ByteSlice.empty
         }
-        return ByteSlice.fromArray(attributes.get(key: DataNode.DATA_KEY))
+        return attributes.valueSliceCaseSensitive(DataNode.DATA_KEY) ?? ByteSlice.empty
     }
 
     @usableFromInline
     internal func appendSlice(_ slice: ByteSlice) {
-        var data = getWholeDataUTF8()
-        data.append(contentsOf: slice)
-        do {
-            try ensureAttributesForWrite().put(DataNode.DATA_KEY, data)
-        } catch {}
+        if let attrs = attributes {
+            if !attrs.hasKey(key: DataNode.DATA_KEY) {
+                if let slices = rawDataSlices {
+                    for existing in slices {
+                        attrs.appendValueSlice(key: DataNode.DATA_KEY, slice: existing)
+                    }
+                    rawDataSlices = nil
+                    rawDataSlicesCount = 0
+                } else if let existingSlice = rawDataSlice {
+                    attrs.appendValueSlice(key: DataNode.DATA_KEY, slice: existingSlice)
+                    rawDataSlice = nil
+                }
+            }
+            attrs.appendValueSlice(key: DataNode.DATA_KEY, slice: slice)
+        } else if var slices = rawDataSlices {
+            slices.append(slice)
+            rawDataSlices = slices
+            rawDataSlicesCount += slice.count
+        } else if let existingSlice = rawDataSlice {
+            rawDataSlices = [existingSlice, slice]
+            rawDataSlicesCount = existingSlice.count + slice.count
+            rawDataSlice = nil
+        } else {
+            rawDataSlice = slice
+        }
         markSourceDirty()
     }
 
     @usableFromInline
     internal func extendSliceFromSourceRange(_ source: SourceBuffer, newRange: SourceRange) -> Bool {
-        guard rawDataSlice != nil, !sourceRangeDirty else {
+        guard rawDataSlice != nil,
+              rawDataSlices == nil,
+              attributes == nil,
+              !sourceRangeDirty
+        else {
             return false
         }
         guard let existingRange = sourceRange,
@@ -108,6 +161,7 @@ open class DataNode: Node {
             return false
         }
         rawDataSlice = ByteSlice(storage: source.storage, start: existingRange.start, end: newRange.end)
+        rawDataSlicesCount = 0
         return true
     }
 
@@ -129,6 +183,8 @@ open class DataNode: Node {
     @inline(__always)
     open func setWholeData(_ data: String) -> DataNode {
         rawDataSlice = nil
+        rawDataSlices = nil
+        rawDataSlicesCount = 0
         do {
             try ensureAttributesForWrite().put(DataNode.DATA_KEY, data.utf8Array)
         } catch {}

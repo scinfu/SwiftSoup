@@ -21,7 +21,9 @@ internal final class Weak<T: AnyObject> {
 }
 
 open class Node: Equatable, Hashable {
+    @usableFromInline
     var baseUri: [UInt8]?
+    @usableFromInline
     var attributes: Attributes?
 
     @inline(__always)
@@ -224,9 +226,9 @@ open class Node: Equatable, Hashable {
             }
             return Node.empty
         }
-        let val: [UInt8] = try attributes.getIgnoreCase(key: attributeKey)
-        if !val.isEmpty {
-            return val
+        let valSlice = try attributes.getIgnoreCaseSlice(key: attributeKey)
+        if !valSlice.isEmpty {
+            return valSlice.toArray()
         } else if Node.hasAbsPrefix(attributeKey) {
             return try absUrl(attributeKey.substring(Node.abs.count))
         } else {
@@ -533,7 +535,24 @@ open class Node: Equatable, Hashable {
             return
         }
         sourceRangeDirty = true
-        parentNode?.markSourceDirty(force: force)
+        ownerDocument()?.registerDirtySourceRoot(self)
+        parentNode?.markSourceDirty(force: force, registerDirtyRoot: false)
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func markSourceDirty(force: Bool = false, registerDirtyRoot: Bool) {
+        if sourceRangeDirty {
+            return
+        }
+        if !force, treeBuilder?.isBulkBuilding == true {
+            return
+        }
+        sourceRangeDirty = true
+        if registerDirtyRoot {
+            ownerDocument()?.registerDirtySourceRoot(self)
+        }
+        parentNode?.markSourceDirty(force: force, registerDirtyRoot: false)
     }
 
     @inline(__always)
@@ -552,6 +571,19 @@ open class Node: Equatable, Hashable {
         sourceRange = range
         sourceRangeIsComplete = true
         sourceRangeDirty = false
+    }
+
+    @inline(__always)
+    @usableFromInline
+    internal func isAncestor(of node: Node) -> Bool {
+        var current = node.parentNode
+        while let candidate = current {
+            if candidate === self {
+                return true
+            }
+            current = candidate.parentNode
+        }
+        return false
     }
     
     /**

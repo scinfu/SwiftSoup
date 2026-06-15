@@ -111,7 +111,7 @@ public class XmlTreeBuilder: TreeBuilder {
     }
     
     func insert(_ commentToken: Token.Comment)throws {
-        let comment: Comment = Comment(slice: commentToken.getDataSlice(), baseUri)
+        let comment: Comment = Comment(slice: commentToken.takeDataSlice(), baseUri)
         var insert: Node = comment
         if (commentToken.bogus) { // xml declarations are emitted as bogus comments (which is right for html, but not xml)
                                   // so we do a bit of a hack and parse the data as an element to pull the attributes out
@@ -149,10 +149,10 @@ public class XmlTreeBuilder: TreeBuilder {
     @inline(__always)
     func insert(_ d: Token.Doctype)throws {
         let doctypeNode = DocumentType(
-            nameSlice: settings.normalizeTag(d.getNameSlice()),
+            nameSlice: settings.normalizeTag(d.takeNameSlice()),
             pubSysKeySlice: d.getPubSysKeySlice(),
-            publicIdSlice: d.getPublicIdentifierSlice(),
-            systemIdSlice: d.getSystemIdentifierSlice(),
+            publicIdSlice: d.takePublicIdentifierSlice(),
+            systemIdSlice: d.takeSystemIdentifierSlice(),
             baseUri: baseUri
         )
         if let range = d.sourceRange {

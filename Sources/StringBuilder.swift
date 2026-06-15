@@ -365,6 +365,22 @@ open class StringBuilder {
         return out
     }
 
+    @usableFromInline
+    @inline(__always)
+    internal func takeSlice() -> ByteSlice {
+        if size == 0 {
+            return ByteSlice.empty
+        }
+        if size < internalBuffer.count {
+            internalBuffer.removeSubrange(size..<internalBuffer.count)
+        }
+        let out = internalBuffer
+        internalBuffer = []
+        internalBuffer.reserveCapacity(1024)
+        size = 0
+        return ByteSlice.fromArray(out)
+    }
+
     
     @usableFromInline
     @inline(__always)

@@ -150,6 +150,10 @@ open class Tag: Hashable, @unchecked Sendable {
 
     fileprivate let tagName: [UInt8]
     fileprivate let tagNameNormal: [UInt8]
+    @usableFromInline
+    let tagNameSlice: ByteSlice
+    @usableFromInline
+    let tagNameNormalSlice: ByteSlice
     fileprivate let traits: Traits
     internal let tagId: Token.Tag.TagId
     private let tagNameString: String
@@ -166,6 +170,8 @@ open class Tag: Hashable, @unchecked Sendable {
     private init(_ tagName: [UInt8], traits: Traits) {
         self.tagName = tagName
         self.tagNameNormal = tagName.lowercased()
+        self.tagNameSlice = ByteSlice.fromArray(self.tagName)
+        self.tagNameNormalSlice = ByteSlice.fromArray(self.tagNameNormal)
         self.traits = traits
         self.tagId = Token.Tag.tagIdForBytes(self.tagNameNormal) ?? .none
         self.tagNameString = String(decoding: self.tagName, as: UTF8.self)
@@ -188,6 +194,18 @@ open class Tag: Hashable, @unchecked Sendable {
     }
     open func getNameNormalUTF8() -> [UInt8] {
         return self.tagNameNormal
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func getNameSlice() -> ByteSlice {
+        return tagNameSlice
+    }
+
+    @usableFromInline
+    @inline(__always)
+    func getNameNormalSlice() -> ByteSlice {
+        return tagNameNormalSlice
     }
 
     /**

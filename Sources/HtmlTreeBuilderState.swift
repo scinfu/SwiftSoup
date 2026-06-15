@@ -87,10 +87,10 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                 // todo: quirk state check on doctype ids
                 let d: Token.Doctype = t.asDoctype()
                 let doctype: DocumentType = DocumentType(
-                    nameSlice: tb.settings.normalizeTag(d.getNameSlice()),
+                    nameSlice: tb.settings.normalizeTag(d.takeNameSlice()),
                     pubSysKeySlice: d.getPubSysKeySlice(),
-                    publicIdSlice: d.getPublicIdentifierSlice(),
-                    systemIdSlice: d.getSystemIdentifierSlice(),
+                    publicIdSlice: d.takePublicIdentifierSlice(),
+                    systemIdSlice: d.takeSystemIdentifierSlice(),
                     baseUri: tb.getBaseUri()
                 )
                     //tb.settings.normalizeTag(d.getName()), d.getPublicIdentifier(), d.getSystemIdentifier(), tb.getBaseUri())
@@ -1489,8 +1489,8 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         let isHidden: Bool
                         if startTag.hasAnyAttributes() {
                             startTag.ensureAttributes()
-                            let typeValue = startTag._attributes?.get(key: UTF8Arrays.type) ?? []
-                            isHidden = typeValue.equalsIgnoreCase(string: UTF8Arrays.hidden)
+                            let typeValue = (try? startTag._attributes?.getIgnoreCaseSlice(key: UTF8Arrays.type)) ?? ByteSlice.empty
+                            isHidden = StringUtil.equalsIgnoreCase(UTF8Arrays.hidden, typeValue)
                         } else {
                             isHidden = false
                         }
@@ -1543,8 +1543,8 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         let isHidden: Bool
                         if startTag.hasAnyAttributes() {
                             startTag.ensureAttributes()
-                            let typeValue = startTag._attributes?.get(key: UTF8Arrays.type) ?? []
-                            isHidden = typeValue.equalsIgnoreCase(string: UTF8Arrays.hidden)
+                            let typeValue = (try? startTag._attributes?.getIgnoreCaseSlice(key: UTF8Arrays.type)) ?? ByteSlice.empty
+                            isHidden = StringUtil.equalsIgnoreCase(UTF8Arrays.hidden, typeValue)
                         } else {
                             isHidden = false
                         }

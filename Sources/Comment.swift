@@ -60,7 +60,7 @@ public class Comment: Node {
         guard let attributes = attributes else {
             return []
         }
-		return attributes.get(key: Comment.COMMENT_KEY)
+        return (attributes.valueSliceCaseSensitive(Comment.COMMENT_KEY) ?? ByteSlice.empty).toArray()
     }
 
     @inline(__always)
