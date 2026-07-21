@@ -1994,11 +1994,18 @@ open class Element: Node {
             accum.append(text)
             return
         }
-        StringUtil.appendNormalisedWhitespace(
-            accum,
-            string: text,
-            stripLeading: accum.isEmpty || TextNode.lastCharIsWhitespace(accum)
-        )
+        // Workaround for a Swift 6.4 (Xcode 27) compiler crash: optimizing this
+        // function trips a SIL CopyPropagation ownership-verification bug
+        // ("Found outside of lifetime use" on the ByteSlice's backing storage).
+        // Wrapping the call in withExtendedLifetime keeps `text` alive across the
+        // call and avoids the miscompile without disabling optimization.
+        withExtendedLifetime(text) {
+            StringUtil.appendNormalisedWhitespace(
+                accum,
+                string: text,
+                stripLeading: accum.isEmpty || TextNode.lastCharIsWhitespace(accum)
+            )
+        }
     }
 
     @inline(__always)
