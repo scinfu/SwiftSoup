@@ -774,4 +774,27 @@ class HtmlParserTest: XCTestCase {
             XCTAssertNotNil(doc.body(), "Failed on variant \(i): \(html)")
         }
     }
+
+    // jsoup `HtmlTreeBuilder.java:51` — `MaxScopeSearchDepth = 100`: a scope test walks at most 100 entries
+    // down from the top of the open-elements stack (`:713-716`), and treats anything deeper as out of scope.
+    func testScopeSearchStopsAfter100Elements() throws {
+        // 101 unclosed <div>s put the <b> out of reach, so the </b> is ignored and the single <b> stays
+        // wrapped around the whole tree. jsoup 1.16.2: doc.select("b").size() == 1.
+        let deep: Document = try SwiftSoup.parse("<b>" + String(repeating: "<div>", count: 101) + "a</b>c")
+        XCTAssertEqual(1, try deep.select("b").size())
+        XCTAssertEqual("ac", try deep.body()!.text())
+
+        // At the limit the </b> is still in scope and the adoption agency runs, producing extra <b>s.
+        let atLimit: Document = try SwiftSoup.parse("<b>" + String(repeating: "<div>", count: 100) + "a</b>c")
+        XCTAssertTrue(try atLimit.select("b").size() > 1)
+    }
+
+    // With the walk capped, a scope test on a deep stack can run to completion without ever reaching `html`.
+    // jsoup keeps its `Validate.fail("Should not be reachable")` commented out at `:729` for that reason —
+    // the loop has to return false quietly instead of throwing.
+    func testDeepStackScopeTestDoesNotThrow() throws {
+        let doc: Document = try SwiftSoup.parse(String(repeating: "<div>", count: 150) + "a</b>c")
+        XCTAssertEqual(0, try doc.select("b").size())
+        XCTAssertEqual("ac", try doc.body()!.text())
+    }
 }

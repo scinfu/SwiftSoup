@@ -1201,11 +1201,18 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         }
                         return true
                     case .html:
-                        let notIgnored: Bool = try tb.processEndTag(UTF8Arrays.body)
-                        if (notIgnored) {
-                            return try tb.process(endTag)
+                        // jsoup `HtmlTreeBuilderState.java:733-742` — `</html>` tests the *whole* stack with
+                        // `onStack("body")`, not `inScope` (which is capped at MaxScopeSearchDepth = 100).
+                        // Routing through `processEndTag(body)` instead makes a deeply nested page drop the
+                        // `</html>` as well, which is the opposite of what jsoup does.
+                        // (jsoup also raises a parse error here via `onStackNot(InBodyEndOtherErrors)`;
+                        // SwiftSoup has no `onStackNot`, and that only affects the error list, not the tree.)
+                        if !tb.onStack(UTF8Arrays.body) {
+                            tb.error(self)
+                            return false            // ignore
                         }
-                        return true
+                        tb.transition(.AfterBody)
+                        return try tb.process(endTag)   // re-process
                     case .form:
                         let currentForm: Element? = tb.getFormElement()
                         tb.setFormElement(nil)
@@ -1333,10 +1340,13 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                                 tb.transition(.AfterBody)
                             }
                         } else if name == UTF8Arrays.html {
-                            let notIgnored: Bool = try tb.processEndTag(UTF8Arrays.body)
-                            if (notIgnored) {
-                                return try tb.process(endTag)
+                            // Same as above (jsoup `:733-742`).
+                            if !tb.onStack(UTF8Arrays.body) {
+                                tb.error(self)
+                                return false
                             }
+                            tb.transition(.AfterBody)
+                            return try tb.process(endTag)
                         } else if name == UTF8Arrays.form {
                             let currentForm: Element? = tb.getFormElement()
                             tb.setFormElement(nil)

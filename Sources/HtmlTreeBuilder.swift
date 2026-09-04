@@ -666,6 +666,14 @@ class HtmlTreeBuilder: TreeBuilder {
     func onStack(_ el: Element) -> Bool {
         return isElementInQueue(stack, el)
     }
+
+    /// jsoup `HtmlTreeBuilder.java:473-476` `boolean onStack(String elName) { return getFromStack(elName) != null; }`
+    /// — a whole-stack lookup. On the jsoup side it is bounded by `maxQueueDepth = 256` (`getFromStack`, `:493-503`),
+    /// *not* by `MaxScopeSearchDepth = 100`; this port has no bound at all, so it matches jsoup up to 256 entries.
+    /// InBody's `</html>` uses this rather than `inScope`: the two disagree once a page nests deeper than 100.
+    func onStack(_ elName: [UInt8]) -> Bool {
+        return lastIndexOfStackName(elName) != nil
+    }
     
     private func isElementInQueue(_ queue: Array<Element?>, _ element: Element?) -> Bool {
         guard let element else { return false }
@@ -1013,10 +1021,22 @@ class HtmlTreeBuilder: TreeBuilder {
         }
     }
     
+    /// jsoup `HtmlTreeBuilder.java:51` `public static final int MaxScopeSearchDepth = 100;`
+    /// — "prevents the parser bogging down in exceptionally broken pages".
+    /// jsoup walks at most this many entries down from the top of the stack when testing scope (`:713-716`; the
+    /// same bound is used by `onStackNot`, `:774-776`) and treats anything beyond it as "not in scope".
+    /// SwiftSoup walked the whole stack, so the two disagree on pages with more than 100 unclosed elements:
+    /// for `String(repeating: "<div>", count: 101) + "a</body>"`, jsoup ignores the `</body>` and stays in
+    /// InBody, while SwiftSoup moved on to AfterBody — which changes where the following whitespace lands.
+    static let MaxScopeSearchDepth = 100
+
     private func inSpecificScope(_ targetName: [UInt8], _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
         let targetTagId = Token.Tag.tagIdForBytes(targetName)
         var i = stack.count
-        while i > 0 {
+        // jsoup `:713-716` — only walk MaxScopeSearchDepth entries down from the top of the stack
+        let bottom = i &- 1
+        let top = bottom > HtmlTreeBuilder.MaxScopeSearchDepth ? bottom &- HtmlTreeBuilder.MaxScopeSearchDepth : 0
+        while i > top {
             i &-= 1
             let el = stack[i]
             let tagId = el._tag.tagId
@@ -1045,14 +1065,20 @@ class HtmlTreeBuilder: TreeBuilder {
                 return false
             }
         }
-        try Validate.fail(msg: "Should not be reachable")
+        // jsoup `:729` keeps this `Validate.fail("Should not be reachable")` commented out
+        // ("would end up false because hitting 'html' at root (basetypes)"). With MaxScopeSearchDepth in place
+        // the loop can now run to completion *without* ever reaching `html`, so — as in jsoup — this has to
+        // return false quietly ("not in scope") rather than throw.
         return false
     }
 
     
     private func inSpecificScope(_ targetNames: Set<[UInt8]>, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
         var i = stack.count
-        while i > 0 {
+        // jsoup `:713-716` — only walk MaxScopeSearchDepth entries down from the top of the stack
+        let bottom = i &- 1
+        let top = bottom > HtmlTreeBuilder.MaxScopeSearchDepth ? bottom &- HtmlTreeBuilder.MaxScopeSearchDepth : 0
+        while i > top {
             i &-= 1
             let elName = stack[i].nodeNameUTF8()
             if targetNames.contains(elName) {
@@ -1065,13 +1091,19 @@ class HtmlTreeBuilder: TreeBuilder {
                 return false
             }
         }
-        try Validate.fail(msg: "Should not be reachable")
+        // jsoup `:729` keeps this `Validate.fail("Should not be reachable")` commented out
+        // ("would end up false because hitting 'html' at root (basetypes)"). With MaxScopeSearchDepth in place
+        // the loop can now run to completion *without* ever reaching `html`, so — as in jsoup — this has to
+        // return false quietly ("not in scope") rather than throw.
         return false
     }
     
     private func inSpecificScope(_ targetNames: ParsingStrings, _ baseTypes: ParsingStrings, _ extraTypes: ParsingStrings? = nil) throws -> Bool {
         var i = stack.count
-        while i > 0 {
+        // jsoup `:713-716` — same bound
+        let bottom = i &- 1
+        let top = bottom > HtmlTreeBuilder.MaxScopeSearchDepth ? bottom &- HtmlTreeBuilder.MaxScopeSearchDepth : 0
+        while i > top {
             i &-= 1
             let el = stack[i]
             let tagId = el._tag.tagId
@@ -1098,7 +1130,10 @@ class HtmlTreeBuilder: TreeBuilder {
                 return false
             }
         }
-        try Validate.fail(msg: "Should not be reachable")
+        // jsoup `:729` keeps this `Validate.fail("Should not be reachable")` commented out
+        // ("would end up false because hitting 'html' at root (basetypes)"). With MaxScopeSearchDepth in place
+        // the loop can now run to completion *without* ever reaching `html`, so — as in jsoup — this has to
+        // return false quietly ("not in scope") rather than throw.
         return false
     }
 
