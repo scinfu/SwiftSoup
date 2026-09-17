@@ -915,7 +915,7 @@ final class Tokeniser {
         reader.markPos()
         do {
             @inline(__always)
-            func fastNamedEntity(_ name: [UInt8], _ codepoints: [UnicodeScalar]) -> [UnicodeScalar]? {
+            func fastNamedEntity(_ name: [UInt8], _ codepoints: [UnicodeScalar], requiresSemicolon: Bool = false) -> [UnicodeScalar]? {
                 let pos = reader.pos
                 let end = reader.end
                 let input = reader.input
@@ -925,6 +925,11 @@ final class Tokeniser {
                     if input[pos + i] != name[i] { return nil }
                 }
                 let nextIndex = pos + count
+                // Unlike the legacy amp/lt/gt/quot names, apos is only defined
+                // with a terminator. Reject before changing the reader cursor.
+                if requiresSemicolon && (nextIndex == end || input[nextIndex] != TokeniserStateVars.semicolonByte) {
+                    return nil
+                }
                 if nextIndex < end {
                     let nb = input[nextIndex]
                     if nb >= TokeniserStateVars.asciiUpperLimitByte { return nil } // let slow path handle unicode letters/digits
@@ -948,7 +953,7 @@ final class Tokeniser {
                 switch b {
                 case TokeniserStateVars.lowerAByte: // a
                     if let fast = fastNamedEntity(Self.ampName, Self.ampCodepoints) { return fast }
-                    if let fast = fastNamedEntity(Self.aposName, Self.aposCodepoints) { return fast }
+                    if let fast = fastNamedEntity(Self.aposName, Self.aposCodepoints, requiresSemicolon: true) { return fast }
                 case TokeniserStateVars.lowerLByte: // l
                     if let fast = fastNamedEntity(Self.ltName, Self.ltCodepoints) { return fast }
                 case TokeniserStateVars.lowerGByte: // g
