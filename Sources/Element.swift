@@ -2841,6 +2841,20 @@ open class Element: Node {
         return self
     }
     
+    /// HTML raw-text parents cannot escape or pretty-print their child text:
+    /// character references and added whitespace would become literal content.
+    @inline(__always)
+    internal func serializesAsRawText() -> Bool {
+        switch _tag.tagId {
+        case .script, .style, .iframe, .noembed, .noframes, .plaintext:
+            return true
+        case .none:
+            return _tag.getNameNormalUTF8() == UTF8Arrays.xmp
+        default:
+            return false
+        }
+    }
+
     @inline(__always)
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) throws {
         if (out.prettyPrint() && (_tag.formatAsBlock() || (parent() != nil && parent()!.tag().formatAsBlock()) || out.outline())) {
@@ -2868,7 +2882,7 @@ open class Element: Node {
     @inline(__always)
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         if (!(childNodes.isEmpty && _tag.isSelfClosing())) {
-            if (out.prettyPrint() && (!childNodes.isEmpty && (
+            if (out.prettyPrint() && !(out.syntax() == .html && serializesAsRawText()) && (!childNodes.isEmpty && (
                 _tag.formatAsBlock() || (out.outline() && (childNodes.count > 1 || (childNodes.count == 1 && !(((childNodes[0] as? TextNode) != nil)))))
             ))) {
                 indent(accum, depth, out)
