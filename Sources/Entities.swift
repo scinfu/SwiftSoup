@@ -810,7 +810,7 @@ public final class Entities: Sendable {
                         // UTF-8 encoding of "\u{A0}"
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
                     } else if encoderKnownToBeAbleToEncode {
-                        accum.write(contentsOf: base.advanced(by: i), count: len)
+                        accum.write(contentsOf: base.advanced(by: i), count: end - i)
                     } else {
                         let startIndex = string.startIndex
                         let sliceStart = string.index(startIndex, offsetBy: i)
@@ -1070,7 +1070,7 @@ public final class Entities: Sendable {
                     if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
                     } else if encoderKnownToBeAbleToEncode {
-                        accum.write(contentsOf: base.advanced(by: i), count: len)
+                        accum.write(contentsOf: base.advanced(by: i), count: end - i)
                     } else {
                         let startIndex = string.startIndex
                         let sliceStart = string.index(startIndex, offsetBy: i)
@@ -1297,7 +1297,7 @@ public final class Entities: Sendable {
                     if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
                     } else if encoderKnownToBeAbleToEncode {
-                        accum.write(contentsOf: base.advanced(by: i), count: len)
+                        accum.write(contentsOf: base.advanced(by: i), count: end - i)
                     } else {
                         let slice = ByteSlice(storage: string.storage, start: string.start + i, end: string.start + end)
                         if canEncode(bytes: slice, encoder: encoder) {
