@@ -477,7 +477,15 @@ open class Element: Node {
     @discardableResult
     public func tagName(_ tagName: [UInt8]) throws -> Element {
         try Validate.notEmpty(string: tagName, msg: "Tag name must not be empty.")
+        let wasRawText = serializesAsRawText()
         _tag = try Tag.valueOf(tagName, ParseSettings.preserveCase) // preserve the requested tag case
+        if wasRawText != serializesAsRawText() {
+            // The same text needs different lexical escaping in its new context.
+            // Parent invalidation alone does not prevent clean child-source reuse.
+            for child in childNodes where child is TextNode {
+                child.markSourceDirty()
+            }
+        }
         markTagQueryIndexDirty()
         bumpTextMutationVersion()
         markSourceDirty()
