@@ -438,7 +438,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 } else if byte < TokeniserStateVars.asciiUpperLimitByte {
                     if TokeniserStateVars.isAsciiAlpha(byte),
                        let endTagName = t.appropriateEndTagName(),
-                       !r.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: endTagName) {
+                       !r.containsAsciiCaseInsensitive(prefix: UTF8Arrays.endTagStart, suffix: endTagName) {
                         // diverge from spec: got a start tag, but there's no appropriate end tag (</title>), so rather than
                         // consuming to EOF break out here
                         t.tagPending = t.createTagPending(false).name(endTagName)
@@ -452,7 +452,7 @@ enum TokeniserState: TokeniserStateProtocol {
                     }
                 } else if r.matchesLetter(),
                           let endTagName = t.appropriateEndTagName(),
-                          !r.containsIgnoreCase(prefix: UTF8Arrays.endTagStart, suffix: endTagName) {
+                          !r.containsAsciiCaseInsensitive(prefix: UTF8Arrays.endTagStart, suffix: endTagName) {
                     // diverge from spec: got a start tag, but there's no appropriate end tag (</title>), so rather than
                     // consuming to EOF break out here
                     t.tagPending = t.createTagPending(false).name(endTagName)
