@@ -31,10 +31,23 @@ final class Tokeniser {
     private static let regCodepoints: [UnicodeScalar] = [UnicodeScalar(TokeniserStateVars.regCodepoint)!]
     private static let tradeCodepoints: [UnicodeScalar] = [UnicodeScalar(TokeniserStateVars.tradeCodepoint)!]
     private static let replacementCodepoints: [UnicodeScalar] = [Tokeniser.replacementChar]
-    private static let numericCharRefCache: [[UnicodeScalar]] = {
-        var cache = Array(repeating: [UnicodeScalar](), count: 256)
-        for i in 0..<256 {
-            cache[i] = [UnicodeScalar(i)!]
+    private static let literalNumericCharRefCache: [[UnicodeScalar]] = {
+        return (0..<256).map { [UnicodeScalar($0)!] }
+    }()
+    private static let htmlNumericCharRefCache: [[UnicodeScalar]] = {
+        var cache = literalNumericCharRefCache
+        // Cache the HTML numeric-reference result, not the input scalar. This
+        // keeps short decimal and general decimal/hex paths consistent without
+        // adding per-reference normalization work to the hot path.
+        cache[0] = [Tokeniser.replacementChar]
+        let c1Replacements: [UInt32] = [
+            0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,
+            0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x008D, 0x017D, 0x008F,
+            0x0090, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+            0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178
+        ]
+        for (offset, scalar) in c1Replacements.enumerated() {
+            cache[0x80 + offset] = [UnicodeScalar(scalar)!]
         }
         return cache
     }()
@@ -149,6 +162,9 @@ final class Tokeniser {
     }
 
     
+    // Choose the numeric-reference policy once per tokenizer, not per scalar.
+    // Case-preserving HTML still uses HTML mappings; XML keeps literal values.
+    private let numericCharRefCache: [[UnicodeScalar]]
     private let reader: CharacterReader // html input
     private let errors: ParseErrorList? // errors found while tokenising
     
@@ -188,7 +204,9 @@ final class Tokeniser {
         return trackSourceRanges
     }
     
-    init(_ reader: CharacterReader, _ errors: ParseErrorList?, _ settings: ParseSettings? = nil) {
+    init(_ reader: CharacterReader, _ errors: ParseErrorList?, _ settings: ParseSettings? = nil,
+         normalizesHtmlNumericReferences: Bool = true) {
+        numericCharRefCache = normalizesHtmlNumericReferences ? Self.htmlNumericCharRefCache : Self.literalNumericCharRefCache
         self.reader = reader
         self.errors = errors
         trackErrors = errors?.getMaxSize() ?? 0 > 0
@@ -836,7 +854,7 @@ final class Tokeniser {
                                         let value = Int(d1 - TokeniserStateVars.zeroByte) * 10 + Int(d2 - TokeniserStateVars.zeroByte)
                                         reader.pos = i + 2
                                         reader.advanceAscii()
-                                        return Self.numericCharRefCache[value]
+                                        return numericCharRefCache[value]
                                     }
                                     if d3 >= TokeniserStateVars.zeroByte && d3 <= TokeniserStateVars.nineByte, i + 3 <= maxIndex,
                                        reader.input[i + 3] == TokeniserStateVars.semicolonByte {
@@ -846,7 +864,7 @@ final class Tokeniser {
                                         reader.pos = i + 3
                                         reader.advanceAscii()
                                         if value < 256 {
-                                            return Self.numericCharRefCache[value]
+                                            return numericCharRefCache[value]
                                         }
                                         return [UnicodeScalar(value)!]
                                     }
@@ -855,7 +873,7 @@ final class Tokeniser {
                                 let value = Int(d1 - TokeniserStateVars.zeroByte)
                                 reader.pos = i + 1
                                 reader.advanceAscii()
-                                return Self.numericCharRefCache[value]
+                                return numericCharRefCache[value]
                             }
                         }
                     }
@@ -906,7 +924,7 @@ final class Tokeniser {
                 return Self.replacementCodepoints
             }
             if charval >= 0, charval < 256 {
-                return Self.numericCharRefCache[charval]
+                return numericCharRefCache[charval]
             }
             return [UnicodeScalar(charval)!]
         }
