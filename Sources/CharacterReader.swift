@@ -241,13 +241,14 @@ public final class CharacterReader {
     public func unconsume() {
         guard pos > start else { return }
         
-        var utf8Decoder = UTF8()
         var index = pos
         var scalarLength = 1
         
         // Decode previous scalar from current position
         while index > start {
             index -= 1
+            // UTF8 decoders buffer input; each new iterator needs fresh state.
+            var utf8Decoder = UTF8()
             var iterator = input[index..<pos].makeIterator()
             switch utf8Decoder.decode(&iterator) {
             case .scalarValue(let scalar):
@@ -443,7 +444,6 @@ public final class CharacterReader {
             break
         }
 
-        var utf8Decoder = UTF8()
         while pos < end {
             let firstByte = input[pos]
             if firstByte < Self.asciiUpperLimitByte {
@@ -454,6 +454,8 @@ public final class CharacterReader {
                 return cacheString(start, pos)
             }
 
+            // UTF8 decoders buffer input; each new iterator needs fresh state.
+            var utf8Decoder = UTF8()
             var iterator = input[pos...].makeIterator()
             switch utf8Decoder.decode(&iterator) {
             case .scalarValue(let scalar) where CharacterSet.letters.contains(scalar):
@@ -480,7 +482,6 @@ public final class CharacterReader {
             break
         }
 
-        var utf8Decoder = UTF8()
         letterLoop: while pos < end {
             let firstByte = input[pos]
             if firstByte < Self.asciiUpperLimitByte {
@@ -491,6 +492,8 @@ public final class CharacterReader {
                 break letterLoop
             }
 
+            // UTF8 decoders buffer input; each new iterator needs fresh state.
+            var utf8Decoder = UTF8()
             var iterator = input[pos...].makeIterator()
             switch utf8Decoder.decode(&iterator) {
             case .scalarValue(let scalar) where CharacterSet.letters.contains(scalar):
@@ -523,6 +526,8 @@ public final class CharacterReader {
                 break digitLoop
             }
 
+            // UTF8 decoders buffer input; each new iterator needs fresh state.
+            var utf8Decoder = UTF8()
             var iterator = input[pos...].makeIterator()
             switch utf8Decoder.decode(&iterator) {
             case .scalarValue(let scalar) where CharacterSet.decimalDigits.contains(scalar):
@@ -553,7 +558,6 @@ public final class CharacterReader {
             break
         }
 
-        var utf8Decoder = UTF8()
         while pos < end {
             let firstByte = input[pos]
             if firstByte < Self.asciiUpperLimitByte {
@@ -567,6 +571,8 @@ public final class CharacterReader {
                 return cacheString(start, pos)
             }
 
+            // UTF8 decoders buffer input; each new iterator needs fresh state.
+            var utf8Decoder = UTF8()
             var iterator = input[pos...].makeIterator()
             switch utf8Decoder.decode(&iterator) {
             case .scalarValue(let scalar) where hexCharacterSet.contains(scalar):
