@@ -1157,6 +1157,7 @@ open class CssSelector {
     /// Fast‑path for AND chains: pick an indexed candidate set, then filter by the full evaluator list.
     /// This preserves document order while avoiding a full traversal in common selector shapes.
     private static func fastSelectAnd(_ evaluator: CombiningEvaluator.And, _ root: Element) throws -> Elements? {
+        guard evaluator.supportsIndexedCandidateFiltering else { return nil }
         var best: IndexedCandidate? = nil
         for sub in evaluator.evaluators {
             if let candidate = try indexedCandidate(for: sub, root) {
