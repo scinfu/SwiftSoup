@@ -630,10 +630,9 @@ public final class CharacterReader {
 
     public func matches(_ seq: [UInt8], ignoreCase: Bool = false, consume: Bool = false) -> Bool {
         guard !seq.isEmpty else { return true }
-        let endIndex = pos + seq.count
-        guard endIndex <= end else { return false }
-
         if !ignoreCase {
+            guard seq.count <= end - pos else { return false }
+            let endIndex = pos + seq.count
             if input[pos..<endIndex].elementsEqual(seq) {
                 if consume { pos = endIndex }
                 return true
@@ -647,6 +646,7 @@ public final class CharacterReader {
             break
         }
         if allAscii {
+            guard seq.count <= end - pos else { return false }
             var idx = pos
             for expected in seq {
                 let actual = input[idx]
@@ -659,30 +659,28 @@ public final class CharacterReader {
             return true
         }
 
+        // Non-ASCII operands must be compared as scalars, not individual UTF-8
+        // bytes. Keep each buffering decoder paired with one persistent iterator.
         var current = pos
-        var utf8Decoder = UTF8()
-        var seqIterator = seq.makeIterator()
-
-        while let expectedByte = seqIterator.next() {
-            guard current < end else { return false }
-
-            var inputIterator = input[current...].makeIterator()
-            switch utf8Decoder.decode(&inputIterator) {
-            case .scalarValue(let scalar):
-                let expectedScalar = UnicodeScalar(expectedByte)
-                guard scalar.properties.uppercaseMapping == expectedScalar.properties.uppercaseMapping else { return false }
-                let scalarLength = UTF8.width(scalar)
-                current += scalarLength
-            case .emptyInput, .error:
+        var inputDecoder = UTF8()
+        var inputIterator = input[pos...].makeIterator()
+        var expectedDecoder = UTF8()
+        var expectedIterator = seq.makeIterator()
+        while true {
+            switch expectedDecoder.decode(&expectedIterator) {
+            case .scalarValue(let expected):
+                guard case .scalarValue(let actual) = inputDecoder.decode(&inputIterator),
+                      actual.properties.uppercaseMapping == expected.properties.uppercaseMapping else {
+                    return false
+                }
+                current += UTF8.width(actual)
+            case .emptyInput:
+                if consume { pos = current }
+                return true
+            case .error:
                 return false
             }
         }
-
-        if consume {
-            pos = current
-        }
-
-        return true
     }
     
     @inline(__always)
