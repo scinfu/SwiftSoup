@@ -297,13 +297,7 @@ open class TextNode: Node {
                     if memchr(base, Int32(TokeniserStateVars.ampersandByte), count) != nil { return true }
                     if memchr(base, Int32(TokeniserStateVars.lessThanByte), count) != nil { return true }
                     if memchr(base, Int32(TokeniserStateVars.greaterThanByte), count) != nil { return true }
-                    if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), count) {
-                        let lead = nbspLead.assumingMemoryBound(to: UInt8.self)
-                        let idx = base.distance(to: lead)
-                        if idx + 1 < count, base[idx + 1] == StringUtil.utf8NBSPTrail {
-                            return true
-                        }
-                    }
+                    if Entities.containsNonBreakingSpace(buf) { return true }
                     return false
                 }
                 if !hasSpecial {
