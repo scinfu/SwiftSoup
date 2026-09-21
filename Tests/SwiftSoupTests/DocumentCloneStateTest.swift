@@ -45,9 +45,9 @@ final class DocumentCloneStateTest: XCTestCase {
         let original = try Parser.xmlParser().parseInput("<root>日本 &amp; text</root>", "")
         original.outputSettings().prettyPrint(pretty: false).charset(.ascii)
         let clone = original.copy() as! Document
-        let originalHTML = try original.outerHtml()
-        XCTAssertEqual(try clone.outerHtml(), originalHTML)
-        XCTAssertTrue(originalHTML.contains("&amp;"))
+        let expected = try original.outerHtmlUTF8WithoutSourceReuse()
+        XCTAssertEqual(try clone.outerHtmlUTF8WithoutSourceReuse(), expected)
+        XCTAssertTrue(expected.allSatisfy { $0 < 128 })
         XCTAssertEqual(clone.charset(), .ascii)
     }
 }
