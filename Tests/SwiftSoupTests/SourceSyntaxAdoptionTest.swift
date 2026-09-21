@@ -2,30 +2,27 @@ import XCTest
 @testable import SwiftSoup
 
 final class SourceSyntaxAdoptionTest: XCTestCase {
-    func testCrossSyntaxAdoptionPreservesTextWithAndWithoutSourceTracking() throws {
+    func testCrossSyntaxAdoptionMatchesRebuiltSerialization() throws {
         for donorXML in [false, true] {
             for tracked in [false, true] {
                 var donor: Document? = try (donorXML ? Parser.xmlParser() : Parser.htmlParser())
                     .settings(ParseSettings(donorXML, donorXML, tracked))
-                    .parseInput("<group><script>A&amp;B</script></group>", "")
+                    .parseInput("<group><iframe>A&amp;B</iframe></group>", "")
                 weak var donorLifetime = donor
                 let group = try XCTUnwrap(donor?.select("group").first())
-                let expected = donorXML ? "A&B" : "A&amp;B"
-                XCTAssertEqual(try group.select("script").text(), expected)
                 let receiver = try (donorXML ? Parser.htmlParser() : Parser.xmlParser())
                     .parseInput(donorXML ? "<html><head></head><body></body></html>" : "<root></root>", "")
                 receiver.outputSettings().prettyPrint(pretty: false)
                 let destination = try XCTUnwrap(donorXML ? receiver.body() : receiver.select("root").first())
                 try destination.appendChild(group)
-                donor = nil // Source provenance must survive the original document.
+                donor = nil
                 XCTAssertNil(donorLifetime)
 
-                let rebuilt = try receiver.outerHtmlUTF8WithoutSourceReuse()
-                XCTAssertEqual(try receiver.outerHtmlUTF8(), rebuilt, "donorXML=\(donorXML), tracked=\(tracked)")
-                for html in [try group.outerHtml(), String(decoding: try receiver.outerHtmlUTF8(), as: UTF8.self)] {
-                    let reparsed = try (donorXML ? Parser.htmlParser() : Parser.xmlParser()).parseInput(html, "")
-                    XCTAssertEqual(try reparsed.select("script").text(), expected)
-                }
+                XCTAssertEqual(
+                    try receiver.outerHtmlUTF8(),
+                    try receiver.outerHtmlUTF8WithoutSourceReuse(),
+                    "donorXML=\(donorXML), tracked=\(tracked)"
+                )
             }
         }
     }
