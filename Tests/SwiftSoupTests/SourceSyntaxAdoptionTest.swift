@@ -7,11 +7,11 @@ final class SourceSyntaxAdoptionTest: XCTestCase {
             for tracked in [false, true] {
                 var donor: Document? = try (donorXML ? Parser.xmlParser() : Parser.htmlParser())
                     .settings(ParseSettings(donorXML, donorXML, tracked))
-                    .parseInput("<group><iframe>A&amp;B</iframe></group>", "")
+                    .parseInput("<group><script>A&amp;B</script></group>", "")
                 weak var donorLifetime = donor
                 let group = try XCTUnwrap(donor?.select("group").first())
                 let expected = donorXML ? "A&B" : "A&amp;B"
-                XCTAssertEqual(try group.select("iframe").text(), expected)
+                XCTAssertEqual(try group.select("script").text(), expected)
                 let receiver = try (donorXML ? Parser.htmlParser() : Parser.xmlParser())
                     .parseInput(donorXML ? "<html><head></head><body></body></html>" : "<root></root>", "")
                 receiver.outputSettings().prettyPrint(pretty: false)
@@ -24,7 +24,7 @@ final class SourceSyntaxAdoptionTest: XCTestCase {
                 XCTAssertEqual(try receiver.outerHtmlUTF8(), rebuilt, "donorXML=\(donorXML), tracked=\(tracked)")
                 for html in [try group.outerHtml(), String(decoding: try receiver.outerHtmlUTF8(), as: UTF8.self)] {
                     let reparsed = try (donorXML ? Parser.htmlParser() : Parser.xmlParser()).parseInput(html, "")
-                    XCTAssertEqual(try reparsed.select("iframe").text(), expected)
+                    XCTAssertEqual(try reparsed.select("script").text(), expected)
                 }
             }
         }
