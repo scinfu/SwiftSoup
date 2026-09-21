@@ -5,9 +5,10 @@ final class SourceSyntaxAdoptionTest: XCTestCase {
     func testCrossSyntaxAdoptionPreservesTextWithAndWithoutSourceTracking() throws {
         for donorXML in [false, true] {
             for tracked in [false, true] {
-                let parser = (donorXML ? Parser.xmlParser() : Parser.htmlParser())
+                var donor: Document? = try (donorXML ? Parser.xmlParser() : Parser.htmlParser())
                     .settings(ParseSettings(donorXML, donorXML, tracked))
-                var donor: Document? = try parser.parseInput("<group><iframe>A&amp;B</iframe></group>", "")
+                    .parseInput("<group><iframe>A&amp;B</iframe></group>", "")
+                weak var donorLifetime = donor
                 let group = try XCTUnwrap(donor?.select("group").first())
                 let expected = donorXML ? "A&B" : "A&amp;B"
                 XCTAssertEqual(try group.select("iframe").text(), expected)
@@ -17,6 +18,7 @@ final class SourceSyntaxAdoptionTest: XCTestCase {
                 let destination = try XCTUnwrap(donorXML ? receiver.body() : receiver.select("root").first())
                 try destination.appendChild(group)
                 donor = nil // Source provenance must survive the original document.
+                XCTAssertNil(donorLifetime)
 
                 let rebuilt = try receiver.outerHtmlUTF8WithoutSourceReuse()
                 XCTAssertEqual(try receiver.outerHtmlUTF8(), rebuilt, "donorXML=\(donorXML), tracked=\(tracked)")
