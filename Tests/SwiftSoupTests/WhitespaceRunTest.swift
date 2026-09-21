@@ -111,7 +111,7 @@ final class WhitespaceRunTest: XCTestCase {
         }
     }
 
-    func testTrackingOverloadsAndFastPathStateRemainUnchanged() {
+    func testTrackingOverloadsAndFastPathState() {
         let chunks = ["\t日本語\u{a0}", "\t\n続きです", "\t😀e\u{301}\r終", "\t ", ""]
         for strip in [false, true] {
             for initial in [false, true] {
@@ -128,9 +128,9 @@ final class WhitespaceRunTest: XCTestCase {
                 }
             }
         }
-        // Preserve existing early-return state, even when the incoming flag is true.
+        // Non-whitespace output clears a previous whitespace flag, including on the fast path.
         let plain = observe(ByteSlice.fromArray(Array("日本語".utf8)), strip: false, last: true, saw: false)
-        XCTAssertEqual(plain.last, true)
+        XCTAssertEqual(plain.last, false)
         XCTAssertEqual(plain.saw, false)
         XCTAssertEqual(plain.bytes, Array("Z日本語".utf8))
         let empty = observe(.empty, strip: true, last: true, saw: true)
