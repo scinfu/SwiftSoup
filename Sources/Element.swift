@@ -1105,7 +1105,10 @@ open class Element: Node {
     @discardableResult
     @inline(__always)
     open override func wrap(_ html: String) throws -> Element {
-        return try super.wrap(html) as! Element
+        // Node.wrap returns nil for non-element markup without changing the
+        // tree. Preserve that no-op while keeping Element's chainable return.
+        _ = try super.wrap(html)
+        return self
     }
     
     /**
