@@ -1088,12 +1088,12 @@ open class Node: Equatable, Hashable {
               let range = sourceRange,
               range.isValid,
               let doc = ownerDocument(),
-              let source = sourceBuffer?.bytes ?? doc.sourceBuffer?.bytes
+              let source = sourceBuffer ?? doc.sourceBuffer
         else {
             return nil
         }
         let syntax = out.syntax()
-        if syntax == .xml && !doc.parsedAsXml {
+        if syntax == .xml && !source.parsedAsXml {
             return nil
         }
         if syntax == .html || syntax == .xml {
@@ -1101,10 +1101,10 @@ open class Node: Equatable, Hashable {
         } else {
             return nil
         }
-        if range.end > source.count {
+        if range.end > source.bytes.count {
             return nil
         }
-        return source[range.start..<range.end]
+        return source.bytes[range.start..<range.end]
     }
 
     @inline(__always)
