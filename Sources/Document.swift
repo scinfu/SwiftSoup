@@ -782,32 +782,36 @@ open class Document: Element {
 	}
 
     @inline(__always)
-	public override func copy(parent: Node?) -> Node {
+    public override func copy(parent: Node?) -> Node {
 		let clone = Document(_location)
 		return copy(clone: clone, parent: parent)
 	}
 
+    public override func copy(clone: Node) -> Node {
+        copyDocumentState(to: clone as! Document)
+        return super.copy(clone: clone)
+    }
+
     override func copyForDeepClone(parent: Node?) -> Node {
         let clone = Document(_location)
-        clone._outputSettings = _outputSettings.copy() as! OutputSettings
-        clone._quirksMode = _quirksMode
-        clone.updateMetaCharset = updateMetaCharset
-        clone.sourceBuffer = nil
-        clone.parsedAsXml = parsedAsXml
-        clone.dirtySourceRoots.removeAll(keepingCapacity: false)
+        copyDocumentState(to: clone)
         return copy(clone: clone, parent: parent, copyChildren: false, rebuildIndexes: false)
     }
 
     @inline(__always)
     public override func copy(clone: Node, parent: Node?) -> Node {
         let clone = clone as! Document
+        copyDocumentState(to: clone)
+        return super.copy(clone: clone, parent: parent)
+    }
+
+    private func copyDocumentState(to clone: Document) {
         clone._outputSettings = _outputSettings.copy() as! OutputSettings
         clone._quirksMode = _quirksMode
         clone.updateMetaCharset = updateMetaCharset
         clone.sourceBuffer = nil
         clone.parsedAsXml = parsedAsXml
         clone.dirtySourceRoots.removeAll(keepingCapacity: false)
-        return super.copy(clone: clone, parent: parent)
     }
 
 }
