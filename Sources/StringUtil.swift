@@ -1072,6 +1072,7 @@ open class StringUtil {
             }
             if asciiOnly && !hasWhitespace {
                 accum.write(contentsOf: basePtr, count: count)
+                lastWasWhite = false
                 return
             }
             if asciiOnly && hasWhitespace {
@@ -1089,6 +1090,7 @@ open class StringUtil {
                 memchr(basePtr, Int32(utf8NBSPLead), count) != nil
             if !hasWhitespace {
                 accum.write(contentsOf: basePtr, count: count)
+                lastWasWhite = false
                 return
             }
         }
@@ -1106,6 +1108,7 @@ open class StringUtil {
         }
         if !hasWhitespace {
             accum.write(contentsOf: basePtr, count: count)
+            lastWasWhite = false
             return
         }
         #endif
