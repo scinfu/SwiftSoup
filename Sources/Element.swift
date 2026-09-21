@@ -853,10 +853,14 @@ open class Element: Node {
      */
     @inline(__always)
     public func iS(_ evaluator: Evaluator)throws->Bool {
-        guard let od = self.ownerDocument() else {
-            return false
+        if let document = ownerDocument() {
+            return try evaluator.matches(document, self)
         }
-        return try evaluator.matches(od, self)
+        // Standalone elements, clones and removed subtrees still have a valid
+        // selector context. Use their topmost element for structural predicates.
+        var root: Element = self
+        while let parent = root.parent() { root = parent }
+        return try evaluator.matches(root, self)
     }
     
     /**
