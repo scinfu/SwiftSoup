@@ -13,11 +13,16 @@ internal final class SourceBuffer {
     let bytes: [UInt8]
     @usableFromInline
     let storage: ByteStorage
+    // A moved node keeps its original source, even when its new owner uses a
+    // different parsing syntax. Validate reuse against this immutable provenance.
+    @usableFromInline
+    let parsedAsXml: Bool
     
     @usableFromInline
-    init(_ bytes: [UInt8]) {
+    init(_ bytes: [UInt8], parsedAsXml: Bool) {
         self.bytes = bytes
         self.storage = ByteStorage(array: bytes)
+        self.parsedAsXml = parsedAsXml
     }
 }
 
