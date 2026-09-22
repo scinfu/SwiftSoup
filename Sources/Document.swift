@@ -732,7 +732,13 @@ open class Document: Element {
             return nil
         }
 
+        // Synthetic fragment containers have no replaceable source range. Their
+        // child edits cannot be represented by splicing ranges from the input.
+        guard currentDirtySourceRoots().allSatisfy({
+            $0.sourceRangeIsComplete && $0.sourceRange != nil
+        }) else { return nil }
         let patches = try sourcePatches()
+        if patches.isEmpty, sourceRangeDirty { return nil }
         if patches.isEmpty {
             return source
         }
