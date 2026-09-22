@@ -67,6 +67,8 @@
 		E10501C869CE0705747D2184 /* CombiningEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED8C480CAD0F457388D8F9DC /* CombiningEvaluator.swift */; };
 		E220D3D7E5A26713BF188735 /* Entities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B915C3D3EE21A8A202603F04 /* Entities.swift */; };
 		FCBA82458059A135E8CC9745 /* HtmlTreeBuilderState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5AD13499A2FB19B28147549 /* HtmlTreeBuilderState.swift */; };
+		10D614D763782CE1BDCD58FD /* AttributeMutationTracking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 096EAB34CD55EA1C455B92D2 /* AttributeMutationTracking.swift */; };
+		C46745D41DE02FB44F3039EA /* SelectorQueryKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3B095FE5EFC08C7DBCABCEB /* SelectorQueryKey.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -145,6 +147,8 @@
 		F4185332405AC2DD8EDC8E19 /* LRUCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LRUCache.swift; sourceTree = "<group>"; };
 		FB460C8C061BF2E5D998DA6D /* Comment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Comment.swift; sourceTree = "<group>"; };
 		FDE1BCC9C261CB779E91E7FF /* StreamReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamReader.swift; sourceTree = "<group>"; };
+		096EAB34CD55EA1C455B92D2 /* AttributeMutationTracking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttributeMutationTracking.swift; sourceTree = "<group>"; };
+		D3B095FE5EFC08C7DBCABCEB /* SelectorQueryKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectorQueryKey.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -170,6 +174,7 @@
 			isa = PBXGroup;
 			children = (
 				04B7DCFAA6D4B7A0145F2114 /* Attribute.swift */,
+				096EAB34CD55EA1C455B92D2 /* AttributeMutationTracking.swift */,
 				90194830AF5A97A149B41424 /* Attributes.swift */,
 				9E7241676DEB2EFF94CF5139 /* BinarySearch.swift */,
 				0C3DC811C9498F0B3ED5EA8B /* BooleanAttribute.swift */,
@@ -209,6 +214,7 @@
 				3D8AF0BE52C005917CAB59BF /* Profiler.swift */,
 				0F423184CBBA2B9D37CABCE4 /* QueryParser.swift */,
 				9A8FB76CB035E0EF654F2ADB /* QueryParserCache.swift */,
+				D3B095FE5EFC08C7DBCABCEB /* SelectorQueryKey.swift */,
 				97DFE85B3B55B3E0F93B30E9 /* SourceRange.swift */,
 				FDE1BCC9C261CB779E91E7FF /* StreamReader.swift */,
 				339813E80F1F0757A30CDA6B /* String.swift */,
@@ -334,6 +340,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				69DFEB56142B488AC3232C61 /* Attribute.swift in Sources */,
+				10D614D763782CE1BDCD58FD /* AttributeMutationTracking.swift in Sources */,
 				A6F37C73B81D050C0918AA8F /* Attributes.swift in Sources */,
 				58F094233809040BCC01DF27 /* BinarySearch.swift in Sources */,
 				8C1B9810815D86C189319246 /* BooleanAttribute.swift in Sources */,
@@ -373,6 +380,7 @@
 				01D68FB547E23EFE84051418 /* Profiler.swift in Sources */,
 				31DBD38329915DC1ED8CF4ED /* QueryParser.swift in Sources */,
 				2CD1CBC1CDF962C020A4309C /* QueryParserCache.swift in Sources */,
+				C46745D41DE02FB44F3039EA /* SelectorQueryKey.swift in Sources */,
 				5E69EEE8613CD4DF0AB55322 /* SourceRange.swift in Sources */,
 				C4900F8DE464BB4085FA12CF /* StreamReader.swift in Sources */,
 				43B8BF247CE39ABBDB4D1862 /* String.swift in Sources */,
