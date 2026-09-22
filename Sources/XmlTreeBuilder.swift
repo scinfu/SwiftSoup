@@ -118,9 +118,12 @@ public class XmlTreeBuilder: TreeBuilder {
             let data: String = comment.getData()
             if (data.count > 1 && (data.startsWith("!") || data.startsWith("?"))) {
                 let doc: Document = try SwiftSoup.parse("<" + data.substring(1, data.count - 2) + ">", String(decoding: baseUri, as: UTF8.self), Parser.xmlParser())
-                let el: Element = doc.child(0)
-                insert = XmlDeclaration(settings.normalizeTag(el.tagNameUTF8()), comment.getBaseUriUTF8(), data.startsWith("!"))
-                insert.getAttributes()?.addAll(incoming: el.getAttributes())
+                // Malformed declarations may parse as text or comments only.
+                // Keep the original bogus comment when there is no target element.
+                if let el = doc.children().first() {
+                    insert = XmlDeclaration(settings.normalizeTag(el.tagNameUTF8()), comment.getBaseUriUTF8(), data.startsWith("!"))
+                    insert.getAttributes()?.addAll(incoming: el.getAttributes())
+                }
             }
         }
         if let range = commentToken.sourceRange {
