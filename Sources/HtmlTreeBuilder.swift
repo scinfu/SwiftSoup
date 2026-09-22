@@ -131,7 +131,7 @@ class HtmlTreeBuilder: TreeBuilder {
                 case UTF8Arrays.noscript:
                     tokeniser.transition(TokeniserState.Data) // if scripting enabled, rawtext
                 case UTF8Arrays.plaintext:
-                    tokeniser.transition(TokeniserState.Data)
+                    tokeniser.transition(TokeniserState.PLAINTEXT)
                 default:
                     tokeniser.transition(TokeniserState.Data)
                 }
