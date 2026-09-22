@@ -195,10 +195,14 @@ public class QueryParser {
 
         // namespaces: wildcard match equals(tagName) or ending in ":"+tagName
         if (tagName.startsWith("*|")) {
+            let localName = String(tagName.dropFirst(2))
+            try Validate.notEmpty(string: localName)
+            // Keep these alternatives grouped: a top-level Or represents a
+            // comma-separated list when a later combinator is attached.
             evals.append(
-				CombiningEvaluator.Or(
-					Evaluator.Tag(tagName.trim().lowercased()),
-					Evaluator.TagEndsWith(tagName.replacingOccurrences(of: "*|", with: ":").trim().lowercased())))
+				CombiningEvaluator.And(CombiningEvaluator.Or(
+					Evaluator.Tag(localName),
+					Evaluator.TagEndsWith(":" + localName))))
         } else {
             // namespaces: if element name is "abc:def", selector must be "abc|def", so flip:
             if (tagName.contains("|")) {
