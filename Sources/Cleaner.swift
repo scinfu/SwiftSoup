@@ -42,7 +42,9 @@ open class Cleaner {
 	}
 
     /// Determines if the input document is valid, against the whitelist. It is considered valid if all the tags and attributes
-    /// in the input HTML are allowed by the whitelist.
+    /// in the configured sections are allowed by their whitelists. The body is checked;
+    /// the head is checked only when a head whitelist was supplied. Missing sections
+    /// have no nodes to validate, matching the sections processed by ``clean(_:)``.
     ///
     /// This method can be used as a validator for user input forms. An invalid document will still be cleaned successfully
     /// using the ``clean(_:)`` document. If using as a validator, it is recommended to still clean the document
@@ -51,7 +53,13 @@ open class Cleaner {
     /// - Returns: true if no tags or attributes need to be removed; false if they do
 	public func isValid(_ dirtyDocument: Document) throws -> Bool {
         let clean = Document.createShell(dirtyDocument.getBaseUri())
-        let numDiscarded = try copySafeNodes(dirtyDocument.body()!, clean.body()!, whitelist: bodyWhitelist)
+        var numDiscarded = 0
+        if let headWhitelist, let source = dirtyDocument.head(), let destination = clean.head() {
+            numDiscarded += try copySafeNodes(source, destination, whitelist: headWhitelist)
+        }
+        if let source = dirtyDocument.body(), let destination = clean.body() {
+            numDiscarded += try copySafeNodes(source, destination, whitelist: bodyWhitelist)
+        }
         return numDiscarded == 0
 	}
 
