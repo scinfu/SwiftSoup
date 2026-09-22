@@ -9,6 +9,10 @@ final class PlaintextByteProgressTest: XCTestCase {
             // Step once so a stalled tokenizer fails without hanging the suite.
             try TokeniserState.PLAINTEXT.read(tokenizer, reader)
             XCTAssertEqual(reader.getPos(), 1, "byte=\(byte)")
+            if reader.isEmpty() {
+                let token = try tokenizer.read()
+                XCTAssertEqual(token.asCharacter().getData(), byte == 0 ? Array("�".utf8) : [byte])
+            }
         }
     }
 
