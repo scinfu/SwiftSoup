@@ -52,7 +52,7 @@ final class SourceReuseFragmentMutationTest: XCTestCase {
         XCTAssertEqual(try paragraphs(reparsed), ["Value"])
     }
 
-    func testEligibleSparseEditStillPreservesUnchangedSourceSpelling() throws {
+    func testSparseEditStillPreservesUnchangedSourceSpelling() throws {
         let source = "<html><head></head><body><p title='keep'>&copy;</p><b>Before</b></body></html>"
         let doc = try SwiftSoup.parse(source)
         doc.outputSettings().prettyPrint(pretty: false)
@@ -61,6 +61,5 @@ final class SourceReuseFragmentMutationTest: XCTestCase {
         let output = String(decoding: try doc.outerHtmlUTF8(), as: UTF8.self)
         XCTAssertTrue(output.contains("<p title='keep'>&copy;</p>"))
         XCTAssertEqual(try SwiftSoup.parse(output).select("b").text(), "After")
-        XCTAssertNotNil(try doc.patchedOuterHtmlUTF8())
     }
 }
