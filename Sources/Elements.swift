@@ -562,7 +562,7 @@ open class Elements: NSCopying {
 	 - returns: Elements containing only the specified element, or, if that element did not exist, an empty list.
 	*/
 	open func eq(_ index: Int) -> Elements {
-		return size() > index ? Elements([get(index)]) : Elements()
+		return index >= 0 && size() > index ? Elements([get(index)]) : Elements()
 	}
 
 	/**
