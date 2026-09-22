@@ -224,7 +224,7 @@ enum TokeniserState: TokeniserStateProtocol {
                     break
                 }
                 let next = r.input[r.pos]
-                if next < TokeniserStateVars.asciiUpperLimitByte, TokeniserStateVars.isAsciiAlpha(next) {
+                if t.matchesTagStart(next) {
                     if try TokeniserState.readTagNameFromTagOpen(t, r, true) {
                         return
                     }
@@ -243,26 +243,13 @@ enum TokeniserState: TokeniserStateProtocol {
                         break
                     }
                     let endByte = r.currentByte()!
-                    if endByte < TokeniserStateVars.asciiUpperLimitByte {
-                        if TokeniserStateVars.isAsciiAlpha(endByte) {
-                            if try TokeniserState.readTagNameFromTagOpen(t, r, false) {
-                                return
-                            }
-                            return
-                        }
-                        if endByte == TokeniserStateVars.greaterThanByte {
-                            t.error(self)
-                            t.clearTagStart()
-                            t.advanceTransition(.Data)
-                        } else {
-                            t.error(self)
-                            t.clearTagStart()
-                            t.advanceTransition(.BogusComment)
-                        }
-                    } else if r.matchesLetter() {
-                        t.createTagPending(false)
-                        try TokeniserState.readTagName(.TagName, t, r)
+                    if t.matchesTagStart(endByte) {
+                        _ = try TokeniserState.readTagNameFromTagOpen(t, r, false)
                         return
+                    } else if endByte == TokeniserStateVars.greaterThanByte {
+                        t.error(self)
+                        t.clearTagStart()
+                        t.advanceTransition(.Data)
                     } else {
                         t.error(self)
                         t.clearTagStart()
@@ -271,11 +258,6 @@ enum TokeniserState: TokeniserStateProtocol {
                 case TokeniserStateVars.questionMarkByte: // "?"
                     t.advanceTransitionAscii(.BogusComment)
                 default:
-                    if next >= TokeniserStateVars.asciiUpperLimitByte, r.matchesLetter() {
-                        t.createTagPending(true)
-                        try TokeniserState.readTagName(.TagName, t, r)
-                        return
-                    }
                     t.error(self)
                     t.emit(UnicodeScalar.LessThan) // char that got us here
                     t.transition(.Data)
@@ -363,7 +345,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 break
             }
             let byte = r.currentByte()!
-            if byte < TokeniserStateVars.asciiUpperLimitByte, TokeniserStateVars.isAsciiAlpha(byte) {
+            if t.matchesTagStart(byte) {
                 if try TokeniserState.readTagNameFromTagOpen(t, r, true) {
                     return
                 }
@@ -378,11 +360,6 @@ enum TokeniserState: TokeniserStateProtocol {
             case TokeniserStateVars.questionMarkByte: // "?"
                 t.advanceTransitionAscii(.BogusComment)
             default:
-                if byte >= TokeniserStateVars.asciiUpperLimitByte, r.matchesLetter() {
-                    t.createTagPending(true)
-                    try TokeniserState.readTagName(.TagName, t, r)
-                    return
-                }
                 t.error(self)
                 t.clearTagStart()
                 t.emit(UnicodeScalar.LessThan) // char that got us here
@@ -397,26 +374,13 @@ enum TokeniserState: TokeniserStateProtocol {
                 t.transition(.Data)
             } else {
                 let byte = r.currentByte()!
-                if byte < TokeniserStateVars.asciiUpperLimitByte {
-                    if TokeniserStateVars.isAsciiAlpha(byte) {
-                        if try TokeniserState.readTagNameFromTagOpen(t, r, false) {
-                            return
-                        }
-                        return
-                    }
-                    if byte == TokeniserStateVars.greaterThanByte {
-                        t.error(self)
-                        t.clearTagStart()
-                        t.advanceTransition(.Data)
-                    } else {
-                        t.error(self)
-                        t.clearTagStart()
-                        t.advanceTransition(.BogusComment)
-                    }
-                } else if r.matchesLetter() {
-                    t.createTagPending(false)
-                    try TokeniserState.readTagName(.TagName, t, r)
+                if t.matchesTagStart(byte) {
+                    _ = try TokeniserState.readTagNameFromTagOpen(t, r, false)
                     return
+                } else if byte == TokeniserStateVars.greaterThanByte {
+                    t.error(self)
+                    t.clearTagStart()
+                    t.advanceTransition(.Data)
                 } else {
                     t.error(self)
                     t.clearTagStart()

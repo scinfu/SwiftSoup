@@ -181,6 +181,7 @@ final class Tokeniser {
     let lowercaseTagNames: Bool
     private let trackSourceRanges: Bool
     private let trackErrors: Bool
+    private let isXmlParser: Bool
     let trackAttributes: Bool
 
     @inline(__always)
@@ -188,7 +189,9 @@ final class Tokeniser {
         return trackSourceRanges
     }
     
-    init(_ reader: CharacterReader, _ errors: ParseErrorList?, _ settings: ParseSettings? = nil) {
+    init(_ reader: CharacterReader, _ errors: ParseErrorList?, _ settings: ParseSettings? = nil,
+         isXmlParser: Bool = false) {
+        self.isXmlParser = isXmlParser
         self.reader = reader
         self.errors = errors
         trackErrors = errors?.getMaxSize() ?? 0 > 0
@@ -204,6 +207,25 @@ final class Tokeniser {
             lowercaseTagNames = false
             trackSourceRanges = true
             trackAttributes = true
+        }
+    }
+
+    @inline(__always)
+    func matchesTagStart(_ byte: UInt8) -> Bool {
+        if TokeniserStateVars.isAsciiAlpha(byte) { return true }
+        guard isXmlParser else { return false }
+        if byte < TokeniserStateVars.asciiUpperLimitByte {
+            return byte == TokeniserStateVars.colonByte || byte == TokeniserStateVars.underscoreByte
+        }
+        // XML 1.0 (Fifth Edition), production [4] NameStartChar. The reader's
+        // EOF/error sentinel U+FFFF is outside these ranges.
+        switch reader.current().value {
+        case 0xC0...0xD6, 0xD8...0xF6, 0xF8...0x2FF, 0x370...0x37D,
+             0x37F...0x1FFF, 0x200C...0x200D, 0x2070...0x218F, 0x2C00...0x2FEF,
+             0x3001...0xD7FF, 0xF900...0xFDCF, 0xFDF0...0xFFFD, 0x10000...0xEFFFF:
+            return true
+        default:
+            return false
         }
     }
 
@@ -423,7 +445,7 @@ final class Tokeniser {
                 return
             }
             let next = reader.input[reader.pos]
-            if next < TokeniserStateVars.asciiUpperLimitByte, TokeniserStateVars.isAsciiAlpha(next) {
+            if matchesTagStart(next) {
                 if try TokeniserState.readTagNameFromTagOpen(self, reader, true) {
                     return
                 }
@@ -442,26 +464,13 @@ final class Tokeniser {
                     return
                 }
                 let endByte = reader.currentByte()!
-                if endByte < TokeniserStateVars.asciiUpperLimitByte {
-                    if TokeniserStateVars.isAsciiAlpha(endByte) {
-                        if try TokeniserState.readTagNameFromTagOpen(self, reader, false) {
-                            return
-                        }
-                        return
-                    }
-                    if endByte == TokeniserStateVars.greaterThanByte {
-                        error(.Data)
-                        clearTagStart()
-                        advanceTransition(.Data)
-                    } else {
-                        error(.Data)
-                        clearTagStart()
-                        advanceTransition(.BogusComment)
-                    }
-                } else if reader.matchesLetter() {
-                    createTagPending(false)
-                    try TokeniserState.readTagName(.TagName, self, reader)
+                if matchesTagStart(endByte) {
+                    _ = try TokeniserState.readTagNameFromTagOpen(self, reader, false)
                     return
+                } else if endByte == TokeniserStateVars.greaterThanByte {
+                    error(.Data)
+                    clearTagStart()
+                    advanceTransition(.Data)
                 } else {
                     error(.Data)
                     clearTagStart()
@@ -470,11 +479,6 @@ final class Tokeniser {
             case TokeniserStateVars.questionMarkByte: // "?"
                 advanceTransitionAscii(.BogusComment)
             default:
-                if next >= TokeniserStateVars.asciiUpperLimitByte, reader.matchesLetter() {
-                    createTagPending(true)
-                    try TokeniserState.readTagName(.TagName, self, reader)
-                    return
-                }
                 error(.Data)
                 emit(UnicodeScalar.LessThan)
                 transition(.Data)
@@ -530,7 +534,7 @@ final class Tokeniser {
                 return
             }
             let next = reader.input[reader.pos]
-            if next < TokeniserStateVars.asciiUpperLimitByte, TokeniserStateVars.isAsciiAlpha(next) {
+            if matchesTagStart(next) {
                 if try TokeniserState.readTagNameFromTagOpen(self, reader, true) {
                     return
                 }
@@ -548,24 +552,12 @@ final class Tokeniser {
                     return
                 }
                 let endByte = reader.currentByte()!
-                if endByte < TokeniserStateVars.asciiUpperLimitByte {
-                    if TokeniserStateVars.isAsciiAlpha(endByte) {
-                        if try TokeniserState.readTagNameFromTagOpen(self, reader, false) {
-                            return
-                        }
-                        return
-                    }
-                    if endByte == TokeniserStateVars.greaterThanByte {
-                        error(.Data)
-                        advanceTransition(.Data)
-                    } else {
-                        error(.Data)
-                        advanceTransition(.BogusComment)
-                    }
-                } else if reader.matchesLetter() {
-                    createTagPending(false)
-                    try TokeniserState.readTagName(.TagName, self, reader)
+                if matchesTagStart(endByte) {
+                    _ = try TokeniserState.readTagNameFromTagOpen(self, reader, false)
                     return
+                } else if endByte == TokeniserStateVars.greaterThanByte {
+                    error(.Data)
+                    advanceTransition(.Data)
                 } else {
                     error(.Data)
                     advanceTransition(.BogusComment)
@@ -573,11 +565,6 @@ final class Tokeniser {
             case TokeniserStateVars.questionMarkByte: // "?"
                 advanceTransitionAscii(.BogusComment)
             default:
-                if next >= TokeniserStateVars.asciiUpperLimitByte, reader.matchesLetter() {
-                    createTagPending(true)
-                    try TokeniserState.readTagName(.TagName, self, reader)
-                    return
-                }
                 error(.Data)
                 emit(UnicodeScalar.LessThan)
                 transition(.Data)
