@@ -25,3 +25,5 @@ jobs:
       run: swift build -v
     - name: Run tests
       run: swift test -v
+    - name: Build Xcode framework
+      run: xcodebuild -project SwiftSoup.xcodeproj -target SwiftSoup -configuration Release -sdk macosx CODE_SIGNING_ALLOWED=NO build
