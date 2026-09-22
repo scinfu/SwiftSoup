@@ -727,7 +727,7 @@ open class Document: Element {
 
     @usableFromInline
     internal func patchedOuterHtmlUTF8() throws -> [UInt8]? {
-        guard !_outputSettings.prettyPrint(),
+        guard _outputSettings.canReuseSource(parsedAsXml: parsedAsXml),
               let source = sourceBuffer?.bytes else {
             return nil
         }
@@ -837,6 +837,14 @@ public class OutputSettings: NSCopying {
     private var _syntax = Syntax.html
 
     public init() {}
+
+    /// Source slices preserve their original entity spelling. Only the default
+    /// encoding/escape policy can reuse them without bypassing output settings.
+    @usableFromInline
+    internal func canReuseSource(parsedAsXml: Bool) -> Bool {
+        !_prettyPrint && _encoder == .utf8 && _escapeMode == .base
+            && parsedAsXml == (_syntax == .xml)
+    }
 
     /**
      Get the document's current HTML escape mode: `e`, which provides a limited set of named HTML
