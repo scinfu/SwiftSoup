@@ -424,7 +424,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACH_O_TYPE = staticlib;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				OTHER_SWIFT_FLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.tuist.SwiftSoup;
 				PRODUCT_NAME = SwiftSoup;
@@ -470,7 +470,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACH_O_TYPE = staticlib;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				OTHER_SWIFT_FLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.tuist.SwiftSoup;
 				PRODUCT_NAME = SwiftSoup;
