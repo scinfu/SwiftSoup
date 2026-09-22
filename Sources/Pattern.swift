@@ -12,16 +12,17 @@ public struct Pattern: Sendable {
     let pattern: String
     private let compiled: Result<NSRegularExpression, Error>
 
-    init(_ pattern: String) {
+    init(_ pattern: String, options: NSRegularExpression.Options = []) {
         self.pattern = pattern
-        compiled = Result { try NSRegularExpression(pattern: pattern, options: []) }
+        compiled = Result { try NSRegularExpression(pattern: pattern, options: options) }
     }
 
     static public func compile(_ s: String) -> Pattern {
         return Pattern(s)
     }
     static public func compile(_ s: String, _ op: Int) -> Pattern {
-        return Pattern(s)
+        let options: NSRegularExpression.Options = (op & CASE_INSENSITIVE) != 0 ? [.caseInsensitive] : []
+        return Pattern(s, options: options)
     }
 
     public func validate() throws {
