@@ -12,7 +12,7 @@ import Foundation
  form to easily be submitted.
  */
 public class FormElement: Element {
-    private let _elements: Elements = Elements()
+    private var _elements: Elements = Elements()
 
     /**
      Create a new, standalone form element.
@@ -140,9 +140,6 @@ public class FormElement: Element {
 
     override func copyForDeepClone(parent: Node?) -> Node {
         let clone = FormElement(_tag, baseUri!, skipChildReserve: true)
-        for att in _elements.array() {
-            clone._elements.add(att)
-        }
         return copy(
             clone: clone,
             parent: parent,
@@ -151,6 +148,46 @@ public class FormElement: Element {
             suppressQueryIndexDirty: true
         )
     }
+    /// Resolve associations only after the whole structural clone exists. A
+    /// control may precede its form, follow it, or occur outside its subtree.
+    /// Trees without forms never allocate this mapping or perform this pass.
+    internal static func rebindClonedControlAssociations(
+        _ formCopies: [(FormElement, FormElement)],
+        clonedParents: [(Node, Node)]
+    ) {
+        var associatedIDs: Set<ObjectIdentifier> = []
+        for (original, _) in formCopies {
+            for control in original._elements.array() {
+                associatedIDs.insert(ObjectIdentifier(control))
+            }
+        }
+        var controls: [ObjectIdentifier: Element] = [:]
+        controls.reserveCapacity(associatedIDs.count)
+        func record(_ original: Node, _ clone: Node) {
+            let id = ObjectIdentifier(original)
+            if associatedIDs.contains(id), let element = clone as? Element {
+                controls[id] = element
+            }
+        }
+        if !associatedIDs.isEmpty {
+            // The clone queue retains each non-leaf parent and the root. Its
+            // completed child arrays also provide every leaf's identity pair.
+            for (original, clone) in clonedParents {
+                record(original, clone)
+                for (child, childClone) in zip(original.childNodes, clone.childNodes) {
+                    record(child, childClone)
+                }
+            }
+        }
+        for (original, clone) in formCopies {
+            // Preserve explicit order/duplicates and references outside the
+            // copied tree; remap only controls that were structurally cloned.
+            clone._elements = Elements(original._elements.array().map {
+                controls[ObjectIdentifier($0)] ?? $0
+            })
+        }
+    }
+
 	public override func copy(clone: Node, parent: Node?) -> Node {
 		let clone = clone as! FormElement
 		for att in _elements.array() {
