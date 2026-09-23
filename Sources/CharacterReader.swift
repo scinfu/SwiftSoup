@@ -1013,6 +1013,8 @@ public final class CharacterReader {
 
     public func nextIndexOf(_ targetUtf8: [UInt8]) -> Int? {
         let targetCount = targetUtf8.count
+        // An empty delimiter matches the current position, including EOF.
+        if targetCount == 0 { return pos }
         if targetCount == 1 {
             return input[pos...].firstIndex(of: targetUtf8[0])
         }
