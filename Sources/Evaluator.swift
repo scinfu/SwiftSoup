@@ -103,17 +103,19 @@ open class Evaluator: @unchecked Sendable {
     }
 
     /**
-     * Evaluator for tag name that ends with the given suffix.
+     * Evaluator for tag name that ends with the given suffix. ASCII case insensitive.
      */
     public final class TagEndsWith: Evaluator, @unchecked Sendable {
         private let tagName: String
+        private let tagNameNormal: [UInt8]
 
         public init(_ tagName: String) {
             self.tagName = tagName
+            self.tagNameNormal = tagName.utf8Array.lowercased()
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
-            return (element.tagName().hasSuffix(tagName))
+            return element.tagNameNormalUTF8().suffix(tagNameNormal.count).elementsEqual(tagNameNormal)
         }
 
         public override func toString() -> String {
