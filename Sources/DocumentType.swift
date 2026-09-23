@@ -40,10 +40,12 @@ public class DocumentType: Node {
             let attrs = ensureAttributesForWrite()
             try attrs.put(attribute: Attribute(keySlice: DocumentType.nameKeySlice, valueSlice: ByteSlice.fromArray(name)))
             try attrs.put(attribute: Attribute(keySlice: DocumentType.publicIdKeySlice, valueSlice: ByteSlice.fromArray(publicId)))
+            try attrs.put(attribute: Attribute(keySlice: DocumentType.systemIdKeySlice, valueSlice: ByteSlice.fromArray(systemId)))
             if (has(DocumentType.PUBLIC_ID)) {
                 try attrs.put(attribute: Attribute(keySlice: DocumentType.pubSysKeySlice, valueSlice: ByteSlice.fromArray(DocumentType.PUBLIC_KEY)))
+            } else if (has(DocumentType.SYSTEM_ID)) {
+                try attrs.put(attribute: Attribute(keySlice: DocumentType.pubSysKeySlice, valueSlice: ByteSlice.fromArray(DocumentType.SYSTEM_KEY)))
             }
-            try attrs.put(attribute: Attribute(keySlice: DocumentType.systemIdKeySlice, valueSlice: ByteSlice.fromArray(systemId)))
         } catch {}
     }
 
