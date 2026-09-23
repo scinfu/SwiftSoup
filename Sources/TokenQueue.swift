@@ -280,8 +280,13 @@ open class TokenQueue {
      */
     open func chompTo(_ seq: String) -> String {
         let data = consumeToSlice(seq)
-        matchChomp(seq)
-        return data
+        if matchesCS(seq) {
+            matchChomp(seq)
+            return data
+        }
+        // consumeToSlice preserves the queue on a miss; chompTo promises to
+        // consume the remainder, and must not accept a differently cased match.
+        return data + remainder()
     }
 
     open func chompToIgnoreCase(_ seq: String) -> String {
