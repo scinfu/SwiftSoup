@@ -273,6 +273,12 @@ open class TextNode: Node {
     }
 
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) throws {
+        if out.syntax() == .html,
+           let element = parentNode as? Element,
+           element.serializesAsRawText() {
+            accum.append(wholeTextSlice())
+            return
+        }
 		if (out.prettyPrint() &&
 			((siblingIndex == 0 && (parentNode as? Element) != nil &&  (parentNode as! Element).tag().formatAsBlock() && !isBlank()) ||
                 (out.outline() && hasSiblingNodes() && !isBlank()) )) {

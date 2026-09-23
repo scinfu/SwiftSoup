@@ -731,6 +731,11 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     try HtmlTreeBuilderState.handleRcData(startTag, tb)
                     // Retain SwiftSoup's existing leading-whitespace policy.
                     tb.framesetOk(false)
+                case .iframe:
+                    tb.framesetOk(false)
+                    try HtmlTreeBuilderState.handleRawtext(startTag, tb)
+                case .noembed:
+                    try HtmlTreeBuilderState.handleRawtext(startTag, tb)
                 case .select:
                     try reconstructFormattingIfNeeded()
                     try tb.insert(startTag)
@@ -897,7 +902,12 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                         nameSlice = startTag.normalNameSlice()
                     }
                     if let nameSlice = nameSlice {
-                        if Constants.Formatters.contains(nameSlice) {
+                        if equalsSlice(UTF8Arrays.xmp, nameSlice) {
+                            try closePIfInButtonScope()
+                            try reconstructFormattingIfNeeded()
+                            tb.framesetOk(false)
+                            try HtmlTreeBuilderState.handleRawtext(startTag, tb)
+                        } else if Constants.Formatters.contains(nameSlice) {
                             try reconstructFormattingIfNeeded()
                             let el: Element = try tb.insert(startTag)
                             tb.pushActiveFormattingElements(el)
