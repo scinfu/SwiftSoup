@@ -851,6 +851,36 @@ public final class CharacterReader {
         return nextIndexOf(loScan) != nil || nextIndexOf(hiScan) != nil
     }
     
+    /// HTML end-tag lookahead must accept mixed ASCII case. The public
+    /// containsIgnoreCase APIs retain their legacy consistent-case scan.
+    /// Compare the two pieces in place, without allocating a combined needle.
+    @inline(__always)
+    func containsAsciiCaseInsensitive(prefix: [UInt8], suffix: [UInt8]) -> Bool {
+        let count = prefix.count + suffix.count
+        if count == 0 { return true }
+        guard count <= end - pos else { return false }
+        @inline(__always)
+        func lower(_ byte: UInt8) -> UInt8 {
+            return byte >= 65 && byte <= 90 ? byte + 32 : byte
+        }
+        let first = lower(prefix.first ?? suffix[0])
+        let lastStart = end - count
+        var candidate = pos
+        while candidate <= lastStart {
+            if lower(input[candidate]) == first {
+                var offset = 1
+                while offset < count {
+                    let expected = offset < prefix.count ? prefix[offset] : suffix[offset - prefix.count]
+                    if lower(input[candidate + offset]) != lower(expected) { break }
+                    offset += 1
+                }
+                if offset == count { return true }
+            }
+            candidate += 1
+        }
+        return false
+    }
+
     @inline(__always)
     public func containsIgnoreCase(_ seq: String) -> Bool {
         return containsIgnoreCase(seq.utf8Array)

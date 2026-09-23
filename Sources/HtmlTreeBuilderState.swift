@@ -727,6 +727,10 @@ enum HtmlTreeBuilderState: String, HtmlTreeBuilderStateProtocol {
                     tb.framesetOk(false)
                 case .meta, .script, .style, .title:
                     return try tb.process(t, .InHead)
+                case .textarea:
+                    try HtmlTreeBuilderState.handleRcData(startTag, tb)
+                    // Retain SwiftSoup's existing leading-whitespace policy.
+                    tb.framesetOk(false)
                 case .select:
                     try reconstructFormattingIfNeeded()
                     try tb.insert(startTag)
