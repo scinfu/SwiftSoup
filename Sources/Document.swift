@@ -577,15 +577,16 @@ open class Document: Element {
 				try s.remove()
 
             } else if (syntax == OutputSettings.Syntax.xml) {
-                let node: Node = getChildNodes()[0]
+                let node = getChildNodes().first
 
                 if let decl = (node as? XmlDeclaration) {
 
                     if (decl.name()=="xml") {
                         try decl.attr("encoding".utf8Array, charset().displayName().utf8Array)
 
-                        _ = try  decl.attr("version".utf8Array)
-                        try decl.attr("version".utf8Array, "1.0".utf8Array)
+                        if try decl.attr("version".utf8Array).isEmpty {
+                            try decl.attr("version".utf8Array, "1.0".utf8Array)
+                        }
                     } else {
                         try Validate.notNull(obj: baseUri)
                         let decl = XmlDeclaration("xml".utf8Array, baseUri!, false)
