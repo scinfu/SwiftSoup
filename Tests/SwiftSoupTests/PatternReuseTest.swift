@@ -76,10 +76,8 @@ final class PatternReuseTest: XCTestCase {
         }
     }
 
-    func testPreservesExistingOptionOverloadAndEmbeddedFlags() {
-        // The legacy Int overload currently ignores its option. This optimization
-        // must not silently turn a performance change into an API behavior change.
-        XCTAssertFalse(Pattern.compile("abc", Pattern.CASE_INSENSITIVE).matcher(in: "ABC").find())
+    func testOptionOverloadAndEmbeddedFlagsEnableCaseInsensitiveMatching() {
+        XCTAssertTrue(Pattern.compile("abc", Pattern.CASE_INSENSITIVE).matcher(in: "ABC").find())
         XCTAssertTrue(Pattern.compile("(?i)abc").matcher(in: "ABC").find())
     }
 
