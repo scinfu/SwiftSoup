@@ -70,7 +70,7 @@ public class TreeBuilder {
         reader = CharacterReader(parseBuffer)
         self.errors = errors
         tracksErrors = errors.getMaxSize() > 0
-        tokeniser = Tokeniser(reader, tracksErrors ? errors : nil, settings)
+        tokeniser = Tokeniser(reader, tracksErrors ? errors : nil, settings, isXmlParser: self is XmlTreeBuilder)
         stack = Array<Element>()
         self.baseUri = baseUri
         pendingAttributeElements.removeAll(keepingCapacity: true)
@@ -91,7 +91,7 @@ public class TreeBuilder {
         self.settings = settings
         self.errors = errors
         tracksErrors = errors.getMaxSize() > 0
-        tokeniser = Tokeniser(reader, tracksErrors ? errors : nil, settings)
+        tokeniser = Tokeniser(reader, tracksErrors ? errors : nil, settings, isXmlParser: self is XmlTreeBuilder)
         stack = Array<Element>()
         self.baseUri = baseUri
         pendingAttributeElements.removeAll(keepingCapacity: true)

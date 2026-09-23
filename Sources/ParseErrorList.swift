@@ -16,7 +16,8 @@ public class ParseErrorList {
     init(_ initialCapacity: Int, _ maxSize: Int) {
         self.maxSize = maxSize
         self.initialCapacity = initialCapacity
-        array = Array(repeating: nil, count: maxSize)
+        // Reserving storage must not count as already-recorded errors.
+        array.reserveCapacity(max(0, min(initialCapacity, maxSize)))
     }
 
     func canAddError() -> Bool {

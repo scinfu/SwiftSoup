@@ -17,6 +17,7 @@ import Foundation
  ```
  */
 public class XmlTreeBuilder: TreeBuilder {
+    private var isParsingDeclaration = false
     
     public override init() {
         super.init()
@@ -113,11 +114,15 @@ public class XmlTreeBuilder: TreeBuilder {
     func insert(_ commentToken: Token.Comment)throws {
         let comment: Comment = Comment(slice: commentToken.takeDataSlice(), baseUri)
         var insert: Node = comment
-        if (commentToken.bogus) { // xml declarations are emitted as bogus comments (which is right for html, but not xml)
+        if commentToken.bogus && !isParsingDeclaration { // xml declarations are emitted as bogus comments (which is right for html, but not xml)
                                   // so we do a bit of a hack and parse the data as an element to pull the attributes out
             let data: String = comment.getData()
             if (data.count > 1 && (data.startsWith("!") || data.startsWith("?"))) {
-                let doc: Document = try SwiftSoup.parse("<" + data.substring(1, data.count - 2) + ">", String(decoding: baseUri, as: UTF8.self), Parser.xmlParser())
+                // Only elements from this helper parse can become declaration targets.
+                // Nested bogus comments must not recursively invoke another XML parser.
+                let declarationBuilder = XmlTreeBuilder()
+                declarationBuilder.isParsingDeclaration = true
+                let doc: Document = try SwiftSoup.parse("<" + data.substring(1, data.count - 2) + ">", String(decoding: baseUri, as: UTF8.self), Parser(declarationBuilder))
                 // Malformed declarations may parse as text or comments only.
                 // Keep the original bogus comment when there is no target element.
                 if let el = doc.children().first() {

@@ -2194,290 +2194,28 @@ open class Element: Node {
     }
 
     @inline(__always)
-    private static func lowerAscii(_ byte: UInt8) -> UInt8 {
-        if byte >= 65 && byte <= 90 {
-            return byte &+ 32
-        }
-        return byte
-    }
-
-    private struct AsciiKMPMatcher {
-        let needle: [UInt8]
-        let lps: [Int]
-        var j: Int = 0
-
-        init(_ needle: [UInt8]) {
-            self.needle = needle
-            var lps = [Int](repeating: 0, count: needle.count)
-            var length = 0
-            var i = 1
-            while i < needle.count {
-                if needle[i] == needle[length] {
-                    length += 1
-                    lps[i] = length
-                    i += 1
-                } else if length != 0 {
-                    length = lps[length - 1]
-                } else {
-                    lps[i] = 0
-                    i += 1
-                }
-            }
-            self.lps = lps
-        }
-
-        @inline(__always)
-        mutating func feed(_ byte: UInt8) -> Bool {
-            let c = Element.lowerAscii(byte)
-            while j > 0 && c != needle[j] {
-                j = lps[j - 1]
-            }
-            if c == needle[j] {
-                j += 1
-                if j == needle.count {
-                    return true
-                }
-            }
-            return false
-        }
-    }
-
-    @inline(__always)
-    private static func emitNormalizedSlice(_ slice: ArraySlice<UInt8>,
-                                            stripLeading: Bool,
-                                            emittedAny: inout Bool,
-                                            lastWasWhite: inout Bool,
-                                            matcher: inout AsciiKMPMatcher) -> Bool {
-        var reachedNonWhite = false
-        var i = slice.startIndex
-        let end = slice.endIndex
-        while i < end {
-            let firstByte = slice[i]
-            if firstByte < TokeniserStateVars.asciiUpperLimitByte {
-                if StringUtil.isAsciiWhitespaceByte(firstByte) {
-                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
-                        i = slice.index(after: i)
-                        continue
-                    }
-                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
-                    lastWasWhite = true
-                    emittedAny = true
-                    i = slice.index(after: i)
-                    continue
-                }
-                var j = i
-                while j < end {
-                    let b = slice[j]
-                    if b >= TokeniserStateVars.asciiUpperLimitByte || StringUtil.isAsciiWhitespaceByte(b) {
-                        break
-                    }
-                    if matcher.feed(b) { return true }
-                    j = slice.index(after: j)
-                }
-                if i != j {
-                    emittedAny = true
-                    lastWasWhite = false
-                    reachedNonWhite = true
-                    i = j
-                    continue
-                }
-                i = slice.index(after: i)
-                continue
-            }
-            if firstByte == StringUtil.utf8NBSPLead {
-                let next = slice.index(after: i)
-                if next < end, slice[next] == StringUtil.utf8NBSPTrail {
-                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
-                        i = slice.index(after: next)
-                        continue
-                    }
-                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
-                    lastWasWhite = true
-                    emittedAny = true
-                    reachedNonWhite = true
-                    i = slice.index(after: next)
-                    continue
-                }
-            }
-            let scalarByteCount: Int
-            if firstByte < StringUtil.utf8Lead3Min {
-                scalarByteCount = 2
-            } else if firstByte < StringUtil.utf8Lead4Min {
-                scalarByteCount = 3
-            } else {
-                scalarByteCount = 4
-            }
-            var next = i
-            for _ in 0..<scalarByteCount {
-                if next == end { return false }
-                let b = slice[next]
-                if matcher.feed(b) { return true }
-                next = slice.index(after: next)
-            }
-            emittedAny = true
-            lastWasWhite = false
-            reachedNonWhite = true
-            i = next
-        }
-        return false
-    }
-
-    @inline(__always)
-    private static func emitNormalizedSlice(_ slice: ByteSlice,
-                                            stripLeading: Bool,
-                                            emittedAny: inout Bool,
-                                            lastWasWhite: inout Bool,
-                                            matcher: inout AsciiKMPMatcher) -> Bool {
-        var reachedNonWhite = false
-        var i = 0
-        let end = slice.count
-        while i < end {
-            let firstByte = slice[i]
-            if firstByte < TokeniserStateVars.asciiUpperLimitByte {
-                if StringUtil.isAsciiWhitespaceByte(firstByte) {
-                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
-                        i &+= 1
-                        continue
-                    }
-                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
-                    lastWasWhite = true
-                    emittedAny = true
-                    i &+= 1
-                    continue
-                }
-                var j = i
-                while j < end {
-                    let b = slice[j]
-                    if b >= TokeniserStateVars.asciiUpperLimitByte || StringUtil.isAsciiWhitespaceByte(b) {
-                        break
-                    }
-                    if matcher.feed(b) { return true }
-                    j &+= 1
-                }
-                if i != j {
-                    emittedAny = true
-                    lastWasWhite = false
-                    reachedNonWhite = true
-                    i = j
-                    continue
-                }
-                i &+= 1
-                continue
-            }
-            if firstByte == StringUtil.utf8NBSPLead {
-                let next = i &+ 1
-                if next < end, slice[next] == StringUtil.utf8NBSPTrail {
-                    if (stripLeading && !reachedNonWhite) || lastWasWhite {
-                        i = next &+ 1
-                        continue
-                    }
-                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
-                    lastWasWhite = true
-                    emittedAny = true
-                    reachedNonWhite = true
-                    i = next &+ 1
-                    continue
-                }
-            }
-            let scalarByteCount: Int
-            if firstByte < StringUtil.utf8Lead3Min {
-                scalarByteCount = 2
-            } else if firstByte < StringUtil.utf8Lead4Min {
-                scalarByteCount = 3
-            } else {
-                scalarByteCount = 4
-            }
-            var next = i
-            for _ in 0..<scalarByteCount {
-                if next == end { return false }
-                let b = slice[next]
-                if matcher.feed(b) { return true }
-                next &+= 1
-            }
-            emittedAny = true
-            lastWasWhite = false
-            reachedNonWhite = true
-            i = next
-        }
-        return false
-    }
-
-    @inline(__always)
-    internal func containsNormalizedTextASCII(_ needleLower: [UInt8]) -> Bool {
-        if needleLower.isEmpty {
-            return true
-        }
-        var matcher = AsciiKMPMatcher(needleLower)
-        var stack: ContiguousArray<Node> = []
-        stack.reserveCapacity(childNodes.count + 1)
-        stack.append(self)
-        var lastWasWhite = false
-        var emittedAny = false
-        while let node = stack.popLast() {
-            if let textNode = node as? TextNode {
-                let slice = textNode.wholeTextSlice()
-                let stripLeading = !emittedAny || lastWasWhite
-                if Element.emitNormalizedSlice(slice,
-                                               stripLeading: stripLeading,
-                                               emittedAny: &emittedAny,
-                                               lastWasWhite: &lastWasWhite,
-                                               matcher: &matcher) {
-                    return true
-                }
-                continue
-            }
-            if let element = node as? Element {
-                if emittedAny,
-                   (element.isBlock() || Tag.isBr(element._tag)),
-                   !lastWasWhite {
-                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
-                    emittedAny = true
-                    lastWasWhite = true
-                }
-            }
-            let children = node.childNodes
-            if !children.isEmpty {
-                var i = children.count - 1
-                while i >= 0 {
-                    stack.append(children[i])
-                    i -= 1
-                }
-            }
-        }
-        return false
+    internal func containsNormalizedTextASCII(_ needleLower: [UInt8]) throws -> Bool {
+        return Element.containsTextASCII(needleLower, in: try textUTF8())
     }
 
     @inline(__always)
     internal func containsOwnTextASCII(_ needleLower: [UInt8]) -> Bool {
-        if needleLower.isEmpty {
-            return true
-        }
-        var matcher = AsciiKMPMatcher(needleLower)
-        var lastWasWhite = false
-        var emittedAny = false
-        let children = childNodes
-        for child in children {
-            if let textNode = child as? TextNode {
-                let slice = textNode.wholeTextSlice()
-                let stripLeading = !emittedAny || lastWasWhite
-                if Element.emitNormalizedSlice(slice,
-                                               stripLeading: stripLeading,
-                                               emittedAny: &emittedAny,
-                                               lastWasWhite: &lastWasWhite,
-                                               matcher: &matcher) {
-                    return true
-                }
-            } else if let element = child as? Element {
-                if emittedAny, Tag.isBr(element._tag), !lastWasWhite {
-                    if matcher.feed(TokeniserStateVars.spaceByte) { return true }
-                    emittedAny = true
-                    lastWasWhite = true
-                }
-            }
-        }
-        return false
+        return Element.containsTextASCII(needleLower, in: ownTextUTF8())
     }
-    
+
+    private static func containsTextASCII(_ needleLower: [UInt8], in text: [UInt8]) -> Bool {
+        guard !needleLower.isEmpty else { return false }
+        // Reuse the public getters' normalization instead of maintaining a
+        // second streaming normalizer (preserveWhitespace and final trim matter).
+        // Byte matching is equivalent to String.contains only for ASCII text:
+        // Unicode lowercasing and grapheme boundaries can change the answer.
+        if StringUtil.isAscii(text) {
+            return StringUtil.containsLowercaseAscii(text, needleLower)
+        }
+        return String(decoding: text, as: UTF8.self).lowercased()
+            .contains(String(decoding: needleLower, as: UTF8.self))
+    }
+
     private static func appendWhitespaceIfBr(_ element: Element, _ accum: StringBuilder) {
         if (Tag.isBr(element._tag) && !TextNode.lastCharIsWhitespace(accum)) {
             accum.append(UTF8Arrays.whitespace)
@@ -2826,7 +2564,7 @@ open class Element: Node {
      */
     @inline(__always)
     public func val() throws -> String {
-        if (tagName() == "textarea") {
+        if _tag.tagId == .textarea {
             return try text()
         } else {
             return try attr("value")
@@ -2841,7 +2579,7 @@ open class Element: Node {
     @discardableResult
     @inline(__always)
     public func val(_ value: String) throws -> Element {
-        if (tagName() == "textarea") {
+        if _tag.tagId == .textarea {
             try text(value)
         } else {
             try attr("value", value)

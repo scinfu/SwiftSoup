@@ -190,6 +190,7 @@ open class Collector {
     }
 
     private static func seedCandidates(for eval: CombiningEvaluator.And, root: Element) throws -> (Elements, Int?)? {
+        guard eval.supportsIndexedCandidateFiltering else { return nil }
         let evaluators = eval.evaluators
 
         // An index may discharge only a predicate it fully proves. Attribute

@@ -496,6 +496,22 @@ public final class Entities: Sendable {
         else { return 4 }
     }
 
+    /// Other U+0080...U+00BF scalars share NBSP's C2 lead byte. Keep searching
+    /// after a non-NBSP occurrence, without reading beyond the supplied buffer.
+    @usableFromInline
+    @inline(__always)
+    internal static func containsNonBreakingSpace(_ bytes: UnsafeBufferPointer<UInt8>) -> Bool {
+        guard bytes.count >= 2, let base = bytes.baseAddress else { return false }
+        var offset = 0
+        while offset < bytes.count - 1,
+              let found = memchr(base + offset, Int32(StringUtil.utf8NBSPLead), bytes.count - 1 - offset) {
+            let index = base.distance(to: found.assumingMemoryBound(to: UInt8.self))
+            if base[index + 1] == StringUtil.utf8NBSPTrail { return true }
+            offset = index + 1
+        }
+        return false
+    }
+
     @inline(__always)
     private static func escapeFastAscii(
         _ accum: StringBuilder,
@@ -611,12 +627,7 @@ public final class Entities: Sendable {
                 if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
                     return true
                 }
-                if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), len) {
-                    let idx = base.distance(to: nbspLead.assumingMemoryBound(to: UInt8.self))
-                    if idx + 1 < len, base[idx + 1] == StringUtil.utf8NBSPTrail {
-                        return true
-                    }
-                }
+                if containsNonBreakingSpace(buf) { return true }
                 if inAttribute {
                     if escapeMode == .xhtml,
                        memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
@@ -650,12 +661,7 @@ public final class Entities: Sendable {
                 if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
                     return true
                 }
-                if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), len) {
-                    let idx = base.distance(to: nbspLead.assumingMemoryBound(to: UInt8.self))
-                    if idx + 1 < len, base[idx + 1] == StringUtil.utf8NBSPTrail {
-                        return true
-                    }
-                }
+                if containsNonBreakingSpace(buf) { return true }
                 if inAttribute {
                     if escapeMode == .xhtml,
                        memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
@@ -810,7 +816,7 @@ public final class Entities: Sendable {
                         // UTF-8 encoding of "\u{A0}"
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
                     } else if encoderKnownToBeAbleToEncode {
-                        accum.write(contentsOf: base.advanced(by: i), count: len)
+                        accum.write(contentsOf: base.advanced(by: i), count: end - i)
                     } else {
                         let startIndex = string.startIndex
                         let sliceStart = string.index(startIndex, offsetBy: i)
@@ -872,12 +878,7 @@ public final class Entities: Sendable {
                 if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
                     return true
                 }
-                if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), len) {
-                    let idx = base.distance(to: nbspLead.assumingMemoryBound(to: UInt8.self))
-                    if idx + 1 < len, base[idx + 1] == StringUtil.utf8NBSPTrail {
-                        return true
-                    }
-                }
+                if containsNonBreakingSpace(buf) { return true }
                 if inAttribute {
                     if escapeMode == .xhtml,
                        memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
@@ -911,12 +912,7 @@ public final class Entities: Sendable {
                 if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
                     return true
                 }
-                if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), len) {
-                    let idx = base.distance(to: nbspLead.assumingMemoryBound(to: UInt8.self))
-                    if idx + 1 < len, base[idx + 1] == StringUtil.utf8NBSPTrail {
-                        return true
-                    }
-                }
+                if containsNonBreakingSpace(buf) { return true }
                 if inAttribute {
                     if escapeMode == .xhtml,
                        memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
@@ -1070,7 +1066,7 @@ public final class Entities: Sendable {
                     if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
                     } else if encoderKnownToBeAbleToEncode {
-                        accum.write(contentsOf: base.advanced(by: i), count: len)
+                        accum.write(contentsOf: base.advanced(by: i), count: end - i)
                     } else {
                         let startIndex = string.startIndex
                         let sliceStart = string.index(startIndex, offsetBy: i)
@@ -1132,12 +1128,7 @@ public final class Entities: Sendable {
                 if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
                     return true
                 }
-                if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), len) {
-                    let idx = base.distance(to: nbspLead.assumingMemoryBound(to: UInt8.self))
-                    if idx + 1 < len, base[idx + 1] == StringUtil.utf8NBSPTrail {
-                        return true
-                    }
-                }
+                if containsNonBreakingSpace(buf) { return true }
                 if inAttribute {
                     if escapeMode == .xhtml,
                        memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
@@ -1171,12 +1162,7 @@ public final class Entities: Sendable {
                 if memchr(base, Int32(TokeniserStateVars.ampersandByte), len) != nil {
                     return true
                 }
-                if let nbspLead = memchr(base, Int32(StringUtil.utf8NBSPLead), len) {
-                    let idx = base.distance(to: nbspLead.assumingMemoryBound(to: UInt8.self))
-                    if idx + 1 < len, base[idx + 1] == StringUtil.utf8NBSPTrail {
-                        return true
-                    }
-                }
+                if containsNonBreakingSpace(buf) { return true }
                 if inAttribute {
                     if escapeMode == .xhtml,
                        memchr(base, Int32(TokeniserStateVars.lessThanByte), len) != nil {
@@ -1297,7 +1283,7 @@ public final class Entities: Sendable {
                     if end - i == 2 && base[i] == StringUtil.utf8NBSPLead && base[i + 1] == StringUtil.utf8NBSPTrail {
                         accum.append(escapeMode == .xhtml ? xa0EntityUTF8 : nbspEntityUTF8)
                     } else if encoderKnownToBeAbleToEncode {
-                        accum.write(contentsOf: base.advanced(by: i), count: len)
+                        accum.write(contentsOf: base.advanced(by: i), count: end - i)
                     } else {
                         let slice = ByteSlice(storage: string.storage, start: string.start + i, end: string.start + end)
                         if canEncode(bytes: slice, encoder: encoder) {
