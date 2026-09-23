@@ -838,11 +838,13 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            guard !searchText.isEmpty else { return false }
             if let needle = searchTextLowerUTF8 {
-                if let slice = element.textUTF8ByteSlice(trimAndNormaliseWhitespace: true) {
+                if let slice = element.textUTF8ByteSlice(trimAndNormaliseWhitespace: true),
+                   StringUtil.isAscii(slice) {
                     return StringUtil.containsLowercaseAscii(slice, needle)
                 }
-                return element.containsNormalizedTextASCII(needle)
+                return try element.containsNormalizedTextASCII(needle)
             }
             return (try element.text().lowercased().contains(searchText))
         }
@@ -871,8 +873,10 @@ open class Evaluator: @unchecked Sendable {
         }
 
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
+            guard !searchText.isEmpty else { return false }
             if let needle = searchTextLowerUTF8 {
-                if let slice = element.textUTF8ByteSlice(trimAndNormaliseWhitespace: true) {
+                if let slice = element.textUTF8ByteSlice(trimAndNormaliseWhitespace: true),
+                   StringUtil.isAscii(slice) {
                     return StringUtil.containsLowercaseAscii(slice, needle)
                 }
                 return element.containsOwnTextASCII(needle)
