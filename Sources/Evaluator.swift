@@ -854,7 +854,17 @@ open class Evaluator: @unchecked Sendable {
         public override func matches(_ root: Element, _ element: Element)throws->Bool {
             let family: Array<Node> = element.getChildNodes()
             for n in family {
-                if (!((n as? Comment) != nil || (n as? XmlDeclaration) != nil || (n as? DocumentType) != nil)) {return false}
+                if let text = n as? TextNode {
+                    let isEmpty = type(of: text) == TextNode.self
+                        ? text.wholeTextSlice().isEmpty : text.getWholeTextUTF8().isEmpty
+                    if !isEmpty { return false }
+                } else if let data = n as? DataNode {
+                    let isEmpty = type(of: data) == DataNode.self
+                        ? data.wholeDataSlice().isEmpty : data.getWholeDataUTF8().isEmpty
+                    if !isEmpty { return false }
+                } else if !(n is Comment || n is XmlDeclaration || n is DocumentType) {
+                    return false
+                }
             }
             return true
         }

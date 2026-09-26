@@ -244,7 +244,7 @@ print(cleanHtml) // Output: <p style="color:red">Styled text</p>
 - `[*]` selects elements that have any attribute. e.g. `p[*]` finds paragraphs with at least one attribute, and `p:not([*])` finds those with no attributes.
 - `ns|tag`: find elements by tag in a namespace prefix, e.g. `dc|name` finds `<dc:name>` elements
 - `*|tag`: find elements by tag in any namespace prefix, e.g. `*|name` finds `<dc:name>` and `<name>` elements
-- `:empty`: selects elements that have no children (ignoring blank text nodes, comments, etc.); e.g. `li:empty`
+- `:empty`: selects elements that have no children (ignoring zero-length text nodes, comments, etc.; whitespace-only text still counts as content); e.g. `li:empty`
 
 #### Selector combinations
 
