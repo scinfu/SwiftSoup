@@ -120,10 +120,12 @@ open class Collector {
         }
         var hasDescendant = Set<ObjectIdentifier>()
         hasDescendant.reserveCapacity(matches.size() * 2)
-        for el in matches.array() {
+        for el in matches.array() where el !== root {
             var parent = el.parent()
             while let current = parent {
-                hasDescendant.insert(ObjectIdentifier(current))
+                // An earlier match already marked every ancestor above this one.
+                // Stop here so overlapping matches visit each ancestor only once.
+                guard hasDescendant.insert(ObjectIdentifier(current)).inserted else { break }
                 if current === root { break }
                 parent = current.parent()
             }
