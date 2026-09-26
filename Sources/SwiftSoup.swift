@@ -234,23 +234,32 @@ import Foundation
 
     private func looksLikeXml(_ string: String) -> Bool {
         var i = string.startIndex
+        if i < string.endIndex && string[i] == "\u{FEFF}" {
+            i = string.index(after: i)
+        }
         while i < string.endIndex && string[i].isWhitespace {
             i = string.index(after: i)
         }
-        return string[i...].hasPrefix("<?xml")
+        return hasXmlDeclarationPrefix(string[i...].utf8)
     }
 
     private func looksLikeXml(_ bytes: [UInt8]) -> Bool {
-        let xmlDecl: [UInt8] = [0x3C, 0x3F, 0x78, 0x6D, 0x6C] // <?xml
-        var i = 0
+        var i = bytes.starts(with: [0xEF, 0xBB, 0xBF]) ? 3 : 0
         while i < bytes.count && (bytes[i] == 0x20 || bytes[i] == 0x09 || bytes[i] == 0x0A || bytes[i] == 0x0D) {
             i += 1
         }
-        guard i + xmlDecl.count <= bytes.count else { return false }
-        for j in 0..<xmlDecl.count {
-            if bytes[i + j] != xmlDecl[j] { return false }
+        return hasXmlDeclarationPrefix(bytes[i...])
+    }
+
+    private func hasXmlDeclarationPrefix<Bytes: Collection>(_ bytes: Bytes) -> Bool where Bytes.Element == UInt8 {
+        var iterator = bytes.makeIterator()
+        for byte in "<?xml".utf8 {
+            guard iterator.next() == byte else { return false }
         }
-        return true
+        // Require the complete target, not a PI such as <?xml-stylesheet ...?>.
+        // Keep accepting truncated and empty declarations in this tolerant parser.
+        guard let next = iterator.next() else { return true }
+        return next == 0x20 || next == 0x09 || next == 0x0A || next == 0x0D || next == 0x3F || next == 0x3E
     }
 
 	//todo:

@@ -37,6 +37,15 @@ public class XmlTreeBuilder: TreeBuilder {
     
     override public func initialiseParse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
         super.initialiseParse(input, baseUri, errors, settings)
+        initialiseXmlDocument()
+    }
+
+    override public func initialiseParse(_ input: UnsafeBufferPointer<UInt8>, owner: AnyObject?, _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
+        super.initialiseParse(input, owner: owner, baseUri, errors, settings)
+        initialiseXmlDocument()
+    }
+
+    private func initialiseXmlDocument() {
         stack.append(doc) // place the document onto the stack. differs from HtmlTreeBuilder (not on stack)
         doc.outputSettings().syntax(syntax: OutputSettings.Syntax.xml)
         doc.parsedAsXml = true
