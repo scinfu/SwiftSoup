@@ -1920,41 +1920,46 @@ open class Element: Node {
     }
 
     @inline(__always)
-    private func collectTextFastTrimmed(_ accum: StringBuilder) -> (Bool, Bool) {
-        var stack: ContiguousArray<Node> = []
+    private func collectTextFastTrimmed(_ accum: StringBuilder) {
+        var stack: ContiguousArray<(Node, Bool)> = []
         stack.reserveCapacity(childNodes.count + 1)
-        stack.append(self)
+        stack.append((self, Element.preserveWhitespace(parent())))
         var lastWasWhite = false
-        var sawWhitespace = false
-        while let node = stack.popLast() {
+        while let (node, inheritedWhitespace) = stack.popLast() {
+            var preservesWhitespace = inheritedWhitespace
             if let textNode = node as? TextNode {
                 Element.appendNormalisedTextTracking(
                     accum,
                     textNode,
-                    lastWasWhite: &lastWasWhite,
-                    sawWhitespace: &sawWhitespace
+                    preserveWhitespace: preservesWhitespace,
+                    lastWasWhite: &lastWasWhite
                 )
                 continue
             }
             if let element = node as? Element {
+                let elementType = type(of: element)
+                if elementType == Element.self || elementType == Document.self || elementType == FormElement.self {
+                    preservesWhitespace = preservesWhitespace || element._tag.preserveWhitespace()
+                } else {
+                    // Custom parent views may differ from the traversal's structural parent.
+                    preservesWhitespace = Element.preserveWhitespace(element)
+                }
                 if !accum.isEmpty &&
                     (element.isBlock() || Tag.isBr(element._tag)) &&
                     !lastWasWhite {
                     accum.append(UTF8Arrays.whitespace)
                     lastWasWhite = true
-                    sawWhitespace = true
                 }
             }
             let children = node.childNodes
             if !children.isEmpty {
                 var i = children.count - 1
                 while i >= 0 {
-                    stack.append(children[i])
+                    stack.append((children[i], preservesWhitespace))
                     i -= 1
                 }
             }
         }
-        return (lastWasWhite, sawWhitespace)
     }
 
     @inline(__always)
@@ -2008,14 +2013,12 @@ open class Element: Node {
                 return text
             }
             let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
-            let (lastWasWhite, sawWhitespace) = collectTextFastTrimmed(accum)
-            if sawWhitespace, let first = accum.buffer.first, first.isWhitespace {
+            collectTextFastTrimmed(accum)
+            if let first = accum.buffer.first, first.isWhitespace {
                 let trimmed = accum.buffer.trim()
                 return String(decoding: trimmed, as: UTF8.self)
             }
-            if sawWhitespace, lastWasWhite {
-                accum.trimTrailingWhitespace()
-            }
+            accum.trimTrailingWhitespace()
             return String(decoding: accum.buffer, as: UTF8.self)
         }
         if childNodes.count == 1, let textNode = childNodes.first as? TextNode {
@@ -2032,13 +2035,11 @@ open class Element: Node {
         }
         let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         if trimAndNormaliseWhitespace {
-            let (lastWasWhite, sawWhitespace) = collectTextFastTrimmed(accum)
-            if sawWhitespace, let first = accum.buffer.first, first.isWhitespace {
+            collectTextFastTrimmed(accum)
+            if let first = accum.buffer.first, first.isWhitespace {
                 return Array(accum.buffer.trim())
             }
-            if sawWhitespace, lastWasWhite {
-                accum.trimTrailingWhitespace()
-            }
+            accum.trimTrailingWhitespace()
             return Array(accum.buffer)
         }
         collectTextFastRaw(accum)
@@ -2051,13 +2052,11 @@ open class Element: Node {
         }
         let accum: StringBuilder = StringBuilder(max(64, childNodes.count * 8))
         if trimAndNormaliseWhitespace {
-            let (lastWasWhite, sawWhitespace) = collectTextFastTrimmed(accum)
-            if sawWhitespace, let first = accum.buffer.first, first.isWhitespace {
+            collectTextFastTrimmed(accum)
+            if let first = accum.buffer.first, first.isWhitespace {
                 return accum.buffer.trim()
             }
-            if sawWhitespace, lastWasWhite {
-                accum.trimTrailingWhitespace()
-            }
+            accum.trimTrailingWhitespace()
             return accum.buffer
         }
         collectTextFastRaw(accum)
@@ -2082,7 +2081,7 @@ open class Element: Node {
             return slice
         }
         for b in slice {
-            if StringUtil.isAsciiWhitespaceByte(b) ||
+            if b.isWhitespace ||
                 b == StringUtil.utf8NBSPLead ||
                 b == StringUtil.utf8NBSPTrail {
                 return nil
@@ -2173,23 +2172,21 @@ open class Element: Node {
     @inline(__always)
     private static func appendNormalisedTextTracking(_ accum: StringBuilder,
                                                      _ textNode: TextNode,
-                                                     lastWasWhite: inout Bool,
-                                                     sawWhitespace: inout Bool) {
+                                                     preserveWhitespace: Bool,
+                                                     lastWasWhite: inout Bool) {
         let text = textNode.wholeTextSlice()
-        if Element.preserveWhitespace(textNode.parentNode) {
+        if preserveWhitespace {
             accum.append(text)
             if let last = text.last {
                 lastWasWhite = (last == TokeniserStateVars.spaceByte)
             }
-            sawWhitespace = true
             return
         }
         StringUtil.appendNormalisedWhitespace(
             accum,
             string: text,
             stripLeading: accum.isEmpty || lastWasWhite,
-            lastWasWhite: &lastWasWhite,
-            sawWhitespace: &sawWhitespace
+            lastWasWhite: &lastWasWhite
         )
     }
 
@@ -2223,9 +2220,12 @@ open class Element: Node {
     }
     
     static func preserveWhitespace(_ node: Node?) -> Bool {
-        // looks only at this element and one level up, to prevent recursion & needless stack searches
-        if let element = (node as? Element) {
-            return element._tag.preserveWhitespace() || element.parent() != nil && element.parent()!._tag.preserveWhitespace()
+        // Whitespace preservation is inherited through all intervening markup.
+        // Walk iteratively so deeply nested inline elements remain stack safe.
+        var current = node as? Element
+        while let element = current {
+            if element._tag.preserveWhitespace() { return true }
+            current = element.parent()
         }
         return false
     }
