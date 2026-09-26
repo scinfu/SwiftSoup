@@ -735,7 +735,8 @@ open class Evaluator: @unchecked Sendable {
             let family: Elements? = element.parent()?.children()
             if let array = family?.array() {
                 for el in array {
-                    if (el.tag() == element.tag()) {pos+=1}
+                    // Type identity depends on the name, not serialization traits such as self-closing syntax.
+                    if (el.tag().getNameUTF8() == element.tag().getNameUTF8()) {pos+=1}
                     if (el === element) {break}
                 }
             }
@@ -759,7 +760,7 @@ open class Evaluator: @unchecked Sendable {
             if let family = element.parent()?.children() {
                 let x = try element.elementSiblingIndex()
                 for i in x..<family.array().count {
-                    if (family.get(i).tag() == element.tag()) {
+                    if (family.get(i).tag().getNameUTF8() == element.tag().getNameUTF8()) {
                         pos+=1
                     }
                 }
@@ -838,7 +839,7 @@ open class Evaluator: @unchecked Sendable {
             var pos = 0
             if let family = p?.children().array() {
                 for  el in family {
-                    if (el.tag() == element.tag()) {pos+=1}
+                    if (el.tag().getNameUTF8() == element.tag().getNameUTF8()) {pos+=1}
                 }
             }
             return pos == 1
