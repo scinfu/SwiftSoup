@@ -30,25 +30,26 @@ final class DeferredAttributeLegacyContractTest: XCTestCase {
             let pairs: [(String, String?)] = [("duplicate", "before"), ("duplicate", "after")]
                 + (0..<padding).map { ("k\($0)", "v\($0)") }
             let attributes = try pending(pairs)
-            XCTAssertEqual(attributes.get(key: "duplicate"), "after")
-            XCTAssertEqual(try attributes.getIgnoreCase(key: "DUPLICATE"), "after")
-            XCTAssertEqual(String(decoding: try attributes.getIgnoreCaseSlice(key: Array("duplicate".utf8)), as: UTF8.self), "after")
+            // HTML5 tokenizer: the repeated name is dropped, so the first value wins.
+            XCTAssertEqual(attributes.get(key: "duplicate"), "before")
+            XCTAssertEqual(try attributes.getIgnoreCase(key: "DUPLICATE"), "before")
+            XCTAssertEqual(String(decoding: try attributes.getIgnoreCaseSlice(key: Array("duplicate".utf8)), as: UTF8.self), "before")
             XCTAssertEqual(attributes.size(), padding + 1)
-            XCTAssertEqual(attributes.get(key: "duplicate"), "after")
+            XCTAssertEqual(attributes.get(key: "duplicate"), "before")
         }
     }
 
-    func testCaseVariantsRetainFirstKeyPositionAndLastExactValue() throws {
+    func testCaseVariantsRetainFirstKeyPositionAndFirstExactValue() throws {
         for pairs in [
             [("A", "first"), ("a", "lower"), ("A", "last")],
             [("A", "first"), ("A", "last"), ("a", "lower")]
         ] {
             let attributes = try pending(pairs.map { ($0.0, Optional($0.1)) })
-            XCTAssertEqual(attributes.get(key: "A"), "last")
+            XCTAssertEqual(attributes.get(key: "A"), "first")
             XCTAssertEqual(attributes.get(key: "a"), "lower")
-            XCTAssertEqual(try attributes.getIgnoreCase(key: "a"), "last")
+            XCTAssertEqual(try attributes.getIgnoreCase(key: "a"), "first")
             XCTAssertEqual(attributes.size(), 2)
-            XCTAssertEqual(try attributes.getIgnoreCase(key: "a"), "last")
+            XCTAssertEqual(try attributes.getIgnoreCase(key: "a"), "first")
             XCTAssertEqual(attributes.asList().map { $0.getKey() }, ["A", "a"])
         }
     }
@@ -85,14 +86,15 @@ final class DeferredAttributeLegacyContractTest: XCTestCase {
             let doc = try SwiftSoup.parse(html)
             let p = try XCTUnwrap(doc.body()?.child(0))
             let attrs = try XCTUnwrap(p.getAttributes())
-            if firstRead == 0 { XCTAssertEqual(try p.attr("id"), "new") }
-            if firstRead == 1 { XCTAssertTrue(try doc.select("#new").first() === p) }
-            if firstRead == 2 { XCTAssertTrue(try doc.select(".after").first() === p) }
+            // HTML5 tokenizer: repeated attribute names are dropped, the first occurrence wins.
+            if firstRead == 0 { XCTAssertEqual(try p.attr("id"), "old") }
+            if firstRead == 1 { XCTAssertTrue(try doc.select("#old").first() === p) }
+            if firstRead == 2 { XCTAssertTrue(try doc.select(".before").first() === p) }
             if firstRead == 3 { _ = attrs.clone() }
             for _ in 0..<3 {
-                XCTAssertEqual(try p.attr("id"), "new")
-                XCTAssertTrue(try doc.select("#new.after[data-v=two]").first() === p)
-                XCTAssertEqual(try doc.select("#old, .before, [data-v=one]").size(), 0)
+                XCTAssertEqual(try p.attr("id"), "old")
+                XCTAssertTrue(try doc.select("#old.before[data-v=one]").first() === p)
+                XCTAssertEqual(try doc.select("#new, .after, [data-v=two]").size(), 0)
                 _ = attrs.asList()
             }
         }
@@ -114,10 +116,11 @@ final class DeferredAttributeLegacyContractTest: XCTestCase {
         XCTAssertTrue(attrs.attributes.isEmpty)
         let dirty = p.sourceRangeDirty
         let version = doc.textMutationVersion
-        XCTAssertEqual(try p.attr("id"), "new")
+        // Repeated names are dropped by the tokenizer (first wins), so the batch is
+        // no longer ambiguous; reads must still not dirty the owner or the source.
+        XCTAssertEqual(try p.attr("id"), "old")
         _ = try attrs.html()
-        XCTAssertFalse(attrs.attributes.isEmpty, "ambiguous names now use authoritative materialized storage")
-        XCTAssertEqual(attrs.get(key: "class"), "after")
+        XCTAssertEqual(attrs.get(key: "class"), "before")
         XCTAssertEqual(p.sourceRangeDirty, dirty)
         XCTAssertEqual(doc.textMutationVersion, version)
     }
@@ -146,15 +149,15 @@ final class DeferredAttributeLegacyContractTest: XCTestCase {
         let settings = doc.outputSettings().prettyPrint(pretty: false)
         let original = try p.outerHtmlUTF8Internal(settings, allowRawSource: true)
         let regenerated = try p.outerHtmlUTF8Internal(settings, allowRawSource: false)
-        XCTAssertEqual(p.getAttributes()?.get(key: "id"), "new")
-        XCTAssertEqual(try p.attr("id"), "new")
+        XCTAssertEqual(p.getAttributes()?.get(key: "id"), "old")
+        XCTAssertEqual(try p.attr("id"), "old")
         _ = p.getAttributes()?.asList()
         XCTAssertEqual(try p.outerHtmlUTF8Internal(settings, allowRawSource: true), original)
         XCTAssertEqual(try p.outerHtmlUTF8Internal(settings, allowRawSource: false), regenerated)
         try p.attr("id", "edited")
         let edited = try SwiftSoup.parse(String(decoding: p.outerHtmlUTF8Internal(settings, allowRawSource: true), as: UTF8.self))
-        XCTAssertEqual(try edited.select("#edited.after").size(), 1)
-        XCTAssertEqual(try edited.select("#old, #new, .before").size(), 0)
+        XCTAssertEqual(try edited.select("#edited.before").size(), 1)
+        XCTAssertEqual(try edited.select("#old, #new, .after").size(), 0)
     }
 
     func testTextBytePresenceOnParsedNodesDoesNotDirtySourceOrRestoreRemovedText() throws {

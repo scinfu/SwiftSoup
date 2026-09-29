@@ -439,6 +439,10 @@ open class Token {
                     _pendingAttributes = []
                     _pendingAttributes!.reserveCapacity(8)
                     _pendingAttributes!.append(pending)
+                } else if let key = pending.normalizedKey(),
+                          _pendingAttributes!.contains(where: { $0.normalizedKey() == key }) {
+                    // HTML5 tokenizer: a repeated attribute name on the same start tag is
+                    // dropped, so the first occurrence wins (as in WebKit and html5lib).
                 } else {
                     _pendingAttributes!.append(pending)
                 }
