@@ -67,5 +67,4 @@ final class StackOverflow393Test: XCTestCase {
         }
         XCTAssertTrue(ok, "deep Element.empty() overflowed the small-stack thread")
     }
-
 }
