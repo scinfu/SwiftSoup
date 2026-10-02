@@ -54,6 +54,18 @@ final class StackOverflow463Test: XCTestCase {
         XCTAssertTrue(ok, "deep .outerHtml() serialization overflowed the small-stack thread")
     }
 
+    // REGRESSION (#463): setting an attribute on the deepest node triggers
+    // markSourceDirty walking up through all ancestors recursively.
+    // This overflows a 512 KB thread at ~300 levels before the iterative fix.
+    func testDeepMutationMarkSourceDirtyOnSmallStackSurvives() throws {
+        let html = makeDeepHTML(depth: 3_000)
+        nonisolated(unsafe) let doc = try SwiftSoup.parse(html)
+        let ok = runOnSmallStack(stackSize: 512 * 1024) {
+            try? doc.body()?.select("div").last()?.attr("data-x", "1")
+        }
+        XCTAssertTrue(ok, "markSourceDirty walked parent chain and overflowed the small-stack thread")
+    }
+
     // Verify iterative serialization produces correct output.
     func testDeepHtmlSerializationOutputCorrect() throws {
         let html = makeDeepHTML(depth: 500)

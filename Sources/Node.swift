@@ -535,35 +535,33 @@ open class Node: Equatable, Hashable {
     @inline(__always)
     @usableFromInline
     internal func markSourceDirty(force: Bool = false) {
-        if sourceRangeDirty {
-            ownerDocument()?.registerDirtySourceRoot(self)
-            return
-        }
-        if !force, treeBuilder?.isBulkBuilding == true {
-            return
-        }
-        sourceRangeDirty = true
-        ownerDocument()?.registerDirtySourceRoot(self)
-        parentNode?.markSourceDirty(force: force, registerDirtyRoot: false)
+        markSourceDirty(force: force, registerDirtyRoot: true)
     }
 
     @inline(__always)
     @usableFromInline
     internal func markSourceDirty(force: Bool = false, registerDirtyRoot: Bool) {
-        if sourceRangeDirty {
-            if registerDirtyRoot {
-                ownerDocument()?.registerDirtySourceRoot(self)
+        // Iterative parent-chain walk — avoids stack overflow on deeply nested
+        // documents (e.g. Outlook reply chains with 2000-3000 nested <div> tags).
+        // The original recursive tail-call `parentNode?.markSourceDirty(…)` adds
+        // one stack frame per ancestor and overflows a 512 KB thread at ~300 levels.
+        var current: Node? = self
+        var shouldRegister = registerDirtyRoot
+        while let node = current {
+            if node.sourceRangeDirty {
+                if shouldRegister {
+                    node.ownerDocument()?.registerDirtySourceRoot(node)
+                }
+                return
             }
-            return
+            if !force, node.treeBuilder?.isBulkBuilding == true { return }
+            node.sourceRangeDirty = true
+            if shouldRegister {
+                node.ownerDocument()?.registerDirtySourceRoot(node)
+                shouldRegister = false  // only the root node registers; parents do not
+            }
+            current = node.parentNode
         }
-        if !force, treeBuilder?.isBulkBuilding == true {
-            return
-        }
-        sourceRangeDirty = true
-        if registerDirtyRoot {
-            ownerDocument()?.registerDirtySourceRoot(self)
-        }
-        parentNode?.markSourceDirty(force: force, registerDirtyRoot: false)
     }
 
     @inline(__always)
