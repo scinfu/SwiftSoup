@@ -538,7 +538,6 @@ open class Node: Equatable, Hashable {
         markSourceDirty(force: force, registerDirtyRoot: true)
     }
 
-    @inline(__always)
     @usableFromInline
     internal func markSourceDirty(force: Bool = false, registerDirtyRoot: Bool) {
         // Iterative parent-chain walk — avoids stack overflow on deeply nested
@@ -554,7 +553,9 @@ open class Node: Equatable, Hashable {
                 }
                 return
             }
-            if !force, node.treeBuilder?.isBulkBuilding == true { return }
+            if !force, node.treeBuilder?.isBulkBuilding == true {
+                return
+            }
             node.sourceRangeDirty = true
             if shouldRegister {
                 node.ownerDocument()?.registerDirtySourceRoot(node)
