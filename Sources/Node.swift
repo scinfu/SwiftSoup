@@ -1112,34 +1112,61 @@ open class Node: Equatable, Hashable {
         return source[range.start..<range.end]
     }
 
-    @inline(__always)
+    /// Serializes this node and its descendants into `accum`.
+    ///
+    /// Uses an iterative depth-first traversal instead of recursion so that
+    /// deeply nested HTML (e.g. 2000+ nested `<div>` from email reply chains)
+    /// does not overflow the stack. See #463 and the analogous `deinit` fix
+    /// in `tearDownChildNodesIteratively()` (#393 / PR #396).
     internal func outerHtmlFast(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings, allowRawSource: Bool) throws {
-        if let raw = rawSourceSlice(out, allowRawSource: allowRawSource) {
-            accum.append(raw)
-            return
-        }
-        try outerHtmlHead(accum, depth, out)
-        if !childNodes.isEmpty {
-            for child in childNodes {
-                try child.outerHtmlFast(accum, depth + 1, out, allowRawSource: allowRawSource)
+        // Each entry is (node, depth, isExit). On first visit (isExit=false) we
+        // emit the head, push an exit entry, then push children in reverse order.
+        // On the exit visit we emit the tail.
+        var stack: [(node: Node, depth: Int, isExit: Bool)] = [(self, depth, false)]
+        stack.reserveCapacity(64)
+
+        while let (node, d, isExit) = stack.popLast() {
+            if isExit {
+                try node.outerHtmlTail(accum, d, out)
+                continue
+            }
+            if let raw = node.rawSourceSlice(out, allowRawSource: allowRawSource) {
+                accum.append(raw)
+                continue
+            }
+            try node.outerHtmlHead(accum, d, out)
+            stack.append((node, d, true))
+            if !node.childNodes.isEmpty {
+                for child in node.childNodes.reversed() {
+                    stack.append((child, d + 1, false))
+                }
             }
         }
-        try outerHtmlTail(accum, depth, out)
     }
 
-    @inline(__always)
+    /// Non-source-reuse variant of ``outerHtmlFast``. Also iterative to avoid
+    /// stack overflow on deeply nested documents (#463).
     internal func outerHtmlFastWithoutSourceReuse(
         _ accum: StringBuilder,
         _ depth: Int,
         _ out: OutputSettings
     ) throws {
-        try outerHtmlHead(accum, depth, out)
-        if !childNodes.isEmpty {
-            for child in childNodes {
-                try child.outerHtmlFastWithoutSourceReuse(accum, depth + 1, out)
+        var stack: [(node: Node, depth: Int, isExit: Bool)] = [(self, depth, false)]
+        stack.reserveCapacity(64)
+
+        while let (node, d, isExit) = stack.popLast() {
+            if isExit {
+                try node.outerHtmlTail(accum, d, out)
+                continue
+            }
+            try node.outerHtmlHead(accum, d, out)
+            stack.append((node, d, true))
+            if !node.childNodes.isEmpty {
+                for child in node.childNodes.reversed() {
+                    stack.append((child, d + 1, false))
+                }
             }
         }
-        try outerHtmlTail(accum, depth, out)
     }
     
     /**
