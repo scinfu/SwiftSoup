@@ -92,6 +92,71 @@ final class StackOverflow463Test: XCTestCase {
         XCTAssertEqual(output.toString(), "<root:4><added:5></added:5></root:4>")
     }
 
+    func testFormattingMatchesRecursiveTraversal() throws {
+        let fixtures = [
+            (false, "<!doctype html><html><head><title>A &amp; B</title></head><body>"
+                + "<section>before<span title='日本 &amp;'>日本 &amp; text</span>after"
+                + "<!--comment--><br><pre> a\n b </pre><script>if (a < b) x()</script>"
+                + "<div><p>nested</p><p></p></div></section></body></html>"),
+            (true, "<?xml version='1.0'?><Root a='日本 &amp;'><Empty/>before"
+                + "<Child><![CDATA[a < b]]></Child><!--comment--><Nested><Leaf/></Nested>"
+                + "after</Root>")
+        ]
+        for (xml, source) in fixtures {
+            let document = try (xml ? Parser.xmlParser() : Parser.htmlParser())
+                .parseInput(source, "")
+            for pretty in [false, true] {
+                for outline in [false, true] {
+                    for charset in [String.Encoding.utf8, .ascii] {
+                        for mode in [Entities.EscapeMode.base, .extended, .xhtml] {
+                            for depth in [0, 5] {
+                                let settings = document.outputSettings()
+                                    .prettyPrint(pretty: pretty).outline(outlineMode: outline)
+                                    .indentAmount(indentAmount: 3).charset(charset).escapeMode(mode)
+                                let expected = StringBuilder()
+                                try serializeRecursively(document, expected, depth, settings)
+                                let actual = StringBuilder()
+                                try document.outerHtmlFastWithoutSourceReuse(actual, depth, settings)
+                                XCTAssertEqual(actual.toString(), expected.toString(),
+                                    "xml=\(xml), pretty=\(pretty), outline=\(outline), "
+                                    + "charset=\(charset), mode=\(mode), depth=\(depth)")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Keep this oracle recursive and fixtures shallow: it reproduces the original
+    // callback order independently of the continuation-frame implementation.
+    private func serializeRecursively(
+        _ node: Node, _ output: StringBuilder, _ depth: Int, _ settings: OutputSettings
+    ) throws {
+        try node.outerHtmlHead(output, depth, settings)
+        for child in node.childNodes {
+            try serializeRecursively(child, output, depth + 1, settings)
+        }
+        try node.outerHtmlTail(output, depth, settings)
+    }
+
+    func testDetachingActiveSubtreePreservesAncestorContinuations() throws {
+        let root = RecordingNode("root")
+        let first = RecordingNode("first")
+        try first.appendChild(RecordingNode("leaf"))
+        try root.addChildren(first, RecordingNode("later"))
+        first.onHead = {
+            for child in root.childNodes { try child.remove() }
+        }
+        defer { first.onHead = nil }
+        let output = StringBuilder()
+        try root.outerHtmlFastWithoutSourceReuse(output, 2, OutputSettings())
+        XCTAssertTrue(root.childNodes.isEmpty)
+        XCTAssertNil(first.parent())
+        XCTAssertEqual(output.toString(),
+            "<root:2><first:3><leaf:4></leaf:4></first:3><later:3></later:3></root:2>")
+    }
+
     func testWideTreePreservesAllSiblings() throws {
         let inner = "<section>" + String(repeating: "<i>x</i><b>y</b>", count: 1_024) + "</section>"
         let document = try SwiftSoup.parse(inner)
