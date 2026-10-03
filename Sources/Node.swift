@@ -1111,7 +1111,6 @@ open class Node: Equatable, Hashable {
     private struct SerializationFrame {
         let node: Node
         let children: [Node]
-        let depth: Int
         var nextChild: Int
     }
 
@@ -1119,37 +1118,36 @@ open class Node: Equatable, Hashable {
     internal func outerHtmlFast(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings, allowRawSource: Bool) throws {
         // Keep continuations on the heap rather than recursing once per DOM level.
         // Snapshot each parent's children after its head callback, just as the
-        // recursive for-in traversal did. Wide trees need only O(depth) frames.
+        // recursive for-in traversal did. Each frame represents one active ancestor,
+        // so its stack position determines depth without storing it separately.
         var frames: [SerializationFrame] = []
         var current: Node? = self
-        var currentDepth = depth
         while let node = current {
+            let nodeDepth = depth + frames.count
             if let raw = node.rawSourceSlice(out, allowRawSource: allowRawSource) {
                 accum.append(raw)
             } else {
-                try node.outerHtmlHead(accum, currentDepth, out)
+                try node.outerHtmlHead(accum, nodeDepth, out)
                 let children = node.childNodes
                 if let first = children.first {
                     frames.append(SerializationFrame(
-                        node: node, children: children, depth: currentDepth, nextChild: 1
+                        node: node, children: children, nextChild: 1
                     ))
                     current = first
-                    currentDepth += 1
                     continue
                 }
-                try node.outerHtmlTail(accum, currentDepth, out)
+                try node.outerHtmlTail(accum, nodeDepth, out)
             }
 
             current = nil
             while let frame = frames.last {
                 if frame.nextChild < frame.children.count {
                     current = frame.children[frame.nextChild]
-                    currentDepth = frame.depth + 1
                     frames[frames.count - 1].nextChild += 1
                     break
                 }
                 frames.removeLast()
-                try frame.node.outerHtmlTail(accum, frame.depth, out)
+                try frame.node.outerHtmlTail(accum, depth + frames.count, out)
             }
         }
     }
