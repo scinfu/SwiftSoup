@@ -128,6 +128,66 @@ final class StackOverflow463Test: XCTestCase {
         XCTAssertEqual(output.toString(), "<root:3><first:4><leaf:5></leaf:5></first:4>")
     }
 
+    func testReusedSubtreeSkipsCallbacksAndPreservesFollowingSiblingDepth() throws {
+        let source = "<raw><nested/></raw>"
+        let document = Document("")
+        document.sourceBuffer = SourceBuffer(Array(source.utf8), parsedAsXml: false)
+        document.outputSettings().prettyPrint(pretty: false)
+        let root = RecordingNode("root")
+        let reused = RecordingNode("reused")
+        let hidden = RecordingNode("hidden")
+        let following = RecordingNode("following")
+        try reused.appendChild(hidden)
+        try following.appendChild(RecordingNode("leaf"))
+        try root.addChildren(reused, following)
+        try document.addChildren(root)
+        // Model a complete source-backed subtree; its visitor callbacks must be skipped.
+        reused.setSourceRange(SourceRange(start: 0, end: source.utf8.count), complete: true)
+        reused.onHead = { XCTFail("Reused subtree head must not run") }
+        reused.onTail = { XCTFail("Reused subtree tail must not run") }
+        hidden.onHead = { XCTFail("Reused descendants must not be visited") }
+        let output = StringBuilder()
+        try root.outerHtmlFast(output, 5, document.outputSettings(), allowRawSource: true)
+        XCTAssertEqual(output.toString(),
+            "<root:5>" + source + "<following:6><leaf:7></leaf:7></following:6></root:5>")
+    }
+
+    func testForcedDirtyPropagationBypassesBulkBuildSuppression() throws {
+        let source = "<html><head></head><body><p>value</p></body></html>"
+        let document = try SwiftSoup.parse(source)
+        document.outputSettings().prettyPrint(pretty: false)
+        let paragraph = try XCTUnwrap(document.select("p").first())
+        let builder = TreeBuilder()
+        builder.doc = document
+        builder.isBulkBuilding = true
+        paragraph.treeBuilder = builder
+        defer { builder.isBulkBuilding = false }
+        try paragraph.attr("data-state", "changed")
+        // Bulk parsing suppresses dirty propagation, keeping the source reusable.
+        XCTAssertEqual(try document.outerHtml(), source)
+        paragraph.markSourceDirty(force: true)
+        XCTAssertEqual(try document.outerHtml(),
+            source.replacingOccurrences(of: "<p>", with: "<p data-state=\"changed\">"))
+    }
+
+    func testAlreadyDirtyNodeCanRegisterAfterRegistrationWasSuppressed() throws {
+        let document = try SwiftSoup.parse(
+            "<html><head></head><body><p title='source'>value</p></body></html>")
+        let paragraph = try XCTUnwrap(document.select("p").first())
+        let range = try XCTUnwrap(paragraph.sourceRange)
+        // Start with an empty registration set, independently of parser bookkeeping.
+        document.dirtySourceRoots.removeAll()
+        paragraph.markSourceDirty(registerDirtyRoot: false)
+        XCTAssertTrue(document.currentDirtySourceRoots().isEmpty)
+        paragraph.markSourceDirty()
+        let roots = document.currentDirtySourceRoots()
+        XCTAssertEqual(roots.count, 1)
+        XCTAssertTrue(roots.first === paragraph)
+        XCTAssertEqual(try document.sourcePatches(), [
+            SourcePatch(range: range, replacement: Array("<p title=\"source\">value</p>".utf8))
+        ])
+    }
+
     private enum SerializationFailure: Error { case expected }
 
     private final class RecordingNode: Node {
