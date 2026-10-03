@@ -235,6 +235,42 @@ final class StackOverflow463Test: XCTestCase {
             source.replacingOccurrences(of: "<p>", with: "<p data-state=\"changed\">"))
     }
 
+    func testDirtyPropagationStopsAtAncestorGuards() throws {
+        for alreadyDirty in [false, true] {
+            for force in [false, true] {
+                for register in [false, true] {
+                    let document = Document("")
+                    let ancestor = RecordingNode("ancestor")
+                    let boundary = RecordingNode("boundary")
+                    let leaf = RecordingNode("leaf")
+                    try document.addChildren(ancestor)
+                    try ancestor.addChildren(boundary)
+                    try boundary.addChildren(leaf)
+                    // Reset construction bookkeeping to isolate the parent walk.
+                    for node in [document, ancestor, boundary, leaf] {
+                        node.sourceRangeDirty = false
+                    }
+                    document.dirtySourceRoots.removeAll()
+                    let builder = TreeBuilder()
+                    builder.doc = document
+                    builder.isBulkBuilding = true
+                    boundary.treeBuilder = builder
+                    defer { builder.isBulkBuilding = false }
+                    boundary.sourceRangeDirty = alreadyDirty
+                    leaf.markSourceDirty(force: force, registerDirtyRoot: register)
+                    let reachesRoot = force && !alreadyDirty
+                    XCTAssertTrue(leaf.sourceRangeDirty)
+                    XCTAssertEqual(boundary.sourceRangeDirty, alreadyDirty || force)
+                    XCTAssertEqual(ancestor.sourceRangeDirty, reachesRoot)
+                    XCTAssertEqual(document.sourceRangeDirty, reachesRoot)
+                    let roots = document.currentDirtySourceRoots()
+                    XCTAssertEqual(roots.count, register ? 1 : 0)
+                    if register { XCTAssertTrue(roots.first === leaf) }
+                }
+            }
+        }
+    }
+
     func testAlreadyDirtyNodeCanRegisterAfterRegistrationWasSuppressed() throws {
         let document = try SwiftSoup.parse(
             "<html><head></head><body><p title='source'>value</p></body></html>")
