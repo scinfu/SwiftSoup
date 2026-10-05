@@ -535,35 +535,31 @@ open class Node: Equatable, Hashable {
     @inline(__always)
     @usableFromInline
     internal func markSourceDirty(force: Bool = false) {
-        if sourceRangeDirty {
-            ownerDocument()?.registerDirtySourceRoot(self)
-            return
-        }
-        if !force, treeBuilder?.isBulkBuilding == true {
-            return
-        }
-        sourceRangeDirty = true
-        ownerDocument()?.registerDirtySourceRoot(self)
-        parentNode?.markSourceDirty(force: force, registerDirtyRoot: false)
+        markSourceDirty(force: force, registerDirtyRoot: true)
     }
 
     @inline(__always)
     @usableFromInline
     internal func markSourceDirty(force: Bool = false, registerDirtyRoot: Bool) {
-        if sourceRangeDirty {
-            if registerDirtyRoot {
-                ownerDocument()?.registerDirtySourceRoot(self)
+        var node: Node? = self
+        var shouldRegisterDirtyRoot = registerDirtyRoot
+        while let current = node {
+            if current.sourceRangeDirty {
+                if shouldRegisterDirtyRoot {
+                    current.ownerDocument()?.registerDirtySourceRoot(current)
+                }
+                return
             }
-            return
+            if !force, current.treeBuilder?.isBulkBuilding == true {
+                return
+            }
+            current.sourceRangeDirty = true
+            if shouldRegisterDirtyRoot {
+                current.ownerDocument()?.registerDirtySourceRoot(current)
+                shouldRegisterDirtyRoot = false
+            }
+            node = current.parentNode
         }
-        if !force, treeBuilder?.isBulkBuilding == true {
-            return
-        }
-        sourceRangeDirty = true
-        if registerDirtyRoot {
-            ownerDocument()?.registerDirtySourceRoot(self)
-        }
-        parentNode?.markSourceDirty(force: force, registerDirtyRoot: false)
     }
 
     @inline(__always)
@@ -1112,19 +1108,48 @@ open class Node: Equatable, Hashable {
         return source[range.start..<range.end]
     }
 
+    private struct SerializationFrame {
+        let node: Node
+        let children: [Node]
+        var nextChild: Int
+    }
+
     @inline(__always)
     internal func outerHtmlFast(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings, allowRawSource: Bool) throws {
-        if let raw = rawSourceSlice(out, allowRawSource: allowRawSource) {
-            accum.append(raw)
-            return
-        }
-        try outerHtmlHead(accum, depth, out)
-        if !childNodes.isEmpty {
-            for child in childNodes {
-                try child.outerHtmlFast(accum, depth + 1, out, allowRawSource: allowRawSource)
+        // Keep continuations on the heap rather than recursing once per DOM level.
+        // Snapshot each parent's children after its head callback, just as the
+        // recursive for-in traversal did. Each frame represents one active ancestor,
+        // so its stack position determines depth without storing it separately.
+        var frames: [SerializationFrame] = []
+        var current: Node? = self
+        while let node = current {
+            let nodeDepth = depth + frames.count
+            if let raw = node.rawSourceSlice(out, allowRawSource: allowRawSource) {
+                accum.append(raw)
+            } else {
+                try node.outerHtmlHead(accum, nodeDepth, out)
+                let children = node.childNodes
+                if let first = children.first {
+                    frames.append(SerializationFrame(
+                        node: node, children: children, nextChild: 1
+                    ))
+                    current = first
+                    continue
+                }
+                try node.outerHtmlTail(accum, nodeDepth, out)
+            }
+
+            current = nil
+            while let frame = frames.last {
+                if frame.nextChild < frame.children.count {
+                    current = frame.children[frame.nextChild]
+                    frames[frames.count - 1].nextChild += 1
+                    break
+                }
+                frames.removeLast()
+                try frame.node.outerHtmlTail(accum, depth + frames.count, out)
             }
         }
-        try outerHtmlTail(accum, depth, out)
     }
 
     @inline(__always)
@@ -1133,13 +1158,7 @@ open class Node: Equatable, Hashable {
         _ depth: Int,
         _ out: OutputSettings
     ) throws {
-        try outerHtmlHead(accum, depth, out)
-        if !childNodes.isEmpty {
-            for child in childNodes {
-                try child.outerHtmlFastWithoutSourceReuse(accum, depth + 1, out)
-            }
-        }
-        try outerHtmlTail(accum, depth, out)
+        try outerHtmlFast(accum, depth, out, allowRawSource: false)
     }
     
     /**
