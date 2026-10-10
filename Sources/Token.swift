@@ -362,7 +362,8 @@ open class Token {
         fileprivate var _pendingAttributes: [PendingAttribute]? // lazily materialized into Attributes
         private var _pendingAttributeNameMask: UInt64 = 0
         private var _pendingAttributeKeys: Set<ByteSlice>?
-        private(set) var duplicateAttributeCount = 0
+        private var _pendingAttributeNameChecked = false
+        private var _discardPendingAttribute = false
         public var _selfClosing: Bool = false
         private var _lowercaseAttributeNames: Bool = false
         fileprivate var _attributesAreNormalized: Bool = false
@@ -403,7 +404,8 @@ open class Token {
             _pendingAttributes?.removeAll(keepingCapacity: true)
             _pendingAttributeNameMask = 0
             _pendingAttributeKeys = nil
-            duplicateAttributeCount = 0
+            _pendingAttributeNameChecked = false
+            _discardPendingAttribute = false
             _selfClosing = false
             _lowercaseAttributeNames = false
             _attributesAreNormalized = false
@@ -418,7 +420,8 @@ open class Token {
             let pendingNameBytes = _pendingAttributeName
             let hasNameSlice = pendingNameSlice != nil && !(pendingNameSlice?.isEmpty ?? true)
             let hasNameBytes = pendingNameBytes != nil && !(pendingNameBytes?.isEmpty ?? true)
-            if hasNameSlice || hasNameBytes {
+            _ = finaliseAttributeName()
+            if (hasNameSlice || hasNameBytes) && !_discardPendingAttribute {
                 let value: PendingAttrValue
                 if _hasPendingAttributeValue {
                     if !_pendingAttributeValue.isEmpty {
@@ -441,15 +444,11 @@ open class Token {
                     hasUppercase: _pendingAttributeNameHasUppercase,
                     value: value
                 )
-                if !isDuplicateAttribute(pending) {
-                    if _pendingAttributes == nil {
-                        _pendingAttributes = []
-                        _pendingAttributes!.reserveCapacity(8)
-                    }
-                    _pendingAttributes!.append(pending)
-                } else {
-                    duplicateAttributeCount += 1
+                if _pendingAttributes == nil {
+                    _pendingAttributes = []
+                    _pendingAttributes!.reserveCapacity(8)
                 }
+                _pendingAttributes!.append(pending)
                 _hasAttributes = true
                 if _pendingAttributeNameHasUppercase {
                     _hasUppercaseAttributeNames = true
@@ -458,12 +457,30 @@ open class Token {
             _pendingAttributeName = nil
             _pendingAttributeNameS = nil
             _pendingAttributeNameHasUppercase = false
+            _pendingAttributeNameChecked = false
+            _discardPendingAttribute = false
             _hasEmptyAttributeValue = false
             _hasPendingAttributeValue = false
             Token.reset(_pendingAttributeValue)
             _pendingAttributeValueS = nil
             _pendingAttributeValueSlices?.removeAll(keepingCapacity: true)
             _pendingAttributeValueSlicesCount = 0
+        }
+
+        /// Register a complete name before consuming its value. The tokenizer reports
+        /// a duplicate at this point even if the tag is later abandoned at EOF.
+        @discardableResult
+        func finaliseAttributeName() -> Bool {
+            guard !_pendingAttributeNameChecked, hasPendingAttributeName() else { return false }
+            _pendingAttributeNameChecked = true
+            let pending = PendingAttribute(
+                nameSlice: _pendingAttributeNameS,
+                nameBytes: _pendingAttributeName,
+                hasUppercase: _pendingAttributeNameHasUppercase,
+                value: .none
+            )
+            _discardPendingAttribute = isDuplicateAttribute(pending)
+            return _discardPendingAttribute
         }
 
         /// First occurrence wins. Small canonical batches avoid hashing and trimming;

@@ -1071,15 +1071,8 @@ final class Tokeniser {
     
     @inlinable
     func emitTagPending() throws {
+        finaliseAttributeName()
         try tagPending.finaliseTag()
-        if trackErrors {
-            var remaining = tagPending.duplicateAttributeCount
-            // Do not spend time reporting discarded errors after the budget is full.
-            while remaining > 0 && (errors?.canAddError() ?? false) {
-                error("Duplicate attribute")
-                remaining -= 1
-            }
-        }
         if trackSourceRanges, let start = pendingTagStartPos {
             tagPending.sourceRange = SourceRange(start: start, end: reader.pos)
         } else {
@@ -1087,6 +1080,13 @@ final class Tokeniser {
         }
         pendingTagStartPos = nil
         try emit(tagPending)
+    }
+
+    @inline(__always)
+    func finaliseAttributeName() {
+        if tagPending.finaliseAttributeName() && trackErrors {
+            error("Duplicate attribute")
+        }
     }
     
     func createCommentPending() {

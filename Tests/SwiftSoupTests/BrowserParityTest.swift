@@ -3,6 +3,74 @@ import XCTest
 
 /// HTML parsing must retain the attributes selectors see in browser DOMs.
 final class BrowserParityTest: XCTestCase {
+    private final class RecordedErrors: ParseErrorList {
+        var recorded: [ParseError] = []
+        init() { super.init(16, 64) }
+        override func add(_ error: ParseError) {
+            recorded.append(error)
+            super.add(error)
+        }
+    }
+
+    private func tokenizerErrors(_ html: String) throws -> [ParseError] {
+        let errors = RecordedErrors()
+        let tokenizer = Tokeniser(CharacterReader(html), errors, ParseSettings.htmlDefault)
+        while !(try tokenizer.read()).isEOF() {}
+        return errors.recorded
+    }
+
+    func testDuplicateErrorPrecedesInvalidValueAndUsesNamePosition() throws {
+        let html = "<p id='first' id='&#;'>"
+        let errors = try tokenizerErrors(html)
+        XCTAssertEqual(errors.first?.getErrorMessage(), "Duplicate attribute")
+        XCTAssertEqual(errors.first?.getPosition(), Array("<p id='first' id".utf8).count)
+        XCTAssertTrue(errors.dropFirst().contains { $0.getErrorMessage().contains("character reference") })
+    }
+
+    func testDuplicateErrorAtNameEOFAndBeforeValueEOF() throws {
+        for suffix in ["id", "id ", "id='unfinished", "id=unfinished"] {
+            let html = "<p id='first' " + suffix
+            let duplicates = try tokenizerErrors(html).filter { $0.getErrorMessage() == "Duplicate attribute" }
+            XCTAssertEqual(duplicates.count, 1, suffix)
+            XCTAssertEqual(duplicates.first?.getPosition(), Array("<p id='first' id".utf8).count, suffix)
+        }
+    }
+
+    func testMalformedNamesAfterWhitespaceStartANewAttribute() throws {
+        for name in ["x\u{0}", "x\"", "x'", "x<"] {
+            let html = "<p \(name)='first' \(name)='last'></p>"
+            let p = try XCTUnwrap(SwiftSoup.parse(html).select("p").first())
+            let key = name.replacingOccurrences(of: "\u{0}", with: "\u{fffd}")
+            XCTAssertEqual(try p.attr(key), "first")
+            XCTAssertEqual(p.getAttributes()?.size(), 1)
+        }
+        let p = try XCTUnwrap(SwiftSoup.parse("<p a \u{0}='second'></p>").select("p").first())
+        XCTAssertTrue(p.hasAttr("a"))
+        XCTAssertEqual(try p.attr("\u{fffd}"), "second")
+        XCTAssertEqual(p.getAttributes()?.size(), 2)
+    }
+
+    func testDuplicateRemovalAndMutationCannotResurrectDiscardedValues() throws {
+        for trackSource in [true, false] {
+            let parser = Parser.htmlParser().settings(ParseSettings(false, false, trackSource))
+            let html = "<p id='first' id='last' class='first' class='last' data-v='one&amp;two' data-v='discarded'>日本語</p>"
+            let doc = try parser.parseInput(html, "")
+            let p = try XCTUnwrap(doc.select("p").first())
+            _ = p.getAttributes()?.clone()
+            try p.removeAttr("id")
+            try p.attr("class", "edited")
+            let out = doc.outputSettings().prettyPrint(pretty: false)
+            for reuseSource in [true, false] {
+                let serialized = try p.outerHtmlUTF8Internal(out, allowRawSource: reuseSource)
+                let reparsed = try SwiftSoup.parse(Data(serialized))
+                let updated = try XCTUnwrap(reparsed.select("p").first())
+                XCTAssertFalse(updated.hasAttr("id"))
+                XCTAssertEqual(try updated.className(), "edited")
+                XCTAssertEqual(try updated.attr("data-v"), "one&two")
+                XCTAssertEqual(try updated.text(), "日本語")
+            }
+        }
+    }
     func testRepeatedAttributeNameKeepsTheFirstOccurrence() throws {
         let doc = try SwiftSoup.parse(#"<a class="movie-list-subject cr2" href="/s" class="hot-item">t</a><input class="first" class="second">"#)
         XCTAssertEqual(try doc.select("a").first()?.className(), "movie-list-subject cr2")
