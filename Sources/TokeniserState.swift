@@ -2491,6 +2491,7 @@ enum TokeniserState: TokeniserStateProtocol {
         }
 
         if r.isEmpty() {
+            t.finaliseAttributeName()
             t.eofError(state)
             t.transition(.Data)
             return
@@ -2498,18 +2499,22 @@ enum TokeniserState: TokeniserStateProtocol {
         let byte = r.currentByte()!
         switch byte {
         case TokeniserStateVars.tabByte, TokeniserStateVars.newLineByte, TokeniserStateVars.carriageReturnByte, TokeniserStateVars.formFeedByte, TokeniserStateVars.spaceByte:
+            t.finaliseAttributeName()
             r.advanceAsciiWhitespace()
             t.transition(.AfterAttributeName)
             return
         case TokeniserStateVars.slashByte: // "/"
+            t.finaliseAttributeName()
             r.advanceAscii()
             t.transition(.SelfClosingStartTag)
             return
         case TokeniserStateVars.equalSignByte: // "="
+            t.finaliseAttributeName()
             r.advanceAscii()
             t.transition(.BeforeAttributeValue)
             return
         case TokeniserStateVars.greaterThanByte: // ">"
+            t.finaliseAttributeName()
             r.advanceAscii()
             try t.emitTagPending()
             t.transition(.Data)
@@ -2578,6 +2583,7 @@ enum TokeniserState: TokeniserStateProtocol {
                 return true
             case TokeniserStateVars.nullByte:
                 if afterName {
+                    try t.tagPending.newAttribute()
                     r.advanceAscii()
                     t.error(.AfterAttributeName)
                     t.tagPending.appendAttributeName(TokeniserStateVars.replacementChar)
@@ -2630,13 +2636,17 @@ enum TokeniserState: TokeniserStateProtocol {
             t.tagPending.appendAttributeName(name)
         }
         if r.isEmpty() {
+            t.finaliseAttributeName()
             t.eofError(.AttributeName)
             t.transition(.Data)
             return true
         }
 
+        var afterWhitespace = false
         var byte = r.currentByte()!
         if byte == TokeniserStateVars.tabByte || byte == TokeniserStateVars.newLineByte || byte == TokeniserStateVars.carriageReturnByte || byte == TokeniserStateVars.formFeedByte || byte == TokeniserStateVars.spaceByte {
+            t.finaliseAttributeName()
+            afterWhitespace = true
             r.advanceAsciiWhitespace()
             if r.isEmpty() {
                 t.eofError(.AfterAttributeName)
@@ -2648,24 +2658,29 @@ enum TokeniserState: TokeniserStateProtocol {
 
         switch byte {
         case TokeniserStateVars.equalSignByte: // "="
+            t.finaliseAttributeName()
             r.advanceAscii()
             return try consumeAttributeValueFast(t, r)
         case TokeniserStateVars.slashByte: // "/"
+            t.finaliseAttributeName()
             r.advanceAscii()
             t.transition(.SelfClosingStartTag)
             return true
         case TokeniserStateVars.greaterThanByte: // ">"
+            t.finaliseAttributeName()
             r.advanceAscii()
             try t.emitTagPending()
             t.transition(.Data)
             return true
         case TokeniserStateVars.nullByte:
+            if afterWhitespace { try t.tagPending.newAttribute() }
             r.advanceAscii()
             t.error(.AttributeName)
             t.tagPending.appendAttributeName(TokeniserStateVars.replacementChar)
             t.transition(.AttributeName)
             return true
         case TokeniserStateVars.quoteByte, TokeniserStateVars.apostropheByte, TokeniserStateVars.lessThanByte:
+            if afterWhitespace { try t.tagPending.newAttribute() }
             r.advanceAscii()
             t.error(.AttributeName)
             t.tagPending.appendAttributeNameByte(byte)

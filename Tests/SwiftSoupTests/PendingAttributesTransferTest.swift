@@ -90,7 +90,8 @@ final class PendingAttributesTransferTest: XCTestCase {
         XCTAssertEqual(attributes.size(), 3)
         XCTAssertTrue(Array(attributes).first { $0.getKey() == "checked" } is BooleanAttribute)
         XCTAssertFalse(Array(attributes).first { $0.getKey() == "empty" } is BooleanAttribute)
-        XCTAssertEqual(attributes.get(key: "duplicate"), "after")
+        // HTML5 tokenizer: the repeated name is dropped, so the first value wins.
+        XCTAssertEqual(attributes.get(key: "duplicate"), "before")
     }
 
     func testMultipleValueSlicesSurviveTokenReuse() throws {

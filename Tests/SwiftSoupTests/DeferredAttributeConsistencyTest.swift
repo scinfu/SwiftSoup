@@ -142,14 +142,15 @@ final class DeferredAttributeConsistencyTest: XCTestCase {
         let doc = try SwiftSoup.parse("<p id='old' id='new' class='before' class='after'></p>")
         let p = try XCTUnwrap(doc.body()?.getChildNodes().first as? Element)
         let attrs = try XCTUnwrap(p.getAttributes())
-        XCTAssertEqual(try p.attr("id"), "new")
-        XCTAssertEqual(p.id(), "new")
-        XCTAssertEqual(try p.className(), "after")
+        // HTML5 tokenizer: repeated attribute names are dropped, the first occurrence wins.
+        XCTAssertEqual(try p.attr("id"), "old")
+        XCTAssertEqual(p.id(), "old")
+        XCTAssertEqual(try p.className(), "before")
         _ = attrs.size()
-        XCTAssertEqual(try p.attr("id"), "new")
+        XCTAssertEqual(try p.attr("id"), "old")
         for _ in 0..<4 {
-            XCTAssertEqual(try doc.select("#old, .before").size(), 0)
-            XCTAssertTrue(try doc.select("#new.after").first() === p)
+            XCTAssertEqual(try doc.select("#new, .after").size(), 0)
+            XCTAssertTrue(try doc.select("#old.before").first() === p)
         }
     }
 
