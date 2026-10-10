@@ -1072,6 +1072,9 @@ final class Tokeniser {
     @inlinable
     func emitTagPending() throws {
         try tagPending.finaliseTag()
+        if trackErrors && tagPending.hasDuplicateAttributes {
+            error("Duplicate attribute")
+        }
         if trackSourceRanges, let start = pendingTagStartPos {
             tagPending.sourceRange = SourceRange(start: start, end: reader.pos)
         } else {

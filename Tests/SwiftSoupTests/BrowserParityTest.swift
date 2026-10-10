@@ -1,8 +1,7 @@
 import XCTest
 @testable import SwiftSoup
 
-/// BrowseCraft: the rule engine (html5lib) and the app (SwiftSoup, WebKit) must build the
-/// same tree from the same page, or a selector learned on one side matches nothing on the other.
+/// HTML parsing must retain the attributes selectors see in browser DOMs.
 final class BrowserParityTest: XCTestCase {
     func testRepeatedAttributeNameKeepsTheFirstOccurrence() throws {
         let doc = try SwiftSoup.parse(#"<a class="movie-list-subject cr2" href="/s" class="hot-item">t</a><input class="first" class="second">"#)
@@ -16,5 +15,118 @@ final class BrowserParityTest: XCTestCase {
         XCTAssertEqual(try doc.select("[class*='title'] a").size(), 0)
         XCTAssertEqual(try doc.select("p.vodlist_title").first()?.children().size(), 0)
         XCTAssertEqual(try doc.select("li > center > a").size(), 1)
+    }
+
+    func testMixedCaseBooleanAndEmptyDuplicatesAcrossInputTypes() throws {
+        let html = "<input CLASS='first' class='second' disabled disabled='later' value='' value='later'>"
+        for doc in [try SwiftSoup.parse(html), try SwiftSoup.parse(Data(html.utf8))] {
+            let input = try XCTUnwrap(doc.select("input").first())
+            let attrs = try XCTUnwrap(input.getAttributes())
+            XCTAssertEqual(try input.className(), "first")
+            XCTAssertEqual(try input.attr("value"), "")
+            XCTAssertTrue(attrs.asList().first { $0.getKey() == "disabled" } is BooleanAttribute)
+            XCTAssertFalse(attrs.asList().first { $0.getKey() == "value" } is BooleanAttribute)
+            XCTAssertEqual(attrs.size(), 3)
+            try input.attr("class", "edited")
+            XCTAssertEqual(try input.className(), "edited")
+        }
+    }
+
+    func testDuplicatesAcrossIndexBoundaryAndTokenReuse() throws {
+        for count in [1, 7, 8, 9, 32, 256] {
+            let first = (0..<count).map { "data-k\($0)='first-\($0)'" }.joined(separator: " ")
+            let later = (0..<count).reversed().map { "DATA-K\($0)='later'" }.joined(separator: " ")
+            let html = "<p \(first) \(later)></p><p data-k0='next'></p>"
+            let doc = try SwiftSoup.parse(html)
+            let ps = try doc.select("p")
+            let p = try XCTUnwrap(ps.first())
+            XCTAssertEqual(p.getAttributes()?.size(), count)
+            for i in 0..<count { XCTAssertEqual(try p.attr("data-k\(i)"), "first-\(i)") }
+            XCTAssertEqual(try ps.get(1).attr("data-k0"), "next")
+        }
+    }
+
+    func testCasePreservingHTMLAndXMLKeepDistinctNames() throws {
+        for parser in [Parser.htmlParser().settings(ParseSettings.preserveCase), Parser.xmlParser()] {
+            let doc = try parser.parseInput("<p A='first' a='lower' A='last'></p>", "")
+            let attrs = try XCTUnwrap(doc.select("p").first()?.getAttributes())
+            XCTAssertEqual(attrs.get(key: "A"), "first")
+            XCTAssertEqual(attrs.get(key: "a"), "lower")
+            XCTAssertEqual(attrs.size(), 2)
+        }
+    }
+
+    func testPrefilterCollisionsNeverDiscardDistinctNames() throws {
+        var groups: [UInt64: [String]] = [:]
+        for i in 0..<512 {
+            let name = "data-collision-\(i)"
+            let pending = Attributes.PendingAttribute(nameSlice: nil, nameBytes: Array(name.utf8), hasUppercase: false, value: .none)
+            let mask = try XCTUnwrap(pending.canonicalNameMask())
+            groups[mask, default: []].append(name)
+        }
+        let names = try XCTUnwrap(groups.values.first { $0.count >= 9 }).prefix(9)
+        let html = "<p " + names.map { "\($0)='first'" }.joined(separator: " ") + " " + names.map { "\($0)='last'" }.joined(separator: " ") + "></p>"
+        let p = try XCTUnwrap(SwiftSoup.parse(html).select("p").first())
+        XCTAssertEqual(p.getAttributes()?.size(), names.count)
+        for name in names { XCTAssertEqual(try p.attr(name), "first") }
+    }
+
+    func testTrimmedTokenNamesAndResetReleaseTheIndex() throws {
+        let token = Token.StartTag()
+        for (name, value) in [(" title ", "first"), ("title", "last"), (" \t", "invalid")] {
+            token.appendAttributeName(Array(name.utf8))
+            token.appendAttributeValue(ByteSlice.fromArray(Array(value.utf8)))
+            try token.newAttribute()
+        }
+        let first = token.getAttributes()
+        XCTAssertEqual(first.get(key: "title"), "first")
+        XCTAssertEqual(first.size(), 1)
+        token.reset()
+        token.appendAttributeName(Array("title".utf8))
+        token.appendAttributeValue(ByteSlice.fromArray(Array("next".utf8)))
+        try token.newAttribute()
+        XCTAssertEqual(token.getAttributes().get(key: "title"), "next")
+        XCTAssertEqual(first.get(key: "title"), "first")
+    }
+
+    func testDuplicateAttributesConsumeTheParseErrorBudget() throws {
+        let parser = Parser.htmlParser().setTrackErrors(1)
+        let doc = try parser.parseInput("<!doctype html><p id='first' id='last'></p>", "")
+        XCTAssertFalse(parser.getErrors().canAddError())
+        XCTAssertEqual(try doc.select("p").first()?.id(), "first")
+        _ = try parser.parseInput("<!doctype html><p id='only'></p>", "")
+        XCTAssertTrue(parser.getErrors().canAddError())
+    }
+
+    func testDeferredDeduplicationMatchesFirstWinsReference() throws {
+        let names = ["A", "a", " id ", "id", "class", " foo", "foo ", "foo", " \t", "data-κ", "data-Κ"]
+        var seed: UInt64 = 462
+        let token = Token.StartTag()
+        for count in [0, 1, 7, 8, 9, 32, 128] {
+            for run in 0..<20 {
+                token.reset()
+                var expected: [String: String] = [:]
+                var order: [String] = []
+                for i in 0..<count {
+                    seed = seed &* 6364136223846793005 &+ 1
+                    let name = names[Int(seed >> 32) % names.count]
+                    let value = "\(run)-\(i)"
+                    let bytes = Array(name.utf8)
+                    if i.isMultiple(of: 2) { token.appendAttributeName(bytes) }
+                    else { token.appendAttributeName(ByteSlice.fromArray(bytes)) }
+                    token.appendAttributeValue(ByteSlice.fromArray(Array(value.utf8)))
+                    try token.newAttribute()
+                    let key = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !key.isEmpty && expected[key] == nil {
+                        expected[key] = value
+                        order.append(key)
+                    }
+                }
+                let attrs = token.getAttributes()
+                for (key, value) in expected { XCTAssertEqual(attrs.get(key: key), value) }
+                XCTAssertEqual(attrs.asList().map { $0.getKey() }, order)
+                for (key, value) in expected { XCTAssertEqual(attrs.get(key: key), value) }
+            }
+        }
     }
 }

@@ -360,6 +360,9 @@ open class Token {
         private var _hasPendingAttributeValue: Bool = false
         fileprivate var _hasAttributes: Bool = false
         fileprivate var _pendingAttributes: [PendingAttribute]? // lazily materialized into Attributes
+        private var _pendingAttributeNameMask: UInt64 = 0
+        private var _pendingAttributeKeys: Set<ByteSlice>?
+        private(set) var hasDuplicateAttributes = false
         public var _selfClosing: Bool = false
         private var _lowercaseAttributeNames: Bool = false
         fileprivate var _attributesAreNormalized: Bool = false
@@ -398,6 +401,9 @@ open class Token {
             _hasPendingAttributeValue = false
             _hasAttributes = false
             _pendingAttributes?.removeAll(keepingCapacity: true)
+            _pendingAttributeNameMask = 0
+            _pendingAttributeKeys = nil
+            hasDuplicateAttributes = false
             _selfClosing = false
             _lowercaseAttributeNames = false
             _attributesAreNormalized = false
@@ -435,16 +441,14 @@ open class Token {
                     hasUppercase: _pendingAttributeNameHasUppercase,
                     value: value
                 )
-                if _pendingAttributes == nil {
-                    _pendingAttributes = []
-                    _pendingAttributes!.reserveCapacity(8)
+                if !isDuplicateAttribute(pending) {
+                    if _pendingAttributes == nil {
+                        _pendingAttributes = []
+                        _pendingAttributes!.reserveCapacity(8)
+                    }
                     _pendingAttributes!.append(pending)
-                } else if let key = pending.normalizedKey(),
-                          _pendingAttributes!.contains(where: { $0.normalizedKey() == key }) {
-                    // HTML5 tokenizer: a repeated attribute name on the same start tag is
-                    // dropped, so the first occurrence wins (as in WebKit and html5lib).
                 } else {
-                    _pendingAttributes!.append(pending)
+                    hasDuplicateAttributes = true
                 }
                 _hasAttributes = true
                 if _pendingAttributeNameHasUppercase {
@@ -461,12 +465,29 @@ open class Token {
             _pendingAttributeValueSlices?.removeAll(keepingCapacity: true)
             _pendingAttributeValueSlicesCount = 0
         }
+
+        /// First occurrence wins. Small canonical batches avoid hashing and trimming;
+        /// larger batches use an index so unique attributes never cause quadratic scans.
+        private func isDuplicateAttribute(_ pending: PendingAttribute) -> Bool {
+            if _pendingAttributeKeys != nil {
+                guard let key = pending.normalizedKey() else { return false }
+                return !_pendingAttributeKeys!.insert(key).inserted
+            }
+            if (_pendingAttributes?.count ?? 0) < 8, let mask = pending.canonicalNameMask() {
+                let mayMatch = _pendingAttributeNameMask & mask != 0
+                _pendingAttributeNameMask |= mask
+                // A mask collision is only a prefilter, never proof of equality.
+                return mayMatch && (_pendingAttributes?.contains { $0.hasSameName(as: pending) } ?? false)
+            }
+            guard let key = pending.normalizedKey() else { return false }
+            _pendingAttributeKeys = Set((_pendingAttributes ?? []).compactMap { $0.normalizedKey() })
+            return !_pendingAttributeKeys!.insert(key).inserted
+        }
         
         @inline(__always)
         func finaliseTag() throws {
             // finalises for emit
             if (_pendingAttributeName != nil || _pendingAttributeNameS != nil) {
-                // todo: check if attribute name exists; if so, drop and error
                 try newAttribute()
             }
         }
@@ -651,6 +672,8 @@ open class Token {
         @inline(__always)
         func ensureAttributes() {
             guard let pendingAttributes = _pendingAttributes, !pendingAttributes.isEmpty else { return }
+            _pendingAttributeNameMask = 0
+            _pendingAttributeKeys = nil
             if _attributes == nil {
                 _attributes = Attributes(pendingAttributes: pendingAttributes)
                 // The collection now owns the buffer; do not copy it just to clear the token.
