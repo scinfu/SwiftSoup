@@ -362,7 +362,7 @@ open class Token {
         fileprivate var _pendingAttributes: [PendingAttribute]? // lazily materialized into Attributes
         private var _pendingAttributeNameMask: UInt64 = 0
         private var _pendingAttributeKeys: Set<ByteSlice>?
-        private(set) var hasDuplicateAttributes = false
+        private(set) var duplicateAttributeCount = 0
         public var _selfClosing: Bool = false
         private var _lowercaseAttributeNames: Bool = false
         fileprivate var _attributesAreNormalized: Bool = false
@@ -403,7 +403,7 @@ open class Token {
             _pendingAttributes?.removeAll(keepingCapacity: true)
             _pendingAttributeNameMask = 0
             _pendingAttributeKeys = nil
-            hasDuplicateAttributes = false
+            duplicateAttributeCount = 0
             _selfClosing = false
             _lowercaseAttributeNames = false
             _attributesAreNormalized = false
@@ -448,7 +448,7 @@ open class Token {
                     }
                     _pendingAttributes!.append(pending)
                 } else {
-                    hasDuplicateAttributes = true
+                    duplicateAttributeCount += 1
                 }
                 _hasAttributes = true
                 if _pendingAttributeNameHasUppercase {

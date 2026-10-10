@@ -64,7 +64,8 @@ final class BrowserParityTest: XCTestCase {
             let mask = try XCTUnwrap(pending.canonicalNameMask())
             groups[mask, default: []].append(name)
         }
-        let names = try XCTUnwrap(groups.values.first { $0.count >= 9 }).prefix(9)
+        let collisionMask = try XCTUnwrap(groups.keys.sorted().first { groups[$0]!.count >= 9 })
+        let names = groups[collisionMask]!.prefix(9)
         let html = "<p " + names.map { "\($0)='first'" }.joined(separator: " ") + " " + names.map { "\($0)='last'" }.joined(separator: " ") + "></p>"
         let p = try XCTUnwrap(SwiftSoup.parse(html).select("p").first())
         XCTAssertEqual(p.getAttributes()?.size(), names.count)
@@ -96,6 +97,45 @@ final class BrowserParityTest: XCTestCase {
         XCTAssertEqual(try doc.select("p").first()?.id(), "first")
         _ = try parser.parseInput("<!doctype html><p id='only'></p>", "")
         XCTAssertTrue(parser.getErrors().canAddError())
+    }
+
+    func testEveryDuplicateConsumesOneErrorBudgetSlot() throws {
+        for duplicates in [2, 7, 8, 9, 32] {
+            let repeats = String(repeating: " id='last'", count: duplicates)
+            let html = "<!doctype html><p id='first'\(repeats)></p><p id='next'></p>"
+            for limit in [1, duplicates, duplicates + 1] {
+                let parser = Parser.htmlParser().setTrackErrors(limit)
+                let doc = try parser.parseInput(html, "")
+                let ps = try doc.select("p")
+                XCTAssertEqual(ps.first()?.id(), "first")
+                XCTAssertEqual(ps.get(1).id(), "next")
+                let errors = parser.getErrors()
+                XCTAssertEqual(errors.canAddError(), limit > duplicates)
+                if limit > duplicates {
+                    errors.add(ParseError(0, "budget probe"))
+                    XCTAssertFalse(errors.canAddError(), "each duplicate must consume exactly one slot")
+                }
+            }
+        }
+    }
+
+    func testIndexResetAfterManyUniqueAttributesAndDuplicates() throws {
+        let token = Token.StartTag()
+        for i in 0..<32 {
+            token.appendAttributeName(Array("data-k\(i)".utf8))
+            token.appendAttributeValue(ByteSlice.fromArray(Array("first".utf8)))
+            try token.newAttribute()
+        }
+        token.appendAttributeName(Array("data-k0".utf8))
+        token.appendAttributeValue(ByteSlice.fromArray(Array("last".utf8)))
+        try token.newAttribute()
+        token.reset() // Exercise reset before transferring the indexed batch.
+        token.appendAttributeName(Array("data-k0".utf8))
+        token.appendAttributeValue(ByteSlice.fromArray(Array("next".utf8)))
+        try token.newAttribute()
+        let attrs = token.getAttributes()
+        XCTAssertEqual(attrs.get(key: "data-k0"), "next")
+        XCTAssertEqual(attrs.size(), 1)
     }
 
     func testDeferredDeduplicationMatchesFirstWinsReference() throws {
