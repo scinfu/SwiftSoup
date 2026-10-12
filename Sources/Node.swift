@@ -552,7 +552,7 @@ open class Node: Equatable, Hashable {
                 // Parser-synthesized nodes (e.g. an implied tbody) can be dirty
                 // beneath clean, source-ranged ancestors. Mutations must keep
                 // walking so those ancestors cannot replay stale source bytes.
-                if force {
+                if force || current.treeBuilder?.isBulkBuilding == true {
                     return
                 }
                 node = current.parentNode

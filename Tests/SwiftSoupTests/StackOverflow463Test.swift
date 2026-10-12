@@ -236,7 +236,7 @@ final class StackOverflow463Test: XCTestCase {
     }
 
     func testDirtyPropagationHonorsParseTimeGuardsAndCrossesDirtyAncestors() throws {
-        for alreadyDirty in [false, true] {
+        for (alreadyDirty, bulkBuilding) in [(false, false), (false, true), (true, false), (true, true)] {
             for force in [false, true] {
                 for register in [false, true] {
                     let document = Document("")
@@ -253,17 +253,17 @@ final class StackOverflow463Test: XCTestCase {
                     document.dirtySourceRoots.removeAll()
                     let builder = TreeBuilder()
                     builder.doc = document
-                    builder.isBulkBuilding = true
+                    builder.isBulkBuilding = bulkBuilding
                     boundary.treeBuilder = builder
                     defer { builder.isBulkBuilding = false }
                     boundary.sourceRangeDirty = alreadyDirty
                     leaf.markSourceDirty(force: force, registerDirtyRoot: register)
-                    // Forced parse-time marks stop at dirty ancestors, while
-                    // mutation marks continue past them. A clean bulk-building
-                    // ancestor still suppresses non-forced propagation.
-                    let reachesRoot = force != alreadyDirty
+                    // Parsing retains its guards: bulk building suppresses
+                    // non-forced marks and forced marks stop at dirty ancestors.
+                    // Outside parsing, mutations must cross dirty ancestors.
+                    let reachesRoot = (force || !bulkBuilding) && (!force || !alreadyDirty)
                     XCTAssertTrue(leaf.sourceRangeDirty)
-                    XCTAssertEqual(boundary.sourceRangeDirty, alreadyDirty || force)
+                    XCTAssertEqual(boundary.sourceRangeDirty, alreadyDirty || force || !bulkBuilding)
                     XCTAssertEqual(ancestor.sourceRangeDirty, reachesRoot)
                     XCTAssertEqual(document.sourceRangeDirty, reachesRoot)
                     let roots = document.currentDirtySourceRoots()
