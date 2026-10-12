@@ -2,6 +2,28 @@ import XCTest
 @testable import SwiftSoup
 
 final class FragmentIndexConstructionTest: XCTestCase {
+    func testManualInsertionAfterFragmentReturnCrossesAnImpliedTbody() throws {
+        let builder = HtmlTreeBuilder()
+        let context = try Element(Tag.valueOf("div"), "")
+        _ = try builder.parseFragment(Array("<table><tr><td><p>BEFORE</p></td></tr></table>".utf8),
+                                      context, [], .noTracking(), .htmlDefault)
+        let document = builder.doc
+        document.outputSettings().prettyPrint(pretty: false)
+        let table = try XCTUnwrap(document.getElementsByTag("table").first())
+        let cell = try XCTUnwrap(document.getElementsByTag("td").first())
+        XCTAssertFalse(table.sourceRangeDirty)
+        XCTAssertTrue(try document.getElementsByTag("tbody").get(0).sourceRangeDirty)
+        builder.stack = [cell]
+        builder.transition(.InBody)
+        try builder.processStartTag("p")
+        try builder.process(Token.Char().data(Array("AFTER".utf8)))
+        try builder.processEndTag("p")
+        XCTAssertTrue(table.sourceRangeDirty)
+        let expected = "<table><tbody><tr><td><p>BEFORE</p><p>AFTER</p></td></tr></tbody></table>"
+        XCTAssertEqual(try table.outerHtml(), expected)
+        XCTAssertEqual(try table.outerHtmlUTF8Internal(), Array(expected.utf8))
+    }
+
     func testPrivateConstructionKeepsEveryQueryIndexDirtyUntilFirstQuery() throws {
         let builder = HtmlTreeBuilder()
         let context = try Element(Tag.valueOf("div"), "")

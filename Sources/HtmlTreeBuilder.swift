@@ -638,9 +638,10 @@ class HtmlTreeBuilder: TreeBuilder {
         if constructingFragment, doc.sourceRangeDirty,
            doc.dirtySourceRoots[ObjectIdentifier(doc)]?.value === doc {
             // The registered document already covers this private fragment tree.
-            // Preserve dirty flags without rediscovering/registering that root.
-            node.markSourceDirty(force: false, registerDirtyRoot: false)
-            parent.markSourceDirty(force: false, registerDirtyRoot: false)
+            // These are parse-time marks: stop at dirty ancestors instead of
+            // walking the entire fragment depth for every inserted node.
+            node.markSourceDirty(force: true, registerDirtyRoot: false)
+            parent.markSourceDirty(force: true, registerDirtyRoot: false)
         } else {
             node.markSourceDirty()
             parent.markSourceDirty()
