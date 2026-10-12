@@ -235,7 +235,7 @@ final class StackOverflow463Test: XCTestCase {
             source.replacingOccurrences(of: "<p>", with: "<p data-state=\"changed\">"))
     }
 
-    func testDirtyPropagationStopsAtAncestorGuards() throws {
+    func testDirtyPropagationHonorsParseTimeGuardsAndCrossesDirtyAncestors() throws {
         for alreadyDirty in [false, true] {
             for force in [false, true] {
                 for register in [false, true] {
@@ -258,7 +258,10 @@ final class StackOverflow463Test: XCTestCase {
                     defer { builder.isBulkBuilding = false }
                     boundary.sourceRangeDirty = alreadyDirty
                     leaf.markSourceDirty(force: force, registerDirtyRoot: register)
-                    let reachesRoot = force && !alreadyDirty
+                    // Forced parse-time marks stop at dirty ancestors, while
+                    // mutation marks continue past them. A clean bulk-building
+                    // ancestor still suppresses non-forced propagation.
+                    let reachesRoot = force != alreadyDirty
                     XCTAssertTrue(leaf.sourceRangeDirty)
                     XCTAssertEqual(boundary.sourceRangeDirty, alreadyDirty || force)
                     XCTAssertEqual(ancestor.sourceRangeDirty, reachesRoot)
