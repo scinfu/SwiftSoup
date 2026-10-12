@@ -547,8 +547,16 @@ open class Node: Equatable, Hashable {
             if current.sourceRangeDirty {
                 if shouldRegisterDirtyRoot {
                     current.ownerDocument()?.registerDirtySourceRoot(current)
+                    shouldRegisterDirtyRoot = false
                 }
-                return
+                // Parser-synthesized nodes (e.g. an implied tbody) can be dirty
+                // beneath clean, source-ranged ancestors. Mutations must keep
+                // walking so those ancestors cannot replay stale source bytes.
+                if force || current.treeBuilder?.isBulkBuilding == true {
+                    return
+                }
+                node = current.parentNode
+                continue
             }
             if !force, current.treeBuilder?.isBulkBuilding == true {
                 return
