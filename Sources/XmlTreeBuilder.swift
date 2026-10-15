@@ -131,11 +131,14 @@ public class XmlTreeBuilder: TreeBuilder {
                 // Nested bogus comments must not recursively invoke another XML parser.
                 let declarationBuilder = XmlTreeBuilder()
                 declarationBuilder.isParsingDeclaration = true
-                let doc: Document = try SwiftSoup.parse("<" + data.substring(1, data.count - 2) + ">", String(decoding: baseUri, as: UTF8.self), Parser(declarationBuilder))
+                // Declaration attributes must obey the same normalization and
+                // retention settings as attributes on ordinary XML elements.
+                let declarationParser = Parser(declarationBuilder).settings(settings)
+                let doc: Document = try SwiftSoup.parse("<" + data.substring(1, data.count - 2) + ">", String(decoding: baseUri, as: UTF8.self), declarationParser)
                 // Malformed declarations may parse as text or comments only.
                 // Keep the original bogus comment when there is no target element.
                 if let el = doc.children().first() {
-                    insert = XmlDeclaration(settings.normalizeTag(el.tagNameUTF8()), comment.getBaseUriUTF8(), data.startsWith("!"))
+                    insert = XmlDeclaration(el.tagNameUTF8(), comment.getBaseUriUTF8(), data.startsWith("!"))
                     insert.getAttributes()?.addAll(incoming: el.getAttributes())
                 }
             }
