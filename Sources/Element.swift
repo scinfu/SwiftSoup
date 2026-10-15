@@ -1134,9 +1134,13 @@ open class Element: Node {
             return "#" + Element.cssEscapeIdentifier(elementId)
         }
         
-        // Translate HTML namespace ns:tag to CSS namespace syntax ns|tag
-        let tagName: String = self.tagName().replacingOccurrences(of: ":", with: "|")
-        var selector: String = tagName
+        // Escape each name while retaining ns|tag syntax for namespaces.
+        // A literal dot in a tag must not become a class selector.
+        let tagName = self.tagName()
+        let nameParts = tagName.components(separatedBy: ":")
+        var selector = nameParts.allSatisfy { !$0.isEmpty }
+            ? nameParts.map(Element.cssEscapeIdentifier).joined(separator: "|")
+            : Element.cssEscapeIdentifier(tagName)
         let cl = try classNames()
         let classes: String = cl.map(Element.cssEscapeIdentifier).joined(separator: ".")
         if !classes.isEmpty {

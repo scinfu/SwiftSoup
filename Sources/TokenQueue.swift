@@ -446,8 +446,24 @@ open class TokenQueue {
         return queue.substring(start, pos-start)
     }
 
+    /// Type selectors start with the same identifier bytes as IDs and classes.
+    /// Read bytes so a combining mark cannot hide an ASCII syntax character.
+    internal func matchesCssElementSelector() -> Bool {
+        let start = queue.index(queue.startIndex, offsetBy: pos)
+        let bytes = queue.utf8
+        guard start < bytes.endIndex else { return false }
+        let byte = bytes[start]
+        if byte == 0x2A { // namespace wildcard: *|
+            let next = bytes.index(after: start)
+            return next < bytes.endIndex && bytes[next] == 0x7C
+        }
+        return byte == 0x5C || byte == 0x2D || byte == 0x5F || byte >= 0x80 ||
+            (0x30...0x39).contains(byte) || (0x41...0x5A).contains(byte) ||
+            (0x61...0x7A).contains(byte)
+    }
+
     /**
-     Consume a CSS identifier (ID or class), decoding simple and hexadecimal escapes.
+     Consume a CSS identifier (tag, ID, or class), decoding simple and hexadecimal escapes.
      Hex escapes consume one to six digits and one optional CSS whitespace terminator.
      https://www.w3.org/TR/css-syntax-3/#consume-escaped-code-point
      - returns: identifier
@@ -522,7 +538,7 @@ open class TokenQueue {
         return String(decoding: bytes[start..<end], as: UTF8.self)
     }
 
-    /// Consume an ASCII ID/class marker even when a following combining mark
+    /// Consume an ASCII selector marker even when a following combining mark
     /// shares its Swift Character. CSS syntax operates on code points.
     internal func matchChompCssIdentifierPrefix(_ prefix: UInt8) -> Bool {
         let start = queue.index(queue.startIndex, offsetBy: pos)
@@ -530,6 +546,36 @@ open class TokenQueue {
         guard start < bytes.endIndex, bytes[start] == prefix else { return false }
         advanceCssPosition(from: start, to: bytes.index(after: start))
         return true
+    }
+
+    /// CSS whitespace is ASCII. A following combining mark is identifier
+    /// content even when Swift groups it with the preceding space.
+    @discardableResult
+    internal func consumeCssWhitespace() -> Bool {
+        let start = queue.index(queue.startIndex, offsetBy: pos)
+        let bytes = queue.utf8
+        var end = start
+        while end < bytes.endIndex, StringUtil.isAsciiWhitespaceByte(bytes[end]) {
+            bytes.formIndex(after: &end)
+        }
+        guard end != start else { return false }
+        advanceCssPosition(from: start, to: end)
+        return true
+    }
+
+    /// Consume explicit combinators without consuming adjacent Unicode marks.
+    internal func consumeCssCombinator() -> Character? {
+        let start = queue.index(queue.startIndex, offsetBy: pos)
+        let bytes = queue.utf8
+        guard start < bytes.endIndex else { return nil }
+        let byte = bytes[start]
+        switch byte {
+        case 0x2C, 0x3E, 0x2B, 0x7E: // , > + ~
+            advanceCssPosition(from: start, to: bytes.index(after: start))
+            return Character(UnicodeScalar(byte))
+        default:
+            return nil
+        }
     }
 
     /// Consume a compound selector up to its next unescaped combinator.
