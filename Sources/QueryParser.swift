@@ -12,7 +12,6 @@ import Foundation
  * Parses a CSS selector into an Evaluator tree.
  */
 public class QueryParser {
-    private static let combinators: [String]  = [",", ">", "+", "~", " "]
     private static let AttributeEvals: [String]  = ["=", "!=", "^=", "$=", "*=", "~="]
 
     /// Mutex lock for the cache instance.
@@ -65,21 +64,21 @@ public class QueryParser {
      - returns: ``Evaluator``
      */
     public func parse()throws->Evaluator {
-        tq.consumeWhitespace()
+        tq.consumeCssWhitespace()
 
-        if (tq.matchesAny(QueryParser.combinators)) { // if starts with a combinator, use root as elements
+        if let combinator = tq.consumeCssCombinator() { // if starts with a combinator, use root as elements
             evals.append( StructuralEvaluator.Root())
-            try combinator(tq.consume())
+            try self.combinator(combinator)
         } else {
             try findElements()
         }
 
         while (!tq.isEmpty()) {
             // hierarchy and extras
-            let seenWhite: Bool = tq.consumeWhitespace()
+            let seenWhite: Bool = tq.consumeCssWhitespace()
 
-            if (tq.matchesAny(QueryParser.combinators)) {
-                try combinator(tq.consume())
+            if let combinator = tq.consumeCssCombinator() {
+                try self.combinator(combinator)
             } else if (seenWhite) {
                 try combinator(" " as Character)
             } else { // E.class, E#id, E[attr] etc. AND
@@ -115,7 +114,7 @@ public class QueryParser {
     // MARK: Private methods
 
     private func combinator(_ combinator: Character)throws {
-        tq.consumeWhitespace()
+        tq.consumeCssWhitespace()
         let subQuery: String = consumeSubQuery() // support multi > childs
 
         var rootEval: Evaluator? // the new topmost evaluator
@@ -169,7 +168,7 @@ public class QueryParser {
         if (tq.matchChompCssIdentifierPrefix(0x23)) {
             try byId()
         } else if (tq.matchChompCssIdentifierPrefix(0x2E)) {
-            try byClass()} else if (tq.matchesWord() || tq.matches("*|")) {try byTag()} else if (tq.matches("[")) {try byAttribute()} else if (tq.matchChomp("*")) { allElements()} else if (tq.matchChomp(":lt(")) {try indexLessThan()} else if (tq.matchChomp(":gt(")) {try indexGreaterThan()} else if (tq.matchChomp(":eq(")) {try indexEquals()} else if (tq.matches(":has(")) {try has()} else if (tq.matches(":containsData(")) {try containsData()} else if (tq.matches(":contains(")) {try contains(false)} else if (tq.matches(":containsOwn(")) {try contains(true)} else if (tq.matches(":matches(")) {try matches(false)} else if (tq.matches(":matchesOwn(")) {try matches(true)} else if (tq.matches(":not(")) {try not()} else if (tq.matchChomp(":nth-child(")) {try cssNthChild(false, false)} else if (tq.matchChomp(":nth-last-child(")) {try cssNthChild(true, false)} else if (tq.matchChomp(":nth-of-type(")) {try cssNthChild(false, true)} else if (tq.matchChomp(":nth-last-of-type(")) {try cssNthChild(true, true)} else if (tq.matchChomp(":first-child")) {evals.append(Evaluator.IsFirstChild())} else if (tq.matchChomp(":last-child")) {evals.append(Evaluator.IsLastChild())} else if (tq.matchChomp(":first-of-type")) {evals.append(Evaluator.IsFirstOfType())} else if (tq.matchChomp(":last-of-type")) {evals.append(Evaluator.IsLastOfType())} else if (tq.matchChomp(":only-child")) {evals.append(Evaluator.IsOnlyChild())} else if (tq.matchChomp(":only-of-type")) {evals.append(Evaluator.IsOnlyOfType())} else if (tq.matchChomp(":empty")) {evals.append(Evaluator.IsEmpty())} else if (tq.matchChomp(":root")) {evals.append(Evaluator.IsRoot())} else // unhandled
+            try byClass()} else if (tq.matchesCssElementSelector()) {try byTag()} else if (tq.matches("[")) {try byAttribute()} else if (tq.matchChomp("*")) { allElements()} else if (tq.matchChomp(":lt(")) {try indexLessThan()} else if (tq.matchChomp(":gt(")) {try indexGreaterThan()} else if (tq.matchChomp(":eq(")) {try indexEquals()} else if (tq.matches(":has(")) {try has()} else if (tq.matches(":containsData(")) {try containsData()} else if (tq.matches(":contains(")) {try contains(false)} else if (tq.matches(":containsOwn(")) {try contains(true)} else if (tq.matches(":matches(")) {try matches(false)} else if (tq.matches(":matchesOwn(")) {try matches(true)} else if (tq.matches(":not(")) {try not()} else if (tq.matchChomp(":nth-child(")) {try cssNthChild(false, false)} else if (tq.matchChomp(":nth-last-child(")) {try cssNthChild(true, false)} else if (tq.matchChomp(":nth-of-type(")) {try cssNthChild(false, true)} else if (tq.matchChomp(":nth-last-of-type(")) {try cssNthChild(true, true)} else if (tq.matchChomp(":first-child")) {evals.append(Evaluator.IsFirstChild())} else if (tq.matchChomp(":last-child")) {evals.append(Evaluator.IsLastChild())} else if (tq.matchChomp(":first-of-type")) {evals.append(Evaluator.IsFirstOfType())} else if (tq.matchChomp(":last-of-type")) {evals.append(Evaluator.IsLastOfType())} else if (tq.matchChomp(":only-child")) {evals.append(Evaluator.IsOnlyChild())} else if (tq.matchChomp(":only-of-type")) {evals.append(Evaluator.IsOnlyOfType())} else if (tq.matchChomp(":empty")) {evals.append(Evaluator.IsEmpty())} else if (tq.matchChomp(":root")) {evals.append(Evaluator.IsRoot())} else // unhandled
         {
             throw Exception.Error(type: ExceptionType.SelectorParseException, Message: "Could not parse query \(query): unexpected token at \(tq.remainder())")
         }
@@ -189,27 +188,31 @@ public class QueryParser {
     }
 
     private func byTag() throws {
-        var tagName = tq.consumeElementSelector()
+        let wildcardNamespace = tq.matchChompCssIdentifierPrefix(0x2A) // *
+        if wildcardNamespace {
+            try Validate.isTrue(val: tq.matchChompCssIdentifierPrefix(0x7C),
+                                msg: "Missing namespace separator")
+        }
+        var tagName = tq.consumeCssIdentifier()
+
+        // Only unescaped pipes are namespace separators. Escaped pipes and
+        // colons belong to the decoded identifier itself.
+        while tq.matchChompCssIdentifierPrefix(0x7C) {
+            tagName += ":" + tq.consumeCssIdentifier()
+        }
 
         try Validate.notEmpty(string: tagName)
 
         // namespaces: wildcard match equals(tagName) or ending in ":"+tagName
-        if (tagName.startsWith("*|")) {
-            let localName = String(tagName.dropFirst(2))
-            try Validate.notEmpty(string: localName)
+        if wildcardNamespace {
             // Keep these alternatives grouped: a top-level Or represents a
             // comma-separated list when a later combinator is attached.
             evals.append(
 				CombiningEvaluator.And(CombiningEvaluator.Or(
-					Evaluator.Tag(localName),
-					Evaluator.TagEndsWith(":" + localName))))
+					Evaluator.Tag(tagName),
+					Evaluator.TagEndsWith(":" + tagName))))
         } else {
-            // namespaces: if element name is "abc:def", selector must be "abc|def", so flip:
-            if (tagName.contains("|")) {
-                tagName = tagName.replacingOccurrences(of: "|", with: ":")
-            }
-
-            evals.append(Evaluator.Tag(tagName.trim()))
+            evals.append(Evaluator.Tag(tagName))
         }
     }
 
