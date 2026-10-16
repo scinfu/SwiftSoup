@@ -1243,10 +1243,11 @@ open class StringUtil {
                 return url.absoluteURL.absoluteString
             }
             
-            if base?.scheme != nil {
+            // Preserve empty references without letting a failed nonempty URL
+            // inherit the base URL's trusted scheme.
+            if relUrl.isEmpty {
                 return base!.absoluteString
             }
-            
             return empty
         }
     }
