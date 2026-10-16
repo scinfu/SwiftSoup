@@ -960,6 +960,13 @@ import Foundation
     }
 
     private func testValidProtocol(_ el: Element, _ attr: Attribute, _ protocols: Set<Protocol>) throws -> Bool {
+        // Reject embedded controls instead of letting Foundation interpret a
+        // broken scheme as a relative URL. Keep the existing outer whitespace
+        // handling for valid URLs, including padded tabs and newlines.
+        guard !attr.getValueUTF8().trim().contains(where: { $0 < 0x20 }) else {
+            return false
+        }
+
         // try to resolve relative urls to abs, and optionally update the attribute so output html has abs.
         // rels without a baseuri get removed
         var checkedValue = resolveWithTrimmedURL(el, attr)
