@@ -924,6 +924,27 @@ open class Node: Equatable, Hashable {
             msg: "A node cannot contain itself or one of its ancestors.")
     }
 
+    /// Detaches those of `nodes` that are children of this node, shifting and reindexing the child list once.
+    internal func removeChildren(_ nodes: [Node]) {
+        var removed = Set<ObjectIdentifier>()
+        var firstIndex = childNodes.count
+        var removedElement = false
+        for node in nodes where node.parentNode === self {
+            removed.insert(ObjectIdentifier(node))
+            firstIndex = min(firstIndex, node.siblingIndex)
+            removedElement = removedElement || node is Element
+            node.parentNode = nil
+        }
+        guard !removed.isEmpty else { return }
+        childNodes.removeAll { removed.contains(ObjectIdentifier($0)) }
+        reindexChildren(firstIndex)
+        markSourceDirty()
+        if removedElement, let element = self as? Element {
+            element.markQueryIndexesDirty()
+        }
+        bumpTextMutationVersion()
+    }
+
     @usableFromInline
     internal func reindexChildren(_ start: Int) {
         for (index, node) in childNodes[start...].enumerated() {

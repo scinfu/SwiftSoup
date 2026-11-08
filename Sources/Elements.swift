@@ -490,8 +490,14 @@ open class Elements: NSCopying {
 	*/
 	@discardableResult
 	open func remove()throws->Elements {
+		// Grouped by parent: removing many siblings one at a time shifts and reindexes the child list for each.
+		var groups: [ObjectIdentifier: (parent: Node, children: [Node])] = [:]
 		for element in this {
-			try element.remove()
+			guard let parent = element.parentNode else { continue }
+			groups[ObjectIdentifier(parent), default: (parent, [])].children.append(element)
+		}
+		for group in groups.values {
+			group.parent.removeChildren(group.children)
 		}
 		return self
 	}
