@@ -694,6 +694,18 @@ class HtmlTreeBuilder: TreeBuilder {
         }
     }
 
+    /// Removes the top of the stack without invalidating tracking, so closing an element costs what it removes
+    /// rather than a rebuild over the whole stack on the next `<p>` scope check.
+    @inline(__always)
+    private func truncateStack(to newCount: Int) {
+        var index = stack.count
+        while index > newCount {
+            index &-= 1
+            updateStackTrackingOnPop(stack[index])
+        }
+        stack.removeSubrange(newCount..<stack.count)
+    }
+
     @inline(__always)
     private func updateStackTrackingOnPush(_ element: Element) {
         updateStackTrackingOnPush(element, index: stack.count - 1, allowDirty: true)
@@ -870,16 +882,14 @@ class HtmlTreeBuilder: TreeBuilder {
                endName == elName {
                 stack[index].setSourceRangeEnd(endRange.end)
             }
-            stack.removeSubrange(index..<stack.count)
-            stackTrackingDirty = true
+            truncateStack(to: index)
         }
     }
 
     
     func popStackToClose(_ elName: ParsingStrings) {
         if let index = lastIndexOfStackName(in: elName) {
-            stack.removeSubrange(index..<stack.count)
-            stackTrackingDirty = true
+            truncateStack(to: index)
         }
     }
     
@@ -889,15 +899,13 @@ class HtmlTreeBuilder: TreeBuilder {
     
     func popStackToClose(_ elNames: [[UInt8]]) {
         if let index = lastIndexOfStackName(in: elNames) {
-            stack.removeSubrange(index..<stack.count)
-            stackTrackingDirty = true
+            truncateStack(to: index)
         }
     }
     
     func popStackToClose(_ elNames: Set<[UInt8]>) {
         if let index = lastIndexOfStackName(in: elNames) {
-            stack.removeSubrange(index..<stack.count)
-            stackTrackingDirty = true
+            truncateStack(to: index)
         }
     }
     
@@ -907,8 +915,7 @@ class HtmlTreeBuilder: TreeBuilder {
             if (next.nodeNameUTF8() == elName) {
                 break
             } else {
-                stack.remove(at: pos)
-                stackTrackingDirty = true
+                truncateStack(to: pos)
             }
         }
     }
@@ -944,13 +951,11 @@ class HtmlTreeBuilder: TreeBuilder {
         }()
         
         guard let index else {
-            stack.removeAll()
-            stackTrackingDirty = true
+            truncateStack(to: 0)
             return
         }
         
-        stack.removeSubrange(stack.index(after: index) ..< stack.endIndex)
-        stackTrackingDirty = true
+        truncateStack(to: stack.index(after: index))
     }
     
     private func clearStackToContext(_ nodeNames: [UInt8]...) {
@@ -971,13 +976,11 @@ class HtmlTreeBuilder: TreeBuilder {
         }()
         
         guard let index else {
-            stack.removeAll()
-            stackTrackingDirty = true
+            truncateStack(to: 0)
             return
         }
         
-        stack.removeSubrange(stack.index(after: index) ..< stack.endIndex)
-        stackTrackingDirty = true
+        truncateStack(to: stack.index(after: index))
     }
     
     func aboveOnStack(_ el: Element) -> Element? {

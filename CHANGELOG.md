@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## Unreleased
+* Keep `<p>` scope tracking current when elements close from the top of the open-element stack, so parsing deeply nested tables or formatting elements is linear instead of quadratic.
 * Parse each `:has()` selector-list branch independently and support leading adjacent/general sibling combinators, including sibling chains and descendants. Preserve escaped and nested commas, candidate scoping, and cached evaluator isolation; avoid stale subtree result snapshots when sibling attributes change outside the selection root.
 * Isolate mutable parser-built OR evaluator graphs in the default query cache so editing a parsed selector cannot change later queries. Preserve established AND error handling in indexed selection and honor same-module evaluator overrides instead of substituting built-in index semantics.
 * Check `OrderedSet.isSubset(of:)` without restarting single-pass inputs. Such sequences no longer lose earlier matches or depend on hash iteration order; successful checks stop once all required members are found. Collections retain their specialized membership checks (including Set and Range), and singleton receivers need only one check without temporary membership storage. Empty receivers do not consume the input. Temporary membership storage for multi-member, non-Collection inputs is bounded by receiver size.
