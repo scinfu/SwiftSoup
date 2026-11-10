@@ -6,6 +6,16 @@ import XCTest
 /// has to keep that tracking right. Each case closes elements through one of those paths and then asks a `<p>` scope
 /// question, directly or through the next `<p>`.
 final class HtmlStackTrackingTest: XCTestCase {
+    func testParagraphScopeAfterRenamingAnOpenElement() throws {
+        let parser = Parser.htmlParser()
+        let document = try parser.parseInput("<p>a<button><span>b", "")
+        document.outputSettings().prettyPrint(pretty: false)
+        try XCTUnwrap(document.select("button").first()).tagName("i")
+        try parser.getTreeBuilder().processEndTag("span")
+        try parser.getTreeBuilder().processStartTag("p")
+        XCTAssertEqual(try XCTUnwrap(document.body()).html(), "<p>a<i><span>b</span></i></p><p></p>")
+    }
+
     func testParagraphScopeAfterStackRemovals() throws {
         let cases: [(html: String, body: String)] = [
             (#"<p>a<button><p>b</button>c<p>d"#,

@@ -698,6 +698,14 @@ class HtmlTreeBuilder: TreeBuilder {
     /// rather than a rebuild over the whole stack on the next `<p>` scope check.
     @inline(__always)
     private func truncateStack(to newCount: Int) {
+        // Public token processing permits callers to edit the stack or rename
+        // its elements between tokens. Only private parse loops own the tags
+        // represented by the incremental tracking.
+        if !isBulkBuilding && !constructingFragment {
+            stack.removeSubrange(newCount..<stack.count)
+            stackTrackingDirty = true
+            return
+        }
         var index = stack.count
         while index > newCount {
             index &-= 1

@@ -3,6 +3,48 @@ import XCTest
 @testable import SwiftSoup
 
 final class ElementsRemoveBatchTest: XCTestCase {
+    private final class CustomElement: Element {
+        var onRemove: (() throws -> Void)?
+
+        override func remove() throws {
+            try onRemove?()
+            try super.remove()
+        }
+    }
+
+    func testCustomRemovalKeepsSelectionOrderAndDuplicateCalls() throws {
+        let parent = try Element(Tag.valueOf("div"), "")
+        let first = try Element(Tag.valueOf("a"), "")
+        let custom = try CustomElement(Tag.valueOf("b"), "")
+        let last = try Element(Tag.valueOf("i"), "")
+        try parent.appendChild(first).appendChild(custom).appendChild(last)
+        var calls = 0
+        custom.onRemove = {
+            XCTAssertNil(first.parent())
+            XCTAssertTrue(last.parent() === parent)
+            calls += 1
+        }
+        try Elements([first, custom, custom, last]).remove()
+        XCTAssertEqual(calls, 2)
+        XCTAssertTrue(parent.getChildNodes().isEmpty)
+    }
+
+    func testCustomRemovalPropagatesErrorsBeforeLaterElements() throws {
+        enum RemovalError: Error { case stopped }
+        let parent = try Element(Tag.valueOf("div"), "")
+        let first = try Element(Tag.valueOf("a"), "")
+        let custom = try CustomElement(Tag.valueOf("b"), "")
+        let last = try Element(Tag.valueOf("i"), "")
+        try parent.appendChild(first).appendChild(custom).appendChild(last)
+        custom.onRemove = { throw RemovalError.stopped }
+        XCTAssertThrowsError(try Elements([first, custom, last]).remove()) { error in
+            XCTAssertTrue(error is RemovalError)
+        }
+        XCTAssertNil(first.parent())
+        XCTAssertTrue(custom.parent() === parent)
+        XCTAssertTrue(last.parent() === parent)
+    }
+
     private func document(_ html: String) throws -> Document {
         let document = try SwiftSoup.parse(html)
         document.outputSettings().prettyPrint(pretty: false)
@@ -64,6 +106,20 @@ final class ElementsRemoveBatchTest: XCTestCase {
         let doc = try document("<p>a</p>")
         XCTAssertEqual(try doc.select("nothing").remove().size(), 0)
         XCTAssertEqual(try XCTUnwrap(doc.body()).html(), "<p>a</p>")
+    }
+
+    func testRemovingTrailingSiblingsAndDuplicatesKeepsPrefix() throws {
+        let doc = try document("<div><a>one</a>text<b>two</b><i>three</i><u>four</u></div>")
+        let div = try XCTUnwrap(doc.select("div").first())
+        let first = try XCTUnwrap(doc.select("a").first())
+        let penultimate = try XCTUnwrap(doc.select("i").first())
+        let last = try XCTUnwrap(doc.select("u").first())
+        try Elements([last, penultimate, last]).remove()
+        XCTAssertEqual(try div.html(), "<a>one</a>text<b>two</b>")
+        XCTAssertTrue(div.childNode(0) === first)
+        XCTAssertNil(last.parent())
+        XCTAssertNil(penultimate.parent())
+        assertSiblingIndexesAreCurrent(doc)
     }
 
     /// SWIFTSOUP_REMOVE_PROFILE=1 swift test -c release --filter ElementsRemoveBatchTest/testElementsRemoveProfile

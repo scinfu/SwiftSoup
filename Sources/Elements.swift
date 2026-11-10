@@ -490,14 +490,36 @@ open class Elements: NSCopying {
 	*/
 	@discardableResult
 	open func remove()throws->Elements {
+		// Subclasses can override remove(), including its side effects and errors.
+		// Preserve selection order and duplicate/detached calls for the whole
+		// selection whenever one of those custom elements is present.
+		guard this.allSatisfy({
+			let concreteType = type(of: $0)
+			return concreteType == Element.self || concreteType == FormElement.self || concreteType == Document.self
+		}) else {
+			for element in this { try element.remove() }
+			return self
+		}
 		// Grouped by parent: removing many siblings one at a time shifts and reindexes the child list for each.
-		var groups: [ObjectIdentifier: (parent: Node, children: [Node])] = [:]
+		// Keep the selection's parent order, including preorder ancestor selections.
+		var groups: [(parent: Node, children: [Node])] = []
+		var groupIndexes: [ObjectIdentifier: Int] = [:]
 		for element in this {
 			guard let parent = element.parentNode else { continue }
-			groups[ObjectIdentifier(parent), default: (parent, [])].children.append(element)
+			let identity = ObjectIdentifier(parent)
+			if let index = groupIndexes[identity] {
+				groups[index].children.append(element)
+			} else {
+				groupIndexes[identity] = groups.count
+				groups.append((parent, [element]))
+			}
 		}
-		for group in groups.values {
-			group.parent.removeChildren(group.children)
+		for group in groups {
+			if group.children.count == 1 {
+				try group.children[0].remove()
+			} else {
+				group.parent.removeChildren(group.children)
+			}
 		}
 		return self
 	}

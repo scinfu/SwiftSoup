@@ -936,7 +936,17 @@ open class Node: Equatable, Hashable {
             node.parentNode = nil
         }
         guard !removed.isEmpty else { return }
-        childNodes.removeAll { removed.contains(ObjectIdentifier($0)) }
+        // The prefix is unchanged. In particular, removing a few tail nodes
+        // must not scan a potentially large list of preceding siblings.
+        var destination = firstIndex
+        for index in firstIndex..<childNodes.count {
+            let child = childNodes[index]
+            if !removed.contains(ObjectIdentifier(child)) {
+                childNodes[destination] = child
+                destination += 1
+            }
+        }
+        childNodes.removeSubrange(destination..<childNodes.count)
         reindexChildren(firstIndex)
         markSourceDirty()
         if removedElement, let element = self as? Element {
