@@ -88,6 +88,53 @@ final class RemovalSnapshotLifetimeTest: XCTestCase {
         }
     }
 
+    func testLaterSelectedSnapshotPreservesCallbacksAfterFirstRemoval() throws {
+        func run(batched: Bool) throws -> Outcome {
+            let root = Element(Tag("main"), "")
+            let first = Element(Tag("i"), "")
+            let second = Element(Tag("b"), "")
+            let later = Element(Tag("u"), "")
+            let last = Element(Tag("em"), "")
+            let destination = Element(Tag("aside"), "")
+            var payload: CallbackNode? = CallbackNode(Tag("span"), "")
+            weak var lifetime = payload
+            var callbackCount = 0
+            var callbackSawLaterAttached = false
+            payload!.onDeinit = {
+                callbackCount += 1
+                XCTAssertNil(first.parent())
+                XCTAssertNil(second.parent())
+                XCTAssertTrue(last.parent() === root)
+                callbackSawLaterAttached = later.parent() === root
+                do { try destination.appendChild(later) }
+                catch { XCTFail("Unexpected callback reparent error: \(error)") }
+            }
+            try root.appendChild(first).appendChild(second).appendChild(later).appendChild(last)
+            // The first ordinary removal does not clear a later sibling's
+            // snapshots. Planning the remaining suffix must notice this owner.
+            installSnapshot(owner: second, payload: payload!, root: root)
+            payload = nil
+            let selected = [first, second, later, last]
+            if batched { try Elements(selected).remove() }
+            else { for node in selected { try node.remove() } }
+            XCTAssertNil(lifetime)
+            XCTAssertTrue(root.getChildNodes().isEmpty)
+            return Outcome(callbackCount: callbackCount,
+                           callbackSawLaterAttached: callbackSawLaterAttached,
+                           destinationContainsLater: destination.getChildNodes().contains { $0 === later },
+                           laterDetached: later.parent() == nil,
+                           indexes: selected.map(\.siblingIndex))
+        }
+
+        let expected = try run(batched: false)
+        let actual = try run(batched: true)
+        XCTAssertEqual(actual, expected)
+        XCTAssertEqual(actual.callbackCount, 1)
+        XCTAssertTrue(actual.callbackSawLaterAttached)
+        XCTAssertTrue(actual.laterDetached)
+        XCTAssertFalse(actual.destinationContainsLater)
+    }
+
     func testSnapshotRootCycleReleaseMatchesSequentialRemoval() throws {
         func run(batched: Bool) throws -> Outcome {
             var root: Element? = Element(try Tag.valueOf("main"), "")

@@ -924,11 +924,12 @@ open class Node: Equatable, Hashable {
             msg: "A node cannot contain itself or one of its ancestors.")
     }
 
-    /// Detaches a sibling group, compacting once when its order permits batching.
-    internal func removeChildren<C: Collection>(_ nodes: C) throws where C.Element: Node {
+    /// Detaches a sibling group after Elements.remove() has ruled out callbacks
+    /// from selected elements, ancestors, selection storage, and cached snapshots.
+    /// Compacts once for monotonic sibling order; otherwise preserves remove() order.
+    internal func removeChildren(_ nodes: ArraySlice<Element>) throws {
         var removed = Set<ObjectIdentifier>()
         var firstIndex = childNodes.count
-        var removedElement = false
         var previousIndex: Int?
         var ascending = true
         var descending = true
@@ -940,7 +941,6 @@ open class Node: Equatable, Hashable {
             }
             previousIndex = node.siblingIndex
             firstIndex = min(firstIndex, node.siblingIndex)
-            removedElement = removedElement || node is Element
         }
         guard !removed.isEmpty else { return }
         // Detached nodes retain the index they had when remove() ran. A
@@ -969,7 +969,7 @@ open class Node: Equatable, Hashable {
         childNodes.removeSubrange(destination..<childNodes.count)
         reindexChildren(firstIndex)
         markSourceDirty()
-        if removedElement, let element = self as? Element {
+        if let element = self as? Element {
             element.markQueryIndexesDirty()
         }
         // Preserve the public token produced by sequential removal, including

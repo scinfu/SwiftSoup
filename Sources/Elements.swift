@@ -13,16 +13,6 @@ import Foundation
 open class Elements: NSCopying {
 	fileprivate var this: Array<Element> = Array<Element>()
 
-	#if canImport(ObjectiveC)
-	// Derive the native bridge class without naming private Foundation classes.
-	// The separate call keeps array-literal bridging optimizations out of this check.
-	private static let nativeArrayBridgeType = arrayBridgeType([Element(Tag("i"), "")])
-	@inline(never)
-	private static func arrayBridgeType(_ elements: [Element]) -> ObjectIdentifier {
-		return ObjectIdentifier(type(of: elements as NSArray))
-	}
-	#endif
-
 	/// Base initializer.
 	public init() {
 	}
@@ -500,135 +490,34 @@ open class Elements: NSCopying {
 	*/
 	@discardableResult
 	open func remove()throws->Elements {
-		// Batching cannot help an empty or singleton selection. Keep those
-		// common calls on the original path, including custom remove() dispatch.
-		if this.count <= 1 {
+		// Check storage before even reading count: a bridged NSArray can run
+		// caller code from count as well as from its element accessors.
+		guard RemovalPreflight.hasNativeStorage(this), this.count > 1 else {
 			for element in this { try element.remove() }
 			return self
 		}
-		guard let groups = Elements.removalGroups(this) else {
-			for element in this { try element.remove() }
+
+		// Match the original for-in loop's snapshot even if the first removal
+		// invokes caller code that changes this Elements collection.
+		let elements = this
+		try elements[0].remove()
+		let remaining = elements.dropFirst()
+
+		// The first ordinary removal clears the common ancestor caches, running
+		// any snapshot/key deinitializers at their original point. Batching the
+		// remaining siblings is safe only if their removal paths are callback-free.
+		guard remaining.count > 1, let groups = RemovalPreflight.groups(for: remaining) else {
+			for element in remaining { try element.remove() }
 			return self
 		}
-		// Batch only consecutive siblings. Pulling later siblings ahead of an
-		// intervening ancestor removal changes which tree receives text mutation
-		// invalidation, potentially leaving a retained subtree's token unchanged.
 		for group in groups {
 			if group.range.count == 1 {
-				try this[group.range.lowerBound].remove()
+				try elements[group.range.lowerBound].remove()
 			} else {
-				try group.parent.removeChildren(this[group.range])
+				try group.parent.removeChildren(elements[group.range])
 			}
 		}
 		return self
-	}
-
-	// Rejected plans must release every parent before sequential removal can
-	// invoke caller code. Keep those temporary owners inside this separate call.
-	@inline(never)
-	private static func removalGroups(_ elements: [Element]) -> [(parent: Node, range: Range<Int>)]? {
-		#if canImport(ObjectiveC)
-		// A bridged NSArray can override element access. Preserve its original
-		// read/remove interleaving instead of reading ahead during planning.
-		guard arrayBridgeType(elements) == nativeArrayBridgeType else { return nil }
-		#endif
-		// Subclasses can override remove(), including its side effects and errors.
-		guard elements.allSatisfy({
-			let concreteType = type(of: $0)
-			guard concreteType == Element.self || concreteType == FormElement.self || concreteType == Document.self else {
-				return false
-			}
-			guard let parent = $0.parentNode else { return true }
-			return parent.childNodes.indices.contains($0.siblingIndex) && parent.childNodes[$0.siblingIndex] === $0
-		}) else { return nil }
-		// Keep consecutive sibling ranges in selection order. Slices let a batch
-		// share the selection's storage without copying its element references.
-		var groups: [(parent: Node, range: Range<Int>)] = []
-		var start = 0
-		while start < elements.count {
-			guard let parent = elements[start].parentNode else {
-				start += 1
-				continue
-			}
-			var end = start + 1
-			while end < elements.count, elements[end].parentNode === parent { end += 1 }
-			groups.append((parent, start..<end))
-			start = end
-		}
-		// Invalidating a stale selector snapshot can release a detached subtree
-		// and run a custom descendant's deinit. Such callbacks must keep their
-		// original position between sequential removals. Live non-root payloads
-		// are also retained by their tree; do not clear any cache during planning.
-		var roots: [ObjectIdentifier: ObjectIdentifier] = [:]
-		var checkedSnapshots = Set<ObjectIdentifier>()
-		// Small selections must not scan arbitrarily large cached results. Bound
-		// both snapshot visits and parent walks; rejection keeps removal sequential.
-		var snapshotWorkRemaining = Swift.max(16, Swift.min(elements.count, Int.max / 8) * 8)
-		func consumeSnapshotWork() -> Bool {
-			guard snapshotWorkRemaining > 0 else { return false }
-			snapshotWorkRemaining -= 1
-			return true
-		}
-		func rootIdentifier(_ node: Node) -> ObjectIdentifier? {
-			var current = node
-			var path: [ObjectIdentifier] = []
-			let root: ObjectIdentifier
-			while true {
-				let identifier = ObjectIdentifier(current)
-				if let known = roots[identifier] {
-					root = known
-					break
-				}
-				guard consumeSnapshotWork() else { return nil }
-				path.append(identifier)
-				guard let parent = current.parentNode else {
-					root = identifier
-					break
-				}
-				// setParentNode() is public and can establish only a weak
-				// backlink. Require an owning edge before trusting a tree root.
-				guard parent.childNodes.indices.contains(current.siblingIndex),
-				      parent.childNodes[current.siblingIndex] === current else { return nil }
-				current = parent
-			}
-			for identifier in path { roots[identifier] = root }
-			return root
-		}
-		func hasSafeSnapshots(_ element: Element) -> Bool {
-			guard let cache = element.selectorResultCache else { return true }
-			guard !cache.hasForeignQueryStorage else { return false }
-			guard checkedSnapshots.insert(ObjectIdentifier(element)).inserted else { return true }
-			guard let ownerRoot = rootIdentifier(element) else { return false }
-			let isSafe = { (result: SelectorResultCache.Result) in
-				result.elements.allSatisfy { cached in
-					guard consumeSnapshotWork(), let root = rootIdentifier(cached) else { return false }
-					return ObjectIdentifier(cached) != root && root == ownerRoot
-				}
-			}
-			return cache.probationary.allValuesSatisfy(isSafe) && cache.protected.allValuesSatisfy(isSafe)
-		}
-		for element in elements where element.parentNode != nil {
-			guard hasSafeSnapshots(element) else { return nil }
-		}
-		// Source invalidation calls open ownerDocument() methods on parents and
-		// ancestors. A custom override can move later selected nodes, so inspect
-		// every group's ancestry before any mutation and preserve sequential calls
-		// for the whole selection when caller code could run. Shared ancestors are
-		// checked once, including when many siblings share the same parent.
-		var checkedAncestors = Set<ObjectIdentifier>()
-		for group in groups {
-			var ancestor: Node? = group.parent
-			while let node = ancestor {
-				guard checkedAncestors.insert(ObjectIdentifier(node)).inserted else { break }
-				let concreteType = type(of: node)
-				guard concreteType == Element.self || concreteType == FormElement.self || concreteType == Document.self,
-				      let element = node as? Element, hasSafeSnapshots(element) else {
-					return nil
-				}
-				ancestor = node.parentNode
-			}
-		}
-		return groups
 	}
 
 	// MARK: Filters
@@ -830,6 +719,88 @@ open class Elements: NSCopying {
 	open func array() -> Array<Element> {
 		return this
 	}
+}
+
+
+// MARK: - Removal preflight
+
+/// Finds consecutive sibling groups whose removals cannot invoke caller code.
+/// Inspection must not clear caches: releasing a snapshot or a retained query
+/// string can run a deinitializer that changes later elements in the selection.
+private enum RemovalPreflight {
+    struct Group {
+        let parent: Node
+        let range: Range<Int>
+    }
+
+    #if canImport(ObjectiveC)
+    // Derive the native bridge class without naming private Foundation classes.
+    // The separate call keeps array-literal bridging optimizations out of this check.
+    private static let nativeArrayBridgeType = arrayBridgeType([Element(Tag("i"), "")])
+
+    @inline(never)
+    private static func arrayBridgeType(_ elements: [Element]) -> ObjectIdentifier {
+        return ObjectIdentifier(type(of: elements as NSArray))
+    }
+    #endif
+
+    static func hasNativeStorage(_ elements: [Element]) -> Bool {
+        #if canImport(ObjectiveC)
+        return arrayBridgeType(elements) == nativeArrayBridgeType
+        #else
+        return true
+        #endif
+    }
+
+    // Rejected plans must release every parent before sequential removal can
+    // invoke caller code. Keep those temporary owners inside this separate call.
+    @inline(never)
+    static func groups(for elements: ArraySlice<Element>) -> [Group]? {
+        guard elements.allSatisfy({ element in
+            guard hasBuiltInRemoval(element) else { return false }
+            guard let parent = element.parentNode else { return true }
+            // setParentNode() can establish only a weak backlink. Require the
+            // owning edge before using siblingIndex to compact the parent.
+            return element.selectorResultCache == nil
+                && parent.childNodes.indices.contains(element.siblingIndex)
+                && parent.childNodes[element.siblingIndex] === element
+        }) else { return nil }
+
+        // Keep consecutive siblings in selection order. An intervening ancestor
+        // removal changes the text-mutation root and must stay between groups.
+        var groups: [Group] = []
+        var start = elements.startIndex
+        while start < elements.endIndex {
+            guard let parent = elements[start].parentNode else {
+                start += 1
+                continue
+            }
+            var end = start + 1
+            while end < elements.endIndex, elements[end].parentNode === parent { end += 1 }
+            groups.append(Group(parent: parent, range: start..<end))
+            start = end
+        }
+
+        // Source invalidation calls open ownerDocument() on parents/ancestors.
+        // Check every group before mutating any of them, and visit shared
+        // ancestors only once so wide selections keep linear inspection work.
+        var checkedAncestors = Set<ObjectIdentifier>()
+        for group in groups {
+            var ancestor: Node? = group.parent
+            while let node = ancestor {
+                guard checkedAncestors.insert(ObjectIdentifier(node)).inserted else { break }
+                guard hasBuiltInRemoval(node), let element = node as? Element,
+                      element.selectorResultCache == nil else { return nil }
+                ancestor = node.parentNode
+            }
+        }
+        return groups
+    }
+
+    private static func hasBuiltInRemoval(_ node: Node) -> Bool {
+        let concreteType = type(of: node)
+        return concreteType == Element.self || concreteType == FormElement.self || concreteType == Document.self
+    }
 }
 
 

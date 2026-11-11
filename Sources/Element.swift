@@ -46,12 +46,6 @@ final class SelectorResultCache {
             return nodes[SelectorQueryKey(key)] != nil
         }
 
-        // Inspect retained snapshots without promoting entries or invalidating
-        // the cache, either of which could change node lifetimes.
-        func allValuesSatisfy(_ predicate: (Value) -> Bool) -> Bool {
-            return nodes.values.allSatisfy { predicate($0.value) }
-        }
-
         @inline(__always)
         func get(_ key: String) -> Value? {
             guard let node = nodes[SelectorQueryKey(key)] else { return nil }
@@ -166,9 +160,6 @@ final class SelectorResultCache {
     let probationary: Storage<Result>
     @usableFromInline
     let protected: Storage<Result>
-    // Foreign String storage can retain an NSString subclass whose deinit
-    // mutates the tree when cached keys or query statistics are released.
-    var hasForeignQueryStorage = false
     private let doorkeeperCapacity: Int
     private var doorkeeper: Set<SelectorQueryKey> = []
     private var doorkeeperOrder: [SelectorQueryKey] = []
@@ -199,7 +190,6 @@ final class SelectorResultCache {
 
     @inline(__always)
     func put(_ key: String, _ value: Result) {
-        hasForeignQueryStorage = hasForeignQueryStorage || !key.isContiguousUTF8
         if protected.contains(key) {
             _ = protected.set(key, value)
             return
@@ -2997,9 +2987,6 @@ internal extension Element {
 
     @inline(__always)
     private func recordSelectorQuery(_ query: String, hit: Bool) {
-        if !query.isContiguousUTF8 {
-            selectorResultCache?.hasForeignQueryStorage = true
-        }
         guard let stats = selectorQueryStats else { return }
         stats.record(query, hit: hit)
         guard selectorCacheBypassRemaining == 0 else { return }

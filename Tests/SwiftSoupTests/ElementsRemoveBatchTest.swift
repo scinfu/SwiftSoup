@@ -45,6 +45,41 @@ final class ElementsRemoveBatchTest: XCTestCase {
         XCTAssertTrue(last.parent() === parent)
     }
 
+    func testFirstRemovalCallbackKeepsTheOriginalSelectionSnapshot() throws {
+        for batched in [false, true] {
+            let parent = Element(Tag("div"), "")
+            let first = CustomElement(Tag("a"), "")
+            let second = Element(Tag("b"), "")
+            let third = Element(Tag("i"), "")
+            let inserted = Element(Tag("u"), "")
+            try parent.appendChild(first).appendChild(second).appendChild(third).appendChild(inserted)
+            let selection = Elements([first, second, third])
+            var calls = 0
+            first.onRemove = { [weak selection] in
+                calls += 1
+                // The original array iterator ignores later collection edits.
+                // Inserting at the next index also catches stale batch ranges
+                // being applied to the modified Elements storage.
+                selection?.add(1, inserted)
+            }
+            defer { first.onRemove = nil }
+
+            if batched {
+                XCTAssertTrue(try selection.remove() === selection)
+            } else {
+                for node in selection.array() { try node.remove() }
+            }
+
+            XCTAssertEqual(calls, 1, "batched=\(batched)")
+            XCTAssertEqual(selection.size(), 4)
+            XCTAssertTrue(selection.get(1) === inserted)
+            XCTAssertTrue([first, second, third].allSatisfy { $0.parent() == nil })
+            XCTAssertTrue(inserted.parent() === parent)
+            XCTAssertEqual(parent.getChildNodes().count, 1)
+            XCTAssertEqual(inserted.siblingIndex, 0)
+        }
+    }
+
     private func document(_ html: String) throws -> Document {
         let document = try SwiftSoup.parse(html)
         document.outputSettings().prettyPrint(pretty: false)
