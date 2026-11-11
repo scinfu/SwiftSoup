@@ -64,7 +64,7 @@ class HtmlTreeBuilder: TreeBuilder {
     private var stackTrackingDirty: Bool = false
     private var stackUnknownTagIdCount: Int = 0
     private var stackTagIdP: [Int] = []
-    private var stackTagIdButton: [Int] = []
+    private var stackTagIdButtonScopeBoundary: [Int] = []
 
     
     public override init() {
@@ -678,7 +678,7 @@ class HtmlTreeBuilder: TreeBuilder {
         stackTrackingDirty = false
         stackUnknownTagIdCount = 0
         stackTagIdP.removeAll(keepingCapacity: true)
-        stackTagIdButton.removeAll(keepingCapacity: true)
+        stackTagIdButtonScopeBoundary.removeAll(keepingCapacity: true)
         if stack.isEmpty {
             return
         }
@@ -698,14 +698,6 @@ class HtmlTreeBuilder: TreeBuilder {
     /// rather than a rebuild over the whole stack on the next `<p>` scope check.
     @inline(__always)
     private func truncateStack(to newCount: Int) {
-        // Public token processing permits callers to edit the stack or rename
-        // its elements between tokens. Only private parse loops own the tags
-        // represented by the incremental tracking.
-        if !isBulkBuilding && !constructingFragment {
-            stack.removeSubrange(newCount..<stack.count)
-            stackTrackingDirty = true
-            return
-        }
         var index = stack.count
         while index > newCount {
             index &-= 1
@@ -731,8 +723,8 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         if tagId == .p {
             stackTagIdP.append(index)
-        } else if tagId == .button {
-            stackTagIdButton.append(index)
+        } else if isButtonScopeBoundary(tagId) {
+            stackTagIdButtonScopeBoundary.append(index)
         }
     }
 
@@ -748,9 +740,14 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         if tagId == .p {
             _ = stackTagIdP.popLast()
-        } else if tagId == .button {
-            _ = stackTagIdButton.popLast()
+        } else if isButtonScopeBoundary(tagId) {
+            _ = stackTagIdButtonScopeBoundary.popLast()
         }
+    }
+
+    @inline(__always)
+    private func isButtonScopeBoundary(_ tagId: Token.Tag.TagId) -> Bool {
+        return tagId == .button || TagSets.inScope.containsTagId(tagId)
     }
     
     @inlinable
@@ -1236,13 +1233,19 @@ class HtmlTreeBuilder: TreeBuilder {
 
     @inline(__always)
     private func inButtonScopePFast() throws -> Bool {
+        // Public token processing permits callers to replace stack entries or
+        // rename open elements between tokens. Only private parse loops own
+        // the tags represented by the incremental tracking.
+        if !isBulkBuilding && !constructingFragment {
+            return try inScope(UTF8Arrays.p, TagSets.button)
+        }
         rebuildStackTrackingIfNeeded()
         if stackUnknownTagIdCount == 0 {
             guard let lastP = stackTagIdP.last else {
                 return false
             }
-            if let lastButton = stackTagIdButton.last {
-                return lastP > lastButton
+            if let lastBoundary = stackTagIdButtonScopeBoundary.last {
+                return lastP > lastBoundary
             }
             return true
         }

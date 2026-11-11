@@ -16,7 +16,7 @@ final class HtmlStackTrackingTest: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(document.body()).html(), "<p>a<i><span>b</span></i></p><p></p>")
     }
 
-    func testParagraphScopeAfterStackRemovals() throws {
+    func testSourceSerializationAfterStackRemovals() throws {
         let cases: [(html: String, body: String)] = [
             (#"<p>a<button><p>b</button>c<p>d"#,
              #"<p>a<button><p>b</button>c</p><p>d</p>"#),
@@ -51,18 +51,34 @@ final class HtmlStackTrackingTest: XCTestCase {
             let document = try SwiftSoup.parse(html)
             document.outputSettings().prettyPrint(pretty: false)
             XCTAssertEqual(try XCTUnwrap(document.body()).html(), expected, html)
+            // Source-preserving serialization above checks lexical behavior.
+            // Also compare the actual trees through both parser paths, with
+            // source replay disabled when serializing either result.
+            let untracked = try Parser.htmlParser().settings(ParseSettings(false, false, false)).parseInput(html, "")
+            untracked.outputSettings().prettyPrint(pretty: false)
+            XCTAssertEqual(try XCTUnwrap(document.body()).htmlUTF8WithoutSourceReuse(),
+                           try XCTUnwrap(untracked.body()).htmlUTF8WithoutSourceReuse(), html)
         }
     }
 
     func testDeepTablesAndClosedParagraphsKeepTheirShape() throws {
         let depth = 3_000
         let tables = try SwiftSoup.parse(String(repeating: "<table><tr><td>", count: depth))
-        XCTAssertEqual(try tables.select("table").size(), depth)
-        XCTAssertEqual(try tables.select("td").size(), depth)
+        let tableNodes = try tables.select("table").array()
+        let cells = try tables.select("td").array()
+        XCTAssertEqual(tableNodes.count, depth)
+        XCTAssertEqual(cells.count, depth)
+        for (table, cell) in zip(tableNodes.dropFirst(), cells) {
+            XCTAssertTrue(table.parent() === cell)
+        }
         let paragraphs = try SwiftSoup.parse(
             String(repeating: "<font>", count: depth) + String(repeating: "<p>x", count: depth))
-        XCTAssertEqual(try paragraphs.select("font").size(), depth)
-        XCTAssertEqual(try paragraphs.select("p").size(), depth)
+        let fonts = try paragraphs.select("font").array()
+        let ps = try paragraphs.select("p").array()
+        XCTAssertEqual(fonts.count, depth)
+        XCTAssertEqual(ps.count, depth)
+        for (font, parent) in zip(fonts.dropFirst(), fonts) { XCTAssertTrue(font.parent() === parent) }
+        for p in ps { XCTAssertTrue(p.parent() === fonts.last) }
     }
 
     /// SWIFTSOUP_STACK_PROFILE=1 swift test -c release --filter HtmlStackTrackingTest/testStackTrackingProfile

@@ -89,7 +89,7 @@ final class ElementsRemoveBatchTest: XCTestCase {
         assertSiblingIndexesAreCurrent(doc)
     }
 
-    func testCachedStateIsInvalidated() throws {
+    func testSingleRemovalInvalidatesCachedState() throws {
         let doc = try document("<div id=d><a class=x>one</a><b>two</b></div>")
         let div = try XCTUnwrap(doc.getElementById("d"))
         XCTAssertEqual(try div.text(), "onetwo")
@@ -141,6 +141,82 @@ final class ElementsRemoveBatchTest: XCTestCase {
             let elapsed = Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
             XCTAssertEqual(try doc.select("a.x").size(), 0)
             print("Elements.remove \(name) elapsed: \(elapsed) ms for \(selected.size()) elements")
+        }
+    }
+
+    private func shape(_ root: Node) -> [String] {
+        var pending: [(Node, Int)] = [(root, 0)]
+        var result: [String] = []
+        while let (node, depth) = pending.popLast() {
+            let elementID = (node as? Element)?.id() ?? ""
+            let text = (node as? TextNode)?.getWholeText() ?? ""
+            result.append("\(depth):\(node.nodeName()):\(elementID):\(text)")
+            for child in node.getChildNodes().reversed() { pending.append((child, depth + 1)) }
+        }
+        return result
+    }
+
+    func testBulkRemovalInvalidatesStoredResultsAndExternalTextVersion() throws {
+        let doc = try document("<div id=d><a class=x>one</a><b>two</b><a class=x>three</a></div>")
+        let div = try XCTUnwrap(doc.getElementById("d"))
+        for root: Element in [doc, div] {
+            for _ in 0..<3 { XCTAssertEqual(try root.select("a.x").size(), 2) }
+            XCTAssertNotNil(root.cachedSelectorResult("a.x"))
+        }
+        let version = doc.textMutationVersionToken()
+        let selected = try doc.select("a.x")
+        try selected.remove()
+        XCTAssertNotEqual(doc.textMutationVersionToken(), version)
+        XCTAssertEqual(try div.text(), "two")
+        XCTAssertEqual(try doc.select("a.x").size(), 0)
+        XCTAssertEqual(try div.select("a.x").size(), 0)
+        XCTAssertTrue(selected.array().allSatisfy { $0.parent() == nil })
+        XCTAssertEqual(try div.outerHtml(), "<div id=\"d\"><b>two</b></div>")
+        XCTAssertEqual(div.getChildNodes().map(\.siblingIndex), [0])
+    }
+
+    func testOrderedBulkSelectionsMatchSequentialPublicRemoval() throws {
+        let html = "<main id=r><section id=a><i id=n0 class=x>zero</i>t<!--keep--><b id=n1 class=x>one</b><i id=n2 class=x>two</i></section><form id=b><i id=n3 class=x>three</i><em id=n4 class=x>four</em></form></main>"
+        let ids = ["r", "a", "n0", "n1", "n2", "b", "n3", "n4", "detached", "document"]
+        let queries = [".x", "i", "[id]", ":contains(zero)", ":empty"]
+        var state: UInt64 = 0x475
+        func next(_ limit: Int) -> Int {
+            state = state &* 6364136223846793005 &+ 1442695040888963407
+            return Int((state >> 32) % UInt64(limit))
+        }
+        for caseIndex in 0..<128 {
+            let docs = try [document(html), document(html)]
+            var maps: [[String: Element]] = []
+            for doc in docs {
+                var map = Dictionary(uniqueKeysWithValues: try doc.select("[id]").array().map { ($0.id(), $0) })
+                map["detached"] = Element(try Tag.valueOf("u"), "")
+                map["document"] = doc
+                for key in ["r", "a", "b", "n0"] {
+                    for query in queries { for _ in 0..<3 { _ = try map[key]!.select(query) } }
+                }
+                maps.append(map)
+            }
+            var selection = (0..<next(13)).map { _ in ids[next(ids.count)] }
+            if caseIndex == 0 { selection = ["n0", "a", "n2", "r", "n3", "b", "detached", "a"] }
+            for id in selection { try maps[0][id]!.remove() }
+            try Elements(selection.map { maps[1][$0]! }).remove()
+            XCTAssertEqual(shape(docs[0]), shape(docs[1]), "case \(caseIndex), \(selection)")
+            for id in ids {
+                let lhs = maps[0][id]!
+                let rhs = maps[1][id]!
+                XCTAssertEqual(shape(lhs), shape(rhs), "\(caseIndex): \(id)")
+                XCTAssertEqual(lhs.parent()?.nodeName(), rhs.parent()?.nodeName())
+                XCTAssertEqual((lhs.parent() as? Element)?.id(), (rhs.parent() as? Element)?.id())
+                XCTAssertEqual(try lhs.text(), try rhs.text())
+                XCTAssertEqual(try lhs.outerHtml(), try rhs.outerHtml())
+                for query in queries {
+                    XCTAssertEqual(try lhs.select(query).array().map { $0.nodeName() + ":" + $0.id() }, try rhs.select(query).array().map { $0.nodeName() + ":" + $0.id() })
+                }
+                for (index, child) in rhs.getChildNodes().enumerated() {
+                    XCTAssertEqual(child.siblingIndex, index)
+                    XCTAssertTrue(child.parent() === rhs)
+                }
+            }
         }
     }
 }
