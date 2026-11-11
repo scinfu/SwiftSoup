@@ -60,11 +60,15 @@ class HtmlTreeBuilder: TreeBuilder {
     private var fragmentParsing: Bool = false // if parsing a fragment of html
     // Only true inside the private fragment parse loop, not manual token processing.
     private var constructingFragment: Bool = false
+    // Custom settings can run caller code while resolving tags/attributes.
+    // Preserve a conservative decision for the whole parse, even if a callback
+    // replaces `settings` with a built-in instance before its next scope check.
+    private var allowsIncrementalScopeTracking: Bool = true
 
-    private var stackTrackingDirty: Bool = false
+    private var stackTrackingDirty: Bool = true
     private var stackUnknownTagIdCount: Int = 0
     private var stackTagIdP: [Int] = []
-    private var stackTagIdButton: [Int] = []
+    private var stackTagIdButtonScopeBoundary: [Int] = []
 
     
     public override init() {
@@ -96,19 +100,30 @@ class HtmlTreeBuilder: TreeBuilder {
     override func initialiseParse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
         resetParseState()
         super.initialiseParse(input, baseUri, errors, settings)
+        allowsIncrementalScopeTracking = type(of: settings) == ParseSettings.self
         resetStackTracking()
     }
 
     override func initialiseParse(_ input: UnsafeBufferPointer<UInt8>, owner: AnyObject?, _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
         resetParseState()
         super.initialiseParse(input, owner: owner, baseUri, errors, settings)
+        allowsIncrementalScopeTracking = type(of: settings) == ParseSettings.self
         resetStackTracking()
+    }
+
+    override func endBulkAppend() {
+        super.endBulkAppend()
+        stackTrackingDirty = true
     }
 
     func parseFragment(_ inputFragment: [UInt8], _ context: Element?, _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) throws -> Array<Node> {
         // context may be null
         _state = HtmlTreeBuilderState.Initial
         initialiseParse(inputFragment, baseUri, errors, settings)
+        defer {
+            constructingFragment = false
+            stackTrackingDirty = true
+        }
         contextElement = context
         fragmentParsing = true
         var root: Element? = nil
@@ -156,8 +171,11 @@ class HtmlTreeBuilder: TreeBuilder {
             }
         }
         
+        // Context setup invokes open methods such as parents(). Callers can
+        // edit the public stack there, before this private parser loop begins.
+        allowsIncrementalScopeTracking = allowsIncrementalScopeTracking && type(of: self.settings) == ParseSettings.self
         constructingFragment = true
-        defer { constructingFragment = false }
+        resetStackTracking()
         try runParser()
         if (context != nil && root != nil) {
             return root!.getChildNodes()
@@ -675,11 +693,14 @@ class HtmlTreeBuilder: TreeBuilder {
 
     @inline(__always)
     private func resetStackTracking() {
-        stackTrackingDirty = false
+        // A dirty cache also suppresses push/pop maintenance. Leave tracking
+        // disabled outside trusted construction so unused stale positions
+        // cannot accumulate during callback-driven or manual token streams.
+        stackTrackingDirty = !allowsIncrementalScopeTracking || (!isBulkBuilding && !constructingFragment)
         stackUnknownTagIdCount = 0
         stackTagIdP.removeAll(keepingCapacity: true)
-        stackTagIdButton.removeAll(keepingCapacity: true)
-        if stack.isEmpty {
+        stackTagIdButtonScopeBoundary.removeAll(keepingCapacity: true)
+        if stackTrackingDirty || stack.isEmpty {
             return
         }
         for (index, element) in stack.enumerated() {
@@ -692,6 +713,18 @@ class HtmlTreeBuilder: TreeBuilder {
         if stackTrackingDirty {
             resetStackTracking()
         }
+    }
+
+    /// Removes the top of the stack without invalidating tracking, so closing an element costs what it removes
+    /// rather than a rebuild over the whole stack on the next `<p>` scope check.
+    @inline(__always)
+    private func truncateStack(to newCount: Int) {
+        var index = stack.count
+        while index > newCount {
+            index &-= 1
+            updateStackTrackingOnPop(stack[index])
+        }
+        stack.removeSubrange(newCount..<stack.count)
     }
 
     @inline(__always)
@@ -711,8 +744,8 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         if tagId == .p {
             stackTagIdP.append(index)
-        } else if tagId == .button {
-            stackTagIdButton.append(index)
+        } else if isButtonScopeBoundary(tagId) {
+            stackTagIdButtonScopeBoundary.append(index)
         }
     }
 
@@ -728,9 +761,14 @@ class HtmlTreeBuilder: TreeBuilder {
         }
         if tagId == .p {
             _ = stackTagIdP.popLast()
-        } else if tagId == .button {
-            _ = stackTagIdButton.popLast()
+        } else if isButtonScopeBoundary(tagId) {
+            _ = stackTagIdButtonScopeBoundary.popLast()
         }
+    }
+
+    @inline(__always)
+    private func isButtonScopeBoundary(_ tagId: Token.Tag.TagId) -> Bool {
+        return tagId == .button || TagSets.inScope.containsTagId(tagId)
     }
     
     @inlinable
@@ -870,16 +908,14 @@ class HtmlTreeBuilder: TreeBuilder {
                endName == elName {
                 stack[index].setSourceRangeEnd(endRange.end)
             }
-            stack.removeSubrange(index..<stack.count)
-            stackTrackingDirty = true
+            truncateStack(to: index)
         }
     }
 
     
     func popStackToClose(_ elName: ParsingStrings) {
         if let index = lastIndexOfStackName(in: elName) {
-            stack.removeSubrange(index..<stack.count)
-            stackTrackingDirty = true
+            truncateStack(to: index)
         }
     }
     
@@ -889,15 +925,13 @@ class HtmlTreeBuilder: TreeBuilder {
     
     func popStackToClose(_ elNames: [[UInt8]]) {
         if let index = lastIndexOfStackName(in: elNames) {
-            stack.removeSubrange(index..<stack.count)
-            stackTrackingDirty = true
+            truncateStack(to: index)
         }
     }
     
     func popStackToClose(_ elNames: Set<[UInt8]>) {
         if let index = lastIndexOfStackName(in: elNames) {
-            stack.removeSubrange(index..<stack.count)
-            stackTrackingDirty = true
+            truncateStack(to: index)
         }
     }
     
@@ -907,8 +941,7 @@ class HtmlTreeBuilder: TreeBuilder {
             if (next.nodeNameUTF8() == elName) {
                 break
             } else {
-                stack.remove(at: pos)
-                stackTrackingDirty = true
+                truncateStack(to: pos)
             }
         }
     }
@@ -944,13 +977,11 @@ class HtmlTreeBuilder: TreeBuilder {
         }()
         
         guard let index else {
-            stack.removeAll()
-            stackTrackingDirty = true
+            truncateStack(to: 0)
             return
         }
         
-        stack.removeSubrange(stack.index(after: index) ..< stack.endIndex)
-        stackTrackingDirty = true
+        truncateStack(to: stack.index(after: index))
     }
     
     private func clearStackToContext(_ nodeNames: [UInt8]...) {
@@ -971,13 +1002,11 @@ class HtmlTreeBuilder: TreeBuilder {
         }()
         
         guard let index else {
-            stack.removeAll()
-            stackTrackingDirty = true
+            truncateStack(to: 0)
             return
         }
         
-        stack.removeSubrange(stack.index(after: index) ..< stack.endIndex)
-        stackTrackingDirty = true
+        truncateStack(to: stack.index(after: index))
     }
     
     func aboveOnStack(_ el: Element) -> Element? {
@@ -1225,13 +1254,19 @@ class HtmlTreeBuilder: TreeBuilder {
 
     @inline(__always)
     private func inButtonScopePFast() throws -> Bool {
+        // Caller code can mutate open elements between manual tokens or from
+        // custom settings callbacks during parsing. Consult the live stack
+        // whenever this parse cannot guarantee exclusive ownership of its tags.
+        if !allowsIncrementalScopeTracking || (!isBulkBuilding && !constructingFragment) {
+            return try inScope(UTF8Arrays.p, TagSets.button)
+        }
         rebuildStackTrackingIfNeeded()
         if stackUnknownTagIdCount == 0 {
             guard let lastP = stackTagIdP.last else {
                 return false
             }
-            if let lastButton = stackTagIdButton.last {
-                return lastP > lastButton
+            if let lastBoundary = stackTagIdButtonScopeBoundary.last {
+                return lastP > lastBoundary
             }
             return true
         }

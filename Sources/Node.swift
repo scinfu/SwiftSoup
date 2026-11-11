@@ -924,6 +924,60 @@ open class Node: Equatable, Hashable {
             msg: "A node cannot contain itself or one of its ancestors.")
     }
 
+    /// Detaches a sibling group after Elements.remove() has ruled out callbacks
+    /// from selected elements, ancestors, selection storage, and cached snapshots.
+    /// Compacts once for monotonic sibling order; otherwise preserves remove() order.
+    internal func removeChildren(_ nodes: ArraySlice<Element>) throws {
+        var removed = Set<ObjectIdentifier>()
+        var firstIndex = childNodes.count
+        var previousIndex: Int?
+        var ascending = true
+        var descending = true
+        for node in nodes where node.parentNode === self {
+            guard removed.insert(ObjectIdentifier(node)).inserted else { continue }
+            if let previousIndex {
+                ascending = ascending && previousIndex < node.siblingIndex
+                descending = descending && previousIndex > node.siblingIndex
+            }
+            previousIndex = node.siblingIndex
+            firstIndex = min(firstIndex, node.siblingIndex)
+        }
+        guard !removed.isEmpty else { return }
+        // Detached nodes retain the index they had when remove() ran. A
+        // shuffled selection requires sequential removal to preserve those
+        // public values; ordinary selector results stay on the linear path.
+        if !ascending && !descending {
+            for node in nodes { try node.remove() }
+            return
+        }
+        var removedCount = 0
+        for node in nodes where node.parentNode === self {
+            if ascending { node.siblingIndex -= removedCount }
+            node.parentNode = nil
+            removedCount += 1
+        }
+        // The prefix is unchanged. In particular, removing a few tail nodes
+        // must not scan a potentially large list of preceding siblings.
+        var destination = firstIndex
+        for index in firstIndex..<childNodes.count {
+            let child = childNodes[index]
+            if !removed.contains(ObjectIdentifier(child)) {
+                childNodes[destination] = child
+                destination += 1
+            }
+        }
+        childNodes.removeSubrange(destination..<childNodes.count)
+        reindexChildren(firstIndex)
+        markSourceDirty()
+        if let element = self as? Element {
+            element.markQueryIndexesDirty()
+        }
+        // Preserve the public token produced by sequential removal, including
+        // after a subtree becomes its own root, with only one ancestor walk.
+        let root = textMutationRoot()
+        root.textMutationVersion &+= removedCount
+    }
+
     @usableFromInline
     internal func reindexChildren(_ start: Int) {
         for (index, node) in childNodes[start...].enumerated() {
