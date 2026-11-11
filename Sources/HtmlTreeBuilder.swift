@@ -70,12 +70,6 @@ class HtmlTreeBuilder: TreeBuilder {
     private var stackTagIdP: [Int] = []
     private var stackTagIdButtonScopeBoundary: [Int] = []
 
-    // Manual token processing and custom settings can mutate open tags without
-    // going through the stack helpers. Only private construction can cache them.
-    private var usesIncrementalScopeTracking: Bool {
-        return allowsIncrementalScopeTracking && (isBulkBuilding || constructingFragment)
-    }
-
     
     public override init() {
         super.init()
@@ -702,7 +696,7 @@ class HtmlTreeBuilder: TreeBuilder {
         // A dirty cache also suppresses push/pop maintenance. Leave tracking
         // disabled outside trusted construction so unused stale positions
         // cannot accumulate during callback-driven or manual token streams.
-        stackTrackingDirty = !usesIncrementalScopeTracking
+        stackTrackingDirty = !allowsIncrementalScopeTracking || (!isBulkBuilding && !constructingFragment)
         stackUnknownTagIdCount = 0
         stackTagIdP.removeAll(keepingCapacity: true)
         stackTagIdButtonScopeBoundary.removeAll(keepingCapacity: true)
@@ -710,7 +704,7 @@ class HtmlTreeBuilder: TreeBuilder {
             return
         }
         for (index, element) in stack.enumerated() {
-            updateStackTrackingOnPush(element, index: index)
+            updateStackTrackingOnPush(element, index: index, allowDirty: false)
         }
     }
 
@@ -725,24 +719,22 @@ class HtmlTreeBuilder: TreeBuilder {
     /// rather than a rebuild over the whole stack on the next `<p>` scope check.
     @inline(__always)
     private func truncateStack(to newCount: Int) {
-        if !stackTrackingDirty {
-            var index = stack.count
-            while index > newCount {
-                index &-= 1
-                updateStackTrackingOnPop(stack[index])
-            }
+        var index = stack.count
+        while index > newCount {
+            index &-= 1
+            updateStackTrackingOnPop(stack[index])
         }
         stack.removeSubrange(newCount..<stack.count)
     }
 
     @inline(__always)
     private func updateStackTrackingOnPush(_ element: Element) {
-        updateStackTrackingOnPush(element, index: stack.count - 1)
+        updateStackTrackingOnPush(element, index: stack.count - 1, allowDirty: true)
     }
 
     @inline(__always)
-    private func updateStackTrackingOnPush(_ element: Element, index: Int) {
-        if stackTrackingDirty {
+    private func updateStackTrackingOnPush(_ element: Element, index: Int, allowDirty: Bool) {
+        if allowDirty && stackTrackingDirty {
             return
         }
         let tagId = element._tag.tagId
@@ -1265,7 +1257,7 @@ class HtmlTreeBuilder: TreeBuilder {
         // Caller code can mutate open elements between manual tokens or from
         // custom settings callbacks during parsing. Consult the live stack
         // whenever this parse cannot guarantee exclusive ownership of its tags.
-        if !usesIncrementalScopeTracking {
+        if !allowsIncrementalScopeTracking || (!isBulkBuilding && !constructingFragment) {
             return try inScope(UTF8Arrays.p, TagSets.button)
         }
         rebuildStackTrackingIfNeeded()
