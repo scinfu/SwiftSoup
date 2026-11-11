@@ -490,6 +490,12 @@ open class Elements: NSCopying {
 	*/
 	@discardableResult
 	open func remove()throws->Elements {
+		// Batching cannot help an empty or singleton selection. Keep those
+		// common calls on the original path, including custom remove() dispatch.
+		if this.count <= 1 {
+			for element in this { try element.remove() }
+			return self
+		}
 		// Subclasses can override remove(), including its side effects and errors.
 		// Preserve selection order and duplicate/detached calls for the whole
 		// selection whenever one of those custom elements is present.
