@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## Unreleased
-* Preserve parser scope decisions when custom settings mutate open elements or fragment-context callbacks edit the stack during setup.
+* Preserve parser scope decisions when custom settings mutate open elements or fragment-context callbacks edit the stack during setup. Maintain scope caches only during trusted private construction, avoiding stale-position growth during manual and callback-driven token streams.
 * Respect every existing paragraph button-scope boundary, including `object`, `applet`, and `marquee`, in incremental parser tracking. Manual token processing checks the live stack so renaming or replacing open elements cannot leave stale scope decisions.
 * Update `<p>` scope tracking incrementally when closing elements from the top of the stack, avoiding repeated full-stack rebuilds for deeply nested tables and closed paragraphs.
 * Batch ordered sibling groups in `Elements.remove()`, avoiding quadratic shifts and compacting only the affected suffix. Preserve custom subclass `remove()` calls, ordering, errors, and detached `siblingIndex` values. Shuffled sibling groups retain sequential removal.

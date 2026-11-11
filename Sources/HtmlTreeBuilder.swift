@@ -65,7 +65,7 @@ class HtmlTreeBuilder: TreeBuilder {
     // replaces `settings` with a built-in instance before its next scope check.
     private var allowsIncrementalScopeTracking: Bool = true
 
-    private var stackTrackingDirty: Bool = false
+    private var stackTrackingDirty: Bool = true
     private var stackUnknownTagIdCount: Int = 0
     private var stackTagIdP: [Int] = []
     private var stackTagIdButtonScopeBoundary: [Int] = []
@@ -111,10 +111,19 @@ class HtmlTreeBuilder: TreeBuilder {
         resetStackTracking()
     }
 
+    override func endBulkAppend() {
+        super.endBulkAppend()
+        stackTrackingDirty = true
+    }
+
     func parseFragment(_ inputFragment: [UInt8], _ context: Element?, _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) throws -> Array<Node> {
         // context may be null
         _state = HtmlTreeBuilderState.Initial
         initialiseParse(inputFragment, baseUri, errors, settings)
+        defer {
+            constructingFragment = false
+            stackTrackingDirty = true
+        }
         contextElement = context
         fragmentParsing = true
         var root: Element? = nil
@@ -165,9 +174,8 @@ class HtmlTreeBuilder: TreeBuilder {
         // Context setup invokes open methods such as parents(). Callers can
         // edit the public stack there, before this private parser loop begins.
         allowsIncrementalScopeTracking = allowsIncrementalScopeTracking && type(of: self.settings) == ParseSettings.self
-        resetStackTracking()
         constructingFragment = true
-        defer { constructingFragment = false }
+        resetStackTracking()
         try runParser()
         if (context != nil && root != nil) {
             return root!.getChildNodes()
@@ -685,11 +693,14 @@ class HtmlTreeBuilder: TreeBuilder {
 
     @inline(__always)
     private func resetStackTracking() {
-        stackTrackingDirty = false
+        // A dirty cache also suppresses push/pop maintenance. Leave tracking
+        // disabled outside trusted construction so unused stale positions
+        // cannot accumulate during callback-driven or manual token streams.
+        stackTrackingDirty = !allowsIncrementalScopeTracking || (!isBulkBuilding && !constructingFragment)
         stackUnknownTagIdCount = 0
         stackTagIdP.removeAll(keepingCapacity: true)
         stackTagIdButtonScopeBoundary.removeAll(keepingCapacity: true)
-        if stack.isEmpty {
+        if stackTrackingDirty || stack.isEmpty {
             return
         }
         for (index, element) in stack.enumerated() {
