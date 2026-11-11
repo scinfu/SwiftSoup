@@ -514,6 +514,24 @@ open class Elements: NSCopying {
 				groups.append((parent, [element]))
 			}
 		}
+		// Source invalidation calls open ownerDocument() methods on parents and
+		// ancestors. A custom override can move later selected nodes, so inspect
+		// every group's ancestry before any mutation and preserve sequential calls
+		// for the whole selection when caller code could run. Shared ancestors are
+		// checked once, including when many siblings share the same parent.
+		var checkedAncestors = Set<ObjectIdentifier>()
+		for group in groups {
+			var ancestor: Node? = group.parent
+			while let node = ancestor {
+				guard checkedAncestors.insert(ObjectIdentifier(node)).inserted else { break }
+				let concreteType = type(of: node)
+				guard concreteType == Element.self || concreteType == FormElement.self || concreteType == Document.self else {
+					for element in this { try element.remove() }
+					return self
+				}
+				ancestor = node.parentNode
+			}
+		}
 		for group in groups {
 			if group.children.count == 1 {
 				try group.children[0].remove()
