@@ -509,15 +509,16 @@ open class Elements: NSCopying {
 		// Keep consecutive sibling ranges in selection order. Slices let a batch
 		// share the selection's storage without copying its element references.
 		var groups: [(parent: Node, range: Range<Int>)] = []
-		for (index, element) in this.enumerated() {
-			guard let parent = element.parentNode else { continue }
-			if let last = groups.indices.last, groups[last].parent === parent,
-				groups[last].range.upperBound == index {
-				let start = groups[last].range.lowerBound
-				groups[last].range = start..<(index + 1)
-			} else {
-				groups.append((parent, index..<(index + 1)))
+		var start = 0
+		while start < this.count {
+			guard let parent = this[start].parentNode else {
+				start += 1
+				continue
 			}
+			var end = start + 1
+			while end < this.count, this[end].parentNode === parent { end += 1 }
+			groups.append((parent, start..<end))
+			start = end
 		}
 		// Source invalidation calls open ownerDocument() methods on parents and
 		// ancestors. A custom override can move later selected nodes, so inspect
