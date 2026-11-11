@@ -496,27 +496,43 @@ open class Elements: NSCopying {
 			for element in this { try element.remove() }
 			return self
 		}
-		// Subclasses can override remove(), including its side effects and errors.
-		// Preserve selection order and duplicate/detached calls for the whole
-		// selection whenever one of those custom elements is present.
-		guard this.allSatisfy({
-			let concreteType = type(of: $0)
-			return concreteType == Element.self || concreteType == FormElement.self || concreteType == Document.self
-		}) else {
+		guard let groups = Elements.removalGroups(this) else {
 			for element in this { try element.remove() }
 			return self
 		}
+		// Batch only consecutive siblings. Pulling later siblings ahead of an
+		// intervening ancestor removal changes which tree receives text mutation
+		// invalidation, potentially leaving a retained subtree's token unchanged.
+		for group in groups {
+			if group.range.count == 1 {
+				try this[group.range.lowerBound].remove()
+			} else {
+				try group.parent.removeChildren(this[group.range])
+			}
+		}
+		return self
+	}
+
+	// Rejected plans must release every parent before sequential removal can
+	// invoke caller code. Keep those temporary owners inside this separate call.
+	@inline(never)
+	private static func removalGroups(_ elements: [Element]) -> [(parent: Node, range: Range<Int>)]? {
+		// Subclasses can override remove(), including its side effects and errors.
+		guard elements.allSatisfy({
+			let concreteType = type(of: $0)
+			return concreteType == Element.self || concreteType == FormElement.self || concreteType == Document.self
+		}) else { return nil }
 		// Keep consecutive sibling ranges in selection order. Slices let a batch
 		// share the selection's storage without copying its element references.
 		var groups: [(parent: Node, range: Range<Int>)] = []
 		var start = 0
-		while start < this.count {
-			guard let parent = this[start].parentNode else {
+		while start < elements.count {
+			guard let parent = elements[start].parentNode else {
 				start += 1
 				continue
 			}
 			var end = start + 1
-			while end < this.count, this[end].parentNode === parent { end += 1 }
+			while end < elements.count, elements[end].parentNode === parent { end += 1 }
 			groups.append((parent, start..<end))
 			start = end
 		}
@@ -532,23 +548,12 @@ open class Elements: NSCopying {
 				guard checkedAncestors.insert(ObjectIdentifier(node)).inserted else { break }
 				let concreteType = type(of: node)
 				guard concreteType == Element.self || concreteType == FormElement.self || concreteType == Document.self else {
-					for element in this { try element.remove() }
-					return self
+					return nil
 				}
 				ancestor = node.parentNode
 			}
 		}
-		// Batch only consecutive siblings. Pulling later siblings ahead of an
-		// intervening ancestor removal changes which tree receives text mutation
-		// invalidation, potentially leaving a retained subtree's token unchanged.
-		for group in groups {
-			if group.range.count == 1 {
-				try this[group.range.lowerBound].remove()
-			} else {
-				try group.parent.removeChildren(this[group.range])
-			}
-		}
-		return self
+		return groups
 	}
 
 	// MARK: Filters
