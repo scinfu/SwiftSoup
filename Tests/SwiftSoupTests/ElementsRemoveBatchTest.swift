@@ -153,6 +153,25 @@ final class ElementsRemoveBatchTest: XCTestCase {
             XCTAssertEqual(try doc.select("a.x").size(), remaining)
             print("Elements.remove \(name) elapsed: \(elapsed) ms for \(selected.size()) elements")
         }
+
+        // Include the selector cache's normal admission cost outside the timer,
+        // then measure the same all-sibling removal while snapshots are warm.
+        let cachedDocument = try SwiftSoup.parse("<div>" + plain + "</div>")
+        let cachedOwner = try XCTUnwrap(cachedDocument.select("div").first())
+        let warmSelection = try cachedDocument.select("a.x")
+        let cachedOwnerSelection = try cachedOwner.select("a.x")
+        for _ in 0..<4 {
+            XCTAssertEqual(try cachedDocument.select("a.x").size(), count)
+            XCTAssertEqual(try cachedOwner.select("a.x").size(), count)
+        }
+        XCTAssertNotNil(cachedDocument.cachedSelectorResult("a.x"))
+        XCTAssertNotNil(cachedOwner.cachedSelectorResult("a.x"))
+        XCTAssertEqual(cachedOwnerSelection.size(), count)
+        let cachedStart = DispatchTime.now().uptimeNanoseconds
+        try warmSelection.remove()
+        let cachedElapsed = Double(DispatchTime.now().uptimeNanoseconds - cachedStart) / 1_000_000
+        XCTAssertEqual(try cachedDocument.select("a.x").size(), 0)
+        print("Elements.remove warm selector cache elapsed: \(cachedElapsed) ms for \(warmSelection.size()) elements")
     }
 
     private func shape(_ root: Node) -> [String] {

@@ -520,7 +520,11 @@ open class Elements: NSCopying {
 		// Subclasses can override remove(), including its side effects and errors.
 		guard elements.allSatisfy({
 			let concreteType = type(of: $0)
-			return concreteType == Element.self || concreteType == FormElement.self || concreteType == Document.self
+			guard concreteType == Element.self || concreteType == FormElement.self || concreteType == Document.self else {
+				return false
+			}
+			guard let parent = $0.parentNode else { return true }
+			return parent.childNodes.indices.contains($0.siblingIndex) && parent.childNodes[$0.siblingIndex] === $0
 		}) else { return nil }
 		// Keep consecutive sibling ranges in selection order. Slices let a batch
 		// share the selection's storage without copying its element references.
@@ -536,6 +540,51 @@ open class Elements: NSCopying {
 			groups.append((parent, start..<end))
 			start = end
 		}
+		// Invalidating a stale selector snapshot can release a detached subtree
+		// and run a custom descendant's deinit. Such callbacks must keep their
+		// original position between sequential removals. Live non-root payloads
+		// are also retained by their tree; do not clear any cache during planning.
+		var roots: [ObjectIdentifier: ObjectIdentifier] = [:]
+		var checkedSnapshots = Set<ObjectIdentifier>()
+		func rootIdentifier(_ node: Node) -> ObjectIdentifier? {
+			var current = node
+			var path: [ObjectIdentifier] = []
+			let root: ObjectIdentifier
+			while true {
+				let identifier = ObjectIdentifier(current)
+				if let known = roots[identifier] {
+					root = known
+					break
+				}
+				path.append(identifier)
+				guard let parent = current.parentNode else {
+					root = identifier
+					break
+				}
+				// setParentNode() is public and can establish only a weak
+				// backlink. Require an owning edge before trusting a tree root.
+				guard parent.childNodes.indices.contains(current.siblingIndex),
+				      parent.childNodes[current.siblingIndex] === current else { return nil }
+				current = parent
+			}
+			for identifier in path { roots[identifier] = root }
+			return root
+		}
+		func hasSafeSnapshots(_ element: Element) -> Bool {
+			guard let cache = element.selectorResultCache else { return true }
+			guard checkedSnapshots.insert(ObjectIdentifier(element)).inserted else { return true }
+			guard let ownerRoot = rootIdentifier(element) else { return false }
+			let isSafe = { (result: SelectorResultCache.Result) in
+				result.elements.allSatisfy { cached in
+					guard let root = rootIdentifier(cached) else { return false }
+					return ObjectIdentifier(cached) != root && root == ownerRoot
+				}
+			}
+			return cache.probationary.allValuesSatisfy(isSafe) && cache.protected.allValuesSatisfy(isSafe)
+		}
+		for element in elements where element.parentNode != nil {
+			guard hasSafeSnapshots(element) else { return nil }
+		}
 		// Source invalidation calls open ownerDocument() methods on parents and
 		// ancestors. A custom override can move later selected nodes, so inspect
 		// every group's ancestry before any mutation and preserve sequential calls
@@ -547,7 +596,8 @@ open class Elements: NSCopying {
 			while let node = ancestor {
 				guard checkedAncestors.insert(ObjectIdentifier(node)).inserted else { break }
 				let concreteType = type(of: node)
-				guard concreteType == Element.self || concreteType == FormElement.self || concreteType == Document.self else {
+				guard concreteType == Element.self || concreteType == FormElement.self || concreteType == Document.self,
+				      let element = node as? Element, hasSafeSnapshots(element) else {
 					return nil
 				}
 				ancestor = node.parentNode

@@ -46,6 +46,12 @@ final class SelectorResultCache {
             return nodes[SelectorQueryKey(key)] != nil
         }
 
+        // Inspect retained snapshots without promoting entries or invalidating
+        // the cache, either of which could change node lifetimes.
+        func allValuesSatisfy(_ predicate: (Value) -> Bool) -> Bool {
+            return nodes.values.allSatisfy { predicate($0.value) }
+        }
+
         @inline(__always)
         func get(_ key: String) -> Value? {
             guard let node = nodes[SelectorQueryKey(key)] else { return nil }
