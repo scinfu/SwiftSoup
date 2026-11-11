@@ -925,7 +925,7 @@ open class Node: Equatable, Hashable {
     }
 
     /// Detaches a sibling group, compacting once when its order permits batching.
-    internal func removeChildren(_ nodes: [Node]) throws {
+    internal func removeChildren<C: Collection>(_ nodes: C) throws where C.Element: Node {
         var removed = Set<ObjectIdentifier>()
         var firstIndex = childNodes.count
         var removedElement = false
@@ -972,7 +972,10 @@ open class Node: Equatable, Hashable {
         if removedElement, let element = self as? Element {
             element.markQueryIndexesDirty()
         }
-        bumpTextMutationVersion()
+        // Preserve the public token produced by sequential removal, including
+        // after a subtree becomes its own root, with only one ancestor walk.
+        let root = textMutationRoot()
+        root.textMutationVersion &+= removedCount
     }
 
     @usableFromInline

@@ -219,6 +219,7 @@ final class ElementsRemoveBatchTest: XCTestCase {
                 XCTAssertEqual(lhs.parent()?.nodeName(), rhs.parent()?.nodeName())
                 XCTAssertEqual((lhs.parent() as? Element)?.id(), (rhs.parent() as? Element)?.id())
                 XCTAssertEqual(lhs.siblingIndex, rhs.siblingIndex, "\(caseIndex): \(id)")
+                XCTAssertEqual(lhs.textMutationVersionToken(), rhs.textMutationVersionToken(), "\(caseIndex): \(id)")
                 XCTAssertEqual(try lhs.text(), try rhs.text())
                 XCTAssertEqual(try lhs.outerHtml(), try rhs.outerHtml())
                 for query in queries {

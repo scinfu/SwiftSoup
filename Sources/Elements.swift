@@ -506,14 +506,27 @@ open class Elements: NSCopying {
 			for element in this { try element.remove() }
 			return self
 		}
+		// Keep consecutive sibling ranges in selection order. Slices let a batch
+		// share the selection's storage without copying its element references.
+		var groups: [(parent: Node, range: Range<Int>)] = []
+		for (index, element) in this.enumerated() {
+			guard let parent = element.parentNode else { continue }
+			if let last = groups.indices.last, groups[last].parent === parent,
+				groups[last].range.upperBound == index {
+				let start = groups[last].range.lowerBound
+				groups[last].range = start..<(index + 1)
+			} else {
+				groups.append((parent, index..<(index + 1)))
+			}
+		}
 		// Source invalidation calls open ownerDocument() methods on parents and
 		// ancestors. A custom override can move later selected nodes, so inspect
-		// the selection's ancestry before any mutation and preserve sequential calls
+		// every group's ancestry before any mutation and preserve sequential calls
 		// for the whole selection when caller code could run. Shared ancestors are
 		// checked once, including when many siblings share the same parent.
 		var checkedAncestors = Set<ObjectIdentifier>()
-		for element in this {
-			var ancestor = element.parentNode
+		for group in groups {
+			var ancestor: Node? = group.parent
 			while let node = ancestor {
 				guard checkedAncestors.insert(ObjectIdentifier(node)).inserted else { break }
 				let concreteType = type(of: node)
@@ -527,23 +540,12 @@ open class Elements: NSCopying {
 		// Batch only consecutive siblings. Pulling later siblings ahead of an
 		// intervening ancestor removal changes which tree receives text mutation
 		// invalidation, potentially leaving a retained subtree's token unchanged.
-		var start = 0
-		while start < this.count {
-			let element = this[start]
-			guard let parent = element.parentNode else {
-				start += 1
-				continue
-			}
-			var end = start + 1
-			while end < this.count, this[end].parentNode === parent {
-				end += 1
-			}
-			if end == start + 1 {
-				try element.remove()
+		for group in groups {
+			if group.range.count == 1 {
+				try this[group.range.lowerBound].remove()
 			} else {
-				try parent.removeChildren(Array(this[start..<end]))
+				try group.parent.removeChildren(this[group.range])
 			}
-			start = end
 		}
 		return self
 	}
