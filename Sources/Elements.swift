@@ -518,7 +518,7 @@ open class Elements: NSCopying {
 			if group.children.count == 1 {
 				try group.children[0].remove()
 			} else {
-				group.parent.removeChildren(group.children)
+				try group.parent.removeChildren(group.children)
 			}
 		}
 		return self

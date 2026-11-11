@@ -129,17 +129,28 @@ final class ElementsRemoveBatchTest: XCTestCase {
             throw XCTSkip("Set SWIFTSOUP_REMOVE_PROFILE=1 to measure removing many siblings")
         }
         let count = max(1, Int(environment["SWIFTSOUP_REMOVE_PROFILE_COUNT"] ?? "40000") ?? 40000)
-        let workloads = [
-            ("all siblings", String(repeating: "<a class=x></a>", count: count)),
-            ("every other sibling", String(repeating: "<a class=x></a><b></b>", count: count)),
+        enum Order { case forward, reverse, tail }
+        let plain = String(repeating: "<a class=x></a>", count: count)
+        let workloads: [(String, String, Order)] = [
+            ("all siblings", plain, .forward),
+            ("every other sibling", String(repeating: "<a class=x></a><b></b>", count: count), .forward),
+            ("all siblings reversed", plain, .reverse),
+            ("last two siblings reversed", plain, .tail),
         ]
-        for (name, children) in workloads {
+        for (name, children, order) in workloads {
             let doc = try SwiftSoup.parse("<div>" + children + "</div>")
-            let selected = try doc.select("a.x")
+            let matches = try doc.select("a.x")
+            let selected: Elements
+            switch order {
+            case .forward: selected = matches
+            case .reverse: selected = Elements(Array(matches.array().reversed()))
+            case .tail: selected = Elements(Array(matches.array().suffix(2).reversed()))
+            }
+            let remaining = matches.size() - selected.size()
             let start = DispatchTime.now().uptimeNanoseconds
             try selected.remove()
             let elapsed = Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000
-            XCTAssertEqual(try doc.select("a.x").size(), 0)
+            XCTAssertEqual(try doc.select("a.x").size(), remaining)
             print("Elements.remove \(name) elapsed: \(elapsed) ms for \(selected.size()) elements")
         }
     }
@@ -207,6 +218,7 @@ final class ElementsRemoveBatchTest: XCTestCase {
                 XCTAssertEqual(shape(lhs), shape(rhs), "\(caseIndex): \(id)")
                 XCTAssertEqual(lhs.parent()?.nodeName(), rhs.parent()?.nodeName())
                 XCTAssertEqual((lhs.parent() as? Element)?.id(), (rhs.parent() as? Element)?.id())
+                XCTAssertEqual(lhs.siblingIndex, rhs.siblingIndex, "\(caseIndex): \(id)")
                 XCTAssertEqual(try lhs.text(), try rhs.text())
                 XCTAssertEqual(try lhs.outerHtml(), try rhs.outerHtml())
                 for query in queries {

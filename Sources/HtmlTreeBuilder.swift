@@ -60,6 +60,10 @@ class HtmlTreeBuilder: TreeBuilder {
     private var fragmentParsing: Bool = false // if parsing a fragment of html
     // Only true inside the private fragment parse loop, not manual token processing.
     private var constructingFragment: Bool = false
+    // Custom settings can run caller code while resolving tags/attributes.
+    // Preserve a conservative decision for the whole parse, even if a callback
+    // replaces `settings` with a built-in instance before its next scope check.
+    private var allowsIncrementalScopeTracking: Bool = true
 
     private var stackTrackingDirty: Bool = false
     private var stackUnknownTagIdCount: Int = 0
@@ -96,12 +100,14 @@ class HtmlTreeBuilder: TreeBuilder {
     override func initialiseParse(_ input: [UInt8], _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
         resetParseState()
         super.initialiseParse(input, baseUri, errors, settings)
+        allowsIncrementalScopeTracking = type(of: settings) == ParseSettings.self
         resetStackTracking()
     }
 
     override func initialiseParse(_ input: UnsafeBufferPointer<UInt8>, owner: AnyObject?, _ baseUri: [UInt8], _ errors: ParseErrorList, _ settings: ParseSettings) {
         resetParseState()
         super.initialiseParse(input, owner: owner, baseUri, errors, settings)
+        allowsIncrementalScopeTracking = type(of: settings) == ParseSettings.self
         resetStackTracking()
     }
 
@@ -156,6 +162,10 @@ class HtmlTreeBuilder: TreeBuilder {
             }
         }
         
+        // Context setup invokes open methods such as parents(). Callers can
+        // edit the public stack there, before this private parser loop begins.
+        allowsIncrementalScopeTracking = allowsIncrementalScopeTracking && type(of: self.settings) == ParseSettings.self
+        resetStackTracking()
         constructingFragment = true
         defer { constructingFragment = false }
         try runParser()
@@ -1233,10 +1243,10 @@ class HtmlTreeBuilder: TreeBuilder {
 
     @inline(__always)
     private func inButtonScopePFast() throws -> Bool {
-        // Public token processing permits callers to replace stack entries or
-        // rename open elements between tokens. Only private parse loops own
-        // the tags represented by the incremental tracking.
-        if !isBulkBuilding && !constructingFragment {
+        // Caller code can mutate open elements between manual tokens or from
+        // custom settings callbacks during parsing. Consult the live stack
+        // whenever this parse cannot guarantee exclusive ownership of its tags.
+        if !allowsIncrementalScopeTracking || (!isBulkBuilding && !constructingFragment) {
             return try inScope(UTF8Arrays.p, TagSets.button)
         }
         rebuildStackTrackingIfNeeded()

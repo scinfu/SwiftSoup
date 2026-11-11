@@ -924,18 +924,38 @@ open class Node: Equatable, Hashable {
             msg: "A node cannot contain itself or one of its ancestors.")
     }
 
-    /// Detaches those of `nodes` that are children of this node, shifting and reindexing the child list once.
-    internal func removeChildren(_ nodes: [Node]) {
+    /// Detaches a sibling group, compacting once when its order permits batching.
+    internal func removeChildren(_ nodes: [Node]) throws {
         var removed = Set<ObjectIdentifier>()
         var firstIndex = childNodes.count
         var removedElement = false
+        var previousIndex: Int?
+        var ascending = true
+        var descending = true
         for node in nodes where node.parentNode === self {
-            removed.insert(ObjectIdentifier(node))
+            guard removed.insert(ObjectIdentifier(node)).inserted else { continue }
+            if let previousIndex {
+                ascending = ascending && previousIndex < node.siblingIndex
+                descending = descending && previousIndex > node.siblingIndex
+            }
+            previousIndex = node.siblingIndex
             firstIndex = min(firstIndex, node.siblingIndex)
             removedElement = removedElement || node is Element
-            node.parentNode = nil
         }
         guard !removed.isEmpty else { return }
+        // Detached nodes retain the index they had when remove() ran. A
+        // shuffled selection requires sequential removal to preserve those
+        // public values; ordinary selector results stay on the linear path.
+        if !ascending && !descending {
+            for node in nodes { try node.remove() }
+            return
+        }
+        var removedCount = 0
+        for node in nodes where node.parentNode === self {
+            if ascending { node.siblingIndex -= removedCount }
+            node.parentNode = nil
+            removedCount += 1
+        }
         // The prefix is unchanged. In particular, removing a few tail nodes
         // must not scan a potentially large list of preceding siblings.
         var destination = firstIndex

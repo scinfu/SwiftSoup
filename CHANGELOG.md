@@ -3,9 +3,10 @@
 All notable changes to this project will be documented in this file.
 
 ## Unreleased
+* Preserve parser scope decisions when custom settings mutate open elements or fragment-context callbacks edit the stack during setup.
 * Respect every existing paragraph button-scope boundary, including `object`, `applet`, and `marquee`, in incremental parser tracking. Manual token processing checks the live stack so renaming or replacing open elements cannot leave stale scope decisions.
 * Update `<p>` scope tracking incrementally when closing elements from the top of the stack, avoiding repeated full-stack rebuilds for deeply nested tables and closed paragraphs.
-* Remove selected elements per parent in `Elements.remove()`, so removing many siblings is linear instead of quadratic. Compact only the affected sibling suffix and preserve custom subclass `remove()` calls, ordering, and errors.
+* Batch ordered sibling groups in `Elements.remove()`, avoiding quadratic shifts and compacting only the affected suffix. Preserve custom subclass `remove()` calls, ordering, errors, and detached `siblingIndex` values. Shuffled sibling groups retain sequential removal.
 * Parse each `:has()` selector-list branch independently and support leading adjacent/general sibling combinators, including sibling chains and descendants. Preserve escaped and nested commas, candidate scoping, and cached evaluator isolation; avoid stale subtree result snapshots when sibling attributes change outside the selection root.
 * Isolate mutable parser-built OR evaluator graphs in the default query cache so editing a parsed selector cannot change later queries. Preserve established AND error handling in indexed selection and honor same-module evaluator overrides instead of substituting built-in index semantics.
 * Check `OrderedSet.isSubset(of:)` without restarting single-pass inputs. Such sequences no longer lose earlier matches or depend on hash iteration order; successful checks stop once all required members are found. Collections retain their specialized membership checks (including Set and Range), and singleton receivers need only one check without temporary membership storage. Empty receivers do not consume the input. Temporary membership storage for multi-member, non-Collection inputs is bounded by receiver size.
