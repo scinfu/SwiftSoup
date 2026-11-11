@@ -546,6 +546,14 @@ open class Elements: NSCopying {
 		// are also retained by their tree; do not clear any cache during planning.
 		var roots: [ObjectIdentifier: ObjectIdentifier] = [:]
 		var checkedSnapshots = Set<ObjectIdentifier>()
+		// Small selections must not scan arbitrarily large cached results. Bound
+		// both snapshot visits and parent walks; rejection keeps removal sequential.
+		var snapshotWorkRemaining = Swift.max(16, Swift.min(elements.count, Int.max / 8) * 8)
+		func consumeSnapshotWork() -> Bool {
+			guard snapshotWorkRemaining > 0 else { return false }
+			snapshotWorkRemaining -= 1
+			return true
+		}
 		func rootIdentifier(_ node: Node) -> ObjectIdentifier? {
 			var current = node
 			var path: [ObjectIdentifier] = []
@@ -556,6 +564,7 @@ open class Elements: NSCopying {
 					root = known
 					break
 				}
+				guard consumeSnapshotWork() else { return nil }
 				path.append(identifier)
 				guard let parent = current.parentNode else {
 					root = identifier
@@ -576,7 +585,7 @@ open class Elements: NSCopying {
 			guard let ownerRoot = rootIdentifier(element) else { return false }
 			let isSafe = { (result: SelectorResultCache.Result) in
 				result.elements.allSatisfy { cached in
-					guard let root = rootIdentifier(cached) else { return false }
+					guard consumeSnapshotWork(), let root = rootIdentifier(cached) else { return false }
 					return ObjectIdentifier(cached) != root && root == ownerRoot
 				}
 			}

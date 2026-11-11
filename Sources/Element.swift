@@ -2979,12 +2979,15 @@ internal extension Element {
     @usableFromInline
     @inline(__always)
     func invalidateSelectorResultCache() {
-        if selectorResultCache != nil {
-            selectorResultCache?.clear()
+        if let cache = selectorResultCache {
+            // Releasing snapshots can run node deinitializers that mutate this
+            // tree again. Publish invalidation before releasing those nodes so
+            // a nested mutation cannot clear the same storage reentrantly.
             selectorResultCache = nil
             selectorResultCacheRoot = nil
             selectorCacheBypassRemaining = 0
             selectorQueryStats = nil
+            cache.clear()
         }
     }
 

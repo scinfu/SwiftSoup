@@ -172,6 +172,18 @@ final class ElementsRemoveBatchTest: XCTestCase {
         let cachedElapsed = Double(DispatchTime.now().uptimeNanoseconds - cachedStart) / 1_000_000
         XCTAssertEqual(try cachedDocument.select("a.x").size(), 0)
         print("Elements.remove warm selector cache elapsed: \(cachedElapsed) ms for \(warmSelection.size()) elements")
+
+        let tailDocument = try SwiftSoup.parse("<div>" + plain + "</div>")
+        for _ in 0..<4 { _ = try tailDocument.select("a.x") }
+        let retainedMatches = try tailDocument.select("a.x")
+        let cachedTail = Elements(Array(retainedMatches.array().suffix(2).reversed()))
+        try withExtendedLifetime((tailDocument, retainedMatches)) {
+            let tailStart = DispatchTime.now().uptimeNanoseconds
+            try cachedTail.remove()
+            let tailElapsed = Double(DispatchTime.now().uptimeNanoseconds - tailStart) / 1_000_000
+            XCTAssertEqual(try tailDocument.select("a.x").size(), count - cachedTail.size())
+            print("Elements.remove warm cached tail elapsed: \(tailElapsed) ms for \(cachedTail.size()) elements")
+        }
     }
 
     private func shape(_ root: Node) -> [String] {
