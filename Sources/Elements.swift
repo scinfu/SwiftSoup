@@ -13,6 +13,16 @@ import Foundation
 open class Elements: NSCopying {
 	fileprivate var this: Array<Element> = Array<Element>()
 
+	#if canImport(ObjectiveC)
+	// Derive the native bridge class without naming private Foundation classes.
+	// The separate call keeps array-literal bridging optimizations out of this check.
+	private static let nativeArrayBridgeType = arrayBridgeType([Element(Tag("i"), "")])
+	@inline(never)
+	private static func arrayBridgeType(_ elements: [Element]) -> ObjectIdentifier {
+		return ObjectIdentifier(type(of: elements as NSArray))
+	}
+	#endif
+
 	/// Base initializer.
 	public init() {
 	}
@@ -517,6 +527,11 @@ open class Elements: NSCopying {
 	// invoke caller code. Keep those temporary owners inside this separate call.
 	@inline(never)
 	private static func removalGroups(_ elements: [Element]) -> [(parent: Node, range: Range<Int>)]? {
+		#if canImport(ObjectiveC)
+		// A bridged NSArray can override element access. Preserve its original
+		// read/remove interleaving instead of reading ahead during planning.
+		guard arrayBridgeType(elements) == nativeArrayBridgeType else { return nil }
+		#endif
 		// Subclasses can override remove(), including its side effects and errors.
 		guard elements.allSatisfy({
 			let concreteType = type(of: $0)
@@ -581,6 +596,7 @@ open class Elements: NSCopying {
 		}
 		func hasSafeSnapshots(_ element: Element) -> Bool {
 			guard let cache = element.selectorResultCache else { return true }
+			guard !cache.hasForeignQueryStorage else { return false }
 			guard checkedSnapshots.insert(ObjectIdentifier(element)).inserted else { return true }
 			guard let ownerRoot = rootIdentifier(element) else { return false }
 			let isSafe = { (result: SelectorResultCache.Result) in
