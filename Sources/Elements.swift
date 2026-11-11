@@ -506,28 +506,14 @@ open class Elements: NSCopying {
 			for element in this { try element.remove() }
 			return self
 		}
-		// Grouped by parent: removing many siblings one at a time shifts and reindexes the child list for each.
-		// Keep the selection's parent order, including preorder ancestor selections.
-		var groups: [(parent: Node, children: [Node])] = []
-		var groupIndexes: [ObjectIdentifier: Int] = [:]
-		for element in this {
-			guard let parent = element.parentNode else { continue }
-			let identity = ObjectIdentifier(parent)
-			if let index = groupIndexes[identity] {
-				groups[index].children.append(element)
-			} else {
-				groupIndexes[identity] = groups.count
-				groups.append((parent, [element]))
-			}
-		}
 		// Source invalidation calls open ownerDocument() methods on parents and
 		// ancestors. A custom override can move later selected nodes, so inspect
-		// every group's ancestry before any mutation and preserve sequential calls
+		// the selection's ancestry before any mutation and preserve sequential calls
 		// for the whole selection when caller code could run. Shared ancestors are
 		// checked once, including when many siblings share the same parent.
 		var checkedAncestors = Set<ObjectIdentifier>()
-		for group in groups {
-			var ancestor: Node? = group.parent
+		for element in this {
+			var ancestor = element.parentNode
 			while let node = ancestor {
 				guard checkedAncestors.insert(ObjectIdentifier(node)).inserted else { break }
 				let concreteType = type(of: node)
@@ -538,12 +524,26 @@ open class Elements: NSCopying {
 				ancestor = node.parentNode
 			}
 		}
-		for group in groups {
-			if group.children.count == 1 {
-				try group.children[0].remove()
-			} else {
-				try group.parent.removeChildren(group.children)
+		// Batch only consecutive siblings. Pulling later siblings ahead of an
+		// intervening ancestor removal changes which tree receives text mutation
+		// invalidation, potentially leaving a retained subtree's token unchanged.
+		var start = 0
+		while start < this.count {
+			let element = this[start]
+			guard let parent = element.parentNode else {
+				start += 1
+				continue
 			}
+			var end = start + 1
+			while end < this.count, this[end].parentNode === parent {
+				end += 1
+			}
+			if end == start + 1 {
+				try element.remove()
+			} else {
+				try parent.removeChildren(Array(this[start..<end]))
+			}
+			start = end
 		}
 		return self
 	}
