@@ -360,7 +360,8 @@ public class QueryParser {
             let followsSiblings = leadingByte == 0x2B || leadingByte == 0x7E // + or ~
             return StructuralEvaluator.Has(try QueryParser.parse(query), followingSiblings: followsSiblings)
         }
-        evals.append(branches.count == 1 ? branches[0] : CombiningEvaluator.Or(branches))
+        // A bare Or would be taken for a selector group (`a, b`) by a following combinator.
+        evals.append(branches.count == 1 ? branches[0] : CombiningEvaluator.And(CombiningEvaluator.Or(branches)))
     }
 
     // pseudo selector :contains(text), containsOwn(text)

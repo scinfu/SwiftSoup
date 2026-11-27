@@ -818,6 +818,26 @@ class SelectorTest: XCTestCase {
 		XCTAssertEqual("2", els1.get(2).id())
 	}
 
+	func testHasListFollowedByCombinator() throws {
+		let doc: Document = try SwiftSoup.parse("<div id=1><b id=2></b><em id=3></em></div><em id=4><i id=5></i></em><p id=6></p>")
+		let expected: [(String, [String])] = [
+			("body :has(b, em) > em", ["3"]),
+			(":has(b, em) > em", ["3", "4"]),
+			(":has(b, i) b", ["2"]),
+			("body :has(b, i) + em", ["4"]),
+			("body :has(b, i) ~ p", ["6"]),
+			(":has(b, i) > em > i", ["5"]),
+			("body :has(b, u), p", ["1", "6"]),
+			("p, :has(b, u) > em", ["3", "4", "6"]),
+			(":has(i, u) + p, :has(b, u) > b", ["2", "6"])
+		]
+		for (query, ids) in expected {
+			for _ in 0 ..< 2 { // the second time from the query cache
+				XCTAssertEqual(ids, try doc.select(query).array().map { $0.id() }, query)
+			}
+		}
+	}
+
 	func testNestedHas() throws {
 		let doc: Document = try SwiftSoup.parse("<div><p><span>One</span></p></div> <div><p>Two</p></div>")
 		var divs: Elements = try doc.select("div:has(p:has(span))")
